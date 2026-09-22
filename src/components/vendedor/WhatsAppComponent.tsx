@@ -148,14 +148,26 @@ export default function WhatsAppComponent() {
       setIsConnecting(true);
       setShowQRModal(true);
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No active session');
+        setIsConnecting(false);
+        return;
+      }
+
       const response = await fetch('/api/whatsapp/init-session', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
 
       const data = await response.json();
       if (data.qrCode) {
         setQrCode(data.qrCode);
+      } else if (data.error) {
+        console.error('API Error:', data.error);
       }
     } catch (error) {
       console.error('Error initializing session:', error);
@@ -170,9 +182,18 @@ export default function WhatsAppComponent() {
     try {
       setLoading(true);
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No active session');
+        return;
+      }
+
       const response = await fetch('/api/whatsapp/send-message', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           session_id: selectedSession.id,
           contact_number: selectedChat.contact_number,
@@ -193,8 +214,17 @@ export default function WhatsAppComponent() {
 
   const handleLogoutSession = async (sessionId: string) => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No active session');
+        return;
+      }
+
       await fetch(`/api/whatsapp/logout-session/${sessionId}`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       });
       fetchSessions();
     } catch (error) {

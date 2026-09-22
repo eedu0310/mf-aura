@@ -80,7 +80,10 @@ export default function SuggestionsPanel({
 
   // Fetch suggestions from database
   const fetchSuggestions = useCallback(async () => {
-    if (!supabase || !vendorId) return;
+    if (!supabase || !vendorId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);

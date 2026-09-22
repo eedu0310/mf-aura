@@ -12,9 +12,12 @@ export async function POST(request: NextRequest) {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+      error: userError,
+    } = await supabase.auth.getUser(
+      request.headers.get('authorization')?.split(' ')[1]
+    );
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
       });
     } catch (qrError) {
       console.error('Error initializing WhatsApp session:', qrError);
-      
+
       await supabase
         .from('whatsapp_sessoes')
         .delete()
