@@ -5,6 +5,7 @@ import {
   getMedia,
   getMessages,
   getState,
+  loadOlder,
   logout,
   markRead,
   sendFile,
@@ -157,6 +158,11 @@ export async function POST(request: NextRequest) {
       }
       case "read": {
         if (body.chat) markRead(userId, String(body.chat));
+        return NextResponse.json({ ok: true });
+      }
+      case "older": {
+        if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
+        await loadOlder(userId, String(body.chat));
         return NextResponse.json({ ok: true });
       }
       case "logout": {

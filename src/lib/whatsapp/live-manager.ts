@@ -58,6 +58,10 @@ interface WaSession {
   messages: Map<string, WaMessage[]>;
   raw: Map<string, any>;
   avatars: Map<string, { url: string | null; at: number }>;
+  /** Nomes da agenda/pushName por JID (para conversas que chegam sem nome). */
+  names: Map<string, string>;
+  storeLoaded: boolean;
+  saveTimer: ReturnType<typeof setTimeout> | null;
 }
 
 type MessageListener = (userId: string, chatId: string, msg: WaMessage) => void;
@@ -102,12 +106,119 @@ function getOrCreate(userId: string): WaSession {
       messages: new Map(),
       raw: new Map(),
       avatars: new Map(),
+      names: new Map(),
+      storeLoaded: false,
+      saveTimer: null,
     };
     sessions.set(userId, s);
   }
   s.raw ??= new Map();
   s.avatars ??= new Map();
+  s.names ??= new Map();
   return s;
+}
+
+// ------------------------------------------------------------------ persistência
+// As conversas ficam salvas em disco: o WhatsApp só manda o histórico uma vez
+// (quando o aparelho é conectado), então sem isso tudo sumia ao reiniciar.
+
+function storePath(userId: string) {
+  return path.join(SESSIONS_DIR, "_store", `${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
+}
+
+async function loadStore(s: WaSession) {
+  if (s.storeLoaded) return;
+  s.storeLoaded = true;
+  try {
+    const file = storePath(s.userId);
+    if (!fs.existsSync(file)) return;
+    const B = await loadBaileys();
+    const data = JSON.parse(fs.readFileSync(file, "utf8"), B.BufferJSON?.reviver);
+    for (const c of data.chats ?? []) {
+      if (!s.chats.has(c.id)) s.chats.set(c.id, { pnJid: null, hasName: false, lastFromMe: false, lastType: "text", ...c });
+    }
+    for (const [jid, list] of Object.entries(data.messages ?? {}) as [string, WaMessage[]][]) {
+      const atual = s.messages.get(jid) ?? [];
+      const ids = new Set(atual.map((m) => m.id));
+      const juntos = [...list.filter((m) => !ids.has(m.id)), ...atual].sort((a, b) => a.timestamp - b.timestamp);
+      s.messages.set(jid, juntos.slice(-MAX_MSGS_PER_CHAT));
+    }
+    for (const [id, raw] of Object.entries(data.raw ?? {})) if (!s.raw.has(id)) s.raw.set(id, raw);
+    for (const [jid, nome] of Object.entries(data.names ?? {}) as [string, string][]) s.names.set(jid, nome);
+    console.log(`[whatsapp] ${s.chats.size} conversas carregadas do disco`);
+  } catch (e) {
+    console.error("[whatsapp] erro ao carregar conversas salvas:", e);
+  }
+}
+
+function markDirty(s: WaSession) {
+  if (s.saveTimer) return;
+  s.saveTimer = setTimeout(() => {
+    s.saveTimer = null;
+    saveStore(s).catch((e) => console.error("[whatsapp] erro ao salvar conversas:", e));
+  }, 3000);
+}
+
+async function saveStore(s: WaSession) {
+  const B = await loadBaileys();
+  const file = storePath(s.userId);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const data = {
+    savedAt: Date.now(),
+    chats: Array.from(s.chats.values()),
+    messages: Object.fromEntries(s.messages),
+    raw: Object.fromEntries(s.raw),
+    names: Object.fromEntries(s.names),
+  };
+  const tmp = `${file}.tmp`;
+  await fs.promises.writeFile(tmp, JSON.stringify(data, B.BufferJSON?.replacer));
+  await fs.promises.rename(tmp, file);
+}
+
+function upsertChatInfo(s: WaSession, c: any) {
+  const jid: string | undefined = c?.id;
+  if (!jid || isIgnoredJid(jid)) return;
+  const pnJid: string | null = jid.endsWith("@s.whatsapp.net")
+    ? jid
+    : typeof c.pnJid === "string" && c.pnJid.endsWith("@s.whatsapp.net")
+    ? c.pnJid
+    : null;
+  const phone = phoneFromJid(pnJid ?? jid);
+  const nomeConhecido = c.name || c.displayName || s.names.get(jid) || (pnJid ? s.names.get(pnJid) : undefined);
+  const chat: WaChat = s.chats.get(jid) ?? {
+    id: jid,
+    pnJid,
+    name: nomeConhecido || (pnJid ? formatPhoneBr(phone) : "Contato"),
+    hasName: !!nomeConhecido,
+    phone,
+    lastMessage: "",
+    lastFromMe: false,
+    lastType: "text",
+    timestamp: 0,
+    unread: 0,
+  };
+  if (pnJid && !chat.pnJid) {
+    chat.pnJid = pnJid;
+    chat.phone = phone;
+  }
+  if (nomeConhecido && !chat.hasName) {
+    chat.name = nomeConhecido;
+    chat.hasName = true;
+  }
+  const ts = c.conversationTimestamp ?? c.lastMessageRecvTimestamp;
+  if (ts) chat.timestamp = Math.max(chat.timestamp, toMillis(ts));
+  if (typeof c.unreadCount === "number" && c.unreadCount >= 0) chat.unread = c.unreadCount;
+  s.chats.set(jid, chat);
+}
+
+function registrarNome(s: WaSession, jid: string | undefined, nome: string | undefined | null) {
+  if (!jid || !nome) return;
+  s.names.set(jid, nome);
+  const chat = s.chats.get(jid) ?? Array.from(s.chats.values()).find((c) => c.pnJid === jid);
+  if (chat) {
+    chat.name = nome;
+    chat.hasName = true;
+  }
 }
 
 async function loadBaileys() {
@@ -280,8 +391,8 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
   const chat: WaChat = existente ?? {
     id: jid,
     pnJid,
-    name: pnJid ? formatPhoneBr(phone) : "Contato",
-    hasName: false,
+    name: s.names.get(jid) ?? (pnJid ? s.names.get(pnJid) : undefined) ?? (pnJid ? formatPhoneBr(phone) : "Contato"),
+    hasName: !!(s.names.get(jid) ?? (pnJid ? s.names.get(pnJid) : undefined)),
     phone,
     lastMessage: "",
     lastFromMe: false,
@@ -307,6 +418,7 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
   }
   if (live && !fromMe) chat.unread += 1;
   s.chats.set(jid, chat);
+  markDirty(s);
 
   if (live) {
     for (const l of listeners) {
@@ -341,6 +453,7 @@ export async function startSession(userId: string): Promise<WaSession> {
 
   try {
     const B = await loadBaileys();
+    await loadStore(s);
     const dir = authDir(userId);
     fs.mkdirSync(dir, { recursive: true });
     const { state, saveCreds } = await B.useMultiFileAuthState(dir);
@@ -357,8 +470,10 @@ export async function startSession(userId: string): Promise<WaSession> {
       version,
       printQRInTerminal: false,
       logger: pino({ level: "silent" }),
-      browser: B.Browsers?.ubuntu ? B.Browsers.ubuntu("AURA CRM") : ["AURA CRM", "Chrome", "120.0.0"],
-      syncFullHistory: false,
+      // "Desktop" + syncFullHistory faz o celular mandar o histórico completo
+      // de conversas ao conectar (como no WhatsApp Web/Desktop).
+      browser: B.Browsers?.macOS ? B.Browsers.macOS("Desktop") : ["AURA CRM", "Desktop", "120.0.0"],
+      syncFullHistory: true,
       markOnlineOnConnect: false,
     });
     s.sock = sock;
@@ -429,15 +544,27 @@ export async function startSession(userId: string): Promise<WaSession> {
       }
     });
 
-    sock.ev.on("messaging-history.set", ({ messages, contacts }: any) => {
+    sock.ev.on("messaging-history.set", ({ chats, messages, contacts }: any) => {
+      for (const c of contacts ?? []) registrarNome(s, c.id, c.name ?? c.notify ?? c.verifiedName);
+      for (const c of chats ?? []) upsertChatInfo(s, c);
       for (const m of messages ?? []) addMessage(s, m, false);
-      for (const c of contacts ?? []) {
-        const chat = s.chats.get(c.id);
-        if (chat && (c.name || c.notify)) {
-          chat.name = c.name ?? c.notify;
-          chat.hasName = true;
-        }
+      markDirty(s);
+      console.log(`[whatsapp] histórico recebido: ${chats?.length ?? 0} conversas, ${messages?.length ?? 0} mensagens`);
+    });
+
+    sock.ev.on("chats.upsert", (chats: any[]) => {
+      for (const c of chats ?? []) upsertChatInfo(s, c);
+      markDirty(s);
+    });
+
+    sock.ev.on("chats.update", (updates: any[]) => {
+      for (const u of updates ?? []) {
+        const chat = u?.id ? s.chats.get(u.id) : null;
+        if (!chat) continue;
+        if (typeof u.unreadCount === "number" && u.unreadCount >= 0) chat.unread = u.unreadCount;
+        if (u.conversationTimestamp) chat.timestamp = Math.max(chat.timestamp, toMillis(u.conversationTimestamp));
       }
+      markDirty(s);
     });
 
     sock.ev.on("messages.upsert", ({ messages, type }: any) => {
@@ -451,16 +578,17 @@ export async function startSession(userId: string): Promise<WaSession> {
         const msg = s.messages.get(key.remoteJid)?.find((m) => m.id === key.id);
         if (msg && msg.fromMe && update.status > (msg.status ?? 0)) msg.status = update.status;
       }
+      markDirty(s);
     });
 
     sock.ev.on("contacts.upsert", (contacts: any[]) => {
-      for (const c of contacts ?? []) {
-        const chat = s.chats.get(c.id);
-        if (chat && (c.name || c.notify)) {
-          chat.name = c.name ?? c.notify;
-          chat.hasName = true;
-        }
-      }
+      for (const c of contacts ?? []) registrarNome(s, c.id, c.name ?? c.notify ?? c.verifiedName);
+      markDirty(s);
+    });
+
+    sock.ev.on("contacts.update", (contacts: any[]) => {
+      for (const c of contacts ?? []) registrarNome(s, c.id, c.name ?? c.notify ?? c.verifiedName);
+      markDirty(s);
     });
   } catch (e: any) {
     console.error("[whatsapp] erro ao iniciar:", e);
@@ -479,6 +607,7 @@ export async function getState(userId: string) {
     s = await startSession(userId);
   }
   s = s ?? getOrCreate(userId);
+  await loadStore(s);
   const chats = Array.from(s.chats.values()).sort((a, b) => b.timestamp - a.timestamp);
   return {
     status: s.status,
@@ -517,6 +646,7 @@ export function markRead(userId: string, chatId: string) {
   const s = sessions.get(userId);
   const chat = s?.chats.get(chatId);
   if (chat) chat.unread = 0;
+  if (s) markDirty(s);
   try {
     const last = s?.messages.get(chatId)?.filter((m) => !m.fromMe).slice(-1)[0];
     if (s?.sock && last) {
@@ -525,6 +655,18 @@ export function markRead(userId: string, chatId: string) {
   } catch {
     /* ignora */
   }
+}
+
+/** Pede ao celular mensagens mais antigas da conversa (chegam via messaging-history.set). */
+export async function loadOlder(userId: string, chatId: string, count = 50) {
+  const s = requireConnected(userId);
+  const oldest = s.messages.get(chatId)?.[0];
+  if (!oldest) throw new Error("Não há mensagens nesta conversa para buscar as anteriores.");
+  await s.sock.fetchMessageHistory(
+    count,
+    { remoteJid: chatId, id: oldest.id, fromMe: oldest.fromMe },
+    Math.floor(oldest.timestamp / 1000),
+  );
 }
 
 /** Foto de perfil (URL do CDN do WhatsApp) com cache de 6h. `null` = sem foto/privada. */
@@ -691,6 +833,14 @@ export async function logout(userId: string) {
     s.chats.clear();
     s.messages.clear();
     s.raw.clear();
+    s.names.clear();
+    if (s.saveTimer) clearTimeout(s.saveTimer);
+    s.saveTimer = null;
   }
   wipeAuth(userId);
+  try {
+    fs.rmSync(storePath(userId), { force: true });
+  } catch {
+    /* ignora */
+  }
 }

@@ -111,6 +111,7 @@ export default function WhatsAppPage() {
   const [arrastando, setArrastando] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [mudandoEtapa, setMudandoEtapa] = useState(false);
+  const [buscandoAntigas, setBuscandoAntigas] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const colarNoFim = useRef(true);
 
@@ -246,6 +247,22 @@ export default function WhatsAppPage() {
       window.alert(e?.message ?? "Não foi possível mudar a etapa.");
     } finally {
       setMudandoEtapa(false);
+    }
+  }
+
+  async function carregarAntigas() {
+    if (!selectedChatId || buscandoAntigas) return;
+    setBuscandoAntigas(true);
+    colarNoFim.current = false;
+    try {
+      await postJson({ action: "older", chat: selectedChatId });
+      // O celular responde em alguns segundos; o polling traz as mensagens.
+      await new Promise((r) => setTimeout(r, 4000));
+      await loadMessages(selectedChatId);
+    } catch (e: any) {
+      window.alert(e?.message ?? "Não foi possível buscar mensagens anteriores.");
+    } finally {
+      setBuscandoAntigas(false);
     }
   }
 
@@ -561,9 +578,21 @@ export default function WhatsAppPage() {
             className="flex-1 overflow-y-auto pb-3"
             style={FUNDO_CHAT}
           >
-            {messages.length === 0 && (
-              <div className="mx-auto mt-6 w-fit rounded-lg bg-[#182229] px-4 py-2 text-center text-xs text-[#ffd279]">
-                O histórico antigo não é carregado. As novas mensagens desta conversa aparecem aqui.
+            {messages.length === 0 ? (
+              <div className="mx-auto mt-6 w-fit max-w-md rounded-lg bg-[#182229] px-4 py-2 text-center text-xs text-[#ffd279]">
+                Nenhuma mensagem desta conversa foi sincronizada ainda. As novas mensagens aparecem aqui.
+              </div>
+            ) : (
+              <div className="flex justify-center pt-3">
+                <button
+                  type="button"
+                  onClick={carregarAntigas}
+                  disabled={buscandoAntigas}
+                  className="flex items-center gap-2 rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow hover:text-[#e9edef] disabled:opacity-70"
+                >
+                  {buscandoAntigas && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {buscandoAntigas ? "Buscando no celular…" : "Carregar mensagens anteriores"}
+                </button>
               </div>
             )}
             {mensagensComDias.map((item) =>
