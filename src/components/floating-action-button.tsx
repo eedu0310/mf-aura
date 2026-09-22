@@ -7,7 +7,7 @@ import { useState } from "react";
 
 // Nessas rotas o botão atrapalha: já está na própria tela de registrar
 // atividade, ou tem um campo de digitar embaixo (chat, formulários longos).
-const ROTAS_SEM_BOTAO = ["/registrar-atividade", "/aura-coach"];
+const ROTAS_SEM_BOTAO = ["/registrar-atividade", "/aura-coach", "/whatsapp"];
 
 export function FloatingActionButton() {
   const pathname = usePathname();

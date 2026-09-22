@@ -1,0 +1,770 @@
+/**
+ * Supervisor AURA — acompanha as conversas de WhatsApp do vendedor e:
+ *  1. identifica se o contato é um lead e cria/vincula o relacionamento e a
+ *     oportunidade no CRM;
+ *  2. avança a oportunidade no pipeline conforme a conversa evolui
+ *     (apresentação, orçamento, negociação, fechamento — nunca volta etapa);
+ *  3. gera resumo, próxima ação, dicas baseadas no manual de treinamento e
+ *     uma sugestão de resposta;
+ *  4. avisa quando o cliente está sem resposta ou precisa de follow-up.
+ */
+import fs from "fs";
+import path from "path";
+import Anthropic from "@anthropic-ai/sdk";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  connectedUserIds,
+  getChat,
+  getChats,
+  getMessages,
+  onMessage,
+  previewOf,
+  type WaMessage,
+} from "./live-manager";
+import {
+  calcularAlertas,
+  detectarEtapa,
+  ETAPAS,
+  ORDEM_ETAPA,
+  PROBABILIDADE_POR_ETAPA,
+  type Alerta,
+  type Etapa,
+} from "./stage-rules";
+
+export interface LeadInfo {
+  chatJid: string;
+  ehLead: boolean;
+  ignorado: boolean;
+  etapa: Etapa | null;
+  etapaPipeline: Etapa | null;
+  oportunidadeId: string | null;
+  relacionamentoId: string | null;
+  resumo: string | null;
+  proximaAcao: string | null;
+  sugestaoResposta: string | null;
+  interesse: string | null;
+  valorEstimado: number | null;
+  dicas: string[];
+  alertasIa: string[];
+  historico: { em: string; de: string | null; para: string; evidencia: string; fonte: string }[];
+  ultimaAnaliseEm: string | null;
+  analisando: boolean;
+  iaDisponivel: boolean;
+  aviso: string | null;
+}
+
+const DEBOUNCE_MS = 20_000;
+const MANUAL_DIR = path.join(process.cwd(), "manual-treinamento");
+
+const g = globalThis as unknown as {
+  __auraSupTimers?: Map<string, ReturnType<typeof setTimeout>>;
+  __auraSupRunning?: Set<string>;
+  __auraSupNotified?: Set<string>;
+  __auraSupStarted?: boolean;
+  __auraSupManual?: { key: string; texto: string };
+  __auraSupEmpresa?: Map<string, string>;
+};
+const timers = (g.__auraSupTimers ??= new Map());
+const running = (g.__auraSupRunning ??= new Set());
+const notified = (g.__auraSupNotified ??= new Set());
+const empresaCache = (g.__auraSupEmpresa ??= new Map());
+
+// ---------------------------------------------------------------- infra
+
+let admin: SupabaseClient | null | undefined;
+function db(): SupabaseClient | null {
+  if (admin !== undefined) return admin;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  admin = url && key ? createClient(url, key, { auth: { persistSession: false } }) : null;
+  return admin;
+}
+
+function aiKey() {
+  return process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
+}
+
+const chaveInvalida = ((globalThis as any).__auraSupChaveInvalida ??= { key: "" }) as { key: string };
+
+/** false se não há chave ou se a Anthropic recusou a chave atual. */
+export function iaDisponivel() {
+  const key = aiKey();
+  return !!key && chaveInvalida.key !== key;
+}
+
+let anthropic: Anthropic | null = null;
+let anthropicKey = "";
+function ai(): Anthropic | null {
+  const key = aiKey();
+  if (!key || chaveInvalida.key === key) return null;
+  if (!anthropic || anthropicKey !== key) {
+    anthropic = new Anthropic({ apiKey: key });
+    anthropicKey = key;
+  }
+  return anthropic;
+}
+
+/** Lê todos os .md/.txt da pasta manual-treinamento (recarrega se mudar). */
+export function lerManual(): string {
+  try {
+    const arquivos = fs
+      .readdirSync(MANUAL_DIR)
+      .filter((f) => /\.(md|txt)$/i.test(f))
+      .sort();
+    const key = arquivos
+      .map((f) => `${f}:${fs.statSync(path.join(MANUAL_DIR, f)).mtimeMs}`)
+      .join("|");
+    if (g.__auraSupManual?.key === key) return g.__auraSupManual.texto;
+    const texto = arquivos
+      .map((f) => `### ${f}\n${fs.readFileSync(path.join(MANUAL_DIR, f), "utf8")}`)
+      .join("\n\n")
+      .slice(0, 60_000);
+    g.__auraSupManual = { key, texto };
+    return texto;
+  } catch {
+    return "";
+  }
+}
+
+async function empresaDo(userId: string): Promise<string> {
+  const cached = empresaCache.get(userId);
+  if (cached) return cached;
+  const { data } = (await db()?.from("profiles").select("empresa").eq("id", userId).maybeSingle()) ?? {};
+  const empresa = (data?.empresa as string) || "LF Lareiras";
+  empresaCache.set(userId, empresa);
+  return empresa;
+}
+
+function variantesTelefone(phone: string): string[] {
+  const d = phone.replace(/\D/g, "");
+  if (!d.startsWith("55") || (d.length !== 12 && d.length !== 13)) return [];
+  const local = d.slice(2);
+  const out = new Set([local]);
+  if (local.length === 10) out.add(`${local.slice(0, 2)}9${local.slice(2)}`);
+  if (local.length === 11 && local[2] === "9") out.add(`${local.slice(0, 2)}${local.slice(3)}`);
+  return [...out];
+}
+
+function formatarTelefone(phone: string) {
+  const d = phone.replace(/\D/g, "");
+  const local = d.startsWith("55") ? d.slice(2) : d;
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+  return phone;
+}
+
+// ---------------------------------------------------------------- IA
+
+interface AnaliseIa {
+  e_lead: boolean;
+  etapa: Etapa | null;
+  confianca: number;
+  evidencia: string;
+  resumo: string;
+  interesse: string | null;
+  valor_estimado: number | null;
+  proxima_acao: string;
+  sugestao_resposta: string;
+  dicas: string[];
+  alertas: string[];
+}
+
+function transcricao(msgs: WaMessage[], nomeCliente: string) {
+  return msgs
+    .slice(-50)
+    .map((m) => {
+      const quando = new Date(m.timestamp).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+      const quem = m.fromMe ? "VENDEDOR" : `CLIENTE (${nomeCliente})`;
+      return `[${quando}] ${quem}: ${previewOf(m) || "(mensagem vazia)"}`;
+    })
+    .join("\n");
+}
+
+async function analisarComIa(
+  msgs: WaMessage[],
+  nomeCliente: string,
+  etapaAtual: Etapa | null,
+  alertas: Alerta[],
+): Promise<AnaliseIa | null> {
+  const client = ai();
+  if (!client) return null;
+
+  const manual = lerManual();
+  const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
+
+Use o MANUAL DE TREINAMENTO abaixo como a regra da casa. Suas dicas devem aplicar o manual ao caso concreto, citando o que o cliente disse.
+
+ETAPAS DO PIPELINE (em ordem):
+- Prospecção: cliente demonstrou interesse, vendedor ainda qualificando.
+- Apresentação: vendedor mostrou produtos (fotos, vídeos, catálogo) ou agendou visita/showroom/medição.
+- Proposta: vendedor ENVIOU orçamento/proposta/valor (não basta o cliente pedir).
+- Negociação: depois da proposta, discutem desconto, parcelamento, condições, concorrência.
+- Fechados: cliente confirmou a compra, pagou, mandou comprovante ou pedido confirmado.
+- Perdidos: cliente desistiu claramente ou comprou em outro lugar.
+
+Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
+{
+  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para família, amigos, fornecedores, spam)
+  "etapa": "Prospecção"|"Apresentação"|"Proposta"|"Negociação"|"Fechados"|"Perdidos"|null,
+  "confianca": número de 0 a 1,
+  "evidencia": "trecho curto da conversa que justifica a etapa",
+  "resumo": "2 a 3 frases: quem é o cliente, o que quer, em que pé está",
+  "interesse": "produto/necessidade em poucas palavras ou null",
+  "valor_estimado": número em reais ou null,
+  "proxima_acao": "a ação mais importante que o vendedor deve fazer AGORA, específica",
+  "sugestao_resposta": "mensagem pronta, curta e natural, que o vendedor pode enviar agora ao cliente (ou \\"\\" se não for o caso)",
+  "dicas": ["até 3 dicas práticas baseadas no manual"],
+  "alertas": ["riscos de perder este lead, se houver"]
+}
+
+MANUAL DE TREINAMENTO:
+${manual || "(nenhum manual cadastrado — use boas práticas de venda consultiva)"}`;
+
+  const user = `Agora: ${agora}
+Etapa atual no pipeline: ${etapaAtual ?? "sem oportunidade ainda"}
+Alertas automáticos: ${alertas.map((a) => a.texto).join("; ") || "nenhum"}
+
+CONVERSA (mais recentes por último):
+${transcricao(msgs, nomeCliente)}`;
+
+  const resp = await client.messages.create({
+    model: process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+    max_tokens: 1200,
+    system,
+    messages: [{ role: "user", content: user }],
+  });
+  const texto = resp.content
+    .map((b: any) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+  const json = texto.slice(texto.indexOf("{"), texto.lastIndexOf("}") + 1);
+  const r = JSON.parse(json);
+  return {
+    e_lead: !!r.e_lead,
+    etapa: ETAPAS.includes(r.etapa) ? r.etapa : null,
+    confianca: Number(r.confianca) || 0,
+    evidencia: String(r.evidencia ?? ""),
+    resumo: String(r.resumo ?? ""),
+    interesse: r.interesse ? String(r.interesse) : null,
+    valor_estimado: Number(r.valor_estimado) > 0 ? Number(r.valor_estimado) : null,
+    proxima_acao: String(r.proxima_acao ?? ""),
+    sugestao_resposta: String(r.sugestao_resposta ?? ""),
+    dicas: Array.isArray(r.dicas) ? r.dicas.map(String).slice(0, 4) : [],
+    alertas: Array.isArray(r.alertas) ? r.alertas.map(String).slice(0, 4) : [],
+  };
+}
+
+// ---------------------------------------------------------------- CRM
+
+async function garantirRelacionamento(
+  sb: SupabaseClient,
+  userId: string,
+  empresa: string,
+  nome: string,
+  phone: string,
+): Promise<{ id: string | null; aviso: string | null }> {
+  const variantes = variantesTelefone(phone);
+  if (variantes.length) {
+    const { data } = await sb
+      .from("relacionamentos")
+      .select("id, owner_id, nome")
+      .eq("empresa", empresa)
+      .in("telefone_normalizado", variantes)
+      .limit(5);
+    const meu = data?.find((r) => r.owner_id === userId);
+    if (meu) return { id: meu.id, aviso: null };
+    if (data && data.length > 0) {
+      return { id: null, aviso: "Este contato já está na carteira de outro vendedor — fale com seu gestor." };
+    }
+  }
+  const { data, error } = await sb
+    .from("relacionamentos")
+    .insert({
+      owner_id: userId,
+      empresa,
+      nome: nome || formatarTelefone(phone),
+      categoria: "Cliente Final",
+      telefone: variantes.length ? formatarTelefone(phone) : null,
+      temperatura: "quente",
+      origem: "WhatsApp",
+      observacao: "Criado automaticamente pelo Supervisor AURA a partir de uma conversa no WhatsApp.",
+      ultimo_contato_em: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error) {
+    console.error("[supervisor] criar relacionamento:", error.message);
+    return { id: null, aviso: "Não consegui cadastrar o contato no CRM." };
+  }
+  return { id: data.id, aviso: null };
+}
+
+async function garantirOportunidade(
+  sb: SupabaseClient,
+  userId: string,
+  empresa: string,
+  relacionamentoId: string,
+  cliente: string,
+  interesse: string | null,
+  valor: number | null,
+  oportunidadeId: string | null,
+) {
+  if (oportunidadeId) {
+    const { data } = await sb.from("oportunidades").select("id, etapa, valor, cliente").eq("id", oportunidadeId).maybeSingle();
+    if (data) return data as { id: string; etapa: Etapa; valor: number; cliente: string };
+  }
+  const { data: aberta } = await sb
+    .from("oportunidades")
+    .select("id, etapa, valor, cliente")
+    .eq("relacionamento_id", relacionamentoId)
+    .not("etapa", "in", '("Fechados","Perdidos")')
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (aberta) return aberta as { id: string; etapa: Etapa; valor: number; cliente: string };
+
+  const { data, error } = await sb
+    .from("oportunidades")
+    .insert({
+      owner_id: userId,
+      empresa,
+      cliente,
+      produto: interesse,
+      valor: valor ?? 0,
+      etapa: "Prospecção",
+      probabilidade: "Baixa",
+      relacionamento_id: relacionamentoId,
+      descricao: "Oportunidade criada automaticamente pelo Supervisor AURA (WhatsApp).",
+    })
+    .select("id, etapa, valor, cliente")
+    .single();
+  if (error) {
+    console.error("[supervisor] criar oportunidade:", error.message);
+    return null;
+  }
+  await registrarAtividade(sb, userId, empresa, relacionamentoId, cliente, `Oportunidade criada pela IA: ${cliente}`, interesse ?? "Lead vindo do WhatsApp", { oportunidade_id: data.id });
+  return data as { id: string; etapa: Etapa; valor: number; cliente: string };
+}
+
+async function registrarAtividade(
+  sb: SupabaseClient,
+  userId: string,
+  empresa: string,
+  relacionamentoId: string | null,
+  cliente: string,
+  titulo: string,
+  contexto: string,
+  metadata: Record<string, unknown>,
+) {
+  const { error } = await sb.from("atividades").insert({
+    owner_id: userId,
+    empresa,
+    tipo: "WhatsApp",
+    titulo,
+    contexto,
+    relacionamento_id: relacionamentoId,
+    cliente_nome: cliente,
+    origem: "whatsapp_ia",
+    ocorrida_em: new Date().toISOString(),
+    metadata: { ...metadata, fonte: "supervisor_aura" },
+  });
+  if (error) console.error("[supervisor] atividade:", error.message);
+}
+
+async function notificar(sb: SupabaseClient, userId: string, titulo: string, mensagem: string, acaoUrl = "/whatsapp") {
+  const { error } = await sb.from("notificacoes").insert({
+    vendedor_id: userId,
+    titulo,
+    mensagem,
+    tipo: "ia",
+    lida: false,
+    acao_url: acaoUrl,
+    criada_em: new Date().toISOString(),
+  });
+  if (error) console.error("[supervisor] notificação:", error.message);
+}
+
+async function moverOportunidade(
+  sb: SupabaseClient,
+  userId: string,
+  empresa: string,
+  op: { id: string; etapa: Etapa; valor: number; cliente: string },
+  para: Etapa,
+  evidencia: string,
+  relacionamentoId: string | null,
+  valorEstimado: number | null,
+) {
+  const patch: Record<string, unknown> = {
+    etapa: para,
+    probabilidade: PROBABILIDADE_POR_ETAPA[para],
+    dias_parado: 0,
+    updated_at: new Date().toISOString(),
+  };
+  if ((!op.valor || Number(op.valor) === 0) && valorEstimado) patch.valor = valorEstimado;
+  const { error } = await sb.from("oportunidades").update(patch).eq("id", op.id);
+  if (error) {
+    console.error("[supervisor] mover oportunidade:", error.message);
+    return false;
+  }
+
+  await registrarAtividade(
+    sb,
+    userId,
+    empresa,
+    relacionamentoId,
+    op.cliente,
+    `IA moveu no pipeline: ${op.etapa} → ${para}`,
+    evidencia,
+    { oportunidade_id: op.id, de: op.etapa, para },
+  );
+
+  if (para === "Fechados") {
+    const { data: jaTem } = await sb.from("vendas").select("id").eq("oportunidade_id", op.id).limit(1);
+    if (!jaTem?.length) {
+      const valor = Number(patch.valor ?? op.valor) || 0;
+      const { error: vErr } = await sb.from("vendas").insert({
+        owner_id: userId,
+        empresa,
+        cliente: op.cliente,
+        valor,
+        data: new Date().toISOString().slice(0, 10),
+        relacionamento_id: relacionamentoId,
+        oportunidade_id: op.id,
+        valor_original: valor,
+        valor_fechado: valor,
+        forma_pagamento: "Não informado",
+        quantidade_parcelas: 1,
+        status: "aguardando_detalhes",
+        origem: "WhatsApp",
+      });
+      if (vErr) console.error("[supervisor] venda:", vErr.message);
+    }
+    await notificar(
+      sb,
+      userId,
+      "🎉 Venda identificada pela IA",
+      `${op.cliente}: negócio marcado como fechado. Complete os detalhes da venda (valor, pagamento).`,
+      "/vendas",
+    );
+  } else {
+    await notificar(sb, userId, "🤖 Lead avançou no pipeline", `${op.cliente}: ${op.etapa} → ${para}. ${evidencia}`.slice(0, 280), "/pipeline");
+  }
+  if (relacionamentoId) {
+    await sb
+      .from("relacionamentos")
+      .update({ temperatura: "quente", ultimo_contato_em: new Date().toISOString() })
+      .eq("id", relacionamentoId);
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------- análise
+
+function linhaParaLead(row: any, extra: Partial<LeadInfo> = {}): LeadInfo {
+  return {
+    chatJid: row?.chat_jid ?? "",
+    ehLead: !!row?.oportunidade_id || !!row?.relacionamento_id,
+    ignorado: !!row?.ignorado,
+    etapa: row?.etapa ?? null,
+    etapaPipeline: null,
+    oportunidadeId: row?.oportunidade_id ?? null,
+    relacionamentoId: row?.relacionamento_id ?? null,
+    resumo: row?.resumo ?? null,
+    proximaAcao: row?.proxima_acao ?? null,
+    sugestaoResposta: null,
+    interesse: row?.interesse ?? null,
+    valorEstimado: row?.valor_estimado != null ? Number(row.valor_estimado) : null,
+    dicas: Array.isArray(row?.dicas) ? row.dicas : [],
+    alertasIa: Array.isArray(row?.alertas) ? row.alertas : [],
+    historico: Array.isArray(row?.historico) ? row.historico : [],
+    ultimaAnaliseEm: row?.ultima_analise_em ?? null,
+    analisando: false,
+    iaDisponivel: iaDisponivel(),
+    aviso: null,
+    ...extra,
+  };
+}
+
+const sugestoes = ((globalThis as any).__auraSupSugestoes ??= new Map<string, string>()) as Map<string, string>;
+const avisos = ((globalThis as any).__auraSupAvisos ??= new Map<string, string>()) as Map<string, string>;
+
+export async function obterLead(userId: string, chatJid: string): Promise<LeadInfo> {
+  const sb = db();
+  const key = `${userId}|${chatJid}`;
+  const base = { analisando: running.has(key) || timers.has(key), sugestaoResposta: sugestoes.get(key) ?? null, aviso: avisos.get(key) ?? null };
+  if (!sb) return linhaParaLead(null, { chatJid, ...base, aviso: "Supabase não configurado no servidor." });
+  const { data: row } = await sb.from("whatsapp_ia_leads").select("*").eq("owner_id", userId).eq("chat_jid", chatJid).maybeSingle();
+  let etapaPipeline: Etapa | null = null;
+  if (row?.oportunidade_id) {
+    const { data: op } = await sb.from("oportunidades").select("etapa").eq("id", row.oportunidade_id).maybeSingle();
+    etapaPipeline = (op?.etapa as Etapa) ?? null;
+  }
+  return linhaParaLead(row ?? { chat_jid: chatJid }, { ...base, etapaPipeline });
+}
+
+/** Resumo leve de todos os leads (para a lista de conversas). */
+export async function listarLeads(userId: string) {
+  const sb = db();
+  if (!sb) return {} as Record<string, { etapa: Etapa | null; ignorado: boolean; lead: boolean }>;
+  const { data } = await sb
+    .from("whatsapp_ia_leads")
+    .select("chat_jid, etapa, ignorado, oportunidade_id, relacionamento_id")
+    .eq("owner_id", userId);
+  const out: Record<string, { etapa: Etapa | null; ignorado: boolean; lead: boolean }> = {};
+  for (const r of data ?? []) {
+    out[r.chat_jid] = { etapa: r.etapa, ignorado: r.ignorado, lead: !!(r.oportunidade_id || r.relacionamento_id) };
+  }
+  return out;
+}
+
+export async function analisarConversa(
+  userId: string,
+  chatJid: string,
+  opts: { forcar?: boolean; comoLead?: boolean } = {},
+) {
+  const key = `${userId}|${chatJid}`;
+  if (running.has(key)) return;
+  const sb = db();
+  const chat = getChat(userId, chatJid);
+  const msgs = getMessages(userId, chatJid);
+  if (!sb || !chat || msgs.length === 0) return;
+
+  running.add(key);
+  try {
+    const { data: row } = await sb
+      .from("whatsapp_ia_leads")
+      .select("*")
+      .eq("owner_id", userId)
+      .eq("chat_jid", chatJid)
+      .maybeSingle();
+    if (row?.ignorado && !opts.comoLead) return;
+    const ultimo = msgs[msgs.length - 1];
+    if (!opts.forcar && row?.ultimo_msg_id === ultimo.id) return;
+
+    const empresa = await empresaDo(userId);
+    const regras = detectarEtapa(msgs);
+    const alertas = calcularAlertas(msgs);
+
+    let etapaPipelineAtual: Etapa | null = null;
+    if (row?.oportunidade_id) {
+      const { data: op } = await sb.from("oportunidades").select("etapa").eq("id", row.oportunidade_id).maybeSingle();
+      etapaPipelineAtual = (op?.etapa as Etapa) ?? null;
+    }
+
+    let analise: AnaliseIa | null = null;
+    let aviso: string | null = null;
+    try {
+      analise = await analisarComIa(msgs, chat.name, etapaPipelineAtual, alertas);
+    } catch (e: any) {
+      console.error("[supervisor] IA:", e?.message ?? e);
+      if (e?.status === 401) {
+        chaveInvalida.key = aiKey();
+        aviso = "A chave da IA (ANTHROPIC_API_KEY) é inválida — usando só as regras automáticas.";
+      } else {
+        aviso = "A IA não respondeu agora — usei só as regras automáticas.";
+      }
+    }
+
+    // Decide se é lead: IA manda; sem IA, vale a detecção por palavras-chave.
+    const ehLead = !!opts.comoLead || !!row?.oportunidade_id || (analise ? analise.e_lead : regras.comercial);
+
+    // Etapa detectada: a mais avançada entre regras e IA (IA só com confiança ≥ 0,7).
+    let detectada: Etapa | null = regras.etapa;
+    let evidencia = regras.evidencias.filter((e) => e.etapa === regras.etapa).slice(-1)[0]?.texto ?? "";
+    let fonte = "regras";
+    if (analise?.etapa && analise.etapa !== "Perdidos" && analise.confianca >= 0.7) {
+      if (!detectada || ORDEM_ETAPA[analise.etapa] > ORDEM_ETAPA[detectada]) {
+        detectada = analise.etapa;
+        evidencia = analise.evidencia || evidencia;
+        fonte = "ia";
+      }
+    }
+    if (ehLead && !detectada) detectada = "Prospecção";
+
+    const alertasIa = [...(analise?.alertas ?? [])];
+    if (regras.sinalPerda) alertasIa.unshift(`Risco de perda: cliente disse "${regras.sinalPerda.slice(0, 120)}"`);
+    if (analise?.etapa === "Perdidos" && analise.confianca >= 0.7) alertasIa.unshift(`A IA acha que este lead está sendo perdido: ${analise.evidencia}`);
+
+    const patch: Record<string, unknown> = {
+      owner_id: userId,
+      empresa,
+      chat_jid: chatJid,
+      telefone: chat.phone,
+      nome: chat.name,
+      ultimo_msg_id: ultimo.id,
+      ultima_analise_em: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      resumo: analise?.resumo ?? row?.resumo ?? null,
+      proxima_acao: analise?.proxima_acao ?? (alertas[0]?.texto ?? row?.proxima_acao ?? null),
+      dicas: analise?.dicas ?? row?.dicas ?? [],
+      alertas: alertasIa,
+      interesse: analise?.interesse ?? row?.interesse ?? null,
+      valor_estimado: analise?.valor_estimado ?? row?.valor_estimado ?? null,
+    };
+    if (opts.comoLead) patch.ignorado = false;
+    if (analise?.sugestao_resposta) sugestoes.set(key, analise.sugestao_resposta);
+
+    const historico: any[] = Array.isArray(row?.historico) ? [...row.historico] : [];
+
+    if (ehLead) {
+      let relacionamentoId: string | null = row?.relacionamento_id ?? null;
+      if (!relacionamentoId) {
+        const r = await garantirRelacionamento(sb, userId, empresa, chat.name, chat.phone);
+        relacionamentoId = r.id;
+        if (r.aviso) aviso = r.aviso;
+      }
+      patch.relacionamento_id = relacionamentoId;
+
+      if (relacionamentoId) {
+        const op = await garantirOportunidade(
+          sb,
+          userId,
+          empresa,
+          relacionamentoId,
+          chat.name,
+          patch.interesse as string | null,
+          patch.valor_estimado as number | null,
+          row?.oportunidade_id ?? null,
+        );
+        if (op) {
+          patch.oportunidade_id = op.id;
+          const ultimaDetectada = (row?.etapa as Etapa | null) ?? null;
+          // Só avança: nova etapa acima da atual no pipeline E acima da última
+          // detectada (assim, se o vendedor voltar o card manualmente, a IA
+          // não "desfaz" a decisão dele sem evidência nova).
+          if (
+            detectada &&
+            detectada !== "Perdidos" &&
+            op.etapa !== "Fechados" &&
+            op.etapa !== "Perdidos" &&
+            ORDEM_ETAPA[detectada] > ORDEM_ETAPA[op.etapa as Etapa] &&
+            (!ultimaDetectada || ORDEM_ETAPA[detectada] > ORDEM_ETAPA[ultimaDetectada])
+          ) {
+            const moved = await moverOportunidade(sb, userId, empresa, op, detectada, evidencia, relacionamentoId, patch.valor_estimado as number | null);
+            if (moved) historico.push({ em: new Date().toISOString(), de: op.etapa, para: detectada, evidencia, fonte });
+          } else if (!row?.oportunidade_id) {
+            historico.push({ em: new Date().toISOString(), de: null, para: op.etapa, evidencia: "Lead cadastrado no CRM", fonte });
+          }
+        }
+      }
+      patch.etapa = detectada;
+    } else {
+      patch.etapa = null;
+    }
+    patch.historico = historico.slice(-30);
+
+    if (aviso) avisos.set(key, aviso);
+    else avisos.delete(key);
+
+    const { error } = await sb.from("whatsapp_ia_leads").upsert(patch, { onConflict: "owner_id,chat_jid" });
+    if (error) console.error("[supervisor] salvar análise:", error.message);
+  } catch (e: any) {
+    console.error("[supervisor] analisarConversa:", e?.message ?? e);
+  } finally {
+    running.delete(key);
+  }
+}
+
+export async function marcarIgnorado(userId: string, chatJid: string, ignorado: boolean) {
+  const sb = db();
+  if (!sb) return;
+  const chat = getChat(userId, chatJid);
+  await sb.from("whatsapp_ia_leads").upsert(
+    {
+      owner_id: userId,
+      empresa: await empresaDo(userId),
+      chat_jid: chatJid,
+      telefone: chat?.phone ?? null,
+      nome: chat?.name ?? null,
+      ignorado,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "owner_id,chat_jid" },
+  );
+  if (!ignorado) agendarAnalise(userId, chatJid, 0, { forcar: true, comoLead: true });
+}
+
+/** Vendedor escolhe a etapa manualmente pelo painel. */
+export async function definirEtapaManual(userId: string, chatJid: string, etapa: Etapa) {
+  const sb = db();
+  if (!sb) throw new Error("Supabase não configurado.");
+  const { data: row } = await sb.from("whatsapp_ia_leads").select("*").eq("owner_id", userId).eq("chat_jid", chatJid).maybeSingle();
+  if (!row?.oportunidade_id) throw new Error("Este contato ainda não tem oportunidade no CRM. Clique em Analisar primeiro.");
+  const { data: op } = await sb.from("oportunidades").select("id, etapa, cliente").eq("id", row.oportunidade_id).maybeSingle();
+  if (!op) throw new Error("Oportunidade não encontrada.");
+  await sb
+    .from("oportunidades")
+    .update({ etapa, probabilidade: PROBABILIDADE_POR_ETAPA[etapa], updated_at: new Date().toISOString(), dias_parado: 0 })
+    .eq("id", op.id);
+  const empresa = await empresaDo(userId);
+  await registrarAtividade(sb, userId, empresa, row.relacionamento_id, op.cliente, `Etapa alterada no WhatsApp: ${op.etapa} → ${etapa}`, "Alteração manual pelo vendedor", { oportunidade_id: op.id, de: op.etapa, para: etapa });
+  const historico = Array.isArray(row.historico) ? row.historico : [];
+  historico.push({ em: new Date().toISOString(), de: op.etapa, para: etapa, evidencia: "Alterado manualmente pelo vendedor", fonte: "vendedor" });
+  await sb.from("whatsapp_ia_leads").update({ etapa, historico: historico.slice(-30), updated_at: new Date().toISOString() }).eq("id", row.id);
+}
+
+export function agendarAnalise(
+  userId: string,
+  chatJid: string,
+  delay = DEBOUNCE_MS,
+  opts: { forcar?: boolean; comoLead?: boolean } = {},
+) {
+  const key = `${userId}|${chatJid}`;
+  const t = timers.get(key);
+  if (t) clearTimeout(t);
+  timers.set(
+    key,
+    setTimeout(() => {
+      timers.delete(key);
+      analisarConversa(userId, chatJid, opts).catch((e) => console.error("[supervisor]", e));
+    }, delay),
+  );
+}
+
+// ---------------------------------------------------------------- vigilância
+
+/** A cada 5 minutos avisa o vendedor sobre leads sem resposta ou sem follow-up. */
+async function varredura() {
+  const sb = db();
+  if (!sb) return;
+  for (const userId of connectedUserIds()) {
+    try {
+      const leads = await listarLeads(userId);
+      for (const chat of getChats(userId)) {
+        const info = leads[chat.id];
+        if (!info?.lead || info.ignorado) continue;
+        const msgs = getMessages(userId, chat.id);
+        for (const alerta of calcularAlertas(msgs)) {
+          const grave =
+            (alerta.tipo === "sem_resposta" && alerta.nivel !== "medio") ||
+            (alerta.tipo === "follow_up" && alerta.nivel === "alto");
+          if (!grave) continue;
+          const chave = `${userId}|${chat.id}|${alerta.tipo}|${alerta.desde}`;
+          if (notified.has(chave)) continue;
+          notified.add(chave);
+          await notificar(
+            sb,
+            userId,
+            alerta.tipo === "sem_resposta" ? "⏰ Cliente esperando resposta" : "📌 Follow-up pendente",
+            `${chat.name}: ${alerta.texto}.`,
+          );
+        }
+      }
+    } catch (e: any) {
+      console.error("[supervisor] varredura:", e?.message ?? e);
+    }
+  }
+}
+
+export function alertasDoChat(userId: string, chatJid: string) {
+  return calcularAlertas(getMessages(userId, chatJid));
+}
+
+if (!g.__auraSupStarted) {
+  g.__auraSupStarted = true;
+  onMessage((userId, chatJid) => agendarAnalise(userId, chatJid));
+  setInterval(() => {
+    varredura().catch(() => {});
+  }, 5 * 60 * 1000);
+}

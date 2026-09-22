@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  getState,
+  getAvatar,
+  getMedia,
   getMessages,
+  getState,
   logout,
   markRead,
+  sendFile,
   sendText,
   startSession,
 } from "@/lib/whatsapp/live-manager";
+import {
+  agendarAnalise,
+  alertasDoChat,
+  definirEtapaManual,
+  iaDisponivel,
+  listarLeads,
+  marcarIgnorado,
+  obterLead,
+} from "@/lib/whatsapp/supervisor";
+import { calcularAlertas, ETAPAS, type Etapa } from "@/lib/whatsapp/stage-rules";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_FILE_BYTES = 60 * 1024 * 1024;
 
 async function currentUserId(): Promise<string | null> {
   const supabase = await getSupabaseServerClient();
@@ -19,31 +34,113 @@ async function currentUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
-/** GET → estado da conexão + lista de conversas. ?chat=<id> → mensagens da conversa. */
+const unauthorized = () => NextResponse.json({ error: "Faça login novamente." }, { status: 401 });
+
+/**
+ * GET                → estado da conexão, conversas, leads e alertas
+ * GET ?chat=<jid>    → mensagens + alertas da conversa
+ * GET ?lead=<jid>    → análise do Supervisor AURA para a conversa
+ * GET ?avatar=<jid>  → redireciona para a foto de perfil (404 se não houver)
+ * GET ?media=<id>    → arquivo da mensagem (foto, vídeo, áudio, documento)
+ */
 export async function GET(request: NextRequest) {
   const userId = await currentUserId();
-  if (!userId) return NextResponse.json({ error: "Faça login novamente." }, { status: 401 });
+  if (!userId) return unauthorized();
+  const sp = request.nextUrl.searchParams;
 
-  const chat = request.nextUrl.searchParams.get("chat");
-  if (chat) {
-    return NextResponse.json({ messages: getMessages(userId, chat) });
+  const avatar = sp.get("avatar");
+  if (avatar) {
+    const url = await getAvatar(userId, avatar);
+    if (!url) return new NextResponse(null, { status: 404 });
+    return NextResponse.redirect(url, { headers: { "Cache-Control": "private, max-age=3600" } });
   }
-  return NextResponse.json({ userId, ...(await getState(userId)) });
+
+  const media = sp.get("media");
+  if (media) {
+    try {
+      const file = await getMedia(userId, media);
+      if (!file) return NextResponse.json({ error: "Arquivo não disponível." }, { status: 404 });
+      const headers: Record<string, string> = {
+        "Content-Type": file.mimetype,
+        "Cache-Control": "private, max-age=86400",
+      };
+      if (file.fileName) {
+        const disp = sp.get("download") ? "attachment" : "inline";
+        headers["Content-Disposition"] = `${disp}; filename*=UTF-8''${encodeURIComponent(file.fileName)}`;
+      }
+      return new NextResponse(new Uint8Array(file.buffer), { headers });
+    } catch (e: any) {
+      console.error("[api/whatsapp/live] media:", e?.message ?? e);
+      return NextResponse.json({ error: "Não foi possível baixar o arquivo." }, { status: 502 });
+    }
+  }
+
+  const chat = sp.get("chat");
+  if (chat) {
+    return NextResponse.json({ messages: getMessages(userId, chat), alertas: alertasDoChat(userId, chat) });
+  }
+
+  const lead = sp.get("lead");
+  if (lead) {
+    const info = await obterLead(userId, lead);
+    // Primeira vez que abre a conversa: pede uma análise.
+    if (!info.ultimaAnaliseEm && !info.ignorado && !info.analisando && getMessages(userId, lead).length > 0) {
+      agendarAnalise(userId, lead, 0);
+      info.analisando = true;
+    }
+    return NextResponse.json(info);
+  }
+
+  const state = await getState(userId);
+  const leads = await listarLeads(userId);
+  const alertas: Record<string, ReturnType<typeof calcularAlertas>> = {};
+  for (const c of state.chats) {
+    const info = leads[c.id];
+    if (info?.lead && !info.ignorado) {
+      const a = calcularAlertas(getMessages(userId, c.id));
+      if (a.length) alertas[c.id] = a;
+    }
+  }
+  return NextResponse.json({ userId, ...state, leads, alertas, iaDisponivel: iaDisponivel() });
 }
 
-/** POST { action: "connect" | "send" | "read" | "logout", ... } */
+/**
+ * POST JSON { action: "connect" | "send" | "read" | "logout" | "analyze" | "ignore" | "stage", ... }
+ * POST multipart (file, to, caption) → envia foto/vídeo/documento
+ */
 export async function POST(request: NextRequest) {
   const userId = await currentUserId();
-  if (!userId) return NextResponse.json({ error: "Faça login novamente." }, { status: 401 });
-
-  let body: any = {};
-  try {
-    body = await request.json();
-  } catch {
-    body = {};
-  }
+  if (!userId) return unauthorized();
 
   try {
+    if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      const form = await request.formData();
+      const file = form.get("file");
+      const to = String(form.get("to") ?? "").trim();
+      const caption = String(form.get("caption") ?? "").trim() || undefined;
+      if (!(file instanceof File) || !to) {
+        return NextResponse.json({ error: "Arquivo ou destinatário ausente." }, { status: 400 });
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        return NextResponse.json({ error: "Arquivo muito grande (máx. 60 MB)." }, { status: 413 });
+      }
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const result = await sendFile(
+        userId,
+        to,
+        { buffer, mimetype: file.type || "application/octet-stream", fileName: file.name || "arquivo" },
+        caption,
+      );
+      return NextResponse.json({ ok: true, ...result });
+    }
+
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
     switch (body.action) {
       case "connect": {
         await startSession(userId);
@@ -64,6 +161,24 @@ export async function POST(request: NextRequest) {
       }
       case "logout": {
         await logout(userId);
+        return NextResponse.json({ ok: true });
+      }
+      case "analyze": {
+        if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
+        agendarAnalise(userId, String(body.chat), 0, { forcar: true, comoLead: !!body.comoLead });
+        return NextResponse.json({ ok: true });
+      }
+      case "ignore": {
+        if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
+        await marcarIgnorado(userId, String(body.chat), body.ignorado !== false);
+        return NextResponse.json({ ok: true });
+      }
+      case "stage": {
+        const etapa = String(body.etapa ?? "") as Etapa;
+        if (!body.chat || !ETAPAS.includes(etapa)) {
+          return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
+        }
+        await definirEtapaManual(userId, String(body.chat), etapa);
         return NextResponse.json({ ok: true });
       }
       default:
