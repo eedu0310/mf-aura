@@ -4,6 +4,8 @@ export type Etapa = "Prospecção" | "Apresentação" | "Proposta" | "Negociaç�
 
 export interface WaChat {
   id: string;
+  pnJid: string | null;
+  hasName: boolean;
   name: string;
   phone: string;
   lastMessage: string;
@@ -80,12 +82,22 @@ export const API = "/api/whatsapp/live";
 export const ETAPAS_FUNIL: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"];
 
 export const COR_ETAPA: Record<Etapa, string> = {
-  Prospecção: "bg-slate-100 text-slate-700",
-  Apresentação: "bg-sky-100 text-sky-700",
-  Proposta: "bg-amber-100 text-amber-800",
-  Negociação: "bg-orange-100 text-orange-800",
-  Fechados: "bg-emerald-100 text-emerald-800",
-  Perdidos: "bg-red-100 text-red-700",
+  Prospecção: "bg-[#2a3942] text-[#aebac1]",
+  Apresentação: "bg-[#0d3b52] text-[#53bdeb]",
+  Proposta: "bg-[#4a3a0b] text-[#ffd279]",
+  Negociação: "bg-[#4d2a12] text-[#ffa65c]",
+  Fechados: "bg-[#0a332c] text-[#25d366]",
+  Perdidos: "bg-[#4a1d1d] text-[#f15c6d]",
+};
+
+/** Cor do "pontinho" da etapa (como as etiquetas do WhatsApp Business). */
+export const PONTO_ETAPA: Record<Etapa, string> = {
+  Prospecção: "#8696a0",
+  Apresentação: "#53bdeb",
+  Proposta: "#ffd279",
+  Negociação: "#ffa65c",
+  Fechados: "#25d366",
+  Perdidos: "#f15c6d",
 };
 
 export function formatPhone(phone: string) {

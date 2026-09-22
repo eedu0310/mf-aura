@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCheck,
+  ChevronDown,
   Loader2,
   LogOut,
   MessageSquarePlus,
@@ -15,19 +16,23 @@ import {
   Send,
   Smartphone,
   X,
+  ArrowLeft,
 } from "lucide-react";
 import { Avatar } from "@/components/whatsapp-web/avatar";
 import { Composer } from "@/components/whatsapp-web/composer";
+import { MediaViewer } from "@/components/whatsapp-web/media-viewer";
 import { MessageBubble } from "@/components/whatsapp-web/message-bubble";
 import { SupervisorPanel } from "@/components/whatsapp-web/supervisor-panel";
 import {
   API,
-  COR_ETAPA,
+  ETAPAS_FUNIL,
+  PONTO_ETAPA,
   formatDayLabel,
   formatListTime,
   formatPhone,
   postJson,
   type Alerta,
+  type Etapa,
   type LeadInfo,
   type WaChat,
   type WaMessage,
@@ -36,14 +41,54 @@ import {
 
 type Filtro = "tudo" | "nao_lidas" | "leads" | "alertas";
 
-// Fundo "doodle" do WhatsApp Web, desenhado em CSS (sem imagem externa).
+// Fundo "doodle" do WhatsApp Web (tema escuro), desenhado só com CSS.
 const FUNDO_CHAT: React.CSSProperties = {
-  backgroundColor: "#efeae2",
+  backgroundColor: "#0b141a",
   backgroundImage:
-    "radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px), radial-gradient(rgba(0,0,0,0.025) 1px, transparent 1px)",
-  backgroundSize: "22px 22px, 34px 34px",
-  backgroundPosition: "0 0, 11px 17px",
+    "radial-gradient(rgba(255,255,255,0.045) 1.2px, transparent 1.2px), radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
+  backgroundSize: "26px 26px, 38px 38px",
+  backgroundPosition: "0 0, 13px 19px",
 };
+
+function SeletorEtapa({ etapa, onEscolher, ocupado }: { etapa: Etapa | null; onEscolher: (e: Etapa) => void; ocupado: boolean }) {
+  const [aberto, setAberto] = useState(false);
+  return (
+    <div className="relative hidden sm:block">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className="flex items-center gap-2 rounded-full border border-[#3b4a54] px-3 py-1.5 text-sm text-[#e9edef] hover:bg-white/5"
+        title="Etapa no pipeline"
+      >
+        {ocupado ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: etapa ? PONTO_ETAPA[etapa] : "#8696a0" }} />
+        )}
+        {etapa ?? "Sem etapa"}
+        <ChevronDown className="h-4 w-4 text-[#8696a0]" />
+      </button>
+      {aberto && (
+        <div className="absolute right-0 top-10 z-40 w-52 rounded-lg bg-[#233138] py-2 shadow-2xl" onMouseLeave={() => setAberto(false)}>
+          {[...ETAPAS_FUNIL, "Perdidos" as Etapa].map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => {
+                setAberto(false);
+                if (e !== etapa) onEscolher(e);
+              }}
+              className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-[#182229] ${e === etapa ? "text-[#00a884]" : "text-[#e9edef]"}`}
+            >
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PONTO_ETAPA[e] }} />
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function WhatsAppPage() {
   const [state, setState] = useState<WaState | null>(null);
@@ -64,6 +109,8 @@ export default function WhatsAppPage() {
   const [novoEnviando, setNovoEnviando] = useState(false);
   const [arrastado, setArrastado] = useState<File | null>(null);
   const [arrastando, setArrastando] = useState(false);
+  const [viewerId, setViewerId] = useState<string | null>(null);
+  const [mudandoEtapa, setMudandoEtapa] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const colarNoFim = useRef(true);
 
@@ -108,6 +155,7 @@ export default function WhatsAppPage() {
     }
   }, []);
 
+  // O Supervisor fica sempre aberto em telas largas.
   useEffect(() => {
     if (window.innerWidth >= 1280) setPainelIa(true);
   }, []);
@@ -122,6 +170,7 @@ export default function WhatsAppPage() {
     setMessages([]);
     setLead(null);
     setAlertasChat([]);
+    setViewerId(null);
     colarNoFim.current = true;
     if (!selectedChatId || !connected) return;
     loadMessages(selectedChatId);
@@ -134,7 +183,6 @@ export default function WhatsAppPage() {
     };
   }, [selectedChatId, connected, loadMessages, loadLead]);
 
-  // Mantém a rolagem no fim quando chega mensagem (se o usuário já estava no fim).
   useEffect(() => {
     const el = scrollRef.current;
     if (el && colarNoFim.current) el.scrollTop = el.scrollHeight;
@@ -177,6 +225,30 @@ export default function WhatsAppPage() {
     }
   }
 
+  async function mudarEtapa(etapa: Etapa) {
+    if (!selectedChatId) return;
+    setMudandoEtapa(true);
+    try {
+      if (!lead?.oportunidadeId) {
+        // Ainda não é lead: cadastra primeiro e depois define a etapa.
+        await postJson({ action: "ignore", chat: selectedChatId, ignorado: false });
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const res = await fetch(`${API}?lead=${encodeURIComponent(selectedChatId)}`, { cache: "no-store" });
+          const info = await res.json();
+          if (info?.oportunidadeId) break;
+        }
+      }
+      await postJson({ action: "stage", chat: selectedChatId, etapa });
+      await loadLead(selectedChatId);
+      loadState();
+    } catch (e: any) {
+      window.alert(e?.message ?? "Não foi possível mudar a etapa.");
+    } finally {
+      setMudandoEtapa(false);
+    }
+  }
+
   async function iniciarConversa() {
     if (!novoNumero.trim() || !novoTexto.trim()) {
       setNovoErro("Preencha o número e a mensagem.");
@@ -202,6 +274,7 @@ export default function WhatsAppPage() {
   const alertasPorChat = state?.alertas ?? {};
   const totalAlertas = Object.keys(alertasPorChat).length;
   const semResposta = Object.values(alertasPorChat).filter((a) => a.some((x) => x.tipo === "sem_resposta")).length;
+  const naoLidas = chats.filter((c) => c.unread > 0).length;
 
   const chatsFiltrados = chats.filter((c) => {
     const q = busca.trim().toLowerCase();
@@ -229,12 +302,15 @@ export default function WhatsAppPage() {
     return out;
   }, [messages]);
 
+  const etapaAtual = lead && !lead.ignorado ? ((lead.etapaPipeline ?? lead.etapa) as Etapa | null) : null;
+  const chatAvatarJid = selectedChat ? selectedChat.pnJid ?? selectedChat.id : null;
+
   // ------------------------------------------------------------ telas
   if (!state) {
     return (
-      <div className="flex h-[calc(100dvh-7rem)] items-center justify-center bg-[#f0f2f5]">
+      <div className="flex h-[calc(100dvh-7rem)] items-center justify-center bg-[#111b21]">
         {loadError ? (
-          <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-center gap-2 rounded-lg bg-[#3d1d22] px-4 py-3 text-sm text-[#f15c6d]">
             <AlertCircle className="h-4 w-4" /> {loadError}
           </div>
         ) : (
@@ -246,50 +322,46 @@ export default function WhatsAppPage() {
 
   if (!connected) {
     return (
-      <div className="flex min-h-[calc(100dvh-7rem)] items-center justify-center bg-[#f0f2f5] p-4">
-        <div className="w-full max-w-4xl overflow-hidden rounded-md bg-white shadow-sm">
+      <div className="flex min-h-[calc(100dvh-7rem)] items-center justify-center bg-[#0b141a] p-4">
+        <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-[#111b21] shadow-2xl">
           <div className="grid gap-8 p-8 md:grid-cols-[1fr_auto] md:p-14">
             <div>
-              <h1 className="text-[28px] font-light text-[#41525d]">Use o WhatsApp no AURA</h1>
-              <ol className="mt-8 space-y-5 text-[17px] text-[#3b4a54]">
+              <h1 className="text-[28px] font-light text-[#e9edef]">Use o WhatsApp no AURA</h1>
+              <ol className="mt-8 space-y-5 text-[17px] text-[#aebac1]">
                 <li className="flex gap-3"><span>1.</span> Abra o WhatsApp no seu celular.</li>
                 <li className="flex gap-3">
                   <span>2.</span>
-                  <span>Toque em <strong>Mais opções ⋮</strong> no Android ou em <strong>Configurações</strong> no iPhone.</span>
+                  <span>Toque em <strong className="text-[#e9edef]">Mais opções ⋮</strong> no Android ou em <strong className="text-[#e9edef]">Configurações</strong> no iPhone.</span>
                 </li>
-                <li className="flex gap-3"><span>3.</span> <span>Toque em <strong>Dispositivos conectados</strong> e, em seguida, em <strong>Conectar dispositivo</strong>.</span></li>
+                <li className="flex gap-3"><span>3.</span> <span>Toque em <strong className="text-[#e9edef]">Dispositivos conectados</strong> e, em seguida, em <strong className="text-[#e9edef]">Conectar dispositivo</strong>.</span></li>
                 <li className="flex gap-3"><span>4.</span> Aponte seu celular para esta tela para escanear o QR code.</li>
               </ol>
               {state.error && (
-                <div className="mt-6 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                <div className="mt-6 flex items-start gap-2 rounded-lg bg-[#3d3219] px-3 py-2 text-sm text-[#ffd279]">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {state.error}
                 </div>
               )}
               {loadError && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-[#3d1d22] px-3 py-2 text-sm text-[#f15c6d]">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {loadError}
                 </div>
               )}
-              <div className="mt-8 flex items-start gap-3 rounded-lg bg-[#f0f2f5] px-4 py-3 text-sm text-[#54656f]">
+              <div className="mt-8 flex items-start gap-3 rounded-lg bg-[#202c33] px-4 py-3 text-sm text-[#aebac1]">
                 <Bot className="mt-0.5 h-5 w-5 shrink-0 text-[#00a884]" />
                 Depois de conectar, o Supervisor AURA acompanha suas conversas, cadastra os leads no CRM e move cada um no pipeline automaticamente.
               </div>
             </div>
-            <div className="flex h-[280px] w-[280px] items-center justify-center self-center justify-self-center">
+            <div className="flex h-[280px] w-[280px] items-center justify-center self-center justify-self-center rounded-xl bg-white">
               {status === "qr" && state.qrCode ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={state.qrCode} alt="QR code do WhatsApp" className="h-[264px] w-[264px]" />
               ) : status === "connecting" || busy ? (
-                <div className="flex flex-col items-center gap-3 text-[#667781]">
+                <div className="flex flex-col items-center gap-3 text-[#54656f]">
                   <Loader2 className="h-10 w-10 animate-spin text-[#00a884]" />
                   <p className="text-sm">Gerando QR code…</p>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={conectar}
-                  className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-[#d1d7db] text-[#54656f] transition hover:border-[#00a884] hover:text-[#008069]"
-                >
+                <button type="button" onClick={conectar} className="flex h-full w-full flex-col items-center justify-center gap-3 text-[#54656f]">
                   <QrCode className="h-14 w-14" />
                   <span className="rounded-full bg-[#00a884] px-5 py-2 text-sm font-medium text-white">Conectar WhatsApp</span>
                 </button>
@@ -302,27 +374,33 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <div className="relative flex h-[calc(100dvh-7.5rem)] min-h-[520px] overflow-hidden border-t border-[#d1d7db] bg-[#f0f2f5] lg:h-[calc(100dvh-6rem)]">
+    <div className="relative flex h-[calc(100dvh-7.5rem)] min-h-[520px] overflow-hidden bg-[#0b141a] lg:h-[calc(100dvh-6rem)]">
       {/* ======================= Lista de conversas ======================= */}
-      <div className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-[#d1d7db] bg-white md:w-[380px] md:min-w-[320px] lg:w-[30%] lg:max-w-[440px]`}>
-        <header className="flex h-[59px] items-center justify-between bg-[#f0f2f5] px-4">
+      <div className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-[#222d34] bg-[#111b21] md:w-[380px] md:min-w-[320px] lg:w-[30%] lg:max-w-[440px]`}>
+        <header className="flex h-[64px] items-center justify-between px-4">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar jid={state.myJid} name={state.name ?? "Eu"} size={40} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-[#111b21]">{state.name ?? "Meu WhatsApp"}</p>
-              <p className="truncate text-xs text-[#667781]">{state.phone ? formatPhone(state.phone) : ""}</p>
-            </div>
+            <h2 className="truncate text-[22px] font-bold text-[#e9edef]">WhatsApp</h2>
           </div>
-          <div className="relative flex items-center gap-1 text-[#54656f]">
-            <button type="button" onClick={() => { setNovaAberta(true); setNovoErro(null); }} className="rounded-full p-2 hover:bg-black/5" title="Nova conversa">
-              <MessageSquarePlus className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="rounded-full p-2 hover:bg-black/5" title="Menu">
+          <div className="relative flex items-center gap-2 text-[#aebac1]">
+            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="rounded-full p-2 hover:bg-white/10" title="Menu">
               <MoreVertical className="h-5 w-5" />
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setNovaAberta(true);
+                setNovoErro(null);
+              }}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e9edef] text-[#111b21] hover:bg-white"
+              title="Nova conversa"
+            >
+              <MessageSquarePlus className="h-5 w-5" />
+            </button>
             {menuAberto && (
-              <div className="absolute right-0 top-11 z-30 w-52 rounded-md bg-white py-2 shadow-xl">
-                <button type="button" onClick={desconectar} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-[#111b21] hover:bg-[#f5f6f6]">
+              <div className="absolute right-0 top-12 z-30 w-60 rounded-lg bg-[#233138] py-2 shadow-2xl">
+                <p className="px-5 py-2 text-xs text-[#8696a0]">{state.phone ? formatPhone(state.phone) : ""}</p>
+                <button type="button" onClick={desconectar} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-[#e9edef] hover:bg-[#182229]">
                   <LogOut className="h-4 w-4" /> Desconectar
                 </button>
               </div>
@@ -330,48 +408,34 @@ export default function WhatsAppPage() {
           </div>
         </header>
 
-        {semResposta > 0 && (
-          <button
-            type="button"
-            onClick={() => setFiltro("alertas")}
-            className="flex items-center gap-3 bg-[#fff3c4] px-4 py-3 text-left text-sm text-[#54656f] hover:bg-[#ffeeb0]"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ffd279]">
-              <AlertTriangle className="h-5 w-5 text-white" />
-            </span>
-            <span>
-              <strong className="text-[#111b21]">{semResposta} {semResposta === 1 ? "cliente aguardando" : "clientes aguardando"} resposta</strong>
-              <br />Não deixe o lead esfriar — toque para ver.
-            </span>
-          </button>
-        )}
-
-        <div className="border-b border-[#f0f2f5] px-3 py-2">
-          <div className="flex items-center gap-3 rounded-lg bg-[#f0f2f5] px-3 py-1.5">
-            <Search className="h-4 w-4 text-[#54656f]" />
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-3 rounded-full bg-[#202c33] px-4 py-2">
+            <Search className="h-4 w-4 text-[#8696a0]" />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Pesquisar ou começar uma nova conversa"
-              className="w-full bg-transparent text-sm text-[#111b21] outline-none placeholder:text-[#667781]"
+              className="w-full bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]"
             />
             {busca && (
-              <button type="button" onClick={() => setBusca("")} className="text-[#54656f]"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setBusca("")} className="text-[#8696a0]">
+                <X className="h-4 w-4" />
+              </button>
             )}
           </div>
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {([
               ["tudo", "Tudo"],
-              ["nao_lidas", "Não lidas"],
+              ["nao_lidas", `Não lidas${naoLidas ? ` ${naoLidas}` : ""}`],
               ["leads", "Leads"],
-              ["alertas", `Alertas${totalAlertas ? ` (${totalAlertas})` : ""}`],
+              ["alertas", `Alertas${totalAlertas ? ` ${totalAlertas}` : ""}`],
             ] as [Filtro, string][]).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setFiltro(id)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-sm transition ${
-                  filtro === id ? "bg-[#d9fdd3] text-[#008069]" : "bg-[#f0f2f5] text-[#54656f] hover:bg-[#e9edef]"
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm transition ${
+                  filtro === id ? "border-[#0a332c] bg-[#0a332c] text-[#00a884]" : "border-[#3b4a54] text-[#aebac1] hover:bg-white/5"
                 }`}
               >
                 {label}
@@ -380,11 +444,27 @@ export default function WhatsAppPage() {
           </div>
         </div>
 
+        {semResposta > 0 && (
+          <button
+            type="button"
+            onClick={() => setFiltro("alertas")}
+            className="mx-3 mb-2 flex items-center gap-3 rounded-lg bg-[#202c33] px-4 py-3 text-left text-sm text-[#aebac1] hover:bg-[#2a3942]"
+          >
+            <AlertTriangle className="h-6 w-6 shrink-0 text-[#ffd279]" />
+            <span>
+              <strong className="text-[#e9edef]">
+                {semResposta} {semResposta === 1 ? "cliente aguardando" : "clientes aguardando"} resposta.
+              </strong>{" "}
+              <span className="text-[#00a884]">Ver agora</span>
+            </span>
+          </button>
+        )}
+
         <div className="flex-1 overflow-y-auto">
           {chatsFiltrados.length === 0 && (
-            <p className="px-8 py-12 text-center text-sm text-[#667781]">
+            <p className="px-8 py-12 text-center text-sm text-[#8696a0]">
               {chats.length === 0
-                ? "Suas conversas aparecem aqui assim que chegarem mensagens. Use o ícone de nova conversa para chamar um cliente."
+                ? "Suas conversas aparecem aqui assim que chegarem mensagens. Use o botão de nova conversa para chamar um cliente."
                 : "Nenhuma conversa neste filtro."}
             </p>
           )}
@@ -392,40 +472,41 @@ export default function WhatsAppPage() {
             const info = state.leads[chat.id];
             const alerta = alertasPorChat[chat.id]?.[0];
             const ativo = chat.id === selectedChatId;
+            const etapa = info?.lead && !info.ignorado ? info.etapa : null;
             return (
               <button
                 key={chat.id}
                 type="button"
                 onClick={() => abrirChat(chat)}
-                className={`flex w-full items-center gap-3 px-3 text-left transition ${ativo ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"}`}
+                className={`flex w-full items-center gap-3 px-3 text-left transition ${ativo ? "bg-[#2a3942]" : "hover:bg-[#202c33]"}`}
               >
-                <Avatar jid={chat.id} name={chat.name} />
-                <div className="min-w-0 flex-1 border-b border-[#f0f2f5] py-3">
+                <Avatar jid={chat.pnJid ?? chat.id} name={chat.name} />
+                <div className="min-w-0 flex-1 border-b border-[#222d34] py-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-[17px] text-[#111b21]">{chat.name}</p>
-                    <span className={`shrink-0 text-xs ${chat.unread ? "text-[#1fa855]" : "text-[#667781]"}`}>{formatListTime(chat.timestamp)}</span>
+                    <p className="flex min-w-0 items-center gap-1.5 truncate text-[17px] text-[#e9edef]">
+                      <span className="truncate">{chat.name}</span>
+                      {etapa && <span title={etapa} className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PONTO_ETAPA[etapa] }} />}
+                    </p>
+                    <span className={`shrink-0 text-xs ${chat.unread ? "text-[#00a884]" : "text-[#8696a0]"}`}>{formatListTime(chat.timestamp)}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1 truncate text-sm text-[#667781]">
+                    <p className="flex min-w-0 items-center gap-1 truncate text-sm text-[#8696a0]">
                       {chat.lastFromMe && <CheckCheck className="h-4 w-4 shrink-0 text-[#53bdeb]" />}
                       <span className="truncate">{chat.lastMessage}</span>
                     </p>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {alerta && (
                         <span title={alerta.texto}>
-                          <AlertTriangle className={`h-4 w-4 ${alerta.nivel === "critico" ? "text-red-500" : "text-amber-500"}`} />
+                          <AlertTriangle className={`h-4 w-4 ${alerta.nivel === "critico" ? "text-[#f15c6d]" : "text-[#ffd279]"}`} />
                         </span>
                       )}
                       {chat.unread > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25d366] px-1.5 text-xs font-medium text-white">
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#00a884] px-1.5 text-xs font-semibold text-[#111b21]">
                           {chat.unread}
                         </span>
                       )}
                     </div>
                   </div>
-                  {info?.lead && !info.ignorado && info.etapa && (
-                    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${COR_ETAPA[info.etapa]}`}>{info.etapa}</span>
-                  )}
                 </div>
               </button>
             );
@@ -435,8 +516,12 @@ export default function WhatsAppPage() {
 
       {/* ======================= Conversa ======================= */}
       {selectedChat ? (
-        <div className="relative flex min-w-0 flex-1 flex-col"
-          onDragOver={(e) => { e.preventDefault(); setArrastando(true); }}
+        <div
+          className="relative flex min-w-0 flex-1 flex-col"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setArrastando(true);
+          }}
           onDragLeave={() => setArrastando(false)}
           onDrop={(e) => {
             e.preventDefault();
@@ -445,29 +530,25 @@ export default function WhatsAppPage() {
             if (f) setArrastado(f);
           }}
         >
-          <header className="z-10 flex h-[59px] items-center gap-3 border-l border-[#d1d7db] bg-[#f0f2f5] px-4">
-            <button type="button" onClick={() => setSelectedChatId(null)} className="text-[#54656f] md:hidden" aria-label="Voltar">
-              <X className="h-5 w-5" />
+          <header className="z-10 flex h-[59px] items-center gap-3 bg-[#202c33] px-4">
+            <button type="button" onClick={() => setSelectedChatId(null)} className="text-[#aebac1] md:hidden" aria-label="Voltar">
+              <ArrowLeft className="h-5 w-5" />
             </button>
-            <Avatar jid={selectedChat.id} name={selectedChat.name} size={40} />
+            <Avatar jid={chatAvatarJid} name={selectedChat.name} size={40} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[16px] text-[#111b21]">{selectedChat.name}</p>
-              <p className="truncate text-xs text-[#667781]">{formatPhone(selectedChat.phone)}</p>
+              <p className="truncate text-[16px] text-[#e9edef]">{selectedChat.name}</p>
+              <p className="truncate text-xs text-[#8696a0]">{selectedChat.hasName ? formatPhone(selectedChat.phone) : "Contato do WhatsApp"}</p>
             </div>
-            {lead && !lead.ignorado && (lead.etapaPipeline ?? lead.etapa) && (
-              <span className={`hidden rounded-full px-2.5 py-1 text-xs font-medium sm:inline-block ${COR_ETAPA[(lead.etapaPipeline ?? lead.etapa)!]}`}>
-                {lead.etapaPipeline ?? lead.etapa}
-              </span>
-            )}
+            <SeletorEtapa etapa={etapaAtual} onEscolher={mudarEtapa} ocupado={mudandoEtapa} />
             <button
               type="button"
               onClick={() => setPainelIa((v) => !v)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${painelIa ? "bg-[#d9fdd3] text-[#008069]" : "text-[#54656f] hover:bg-black/5"}`}
+              className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${painelIa ? "bg-[#0a332c] text-[#00a884]" : "text-[#aebac1] hover:bg-white/10"}`}
               title="Supervisor AURA"
             >
               <Bot className="h-5 w-5" />
               <span className="hidden sm:inline">Supervisor</span>
-              {alertasChat.length > 0 && <span className="h-2 w-2 rounded-full bg-red-500" />}
+              {(alertasChat.length > 0 || (lead?.alertasIa.length ?? 0) > 0) && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#f15c6d]" />}
             </button>
           </header>
 
@@ -481,17 +562,24 @@ export default function WhatsAppPage() {
             style={FUNDO_CHAT}
           >
             {messages.length === 0 && (
-              <div className="mx-auto mt-6 w-fit rounded-lg bg-[#ffeecd] px-4 py-2 text-center text-xs text-[#54656f] shadow-sm">
+              <div className="mx-auto mt-6 w-fit rounded-lg bg-[#182229] px-4 py-2 text-center text-xs text-[#ffd279]">
                 O histórico antigo não é carregado. As novas mensagens desta conversa aparecem aqui.
               </div>
             )}
             {mensagensComDias.map((item) =>
               item.tipo === "dia" ? (
                 <div key={item.key} className="my-3 flex justify-center">
-                  <span className="rounded-lg bg-white px-3 py-1.5 text-xs text-[#54656f] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">{item.label}</span>
+                  <span className="rounded-lg bg-[#182229] px-3 py-1.5 text-xs text-[#8696a0] shadow">{item.label}</span>
                 </div>
               ) : (
-                <MessageBubble key={item.msg.id} msg={item.msg} primeiraDoGrupo={item.primeira} />
+                <MessageBubble
+                  key={item.msg.id}
+                  msg={item.msg}
+                  primeiraDoGrupo={item.primeira}
+                  onAbrirMidia={setViewerId}
+                  avatarJid={item.msg.fromMe ? state.myJid : chatAvatarJid}
+                  avatarNome={item.msg.fromMe ? state.name ?? "Eu" : selectedChat.name}
+                />
               ),
             )}
           </div>
@@ -509,18 +597,18 @@ export default function WhatsAppPage() {
           />
 
           {arrastando && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[#00a884]/10 text-lg font-medium text-[#008069] ring-4 ring-inset ring-[#00a884]/40">
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[#00a884]/10 text-lg font-medium text-[#00a884] ring-4 ring-inset ring-[#00a884]/40">
               Solte o arquivo para enviar
             </div>
           )}
         </div>
       ) : (
-        <div className="hidden flex-1 flex-col items-center justify-center border-b-[6px] border-[#25d366] bg-[#f0f2f5] text-center md:flex">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#d9fdd3]">
+        <div className="hidden flex-1 flex-col items-center justify-center bg-[#222e35] text-center md:flex">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#0a332c]">
             <Smartphone className="h-12 w-12 text-[#00a884]" />
           </div>
-          <h2 className="mt-6 text-[32px] font-light text-[#41525d]">WhatsApp no AURA</h2>
-          <p className="mt-3 max-w-md text-sm text-[#667781]">
+          <h2 className="mt-6 text-[30px] font-light text-[#e9edef]">WhatsApp no AURA</h2>
+          <p className="mt-3 max-w-md text-sm text-[#8696a0]">
             Envie e receba mensagens, fotos e documentos. O Supervisor AURA acompanha cada conversa, move seus leads no pipeline e avisa quando alguém está esperando resposta.
           </p>
         </div>
@@ -545,43 +633,59 @@ export default function WhatsAppPage() {
         </div>
       )}
 
+      {/* ======================= Visualizador de mídia ======================= */}
+      {viewerId && selectedChat && (
+        <MediaViewer
+          mensagens={messages}
+          abertoId={viewerId}
+          onTrocar={setViewerId}
+          onFechar={() => setViewerId(null)}
+          contatoJid={chatAvatarJid}
+          contatoNome={selectedChat.name}
+          meuJid={state.myJid}
+          meuNome={state.name ?? "Eu"}
+        />
+      )}
+
       {/* ======================= Nova conversa ======================= */}
       {novaAberta && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setNovaAberta(false)}>
-          <div className="w-full max-w-md rounded-lg bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-4 bg-[#008069] px-5 py-4 text-white">
-              <button type="button" onClick={() => setNovaAberta(false)} aria-label="Fechar"><X className="h-5 w-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setNovaAberta(false)}>
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[#111b21] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-4 bg-[#202c33] px-5 py-4 text-[#e9edef]">
+              <button type="button" onClick={() => setNovaAberta(false)} aria-label="Fechar">
+                <X className="h-5 w-5" />
+              </button>
               <h3 className="text-lg">Nova conversa</h3>
             </div>
             <div className="space-y-4 p-5">
-              <label className="block text-sm text-[#008069]">
+              <label className="block text-sm text-[#00a884]">
                 Número com DDD
                 <input
                   type="tel"
                   value={novoNumero}
                   onChange={(e) => setNovoNumero(e.target.value)}
                   placeholder="54 99999-1234"
-                  className="mt-1 w-full border-b-2 border-[#00a884] bg-transparent py-2 text-[15px] text-[#111b21] outline-none"
+                  className="mt-1 w-full border-b-2 border-[#00a884] bg-transparent py-2 text-[15px] text-[#e9edef] outline-none placeholder:text-[#8696a0]"
                   autoFocus
                 />
               </label>
-              <label className="block text-sm text-[#008069]">
+              <label className="block text-sm text-[#00a884]">
                 Mensagem
                 <textarea
                   value={novoTexto}
                   onChange={(e) => setNovoTexto(e.target.value)}
                   rows={4}
                   placeholder="Olá! Aqui é da LF Lareiras…"
-                  className="mt-1 w-full rounded-md border border-[#d1d7db] px-3 py-2 text-[15px] text-[#111b21] outline-none focus:border-[#00a884]"
+                  className="mt-1 w-full rounded-md bg-[#2a3942] px-3 py-2 text-[15px] text-[#e9edef] outline-none placeholder:text-[#8696a0]"
                 />
               </label>
-              {novoErro && <p className="text-sm text-red-600">{novoErro}</p>}
+              {novoErro && <p className="text-sm text-[#f15c6d]">{novoErro}</p>}
               <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={iniciarConversa}
                   disabled={novoEnviando}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00a884] text-white shadow hover:bg-[#06cf9c] disabled:opacity-60"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00a884] text-[#111b21] shadow hover:bg-[#06cf9c] disabled:opacity-60"
                   aria-label="Enviar"
                 >
                   {novoEnviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}

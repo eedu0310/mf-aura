@@ -40,7 +40,7 @@ const unauthorized = () => NextResponse.json({ error: "Faça login novamente." }
  * GET                → estado da conexão, conversas, leads e alertas
  * GET ?chat=<jid>    → mensagens + alertas da conversa
  * GET ?lead=<jid>    → análise do Supervisor AURA para a conversa
- * GET ?avatar=<jid>  → redireciona para a foto de perfil (404 se não houver)
+ * GET ?avatar=<jid>  → { url } da foto de perfil (null se não houver)
  * GET ?media=<id>    → arquivo da mensagem (foto, vídeo, áudio, documento)
  */
 export async function GET(request: NextRequest) {
@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
 
   const avatar = sp.get("avatar");
   if (avatar) {
+    // JSON (e não redirect/404) para não sujar o console quando o contato não tem foto.
     const url = await getAvatar(userId, avatar);
-    if (!url) return new NextResponse(null, { status: 404 });
-    return NextResponse.redirect(url, { headers: { "Cache-Control": "private, max-age=3600" } });
+    return NextResponse.json({ url }, { headers: { "Cache-Control": "private, max-age=1800" } });
   }
 
   const media = sp.get("media");
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       return new NextResponse(new Uint8Array(file.buffer), { headers });
     } catch (e: any) {
       console.error("[api/whatsapp/live] media:", e?.message ?? e);
-      return NextResponse.json({ error: "Não foi possível baixar o arquivo." }, { status: 502 });
+      return NextResponse.json({ error: "Não foi possível baixar o arquivo." }, { status: 404 });
     }
   }
 

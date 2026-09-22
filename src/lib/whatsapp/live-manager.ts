@@ -30,7 +30,11 @@ export interface WaMessage {
 
 export interface WaChat {
   id: string;
+  /** JID com o número de telefone (quando a conversa vem como @lid). */
+  pnJid: string | null;
   name: string;
+  /** true quando `name` veio do WhatsApp (pushName/contato) e não do número. */
+  hasName: boolean;
   phone: string;
   lastMessage: string;
   lastFromMe: boolean;
@@ -205,6 +209,31 @@ function phoneFromJid(jid: string) {
   return jid.split("@")[0].split(":")[0];
 }
 
+export function formatPhoneBr(phone: string) {
+  const d = phone.replace(/\D/g, "");
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) {
+    const rest = d.slice(4);
+    return `+55 ${d.slice(2, 4)} ${rest.slice(0, rest.length - 4)}-${rest.slice(-4)}`;
+  }
+  return d.length > 13 ? "Contato" : `+${d}`;
+}
+
+/** Baileys 7 identifica alguns contatos por LID; aqui buscamos o número real. */
+async function resolvePn(s: WaSession, chat: WaChat) {
+  if (chat.pnJid || !chat.id.endsWith("@lid") || !s.sock) return;
+  try {
+    const pn: string | null = await s.sock.signalRepository?.lidMapping?.getPNForLID?.(chat.id);
+    if (pn) {
+      const pnJid = `${phoneFromJid(pn)}@s.whatsapp.net`;
+      chat.pnJid = pnJid;
+      chat.phone = phoneFromJid(pnJid);
+      if (!chat.hasName) chat.name = formatPhoneBr(chat.phone);
+    }
+  } catch {
+    /* sem mapeamento ainda */
+  }
+}
+
 function toMillis(ts: any): number {
   if (!ts) return Date.now();
   const n = typeof ts === "number" ? ts : Number(ts?.toString?.() ?? ts);
@@ -245,10 +274,14 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
   }
 
   const altJid: string | undefined = msg.key.remoteJidAlt ?? msg.key.senderPn;
-  const phone = phoneFromJid(altJid && altJid.includes("@s.whatsapp.net") ? altJid : jid);
-  const chat: WaChat = s.chats.get(jid) ?? {
+  const pnJid = jid.endsWith("@s.whatsapp.net") ? jid : altJid?.endsWith("@s.whatsapp.net") ? altJid : null;
+  const phone = phoneFromJid(pnJid ?? jid);
+  const existente = s.chats.get(jid);
+  const chat: WaChat = existente ?? {
     id: jid,
-    name: phone,
+    pnJid,
+    name: pnJid ? formatPhoneBr(phone) : "Contato",
+    hasName: false,
     phone,
     lastMessage: "",
     lastFromMe: false,
@@ -256,7 +289,16 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     timestamp: 0,
     unread: 0,
   };
-  if (!fromMe && msg.pushName) chat.name = msg.pushName;
+  if (pnJid && !chat.pnJid) {
+    chat.pnJid = pnJid;
+    chat.phone = phone;
+    if (!chat.hasName) chat.name = formatPhoneBr(phone);
+  }
+  if (!fromMe && msg.pushName) {
+    chat.name = msg.pushName;
+    chat.hasName = true;
+  }
+  if (!chat.pnJid) void resolvePn(s, chat);
   if (timestamp >= chat.timestamp) {
     chat.lastMessage = previewOf(item);
     chat.lastFromMe = fromMe;
@@ -391,7 +433,10 @@ export async function startSession(userId: string): Promise<WaSession> {
       for (const m of messages ?? []) addMessage(s, m, false);
       for (const c of contacts ?? []) {
         const chat = s.chats.get(c.id);
-        if (chat && (c.name || c.notify)) chat.name = c.name ?? c.notify;
+        if (chat && (c.name || c.notify)) {
+          chat.name = c.name ?? c.notify;
+          chat.hasName = true;
+        }
       }
     });
 
@@ -411,7 +456,10 @@ export async function startSession(userId: string): Promise<WaSession> {
     sock.ev.on("contacts.upsert", (contacts: any[]) => {
       for (const c of contacts ?? []) {
         const chat = s.chats.get(c.id);
-        if (chat && (c.name || c.notify)) chat.name = c.name ?? c.notify;
+        if (chat && (c.name || c.notify)) {
+          chat.name = c.name ?? c.notify;
+          chat.hasName = true;
+        }
       }
     });
   } catch (e: any) {
@@ -485,34 +533,72 @@ export async function getAvatar(userId: string, jid: string): Promise<string | n
   if (!s?.sock) return null;
   const cached = s.avatars.get(jid);
   if (cached && Date.now() - cached.at < AVATAR_TTL) return cached.url;
+  const chat = s.chats.get(jid);
+  if (chat && !chat.pnJid) await resolvePn(s, chat);
+  const alvos = [chat?.pnJid, jid].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);
   let url: string | null = null;
-  try {
-    url = (await s.sock.profilePictureUrl(jid, "preview", 8000)) ?? null;
-  } catch {
-    url = null;
+  for (const alvo of alvos) {
+    try {
+      url = (await s.sock.profilePictureUrl(alvo, "preview", 8000)) ?? null;
+    } catch {
+      url = null;
+    }
+    if (url) break;
   }
   s.avatars.set(jid, { url, at: Date.now() });
   return url;
 }
 
-/** Baixa a mídia (foto, vídeo, áudio, documento) de uma mensagem. */
+function mediaDir(userId: string) {
+  return path.join(authDir(userId), "..", "_media", userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+}
+
+function mediaPath(userId: string, msgId: string) {
+  return path.join(mediaDir(userId), msgId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+}
+
+function saveMediaCache(userId: string, msgId: string, buffer: Buffer) {
+  try {
+    fs.mkdirSync(mediaDir(userId), { recursive: true });
+    fs.writeFileSync(mediaPath(userId, msgId), buffer);
+  } catch (e) {
+    console.error("[whatsapp] cache de mídia:", e);
+  }
+}
+
+/** Baixa a mídia (foto, vídeo, áudio, documento) de uma mensagem, com cache em disco. */
 export async function getMedia(userId: string, msgId: string) {
   const s = sessions.get(userId);
   const raw = s?.raw.get(msgId);
+  const parsed = raw ? parseMessage(raw.message) : null;
+  const meta = (() => {
+    if (parsed) return parsed;
+    for (const list of s?.messages.values() ?? []) {
+      const m = list.find((x) => x.id === msgId);
+      if (m) return m;
+    }
+    return null;
+  })();
+  const info = { mimetype: meta?.mimetype ?? "application/octet-stream", fileName: meta?.fileName };
+
+  const cachePath = mediaPath(userId, msgId);
+  if (fs.existsSync(cachePath)) return { buffer: fs.readFileSync(cachePath), ...info };
   if (!s || !raw) return null;
+
   const B = await loadBaileys();
-  const buffer: Buffer = await B.downloadMediaMessage(
-    raw,
-    "buffer",
-    {},
-    { logger: pino({ level: "silent" }), reuploadRequest: s.sock?.updateMediaMessage },
-  );
-  const parsed = parseMessage(raw.message);
-  return {
-    buffer,
-    mimetype: parsed?.mimetype ?? "application/octet-stream",
-    fileName: parsed?.fileName,
-  };
+  const ctx = { logger: pino({ level: "silent" }), reuploadRequest: (m: any) => s.sock.updateMediaMessage(m) };
+  let buffer: Buffer;
+  try {
+    buffer = await B.downloadMediaMessage(raw, "buffer", {}, ctx);
+  } catch (e: any) {
+    // Link de mídia expirado: pede ao celular para reenviar e tenta de novo.
+    console.warn(`[whatsapp] mídia ${msgId}: ${e?.message ?? e} — tentando reenvio`);
+    if (!s.sock) throw e;
+    const atualizado = await s.sock.updateMediaMessage(raw);
+    buffer = await B.downloadMediaMessage(atualizado, "buffer", {}, ctx);
+  }
+  saveMediaCache(userId, msgId, buffer);
+  return { buffer, ...info };
 }
 
 /** Resolve um número digitado (ex.: 54 99999-1234) para o JID do WhatsApp. */
@@ -577,6 +663,7 @@ export async function sendFile(
     content = { document: buffer, mimetype, fileName, caption };
   }
   const sent = await s.sock.sendMessage(jid, content);
+  if (sent?.key?.id) saveMediaCache(userId, sent.key.id, buffer);
   await afterSend(s, jid, sent);
   return { chatId: jid };
 }
