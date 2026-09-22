@@ -1,0 +1,11 @@
+-- Corrige: excluir um relacionamento fazia ele "voltar".
+-- O ON DELETE SET NULL limpava atividades.relacionamento_id e o trigger
+-- aura_sync_atividade_relacionamento, ao ver a atividade sem vínculo e com
+-- cliente_nome, recriava o relacionamento na hora. Agora o vínculo automático
+-- só acontece no INSERT ou quando a atividade nunca teve vínculo.
+-- (Aplicado no Supabase em 22/09/2026. Trecho alterado abaixo; o restante da
+--  função é igual ao da migration original.)
+--
+--   IF NEW.relacionamento_id IS NULL
+--      AND (TG_OP = 'INSERT' OR OLD.relacionamento_id IS NULL)
+--      AND NULLIF(btrim(COALESCE(NEW.cliente_nome, NEW.contexto, '')), '') IS NOT NULL THEN
