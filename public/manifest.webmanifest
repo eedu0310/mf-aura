@@ -1,0 +1,28 @@
+{
+  "name": "AURA | Sales OS",
+  "short_name": "AURA",
+  "description": "Alta performance não acontece por acaso. Ela é construída todos os dias.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f8f8",
+  "theme_color": "#071f24",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/aura-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/aura-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+"use client";
+
+import { useState } from "react";
+import { BarChart3, Settings, Users, Megaphone } from "lucide-react";
+import { DashboardTab } from "@/components/gestor/dashboard-tab";
+import { UsuariosTab } from "@/components/gestor/usuarios-tab";
+import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
+import { MarketingTab } from "@/components/gestor/marketing-tab";
+
+ type AbaGestor = "dashboard" | "usuarios" | "configuracoes" | "marketing";
+
+const ABAS: Array<{
+  id: AbaGestor;
+  label: string;
+  descricao: string;
+  icon: typeof BarChart3;
+}> = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    descricao: "Visão comercial, equipe e resultados",
+    icon: BarChart3,
+  },
+  {
+    id: "usuarios",
+    label: "Usuários",
+    descricao: "Gerencie os acessos da empresa",
+    icon: Users,
+  },
+  {
+    id: "configuracoes",
+    label: "Configurações",
+    descricao: "Base de conhecimento e regras do CRM",
+    icon: Settings,
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    descricao: "Dashboard, usuários e configurações de marketing",
+    icon: Megaphone,
+  },
+];
+
+export default function GestorPage() {
+  const [aba, setAba] = useState<AbaGestor>("dashboard");
+
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
+      <header>
+        <p className="font-display text-xl font-semibold text-aura-graphite">
+          Painel do Gestor
+        </p>
+        <p className="text-sm text-aura-graphite-soft">
+          Gerencie resultados, equipe, configurações e marketing em áreas separadas.
+        </p>
+      </header>
+
+      <nav
+        className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-4"
+        aria-label="Navegação do painel do gestor"
+      >
+        {ABAS.map((item) => {
+          const Icon = item.icon;
+          const ativa = aba === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setAba(item.id)}
+              className={`flex items-start gap-3 rounded-xl px-4 py-3 text-left transition ${
+                ativa
+                  ? "bg-aura-navy-950 text-white"
+                  : "text-aura-graphite hover:bg-aura-bg"
+              }`}
+              aria-selected={ativa}
+            >
+              <Icon
+                size={18}
+                className={ativa ? "mt-0.5 text-aura-gold" : "mt-0.5 text-aura-petrol-600"}
+              />
+              <span>
+                <span className="block text-sm font-semibold">{item.label}</span>
+                <span className={`mt-0.5 block text-xs ${ativa ? "text-white/60" : "text-aura-graphite-soft"}`}>
+                  {item.descricao}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {aba === "dashboard" && <DashboardTab />}
+      {aba === "usuarios" && <UsuariosTab />}
+      {aba === "configuracoes" && <ConfiguracoesTab />}
+      {aba === "marketing" && <MarketingTab />}
+    </div>
+  );
+}

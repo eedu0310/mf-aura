@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  /* Marca — Azul Petróleo */
+  --aura-petrol-950: #071f24;
+  --aura-petrol-900: #0a2e34;
+  --aura-petrol-700: #0e4c56;
+  --aura-petrol-600: #12626f;
+  --aura-petrol-500: #1a8496;
+  --aura-petrol-400: #3aa4b4;
+
+  /* Neutros */
+  --aura-bg: #f5f8f8;
+  --aura-surface: #ffffff;
+  --aura-mist: #e3ebec;
+  --aura-graphite: #17282b;
+  --aura-graphite-soft: #4c6165;
+
+  /* Estados */
+  --aura-success: #1f9b6e;
+  --aura-warning: #d99a1b;
+  --aura-danger: #d1483f;
+  --aura-gold: #d4a441;
+  --aura-gold-soft: #e8c583;
+
+  /* Navy — usado no dashboard (sidebar, painel AURA Coach) */
+  --aura-navy-950: #0a1622;
+  --aura-navy-900: #0e1e2e;
+  --aura-navy-800: #142838;
+  --aura-navy-700: #1c3648;
+}
+
+@theme inline {
+  --color-aura-petrol-950: var(--aura-petrol-950);
+  --color-aura-petrol-900: var(--aura-petrol-900);
+  --color-aura-petrol-700: var(--aura-petrol-700);
+  --color-aura-petrol-600: var(--aura-petrol-600);
+  --color-aura-petrol-500: var(--aura-petrol-500);
+  --color-aura-petrol-400: var(--aura-petrol-400);
+
+  --color-aura-bg: var(--aura-bg);
+  --color-aura-surface: var(--aura-surface);
+  --color-aura-mist: var(--aura-mist);
+  --color-aura-graphite: var(--aura-graphite);
+  --color-aura-graphite-soft: var(--aura-graphite-soft);
+
+  --color-aura-success: var(--aura-success);
+  --color-aura-warning: var(--aura-warning);
+  --color-aura-danger: var(--aura-danger);
+  --color-aura-gold: var(--aura-gold);
+  --color-aura-gold-soft: var(--aura-gold-soft);
+
+  --color-aura-navy-950: var(--aura-navy-950);
+  --color-aura-navy-900: var(--aura-navy-900);
+  --color-aura-navy-800: var(--aura-navy-800);
+  --color-aura-navy-700: var(--aura-navy-700);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+@keyframes aura-breathe {
+  0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.85; }
+  50% { transform: scale(1.06) translate(1%, -1%); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aura-glow { animation: none !important; }
+}
