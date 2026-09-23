@@ -52,22 +52,10 @@ export function PosVendaModal({
   const [comentarioAvaliacao, setComentarioAvaliacao] = useState(pv.comentarioAvaliacao ?? "");
   const [salvando, setSalvando] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
-  const [telefoneCliente, setTelefoneCliente] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    supabase
-      .from("relacionamentos")
-      .select("telefone")
-      .ilike("nome", `%${pv.cliente}%`)
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.telefone) setTelefoneCliente(data.telefone);
-      });
-     
-  }, [pv.cliente]);
+  // O telefone vem junto do pós-venda (o banco preenche a partir do cliente).
+  // Antes era procurado por semelhança de nome, o que podia trazer o número
+  // de outro cliente.
+  const telefoneCliente = pv.telefone;
 
   function linkAvaliacao() {
     return `${window.location.origin}/avaliar/${pv.tokenAvaliacao}`;

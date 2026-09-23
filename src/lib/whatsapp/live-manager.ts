@@ -58,6 +58,12 @@ interface WaSession {
   ciclosQr: number;
   /** A conexão chegou a abrir alguma vez desde que o app subiu? */
   jaAbriu: boolean;
+  /** Quando começou a tentar conectar (para destravar sozinho). */
+  conectandoDesde: number | null;
+  /** Vigia: se o QR não vier a tempo, avisa em vez de ficar rodando. */
+  vigia: ReturnType<typeof setTimeout> | null;
+  /** O WhatsApp recusou a versão buscada na internet? Usa a embutida. */
+  usarVersaoEmbutida: boolean;
   chats: Map<string, WaChat>;
   messages: Map<string, WaMessage[]>;
   raw: Map<string, any>;
@@ -92,6 +98,22 @@ function authDir(userId: string) {
   return path.join(SESSIONS_DIR, userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
 }
 
+/**
+ * Registra o passo a passo da conexão num arquivo, além do terminal.
+ * Serve para descobrir onde a conexão parou sem precisar ficar olhando o
+ * terminal do servidor: .whatsapp-sessions/diagnostico.log
+ */
+function anotar(mensagem: string) {
+  const linha = `${new Date().toISOString()} ${mensagem}`;
+  console.log(`[whatsapp] ${mensagem}`);
+  try {
+    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+    fs.appendFileSync(path.join(SESSIONS_DIR, "diagnostico.log"), linha + "\n");
+  } catch {
+    /* o log é só apoio; nunca derruba a conexão */
+  }
+}
+
 function getOrCreate(userId: string): WaSession {
   let s = sessions.get(userId);
   if (!s) {
@@ -108,6 +130,9 @@ function getOrCreate(userId: string): WaSession {
       reconnects: 0,
       ciclosQr: 0,
       jaAbriu: false,
+      conectandoDesde: null,
+      vigia: null,
+      usarVersaoEmbutida: false,
       chats: new Map(),
       messages: new Map(),
       raw: new Map(),
@@ -123,6 +148,11 @@ function getOrCreate(userId: string): WaSession {
   s.names ??= new Map();
   s.ciclosQr ??= 0;
   s.jaAbriu ??= false;
+  s.vigia ??= null;
+  s.usarVersaoEmbutida ??= false;
+  // Sessão que ficou de uma versão anterior do código não tem o carimbo de
+  // hora. Sem isso ela ficaria presa em "conectando" para sempre.
+  if (s.conectandoDesde === undefined) s.conectandoDesde = s.status === "connecting" ? 0 : null;
   return s;
 }
 
@@ -453,12 +483,45 @@ export function hasSavedLogin(userId: string) {
 
 export async function startSession(userId: string): Promise<WaSession> {
   const s = getOrCreate(userId);
+
+  // Sessão presa em "conectando" há muito tempo: derruba e recomeça, em vez
+  // de devolver o mesmo estado travado a cada clique em Conectar.
+  const presa =
+    s.status === "connecting" && Date.now() - (s.conectandoDesde ?? 0) > 30_000;
+  if (presa) {
+    anotar("a tentativa anterior travou; recomeçando do zero");
+    try {
+      s.sock?.end?.(undefined);
+    } catch {
+      /* já estava morto */
+    }
+    s.sock = null;
+    s.status = "disconnected";
+  }
+
   if (s.sock && s.status !== "disconnected") return s;
 
   s.status = "connecting";
   s.error = null;
   s.manualStop = false;
   s.reconnects = 0;
+  s.conectandoDesde = Date.now();
+  if (s.vigia) clearTimeout(s.vigia);
+  // Se em 40 segundos não vier QR nem conexão, o usuário precisa saber.
+  s.vigia = setTimeout(() => {
+    if (s.status === "connecting" && !s.qrDataUrl) {
+      anotar("40s sem QR e sem conexão — provável bloqueio de rede/firewall");
+      s.status = "disconnected";
+      s.error =
+        "Não consegui falar com o WhatsApp em 40 segundos. Verifique a internet do computador (e se algum antivírus ou firewall está bloqueando) e clique em Conectar de novo.";
+      try {
+        s.sock?.end?.(undefined);
+      } catch {
+        /* nada a fazer */
+      }
+      s.sock = null;
+    }
+  }, 40_000);
 
   try {
     const B = await loadBaileys();
@@ -468,22 +531,27 @@ export async function startSession(userId: string): Promise<WaSession> {
     const { state, saveCreds } = await B.useMultiFileAuthState(dir);
 
     // A consulta da versão vai à internet e pode travar; 5s no máximo.
+    // Se o WhatsApp já tiver recusado a versão de lá, vai direto na embutida.
     let version: number[] | undefined;
-    try {
-      const resultado = await Promise.race([
-        B.fetchLatestBaileysVersion(),
-        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
-      ]);
-      version = (resultado as any)?.version;
-      if (!version) console.warn("[whatsapp] versão não veio a tempo; usando a embutida");
-    } catch {
-      version = undefined;
+    if (!s.usarVersaoEmbutida) {
+      try {
+        const resultado = await Promise.race([
+          B.fetchLatestBaileysVersion(),
+          new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+        ]);
+        version = (resultado as any)?.version;
+        if (!version) console.warn("[whatsapp] versão não veio a tempo; usando a embutida");
+      } catch {
+        version = undefined;
+      }
     }
-    console.log(`[whatsapp] abrindo conexão (versão ${version ? version.join(".") : "embutida"})`);
+    anotar(`abrindo conexão (versão ${version ? version.join(".") : "embutida"})`);
 
     const sock = B.makeWASocket({
       auth: state,
-      version,
+      // Só manda a versão quando ela existe: passar `undefined` faz a
+      // biblioteca quebrar em vez de usar a versão que ela já traz.
+      ...(version ? { version } : {}),
       printQRInTerminal: false,
       logger: pino({ level: "silent" }),
       // "Desktop" + syncFullHistory faz o celular mandar o histórico completo
@@ -503,7 +571,9 @@ export async function startSession(userId: string): Promise<WaSession> {
         try {
           s.qrDataUrl = await QRCode.toDataURL(u.qr, { width: 320, margin: 1 });
           s.status = "qr";
-          console.log("[whatsapp] QR code gerado — escaneie pelo celular");
+          if (s.vigia) { clearTimeout(s.vigia); s.vigia = null; }
+          s.conectandoDesde = null;
+          anotar("QR code gerado — escaneie pelo celular");
         } catch (e) {
           s.error = "Falha ao gerar o QR code";
           console.error("[whatsapp] QR:", e);
@@ -512,6 +582,8 @@ export async function startSession(userId: string): Promise<WaSession> {
 
       if (u.connection === "open") {
         s.status = "connected";
+        if (s.vigia) { clearTimeout(s.vigia); s.vigia = null; }
+        s.conectandoDesde = null;
         s.qrDataUrl = null;
         s.error = null;
         s.reconnects = 0;
@@ -520,14 +592,22 @@ export async function startSession(userId: string): Promise<WaSession> {
         s.jid = sock.user?.id ?? null;
         s.phone = sock.user?.id ? phoneFromJid(sock.user.id) : null;
         s.name = sock.user?.name ?? sock.user?.verifiedName ?? null;
-        console.log(`[whatsapp] conectado: ${s.phone} (usuário ${userId})`);
+        anotar(`conectado: ${s.phone}`);
       }
 
       if (u.connection === "close") {
         const code = u.lastDisconnect?.error?.output?.statusCode;
         const wasQr = s.status === "qr";
         s.sock = null;
-        console.log(`[whatsapp] conexão fechada (código ${code})`);
+        anotar(
+          `conexão fechada (código ${code ?? "sem código"}): ${u.lastDisconnect?.error?.message ?? "sem mensagem"}` +
+            ` | detalhe: ${JSON.stringify({
+              nome: u.lastDisconnect?.error?.name,
+              saida: u.lastDisconnect?.error?.output,
+              dados: u.lastDisconnect?.error?.data,
+              pilha: String(u.lastDisconnect?.error?.stack ?? "").split("\n").slice(0, 4).join(" <- "),
+            })}`,
+        );
 
         if (s.manualStop) {
           s.status = "disconnected";
@@ -561,10 +641,24 @@ export async function startSession(userId: string): Promise<WaSession> {
           }
           return;
         }
+        // O WhatsApp derruba o aperto de mão (428) quando não aceita a versão
+        // do protocolo que veio da internet. Tenta uma vez com a embutida.
+        if (!wasQr && !s.qrDataUrl && !s.usarVersaoEmbutida && (code === 428 || code === 405)) {
+          anotar("versão do protocolo recusada; tentando com a versão embutida");
+          s.usarVersaoEmbutida = true;
+          s.reconnects = 0;
+          s.status = "connecting";
+          s.conectandoDesde = Date.now();
+          setTimeout(() => {
+            startSession(userId).catch((e) => anotar(`falha ao reabrir: ${e?.message ?? e}`));
+          }, 800);
+          return;
+        }
+
         // Credenciais salvas que nunca conseguem abrir = sessão velha inválida
         // (o aparelho foi desvinculado pelo celular). Começa do zero com QR.
         if (!s.jaAbriu && !wasQr && hasSavedLogin(userId) && s.reconnects >= 1) {
-          console.log("[whatsapp] sessão salva não abre; recomeçando com QR novo");
+          anotar("sessão salva não abre; recomeçando com QR novo");
           wipeAuth(userId);
           s.reconnects = 0;
           s.status = "connecting";
@@ -573,15 +667,24 @@ export async function startSession(userId: string): Promise<WaSession> {
           }, 500);
           return;
         }
-        if (s.reconnects < 5) {
+        // Se o QR nunca chegou a aparecer, insistir não adianta: o problema é
+        // a conexão com o WhatsApp, e ficar tentando só enche o log.
+        const limite = s.jaAbriu || s.qrDataUrl ? 5 : 2;
+        if (s.reconnects < limite) {
           s.reconnects += 1;
           s.status = "connecting";
+          s.conectandoDesde = Date.now();
           setTimeout(() => {
-            startSession(userId).catch((e) => console.error("[whatsapp] reconexão:", e));
+            startSession(userId).catch((e) => anotar(`reconexão: ${e?.message ?? e}`));
           }, 1500);
         } else {
           s.status = "disconnected";
-          s.error = `Não foi possível manter a conexão (código ${code ?? "?"}). Tente conectar novamente.`;
+          if (s.vigia) { clearTimeout(s.vigia); s.vigia = null; }
+          s.conectandoDesde = null;
+          s.error =
+            s.jaAbriu || s.qrDataUrl
+              ? `A conexão caiu (código ${code ?? "?"}). Clique em Conectar para tentar de novo.`
+              : `O WhatsApp encerrou a conexão (código ${code ?? "?"}) antes de gerar o QR code. Normalmente é o antivírus, o firewall ou a rede do computador bloqueando o acesso a web.whatsapp.com. Tente em outra rede (ou com o antivírus desligado) e clique em Conectar.`;
         }
       }
     });

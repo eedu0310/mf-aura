@@ -31,7 +31,7 @@ export function VendasView() {
   // VERIFICAR CARGO DO USUÁRIO
   // ============================================
 
-  const isGestor = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const isGestor = profile.cargo === "Gestor";
   const empresaUsuario = profile.empresa;
 
   // ============================================
@@ -42,7 +42,7 @@ export function VendasView() {
   let oportunidadesVisíveis: Oportunidade[] = [];
 
   if (isGestor) {
-    // Gestor/Diretor vê TUDO
+    // Gestor vê TUDO
     vendasVisiveis = vendas;
     oportunidadesVisíveis = oportunidades.filter((o) => o.etapa === "Fechados");
   } else {

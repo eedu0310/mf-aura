@@ -19,7 +19,7 @@ function formatarPeriodo(inicio: string, fim: string) {
 
 export default function RelatoriosPage() {
   const { profile } = useUserProfile();
-  const vejoTudo = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const vejoTudo = profile.cargo === "Gestor";
   const [relatorios, setRelatorios] = useState<RelatorioPeriodico[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [gerando, setGerando] = useState<TipoRelatorio | null>(null);

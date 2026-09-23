@@ -7,13 +7,7 @@ import { Search, Bell, ChevronDown, Settings, LogOut, User } from "lucide-react"
 import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
-
-function saudacaoPorHorario() {
-  const hora = new Date().getHours();
-  if (hora < 12) return "Bom dia";
-  if (hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
+import { saudacaoDoDia } from "@/lib/date-local";
 
 export function VendorTopbar() {
   const router = useRouter();
@@ -64,7 +58,7 @@ export function VendorTopbar() {
     <header className="relative z-50 flex flex-col gap-4 border-b border-aura-mist bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5">
       <div>
         <h1 className="font-display text-2xl font-bold text-aura-graphite">
-          {saudacaoPorHorario()}, {nome}! 👋
+          {saudacaoDoDia()}, {nome}! 👋
         </h1>
         <p className="text-sm text-aura-graphite-soft">
           Vamos juntos fazer hoje ainda melhor que ontem.

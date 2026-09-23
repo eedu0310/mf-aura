@@ -43,7 +43,7 @@ export function AuraCoachChat() {
     const supabase = getSupabaseBrowserClient();
     const [compromissos, posVendasRaw, equipe, leads, userRes, compromissoMensal] = await Promise.all([
       listarCompromissos().then((r) => r ?? []),
-      ["Pós-venda", "Gestor", "Diretor"].includes(profile.cargo) ? listarPosVendas() : Promise.resolve(null),
+      ["Pós-venda", "Gestor"].includes(profile.cargo) ? listarPosVendas() : Promise.resolve(null),
       carregarEquipe(),
       listarLeads(),
       supabase ? supabase.auth.getUser() : Promise.resolve(null),
@@ -199,7 +199,7 @@ export function AuraCoachChat() {
       const supabase = getSupabaseBrowserClient();
       const [compromissos, posVendasRaw, equipe, leads, userRes, compromissoMensal] = await Promise.all([
         listarCompromissos().then((r) => r ?? []),
-        ["Pós-venda", "Gestor", "Diretor"].includes(profile.cargo) ? listarPosVendas() : Promise.resolve(null),
+        ["Pós-venda", "Gestor"].includes(profile.cargo) ? listarPosVendas() : Promise.resolve(null),
         carregarEquipe(),
         listarLeads(),
         supabase ? supabase.auth.getUser() : Promise.resolve(null),

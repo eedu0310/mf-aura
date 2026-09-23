@@ -151,7 +151,7 @@ function MiniCalendario({
 
 export function CalendarioPostagens() {
   const { profile } = useUserProfile();
-  const podeAprovar = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const podeAprovar = profile.cargo === "Gestor";
   const podeCriar = profile.cargo === "Marketing" || podeAprovar;
 
   const [postagens, setPostagens] = useState<PostagemMarketing[]>([]);

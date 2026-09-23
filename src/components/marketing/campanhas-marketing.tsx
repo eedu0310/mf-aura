@@ -29,7 +29,7 @@ function formatarMoeda(valor: number) {
 
 export function CampanhasMarketing() {
   const { profile } = useUserProfile();
-  const podeGerenciar = profile.cargo === "Marketing" || profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const podeGerenciar = profile.cargo === "Marketing" || profile.cargo === "Gestor";
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [carregando, setCarregando] = useState(true);

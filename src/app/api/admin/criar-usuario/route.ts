@@ -5,7 +5,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CARGOS = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing", "Gestor", "Diretor"];
+const CARGOS = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing", "Gestor"];
 
 /**
  * Cria o acesso de um novo integrante da equipe.
@@ -18,16 +18,16 @@ const CARGOS = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing"
 export async function POST(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
-  if (!["Gestor", "Diretor"].includes(auth.cargo)) {
-    return NextResponse.json({ erro: "Só Gestor ou Diretor podem criar usuários." }, { status: 403 });
+  if (!["Gestor"].includes(auth.cargo)) {
+    return NextResponse.json({ erro: "Só o Gestor pode criar usuários." }, { status: 403 });
   }
 
   const corpo = await request.json().catch(() => ({}));
   const nome = String(corpo.nome ?? "").trim();
   const email = String(corpo.email ?? "").trim().toLowerCase();
   const cargo = String(corpo.cargo ?? "").trim();
-  // O Gestor cria sempre na própria loja; o Diretor pode escolher.
-  const empresa = auth.cargo === "Diretor" && corpo.empresa ? String(corpo.empresa).trim() : auth.empresa;
+  // O Gestor enxerga todas as lojas, então pode escolher em qual criar.
+  const empresa = corpo.empresa ? String(corpo.empresa).trim() : auth.empresa;
 
   if (!nome || !email) return NextResponse.json({ erro: "Informe o nome e o e-mail." }, { status: 400 });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {

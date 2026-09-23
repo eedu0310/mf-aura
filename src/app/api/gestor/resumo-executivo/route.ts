@@ -10,8 +10,8 @@ export async function POST() {
   if (!auth) {
     return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
   }
-  if (!["Gestor", "Diretor"].includes(auth.cargo)) {
-    return NextResponse.json({ erro: "Só Gestor ou Diretor podem gerar esse resumo." }, { status: 403 });
+  if (!["Gestor"].includes(auth.cargo)) {
+    return NextResponse.json({ erro: "Só o Gestor pode gerar esse resumo." }, { status: 403 });
   }
 
   const openai = getOpenAIClient();

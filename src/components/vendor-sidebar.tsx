@@ -51,7 +51,7 @@ export function VendorSidebar() {
         </Link>
       </nav>
 
-      {/* Só Gestor e Diretor enxergam as outras áreas */}
+      {/* Só O Gestor enxergam as outras áreas */}
       {itensGestao.length > 0 && (
         <div className="mt-4 border-t border-white/10 pt-4">
           <p className="mb-2 px-3 text-[0.65rem] font-semibold uppercase tracking-wide text-white/35">

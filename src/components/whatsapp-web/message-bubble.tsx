@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Check, CheckCheck, Clock, Download, FileText, ImageOff, MapPin, Mic, Pause, Play } from "lucide-react";
 import { Avatar } from "./avatar";
 import { API, formatHour, type WaMessage } from "./types";
@@ -47,7 +47,9 @@ function NotaDeVoz({ msg, avatarJid, avatarNome }: { msg: WaMessage; avatarJid: 
   const [atual, setAtual] = useState(0);
   const [duracao, setDuracao] = useState(0);
   const [erro, setErro] = useState(false);
-  const ondas = useRef(barras(msg.id)).current;
+  // As barras são sempre as mesmas para a mesma mensagem, então basta calcular
+  // uma vez por id — ler .current durante a renderização é proibido pelo React.
+  const ondas = useMemo(() => barras(msg.id), [msg.id]);
   const progresso = duracao ? atual / duracao : 0;
 
   useEffect(() => () => ref.current?.pause(), []);

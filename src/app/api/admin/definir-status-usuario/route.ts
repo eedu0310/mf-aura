@@ -15,8 +15,8 @@ export async function POST(request: Request) {
   if (!auth) {
     return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
   }
-  if (!["Gestor", "Diretor"].includes(auth.cargo)) {
-    return NextResponse.json({ erro: "Só Gestor ou Diretor podem fazer isso." }, { status: 403 });
+  if (!["Gestor"].includes(auth.cargo)) {
+    return NextResponse.json({ erro: "Só o Gestor pode fazer isso." }, { status: 403 });
   }
 
   const { usuarioId, ativo } = await request.json();
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   if (!alvo) {
     return NextResponse.json({ erro: "Usuário não encontrado." }, { status: 404 });
   }
-  // Gestor e Diretor agora têm acesso total às 4 lojas — sem
+  // O Gestor agora têm acesso total às 4 lojas — sem
   // restrição adicional aqui além de já ser um dos dois papéis
   // (verificado acima).
 

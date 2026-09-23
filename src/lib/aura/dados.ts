@@ -109,7 +109,7 @@ export interface DadosCrm {
 const num = (v: unknown) => (v == null ? 0 : Number(v) || 0);
 
 export function podeVerTudo(cargo: string | null | undefined) {
-  return cargo === "Gestor" || cargo === "Diretor";
+  return cargo === "Gestor";
 }
 
 export async function carregarDados(

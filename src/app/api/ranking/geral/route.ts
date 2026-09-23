@@ -14,7 +14,7 @@ export async function GET() {
   // Esta rota usa a chave de serviço (ignora as regras do banco), então o
   // recorte por loja precisa ser feito aqui: vendedor vê só a própria loja,
   // gestor e diretor veem todas.
-  const vejoTudo = ["Gestor", "Diretor"].includes(auth.cargo);
+  const vejoTudo = ["Gestor"].includes(auth.cargo);
   const daMinhaLoja = <T extends { empresa?: string | null }>(q: any) =>
     vejoTudo ? q : q.eq("empresa", auth.empresa);
 

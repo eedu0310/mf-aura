@@ -29,8 +29,7 @@ function doBanco(linha: Record<string, unknown>): MetaAtividade {
   };
 }
 
-/** Gestor/Diretor: todas as metas de atividade da loja (ou das 4,
- *  se Diretor), de todos os vendedores de uma vez. */
+/** Gestor: todas as metas de atividade de todos os vendedores de uma vez. */
 export async function listarMetasAtividade(): Promise<MetaAtividade[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];

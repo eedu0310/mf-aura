@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const arquivo = formData.get("arquivo");
-  const todasLojas = formData.get("todasLojas") === "1" && auth.cargo === "Diretor";
+  const todasLojas = formData.get("todasLojas") === "1" && auth.cargo === "Gestor";
 
   if (!arquivo || !(arquivo instanceof File)) {
     return NextResponse.json({ erro: "Nenhum arquivo recebido." }, { status: 400 });

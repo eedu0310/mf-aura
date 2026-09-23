@@ -131,7 +131,7 @@ export async function gerarRecados(opts: {
   const client = ai();
   if (!client) return regras;
 
-  const gestor = opts.pessoa.cargo === "Gestor" || opts.pessoa.cargo === "Diretor";
+  const gestor = opts.pessoa.cargo === "Gestor";
   const system = `Você é a AURA, supervisora comercial com IA do CRM de uma empresa de lareiras, churrasqueiras e aquecimento (lojas LF Lareiras e MF International). Você acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
 
 REGRAS DE ESCRITA (muito importante — vendedor não lê texto longo):

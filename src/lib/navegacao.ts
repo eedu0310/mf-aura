@@ -83,10 +83,10 @@ export function menuDoCargo(cargo?: string | null): ItemMenu[] {
   return VENDEDOR;
 }
 
-/** Atalhos que só Gestor e Diretor enxergam, para supervisionar as outras áreas. */
+/** Atalhos que só O Gestor enxergam, para supervisionar as outras áreas. */
 export function menuDeGestao(cargo?: string | null): ItemMenu[] {
   const c = normalizar(cargo);
-  if (c !== "gestor" && c !== "diretor") return [];
+  if (c !== "gestor") return [];
   return [
     { href: "/gestor", label: "Visão do Gestor", icon: LayoutDashboard },
     { href: "/leads", label: "Leads", icon: UserPlus },

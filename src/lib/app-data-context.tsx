@@ -134,7 +134,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     Record<string, string>
   >({});
   const vejoTudoInicial =
-    profile.cargo === "Gestor" || profile.cargo === "Diretor";
+    profile.cargo === "Gestor";
 
   useEffect(() => {
     if (!supabase || perfilCarregando || !empresaAtual) {
@@ -335,7 +335,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, [supabase, empresaAtual]);
 
-  const vejoTudo = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const vejoTudo = profile.cargo === "Gestor";
   const relacionamentos = vejoTudo
     ? todosRelacionamentos
     : todosRelacionamentos.filter((r) => r.empresa === empresaAtual);

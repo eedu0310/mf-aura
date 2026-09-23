@@ -20,7 +20,7 @@ async function sessao() {
   return { sb, userId: data.user.id, empresa: perfil.empresa as string, cargo: perfil.cargo as string };
 }
 
-const podeEditar = (cargo: string) => ["Gestor", "Diretor"].includes(cargo);
+const podeEditar = (cargo: string) => ["Gestor"].includes(cargo);
 
 /** GET — lista os materiais da loja (sem o texto inteiro). */
 export async function GET(req: NextRequest) {

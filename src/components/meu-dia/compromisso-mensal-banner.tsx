@@ -68,8 +68,8 @@ export function CompromissoMensalBanner() {
     }
   }, [compromisso?.status, compromisso?.notificacao_visualizada, compromisso?.id]);
 
-  // ✅ Se for Gestor ou Diretor, não mostra
-  if (profile.cargo === "Gestor" || profile.cargo === "Diretor") {
+  // ✅ Se for Gestor, não mostra
+  if (profile.cargo === "Gestor") {
     return null;
   }
 

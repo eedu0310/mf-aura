@@ -27,6 +27,8 @@ export interface PosVenda {
   produto: string;
   valor: number;
   dataVenda: string;
+  /** Telefone do cliente, preenchido pelo banco quando a venda é registrada. */
+  telefone: string | null;
 }
 
 interface LinhaPosVenda {
@@ -43,6 +45,7 @@ interface LinhaPosVenda {
   nota_avaliacao: number | null;
   comentario_avaliacao: string | null;
   token_avaliacao: string;
+  telefone: string | null;
   vendas: { cliente: string; produto: string; valor: number; data: string } | null;
 }
 
@@ -65,6 +68,7 @@ function doBanco(linha: LinhaPosVenda): PosVenda {
     produto: linha.vendas?.produto ?? "",
     valor: Number(linha.vendas?.valor ?? 0),
     dataVenda: linha.vendas?.data ?? "",
+    telefone: linha.telefone ?? null,
   };
 }
 

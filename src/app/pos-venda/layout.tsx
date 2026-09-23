@@ -14,7 +14,7 @@ import { RoleGuard } from "@/components/role-guard";
 export default function PosVendaLayout({ children }: { children: React.ReactNode }) {
   return (
     <OnboardingGuard>
-      <RoleGuard papeisPermitidos={["Pós-venda", "Gestor", "Diretor"]}>
+      <RoleGuard papeisPermitidos={["Pós-venda", "Gestor"]}>
         <div className="flex min-h-screen w-full bg-aura-bg">
           <VendorSidebar />
           <MobileNavbar />

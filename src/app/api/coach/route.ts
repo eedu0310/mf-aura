@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenAIClient } from "@/lib/openai-client";
-import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR, PERSONA_DIRETOR } from "@/lib/aura-coach-prompt";
+import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR } from "@/lib/aura-coach-prompt";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import {
   ferramentasParaResponsesAPI,
@@ -27,8 +27,6 @@ function montarSystemPrompt(playbook?: string, contextoDados?: string, permiteAc
 
   if (cargo === "Gestor") {
     prompt += `\n\n${PERSONA_GESTOR}`;
-  } else if (cargo === "Diretor") {
-    prompt += `\n\n${PERSONA_DIRETOR}`;
   }
 
   if (permiteAcoes) {

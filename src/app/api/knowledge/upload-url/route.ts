@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   if (!urlOriginal || typeof urlOriginal !== "string") {
     return NextResponse.json({ erro: "Link ausente." }, { status: 400 });
   }
-  const todasLojas = Boolean(todasLojasBody) && auth.cargo === "Diretor";
+  const todasLojas = Boolean(todasLojasBody) && auth.cargo === "Gestor";
 
   const url = normalizarLinkGoogleDrive(urlOriginal);
   const ehDrive = url !== urlOriginal;

@@ -10,13 +10,7 @@ import { LeadsMarketing } from "@/components/marketing/leads-marketing";
 import { CampanhasMarketing } from "@/components/marketing/campanhas-marketing";
 import { CalendarioPostagens } from "@/components/marketing/calendario-postagens";
 import { PlanilhaConsolidada } from "@/components/gestor/planilha-consolidada";
-
-function saudacaoPorHorario() {
-  const hora = new Date().getHours();
-  if (hora < 12) return "Bom dia";
-  if (hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
+import { saudacaoDoDia } from "@/lib/date-local";
 
 export default function MarketingPage() {
   const router = useRouter();
@@ -44,7 +38,7 @@ export default function MarketingPage() {
                 {abaAtual?.label ?? "Central de Marketing"}
               </p>
               <h1 className="mt-1.5 font-display text-2xl font-bold text-white sm:text-3xl">
-                {saudacaoPorHorario()}, {profile.nome}
+                {saudacaoDoDia()}, {profile.nome}
               </h1>
               <p className="mt-1 text-sm text-white/50">
                 Leads, campanhas, postagens e indicadores da {profile.empresa}

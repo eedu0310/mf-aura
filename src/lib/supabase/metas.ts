@@ -47,7 +47,7 @@ export async function definirMetaDoMes(valor: number): Promise<boolean> {
   return true;
 }
 
-/** Gestor/Diretor: busca a meta do mês de um vendedor específico. */
+/** Gestor: busca a meta do mês de um vendedor específico. */
 export async function buscarMetaDeVendedor(vendedorId: string): Promise<number | null> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
@@ -62,7 +62,7 @@ export async function buscarMetaDeVendedor(vendedorId: string): Promise<number |
   return data ? Number(data.valor_meta) : null;
 }
 
-/** Gestor/Diretor: busca as metas do mês de TODOS os vendedores de
+/** Gestor: busca as metas do mês de TODOS os vendedores de
  *  uma vez (mapa vendedorId -> valor), pra mostrar na equipe. */
 export async function buscarMetasDoMesEquipe(): Promise<Map<string, number>> {
   const mapa = new Map<string, number>();
@@ -80,7 +80,7 @@ export async function buscarMetasDoMesEquipe(): Promise<Map<string, number>> {
   return mapa;
 }
 
-/** Gestor/Diretor: define a meta do mês de um vendedor específico. */
+/** Gestor: define a meta do mês de um vendedor específico. */
 export async function definirMetaDeVendedor(vendedorId: string, valor: number): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return false;

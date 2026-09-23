@@ -4,8 +4,7 @@ export type Cargo =
   | "SDR"
   | "Pós-venda"
   | "Marketing"
-  | "Gestor"
-  | "Diretor";
+  | "Gestor";
 
 export type Etapa =
   | "Prospecção"

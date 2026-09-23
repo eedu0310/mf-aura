@@ -12,7 +12,7 @@ interface Documento {
 
 export function DocumentUploader() {
   const { profile } = useUserProfile();
-  const ehDiretor = profile.cargo === "Diretor";
+  const ehGestor = profile.cargo === "Gestor";
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -144,7 +144,7 @@ export function DocumentUploader() {
         </p>
       )}
 
-      {ehDiretor && (
+      {ehGestor && (
         <label className="mt-3 flex items-center gap-2 text-xs text-aura-graphite-soft">
           <input
             type="checkbox"

@@ -167,7 +167,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
 
   return (
     <OnboardingGuard>
-      <RoleGuard papeisPermitidos={["Marketing", "Gestor", "Diretor"]}>
+      <RoleGuard papeisPermitidos={["Marketing", "Gestor"]}>
         <AbaMarketingContext.Provider value={{ aba, setAba }}>
           <div className="flex min-h-screen flex-col bg-aura-bg sm:flex-row-reverse">
             <BarraLateral aba={aba} setAba={setAba} />

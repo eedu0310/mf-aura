@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (erroConversa || !conversa) {
     return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
   }
-  if (conversa.atendente_id !== auth.userId && !["Gestor", "Diretor"].includes(auth.cargo)) {
+  if (conversa.atendente_id !== auth.userId && !["Gestor"].includes(auth.cargo)) {
     return NextResponse.json({ erro: "Você precisa aceitar essa conversa antes de responder." }, { status: 403 });
   }
 

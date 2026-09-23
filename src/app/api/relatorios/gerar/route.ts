@@ -46,8 +46,8 @@ export async function POST(request: Request) {
     }
 
     if (tipo === "semanal_gestor" || tipo === "mensal_diretor") {
-      if (!["Gestor", "Diretor"].includes(auth.cargo)) {
-        return NextResponse.json({ erro: "Só Gestor ou Diretor podem gerar esse relatório." }, { status: 403 });
+      if (!["Gestor"].includes(auth.cargo)) {
+        return NextResponse.json({ erro: "Só o Gestor pode gerar esse relatório." }, { status: 403 });
       }
       const periodoInicio = tipo === "mensal_diretor" ? inicioDoMes() : inicioDaSemana();
 

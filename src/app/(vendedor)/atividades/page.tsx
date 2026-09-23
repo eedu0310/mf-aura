@@ -75,7 +75,7 @@ export default function AtividadesPage() {
   const [authCarregando, setAuthCarregando] = useState(true);
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
-  const vejoTudo = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+  const vejoTudo = profile.cargo === "Gestor";
 
   useEffect(() => {
     if (!supabase) {

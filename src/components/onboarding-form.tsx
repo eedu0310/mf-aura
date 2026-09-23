@@ -13,9 +13,8 @@ const PAPEIS = [
   { valor: "Vendedor Interno", descricao: "Recebe leads, atendimento e orçamentos", icon: UserPlus },
   { valor: "SDR", descricao: "Pré-qualifica e distribui os leads que chegam", icon: Filter },
   { valor: "Marketing", descricao: "Postagens, calendário e leads gerados", icon: Megaphone },
-  { valor: "Gestor", descricao: "Também vê a equipe e prepara reuniões", icon: Briefcase },
+  { valor: "Gestor", descricao: "Vê a equipe e todas as lojas do grupo", icon: Briefcase },
   { valor: "Pós-venda", descricao: "Acompanha instalação e satisfação do cliente", icon: Wrench },
-  { valor: "Diretor", descricao: "Também vê as 4 empresas do grupo", icon: Building2 },
 ] as const;
 
 export function OnboardingForm() {
