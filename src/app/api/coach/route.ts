@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR } from "@/lib/aura-coach-prompt";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { textoDosMateriais } from "@/lib/aura/materiais";
 import {
   ferramentasParaResponsesAPI,
   executarFerramenta,
@@ -22,7 +23,13 @@ interface CtxExecucao {
   userId: string;
 }
 
-function montarSystemPrompt(playbook?: string, contextoDados?: string, permiteAcoes?: boolean, cargo?: string) {
+function montarSystemPrompt(
+  playbook?: string,
+  contextoDados?: string,
+  permiteAcoes?: boolean,
+  cargo?: string,
+  materiais?: string,
+) {
   let prompt = AURA_COACH_SYSTEM_PROMPT;
 
   if (cargo === "Gestor") {
@@ -35,6 +42,13 @@ function montarSystemPrompt(playbook?: string, contextoDados?: string, permiteAc
 
   if (playbook && playbook.trim()) {
     prompt += `\n\nMANUAL DE VENDAS DA EMPRESA (siga este processo como referência prioritária, acima de conhecimento genérico de vendas):\n"""\n${playbook.trim()}\n"""`;
+  }
+
+  // Materiais que o gestor enviou na Visão do Gestor ("Materiais que a AURA
+  // estuda"): regras da casa, tabela de produtos, scripts. Valem mais que
+  // conhecimento genérico de vendas.
+  if (materiais && materiais.trim()) {
+    prompt += `\n\nMATERIAIS DA EMPRESA (regras da casa, produtos, scripts — responda com base nisto quando a pergunta for sobre política interna, prazo, desconto ou produto):\n"""\n${materiais.trim()}\n"""`;
   }
 
   if (contextoDados) {
@@ -146,6 +160,16 @@ export async function POST(request: Request) {
     vectorStoreId = (data?.vector_store_id as string) ?? null;
   }
 
+  // Biblioteca de materiais da empresa (o gestor envia na Visão do Gestor).
+  let materiais = "";
+  if (auth) {
+    try {
+      materiais = await textoDosMateriais(auth.supabase, auth.empresa);
+    } catch (e) {
+      console.error("[coach] materiais da empresa:", e);
+    }
+  }
+
   if (!auth) {
     return NextResponse.json(
       { erro: "É necessário estar autenticado para usar a AURA com dados reais." },
@@ -168,7 +192,7 @@ export async function POST(request: Request) {
 
       const resposta = await perguntarIA({
         openai,
-        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo),
+        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais),
         mensagens: [
           {
             role: "user",
@@ -194,7 +218,7 @@ export async function POST(request: Request) {
     try {
       const resposta = await perguntarIA({
         openai,
-        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo),
+        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais),
         mensagens: [
           {
             role: "user",
@@ -242,7 +266,7 @@ export async function POST(request: Request) {
 
     const resposta = await perguntarIA({
       openai,
-      systemPrompt: montarSystemPrompt(body.playbook, contextoDados, Boolean(ctx), auth?.cargo),
+      systemPrompt: montarSystemPrompt(body.playbook, contextoDados, Boolean(ctx), auth?.cargo, materiais),
       mensagens: mensagens.map((m) => ({
         role: m.autor === "usuario" ? "user" : "assistant",
         content: m.texto,
