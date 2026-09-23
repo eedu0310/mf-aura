@@ -36,24 +36,16 @@ export function UsuariosTab() {
   }, []);
 
   async function carregar() {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setCarregando(false);
-      return;
-    }
-
     try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("empresa", profile.empresa)
-        .order("created_at", { ascending: false });
-
-      if (data) {
-        setUsuarios(data as Usuario[]);
-      }
-    } catch (erro) {
+      // Pelo servidor, para vir junto o e-mail de acesso de cada pessoa — ele
+      // não fica na tabela de perfis.
+      const resposta = await fetch("/api/admin/usuarios", { cache: "no-store" });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui carregar a equipe.");
+      setUsuarios((dados.usuarios ?? []) as Usuario[]);
+    } catch (erro: any) {
       console.error("Erro ao carregar usuários:", erro);
+      setErroForm(erro?.message ?? "Não consegui carregar a equipe.");
     }
 
     setCarregando(false);
