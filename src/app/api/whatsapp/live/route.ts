@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     switch (body.action) {
       case "connect": {
-        await startSession(userId);
+        await startSession(userId, true);
         return NextResponse.json(await getState(userId));
       }
       case "send": {

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente gestor ou diretor." }, { status: 403 });
+  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
 
   try {
     let titulo = "";
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente gestor ou diretor." }, { status: 403 });
+  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (!body.id) return NextResponse.json({ error: "Material não informado." }, { status: 400 });
   const { error } = await s.sb
@@ -123,7 +123,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente gestor ou diretor." }, { status: 403 });
+  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Material não informado." }, { status: 400 });
   const { error } = await s.sb.from("aura_materiais").delete().eq("id", id);

@@ -64,6 +64,8 @@ interface WaSession {
   vigia: ReturnType<typeof setTimeout> | null;
   /** O WhatsApp recusou a versão buscada na internet? Usa a embutida. */
   usarVersaoEmbutida: boolean;
+  /** Conexão enxuta (sem histórico completo), quando a completa é recusada. */
+  modoSimples: boolean;
   chats: Map<string, WaChat>;
   messages: Map<string, WaMessage[]>;
   raw: Map<string, any>;
@@ -133,6 +135,7 @@ function getOrCreate(userId: string): WaSession {
       conectandoDesde: null,
       vigia: null,
       usarVersaoEmbutida: false,
+      modoSimples: false,
       chats: new Map(),
       messages: new Map(),
       raw: new Map(),
@@ -150,6 +153,7 @@ function getOrCreate(userId: string): WaSession {
   s.jaAbriu ??= false;
   s.vigia ??= null;
   s.usarVersaoEmbutida ??= false;
+  s.modoSimples ??= false;
   // Sessão que ficou de uma versão anterior do código não tem o carimbo de
   // hora. Sem isso ela ficaria presa em "conectando" para sempre.
   if (s.conectandoDesde === undefined) s.conectandoDesde = s.status === "connecting" ? 0 : null;
@@ -481,8 +485,15 @@ export function hasSavedLogin(userId: string) {
   return fs.existsSync(path.join(authDir(userId), "creds.json"));
 }
 
-export async function startSession(userId: string): Promise<WaSession> {
+export async function startSession(
+  userId: string,
+  /** true quando foi o usuário que clicou em Conectar (e não um religamento). */
+  porPedidoDoUsuario = false,
+): Promise<WaSession> {
   const s = getOrCreate(userId);
+  // Só o clique do usuário desfaz um "desconectar" pedido por ele.
+  if (porPedidoDoUsuario) s.manualStop = false;
+  if (s.manualStop) return s;
 
   // Sessão presa em "conectando" há muito tempo: derruba e recomeça, em vez
   // de devolver o mesmo estado travado a cada clique em Conectar.
@@ -503,7 +514,6 @@ export async function startSession(userId: string): Promise<WaSession> {
 
   s.status = "connecting";
   s.error = null;
-  s.manualStop = false;
   s.reconnects = 0;
   s.conectandoDesde = Date.now();
   if (s.vigia) clearTimeout(s.vigia);
@@ -545,7 +555,7 @@ export async function startSession(userId: string): Promise<WaSession> {
         version = undefined;
       }
     }
-    anotar(`abrindo conexão (versão ${version ? version.join(".") : "embutida"})`);
+    anotar(`abrindo conexão (versão ${version ? version.join(".") : "embutida"}, modo ${s.modoSimples ? "simples" : "completo"})`);
 
     const sock = B.makeWASocket({
       auth: state,
@@ -554,10 +564,12 @@ export async function startSession(userId: string): Promise<WaSession> {
       ...(version ? { version } : {}),
       printQRInTerminal: false,
       logger: pino({ level: "silent" }),
-      // "Desktop" + syncFullHistory faz o celular mandar o histórico completo
-      // de conversas ao conectar (como no WhatsApp Web/Desktop).
-      browser: B.Browsers?.macOS ? B.Browsers.macOS("Desktop") : ["AURA CRM", "Desktop", "120.0.0"],
-      syncFullHistory: true,
+      // O WhatsApp recusa a conexão (código 428) quando o cliente se apresenta
+      // como "Desktop"; identificando-se como um navegador comum, ele aceita.
+      // syncFullHistory pede o histórico completo de conversas ao parear — se
+      // for isso que o servidor recusar, o modo simples entra sem ele.
+      browser: B.Browsers?.ubuntu ? B.Browsers.ubuntu("Chrome") : ["Chrome (Linux)", "Chrome", "120.0.0"],
+      ...(s.modoSimples ? {} : { syncFullHistory: true }),
       markOnlineOnConnect: false,
     });
     s.sock = sock;
@@ -650,7 +662,23 @@ export async function startSession(userId: string): Promise<WaSession> {
           s.status = "connecting";
           s.conectandoDesde = Date.now();
           setTimeout(() => {
+            if (s.manualStop) return;
             startSession(userId).catch((e) => anotar(`falha ao reabrir: ${e?.message ?? e}`));
+          }, 800);
+          return;
+        }
+
+        // Última cartada antes de desistir: conectar como um navegador comum,
+        // sem pedir o histórico completo.
+        if (!wasQr && !s.qrDataUrl && !s.modoSimples && (code === 428 || code === 405)) {
+          anotar("pedido de histórico completo recusado; tentando sem ele");
+          s.modoSimples = true;
+          s.reconnects = 0;
+          s.status = "connecting";
+          s.conectandoDesde = Date.now();
+          setTimeout(() => {
+            if (s.manualStop) return;
+            startSession(userId).catch((e) => anotar(`falha no modo simples: ${e?.message ?? e}`));
           }, 800);
           return;
         }
@@ -663,6 +691,7 @@ export async function startSession(userId: string): Promise<WaSession> {
           s.reconnects = 0;
           s.status = "connecting";
           setTimeout(() => {
+            if (s.manualStop) return;
             startSession(userId).catch((e) => console.error("[whatsapp] reinício:", e));
           }, 500);
           return;
@@ -675,6 +704,7 @@ export async function startSession(userId: string): Promise<WaSession> {
           s.status = "connecting";
           s.conectandoDesde = Date.now();
           setTimeout(() => {
+            if (s.manualStop) return;
             startSession(userId).catch((e) => anotar(`reconexão: ${e?.message ?? e}`));
           }, 1500);
         } else {
@@ -959,6 +989,12 @@ export async function logout(userId: string) {
   const s = sessions.get(userId);
   if (s) {
     s.manualStop = true;
+    // Um novo pareamento começa do zero: volta a tentar a conexão completa
+    // (com histórico) antes de cair para a simples.
+    s.modoSimples = false;
+    s.usarVersaoEmbutida = false;
+    s.ciclosQr = 0;
+    if (s.vigia) { clearTimeout(s.vigia); s.vigia = null; }
     const sock = s.sock;
     s.sock = null;
     try {

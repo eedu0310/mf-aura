@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const s = await sessaoAura({ diasAtividades: 31, diasVendas: 400 });
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!s.gestor) return NextResponse.json({ error: "Somente gestor ou diretor." }, { status: 403 });
+  if (!s.gestor) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
   const loja = req.nextUrl.searchParams.get("loja") || undefined;
   const painel = painelGestor(s.dados, loja);
   const rel = montarRelatorio(s.dados, { loja }, 30);

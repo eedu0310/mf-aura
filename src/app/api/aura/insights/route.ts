@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const pessoa = { nome: dados.perfil.nome, cargo: dados.perfil.cargo, loja: dados.perfil.empresa };
 
   if (pagina === "gestor") {
-    if (!gestor) return NextResponse.json({ error: "Somente gestor ou diretor." }, { status: 403 });
+    if (!gestor) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
     const loja = sp.get("loja") || undefined;
     const painel = painelGestor(dados, loja);
     const criticos = painel.vendedores.filter((v) => v.status === "critico");

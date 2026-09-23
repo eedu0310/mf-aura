@@ -1,7 +1,7 @@
 /**
  * Carrega os dados do CRM para a AURA usando o cliente Supabase DO USUÁRIO
  * (com as regras de loja do banco): vendedor enxerga só a própria loja,
- * gestor/diretor enxergam todas. Nunca usa a chave de serviço aqui.
+ * o gestor enxerga todas. Nunca usa a chave de serviço aqui.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
