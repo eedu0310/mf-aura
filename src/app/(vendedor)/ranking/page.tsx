@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Trophy } from "lucide-react";
 import { RankingGamificado } from "@/components/ranking/ranking-gamificado";
 import { RankingAvancado } from "@/components/ranking/ranking-avancado";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 
 type AbaRanking = "gamificado" | "avancado";
 
@@ -21,6 +22,8 @@ export default function RankingPage() {
           Acompanhe seu desempenho
         </p>
       </div>
+
+      <AuraInsightCard pagina="ranking" />
 
       {/* Abas */}
       <div className="flex gap-1 border-b border-aura-mist">

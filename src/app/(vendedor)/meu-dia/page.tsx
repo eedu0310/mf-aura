@@ -17,6 +17,7 @@ import { AuraCoachPanel } from "@/components/aura-coach-panel";
 import { CompromissoMensalBanner } from "@/components/meu-dia/compromisso-mensal-banner";
 
 import { useAppData } from "@/lib/app-data-context";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { computeDnaScore } from "@/lib/compute-dna-score";
 import { computeMissoesDoDia } from "@/lib/compute-missoes";
 import { computeConquistas } from "@/lib/compute-conquistas";
@@ -196,6 +197,7 @@ export default function MeuDiaPage() {
 
       <div className="grid items-start gap-6 pb-28 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
+        <AuraInsightCard pagina="meu-dia" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <MetaDoMesCard valor={metaValor} atingido={totalVendasMes} onDefinir={definirMeta} />
           <DnaScoreCard

@@ -1,6 +1,7 @@
 "use client";
 
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 
 export default function PipelinePage() {
   return (
@@ -23,6 +24,11 @@ export default function PipelinePage() {
             Acompanhe todas as suas oportunidades em cada etapa da negociação.
           </p>
         </div>
+      </div>
+
+      {/* Supervisora AURA */}
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <AuraInsightCard pagina="pipeline" />
       </div>
 
       {/* Conteúdo */}

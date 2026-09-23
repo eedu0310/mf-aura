@@ -11,6 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Atividade, TipoAtividade } from "@/lib/types";
@@ -205,6 +206,10 @@ export default function AtividadesPage() {
             Todas as suas atividades registradas com localização
           </p>
         </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <AuraInsightCard pagina="atividades" />
       </div>
 
       <div className="mx-auto w-full max-w-7xl space-y-4 px-6 sm:px-8">

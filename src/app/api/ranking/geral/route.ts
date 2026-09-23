@@ -11,11 +11,18 @@ export async function GET() {
   const supabase = getSupabaseServiceClient();
   if (!supabase) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
 
+  // Esta rota usa a chave de serviço (ignora as regras do banco), então o
+  // recorte por loja precisa ser feito aqui: vendedor vê só a própria loja,
+  // gestor e diretor veem todas.
+  const vejoTudo = ["Gestor", "Diretor"].includes(auth.cargo);
+  const daMinhaLoja = <T extends { empresa?: string | null }>(q: any) =>
+    vejoTudo ? q : q.eq("empresa", auth.empresa);
+
   const [{ data: vendedores, error: vendedoresError }, { data: vendas }, { data: atividades }, { data: relacionamentos }] = await Promise.all([
-    supabase.from("profiles").select("id,nome,empresa").in("cargo", ["Vendedor", "Vendedor Interno"]).eq("ativo", true),
-    supabase.from("vendas").select("owner_id,valor_fechado,valor,empresa"),
-    supabase.from("atividades").select("owner_id,tipo,subtipo,empresa"),
-    supabase.from("relacionamentos").select("owner_id,id,empresa"),
+    daMinhaLoja(supabase.from("profiles").select("id,nome,empresa").in("cargo", ["Vendedor", "Vendedor Interno"]).eq("ativo", true)),
+    daMinhaLoja(supabase.from("vendas").select("owner_id,valor_fechado,valor,empresa")),
+    daMinhaLoja(supabase.from("atividades").select("owner_id,tipo,subtipo,empresa")),
+    daMinhaLoja(supabase.from("relacionamentos").select("owner_id,id,empresa")),
   ]);
   if (vendedoresError) return NextResponse.json({ erro: "Não foi possível carregar o ranking." }, { status: 500 });
 

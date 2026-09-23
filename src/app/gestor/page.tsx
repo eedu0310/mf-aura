@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles } from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
 import { MarketingTab } from "@/components/gestor/marketing-tab";
+import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
 
- type AbaGestor = "dashboard" | "usuarios" | "configuracoes" | "marketing";
+ type AbaGestor = "aura" | "dashboard" | "usuarios" | "configuracoes" | "marketing";
 
 const ABAS: Array<{
   id: AbaGestor;
@@ -15,6 +16,12 @@ const ABAS: Array<{
   descricao: string;
   icon: typeof BarChart3;
 }> = [
+  {
+    id: "aura",
+    label: "Supervisora AURA",
+    descricao: "Equipe, riscos e o que fazer agora",
+    icon: Sparkles,
+  },
   {
     id: "dashboard",
     label: "Dashboard",
@@ -42,7 +49,7 @@ const ABAS: Array<{
 ];
 
 export default function GestorPage() {
-  const [aba, setAba] = useState<AbaGestor>("dashboard");
+  const [aba, setAba] = useState<AbaGestor>("aura");
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
@@ -56,7 +63,7 @@ export default function GestorPage() {
       </header>
 
       <nav
-        className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-5"
         aria-label="Navegação do painel do gestor"
       >
         {ABAS.map((item) => {
@@ -90,6 +97,7 @@ export default function GestorPage() {
         })}
       </nav>
 
+      {aba === "aura" && <GestorPainelAura />}
       {aba === "dashboard" && <DashboardTab />}
       {aba === "usuarios" && <UsuariosTab />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
