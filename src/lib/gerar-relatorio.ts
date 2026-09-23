@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getOpenAIClient } from "@/lib/openai-client";
+import { chamarClaude } from "@/lib/aura/texto-ia";
 
 interface MetaCompromisso {
   metaFaturamento: number;
@@ -182,9 +182,8 @@ export async function gerarRelatorioVendedor(
   periodoInicio: Date,
   periodoFim: Date
 ): Promise<{ conteudo: string; dados: DadosVendedor; erro?: undefined } | { conteudo?: undefined; dados?: undefined; erro: string }> {
-  const openai = getOpenAIClient();
-  if (!openai) {
-    const msg = "OPENAI_API_KEY não está configurada no servidor.";
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_API_KEY) {
+    const msg = "Falta a chave da IA (ANTHROPIC_API_KEY) no .env.local do servidor.";
     console.error("gerarRelatorioVendedor:", msg);
     return { erro: msg };
   }
@@ -201,14 +200,10 @@ export async function gerarRelatorioVendedor(
     periodoAnteriorInicio.toISOString()
   );
 
-  let completion;
+  let texto: string;
   try {
-    completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Você é a AURA Coach, secretária/analista pessoal de vendedores de uma rede de lojas de lareiras e aquecimento. Escreva um relatório curto e direto sobre a semana do vendedor, em português, com EXATAMENTE esta estrutura (use os títulos literalmente):
+    texto = await chamarClaude({
+      sistema: `Você é a AURA Coach, secretária/analista pessoal de vendedores de uma rede de lojas de lareiras e aquecimento. Escreva um relatório curto e direto sobre a semana do vendedor, em português, com EXATAMENTE esta estrutura (use os títulos literalmente):
 
 Pontos fortes
 (1-2 frases citando o que foi bom, baseado só nos dados reais)
@@ -220,18 +215,15 @@ Prioridades da Semana
 (2-4 ações concretas e práticas pra próxima semana, como se você fosse a secretária dele: "retornar orçamento pro cliente X", "ligar pra Y", "faltam Z visitas pra bater a meta de arquitetos", etc — baseado nos dados)
 
 Seja específico, cite nomes e números quando disponíveis, nunca invente. Se os dados forem muito escassos, diga isso com gentileza em vez de inventar.`,
-        },
-        { role: "user", content: montarPromptVendedor(dados) },
-      ],
-      temperature: 0.4,
+      pergunta: montarPromptVendedor(dados),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro desconhecido ao chamar a OpenAI.";
-    console.error("gerarRelatorioVendedor: erro na chamada da OpenAI:", err);
+    const msg = err instanceof Error ? err.message : "Erro desconhecido ao chamar a IA.";
+    console.error("gerarRelatorioVendedor: erro na chamada da IA:", err);
     return { erro: msg };
   }
 
-  const conteudo = completion.choices[0]?.message?.content?.trim();
+  const conteudo = texto.trim();
   if (!conteudo) {
     const msg = "A IA não retornou nenhum conteúdo.";
     console.error("gerarRelatorioVendedor:", msg, nome);
@@ -262,9 +254,8 @@ export async function gerarRelatorioLoja(
   periodoFim: Date,
   tipo: "semanal_gestor" | "mensal_diretor"
 ): Promise<{ conteudo: string; erro?: undefined } | { conteudo?: undefined; erro: string }> {
-  const openai = getOpenAIClient();
-  if (!openai) {
-    const msg = "OPENAI_API_KEY não está configurada no servidor.";
+  if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_API_KEY) {
+    const msg = "Falta a chave da IA (ANTHROPIC_API_KEY) no .env.local do servidor.";
     console.error("gerarRelatorioLoja:", msg);
     return { erro: msg };
   }
@@ -301,26 +292,19 @@ export async function gerarRelatorioLoja(
 
   const resumoTextual = relatoriosVendedores.map(montarPromptVendedor).join("\n\n");
 
-  let completion;
+  let texto: string;
   try {
-    completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `Você é um analista comercial sênior escrevendo o relatório ${tipo === "semanal_gestor" ? "semanal" : "mensal"} consolidado da loja ${empresa} para ${tipo === "semanal_gestor" ? "o Gestor" : "o Diretor"}. Analise os dados de cada vendedor e escreva um resumo direto em português: quem se destacou, quem precisa de atenção/conversa individual, e prioridades gerais da loja para o período seguinte. IMPORTANTE: quando um vendedor tiver metas do mês (Compromisso Mensal aprovado) e estiver claramente abaixo do combinado em algum item, aponte isso especificamente — é justamente pra isso que essas metas existem, pra dar ao gestor motivo concreto de conversa individual. Máximo 6 tópicos com "•". Cite vendedores pelo nome. Não invente dados.`,
-        },
-        { role: "user", content: resumoTextual },
-      ],
-      temperature: 0.4,
+    texto = await chamarClaude({
+      sistema: `Você é um analista comercial sênior escrevendo o relatório ${tipo === "semanal_gestor" ? "semanal" : "mensal"} consolidado da loja ${empresa} para ${tipo === "semanal_gestor" ? "o Gestor" : "o Diretor"}. Analise os dados de cada vendedor e escreva um resumo direto em português: quem se destacou, quem precisa de atenção/conversa individual, e prioridades gerais da loja para o período seguinte. IMPORTANTE: quando um vendedor tiver metas do mês (Compromisso Mensal aprovado) e estiver claramente abaixo do combinado em algum item, aponte isso especificamente — é justamente pra isso que essas metas existem, pra dar ao gestor motivo concreto de conversa individual. Máximo 6 tópicos com "•". Cite vendedores pelo nome. Não invente dados.`,
+      pergunta: resumoTextual,
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro desconhecido ao chamar a OpenAI.";
-    console.error("gerarRelatorioLoja: erro na chamada da OpenAI:", err);
+    const msg = err instanceof Error ? err.message : "Erro desconhecido ao chamar a IA.";
+    console.error("gerarRelatorioLoja: erro na chamada da IA:", err);
     return { erro: msg };
   }
 
-  const conteudo = completion.choices[0]?.message?.content?.trim();
+  const conteudo = texto.trim();
   if (!conteudo) {
     const msg = "A IA não retornou nenhum conteúdo.";
     console.error(`gerarRelatorioLoja: ${msg}`, empresa);

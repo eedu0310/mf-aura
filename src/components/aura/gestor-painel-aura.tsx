@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertOctagon, AlertTriangle, CheckCircle2, Flame, Loader2, MessageCircle, Store } from "lucide-react";
 import { AuraInsightCard } from "./aura-insight-card";
+import { MateriaisAura } from "./materiais-aura";
 
 interface Vendedor {
   id: string;
@@ -239,6 +240,8 @@ export function GestorPainelAura() {
               </div>
             </div>
           </div>
+
+          <MateriaisAura loja={loja || undefined} />
         </>
       )}
     </div>

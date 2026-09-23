@@ -202,16 +202,43 @@ const FERRAMENTA_ANALISE = {
   },
 };
 
+const cacheMateriais = ((globalThis as any).__auraSupMateriais ??= new Map<string, { at: number; texto: string }>()) as Map<string, { at: number; texto: string }>;
+
+/** Manuais e playbooks que o gestor enviou pelo painel (+ pasta manual-treinamento). */
+async function materiaisDaEmpresa(empresa: string): Promise<string> {
+  const hit = cacheMateriais.get(empresa);
+  if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.texto;
+  let texto = "";
+  try {
+    const { data } = (await db()
+      ?.from("aura_materiais")
+      .select("titulo, descricao, texto")
+      .eq("empresa", empresa)
+      .eq("ativo", true)
+      .order("criado_em", { ascending: true })) ?? { data: null };
+    texto = (data ?? [])
+      .map((m: any) => `### ${m.titulo}${m.descricao ? ` — ${m.descricao}` : ""}\n${m.texto}`)
+      .join("\n\n");
+  } catch {
+    texto = "";
+  }
+  if (!texto) texto = lerManual();
+  if (texto.length > 40000) texto = `${texto.slice(0, 40000)}\n\n[...material cortado por tamanho...]`;
+  cacheMateriais.set(empresa, { at: Date.now(), texto });
+  return texto;
+}
+
 async function analisarComIa(
   msgs: WaMessage[],
   nomeCliente: string,
   etapaAtual: Etapa | null,
   alertas: Alerta[],
+  materiais?: string,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
 
-  const manual = lerManual();
+  const manual = materiais ?? lerManual();
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
 
@@ -579,7 +606,7 @@ export async function analisarConversa(
     let analise: AnaliseIa | null = null;
     let aviso: string | null = null;
     try {
-      analise = await analisarComIa(msgs, chat.name, etapaPipelineAtual, alertas);
+      analise = await analisarComIa(msgs, chat.name, etapaPipelineAtual, alertas, await materiaisDaEmpresa(empresa));
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);
       if (e?.status === 401) {

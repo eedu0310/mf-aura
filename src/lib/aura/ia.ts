@@ -113,6 +113,8 @@ export async function gerarRecados(opts: {
   pessoa: { nome: string; cargo: string; loja: string };
   metricas: unknown;
   recadosBase: Insight[];
+  /** Manuais e playbooks enviados pelo gestor (biblioteca da AURA). */
+  materiais?: string;
   forcar?: boolean;
 }): Promise<RespostaAura> {
   const hit = cache.get(opts.cacheKey);
@@ -143,8 +145,8 @@ REGRAS DE ESCRITA (muito importante — vendedor não lê texto longo):
 
 Entregue a resposta chamando a ferramenta "recados".
 
-MANUAL DE TREINAMENTO DA EMPRESA:
-${manual() || "(sem manual — use boas práticas de venda consultiva)"}`;
+MATERIAIS DE TREINAMENTO DA EMPRESA (manual, playbook, regras da casa):
+${opts.materiais || manual() || "(sem material cadastrado — use boas práticas de venda consultiva)"}`;
 
   const user = `Tela: ${TELAS[opts.pagina] ?? opts.pagina}
 Pessoa: ${opts.pessoa.nome} (${opts.pessoa.cargo}, ${opts.pessoa.loja})

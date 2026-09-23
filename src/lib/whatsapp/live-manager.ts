@@ -54,6 +54,10 @@ interface WaSession {
   sock: any;
   manualStop: boolean;
   reconnects: number;
+  /** Quantas vezes o QR expirou sem ninguém escanear (gera outro sozinho). */
+  ciclosQr: number;
+  /** A conexão chegou a abrir alguma vez desde que o app subiu? */
+  jaAbriu: boolean;
   chats: Map<string, WaChat>;
   messages: Map<string, WaMessage[]>;
   raw: Map<string, any>;
@@ -102,6 +106,8 @@ function getOrCreate(userId: string): WaSession {
       sock: null,
       manualStop: false,
       reconnects: 0,
+      ciclosQr: 0,
+      jaAbriu: false,
       chats: new Map(),
       messages: new Map(),
       raw: new Map(),
@@ -450,6 +456,7 @@ export async function startSession(userId: string): Promise<WaSession> {
   s.status = "connecting";
   s.error = null;
   s.manualStop = false;
+  s.reconnects = 0;
 
   try {
     const B = await loadBaileys();
@@ -498,6 +505,8 @@ export async function startSession(userId: string): Promise<WaSession> {
         s.qrDataUrl = null;
         s.error = null;
         s.reconnects = 0;
+        s.ciclosQr = 0;
+        s.jaAbriu = true;
         s.jid = sock.user?.id ?? null;
         s.phone = sock.user?.id ? phoneFromJid(sock.user.id) : null;
         s.name = sock.user?.name ?? sock.user?.verifiedName ?? null;
@@ -526,9 +535,32 @@ export async function startSession(userId: string): Promise<WaSession> {
           return;
         }
         if (wasQr && code === B.DisconnectReason.timedOut) {
-          s.status = "disconnected";
-          s.qrDataUrl = null;
-          s.error = "O QR code expirou. Clique em Conectar para gerar outro.";
+          // O QR vence em ~1 min. Em vez de desistir, gera outro na hora
+          // (o WhatsApp Web faz igual) por até 5 minutos de espera.
+          if (s.ciclosQr < 5) {
+            s.ciclosQr += 1;
+            s.status = "connecting";
+            setTimeout(() => {
+              startSession(userId).catch((e) => console.error("[whatsapp] novo QR:", e));
+            }, 500);
+          } else {
+            s.status = "disconnected";
+            s.qrDataUrl = null;
+            s.ciclosQr = 0;
+            s.error = "Ninguém escaneou o QR code. Clique em Conectar para gerar outro.";
+          }
+          return;
+        }
+        // Credenciais salvas que nunca conseguem abrir = sessão velha inválida
+        // (o aparelho foi desvinculado pelo celular). Começa do zero com QR.
+        if (!s.jaAbriu && !wasQr && hasSavedLogin(userId) && s.reconnects >= 1) {
+          console.log("[whatsapp] sessão salva não abre; recomeçando com QR novo");
+          wipeAuth(userId);
+          s.reconnects = 0;
+          s.status = "connecting";
+          setTimeout(() => {
+            startSession(userId).catch((e) => console.error("[whatsapp] reinício:", e));
+          }, 500);
           return;
         }
         if (s.reconnects < 5) {

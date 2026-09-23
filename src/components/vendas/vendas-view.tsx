@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Layers, TrendingUp, AlertCircle, Plus, Download } from "lucide-react";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
@@ -118,6 +119,10 @@ export function VendasView() {
               : `Suas vendas e oportunidades de ${empresaUsuario}`}
           </p>
         </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <AuraInsightCard pagina="vendas" />
       </div>
 
       {/* Filtro por Empresa (apenas se gestor ou múltiplas empresas) */}

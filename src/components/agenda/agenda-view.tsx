@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from "lucide-react";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { CompromissoModal } from "./compromisso-modal";
 import {
@@ -207,6 +208,10 @@ export function AgendaView() {
             Organize seus contatos e próximas atividades.
           </p>
         </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <AuraInsightCard pagina="agenda" />
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">

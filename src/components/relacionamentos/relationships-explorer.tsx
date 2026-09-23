@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin } from "lucide-react";
+import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { RelacionamentoDetailsModal } from "./relacionamento-details-modal";
 import { NewRelationshipModal } from "./new-relationship-modal";
@@ -88,6 +89,10 @@ export function RelationshipsExplorer() {
             Gerencie seus relacionamentos com clientes, parceiros e prospects.
           </p>
         </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <AuraInsightCard pagina="relacionamentos" />
       </div>
 
       {/* Filtros e Busca */}

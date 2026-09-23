@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessaoAura } from "@/lib/aura/sessao";
 import { insightsRegras, kpisDaPagina, painelGestor, resumoVendedor, moeda, type Pagina, type Insight } from "@/lib/aura/metricas";
 import { gerarRecados, iaDisponivel } from "@/lib/aura/ia";
+import { textoDosMateriais } from "@/lib/aura/materiais";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
   const s = await sessaoAura();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
   const { dados, userId, gestor } = s;
+  const materiais = await textoDosMateriais(s.sb, dados.perfil.empresa);
   const pessoa = { nome: dados.perfil.nome, cargo: dados.perfil.cargo, loja: dados.perfil.empresa };
 
   if (pagina === "gestor") {
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
       vendedores: painel.vendedores.map((v) => ({ ...v, vendidoMes: moeda(v.vendidoMes) })),
       leadsEmRisco: painel.leadsEmRisco,
     };
-    const aura = await gerarRecados({ cacheKey: `${userId}|gestor|${loja ?? "*"}`, pagina, pessoa, metricas, recadosBase: base, forcar: sp.has("refresh") });
+    const aura = await gerarRecados({ cacheKey: `${userId}|gestor|${loja ?? "*"}`, pagina, pessoa, metricas, recadosBase: base, materiais, forcar: sp.has("refresh") });
     const total = painel.vendedores.reduce((acc, v) => acc + v.vendidoMes, 0);
     return NextResponse.json({
       ...aura,
@@ -68,6 +70,7 @@ export async function GET(req: NextRequest) {
     pessoa,
     metricas: r,
     recadosBase: base,
+    materiais,
     forcar: sp.has("refresh"),
   });
   return NextResponse.json({ ...aura, kpis: kpisDaPagina(pagina, r), iaDisponivel: iaDisponivel() });
