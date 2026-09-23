@@ -308,6 +308,81 @@ ${transcricao(msgs, nomeCliente)}`;
 
 // ---------------------------------------------------------------- CRM
 
+/**
+ * Registra o contato novo do WhatsApp também na fila de leads.
+ *
+ * Sem isso, quem chega pelo WhatsApp do vendedor ficava fora do painel de
+ * leads do gestor e fora do controle de tempo de resposta — só aparecia se
+ * tivesse vindo pelo site. O lead já nasce com o vendedor que recebeu a
+ * mensagem, então não é redistribuído.
+ */
+async function registrarLeadWhatsApp(
+  sb: SupabaseClient,
+  dados: {
+    empresa: string;
+    vendedorId: string;
+    relacionamentoId: string;
+    nome: string;
+    telefone: string;
+    mensagem: string | null;
+  },
+) {
+  try {
+    const variantes = variantesTelefone(dados.telefone);
+    if (variantes.length) {
+      const { data: jaTem } = await sb
+        .from("leads_recebidos")
+        .select("id")
+        .eq("empresa", dados.empresa)
+        .in("telefone", [dados.telefone, ...variantes])
+        .not("status", "in", "(perdido,respondido)")
+        .limit(1);
+      if (jaTem && jaTem.length) return;
+    }
+
+    const prazo = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const { error } = await sb.from("leads_recebidos").insert({
+      empresa: dados.empresa,
+      nome: dados.nome || null,
+      telefone: dados.telefone,
+      mensagem_inicial: dados.mensagem?.slice(0, 500) ?? null,
+      origem: "WhatsApp",
+      status: "repassado_vendedor",
+      vendedor_id: dados.vendedorId,
+      relacionamento_id: dados.relacionamentoId,
+      prazo_resposta: prazo,
+    });
+    if (error) console.error("[supervisor] registrar lead do WhatsApp:", error.message);
+  } catch (e: any) {
+    console.error("[supervisor] registrar lead do WhatsApp:", e?.message ?? e);
+  }
+}
+
+/**
+ * Quando o vendedor responde pelo WhatsApp, o lead correspondente é fechado.
+ * É isso que zera o alerta de "lead sem resposta" para o gestor e faz o
+ * negócio entrar no pipeline.
+ */
+export async function marcarLeadRespondidoPorTelefone(
+  sb: SupabaseClient,
+  empresa: string,
+  telefone: string,
+  userId: string,
+) {
+  try {
+    const variantes = variantesTelefone(telefone);
+    if (!variantes.length) return;
+    await sb
+      .from("leads_recebidos")
+      .update({ status: "respondido", respondido_em: new Date().toISOString(), respondido_por: userId })
+      .eq("empresa", empresa)
+      .in("telefone", [telefone, ...variantes])
+      .not("status", "in", "(respondido,perdido)");
+  } catch (e: any) {
+    console.error("[supervisor] fechar lead respondido:", e?.message ?? e);
+  }
+}
+
 async function garantirRelacionamento(
   sb: SupabaseClient,
   userId: string,
@@ -348,6 +423,17 @@ async function garantirRelacionamento(
     console.error("[supervisor] criar relacionamento:", error.message);
     return { id: null, aviso: "Não consegui cadastrar o contato no CRM." };
   }
+
+  // Contato novo entra também na fila de leads, para o gestor acompanhar.
+  await registrarLeadWhatsApp(sb, {
+    empresa,
+    vendedorId: userId,
+    relacionamentoId: data.id,
+    nome: nome || "",
+    telefone: phone,
+    mensagem: null,
+  });
+
   return { id: data.id, aviso: null };
 }
 

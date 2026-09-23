@@ -19,6 +19,7 @@ import {
   iaDisponivel,
   listarLeads,
   marcarIgnorado,
+  marcarLeadRespondidoPorTelefone,
   obterLead,
 } from "@/lib/whatsapp/supervisor";
 import { calcularAlertas, ETAPAS, type Etapa } from "@/lib/whatsapp/stage-rules";
@@ -109,6 +110,25 @@ export async function GET(request: NextRequest) {
  * POST JSON { action: "connect" | "send" | "read" | "logout" | "analyze" | "ignore" | "stage", ... }
  * POST multipart (file, to, caption) → envia foto/vídeo/documento
  */
+/** Marca como respondido o lead do número para quem o vendedor escreveu. */
+async function fecharLeadDoContato(userId: string, jid: string) {
+  try {
+    const supabase = await getSupabaseServerClient();
+    if (!supabase) return;
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("empresa")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!perfil?.empresa) return;
+    const telefone = jid.split("@")[0]?.split(":")[0] ?? "";
+    if (!telefone) return;
+    await marcarLeadRespondidoPorTelefone(supabase, perfil.empresa, telefone, userId);
+  } catch (e: any) {
+    console.error("[whatsapp] fechar lead do contato:", e?.message ?? e);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const userId = await currentUserId();
   if (!userId) return unauthorized();
@@ -154,6 +174,9 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: "Informe o destinatário e a mensagem." }, { status: 400 });
         }
         const result = await sendText(userId, to, text);
+        // Respondeu pelo WhatsApp: fecha o lead correspondente, zera o alerta
+        // de "sem resposta" do gestor e joga o negócio no pipeline.
+        void fecharLeadDoContato(userId, to);
         return NextResponse.json({ ok: true, ...result });
       }
       case "read": {

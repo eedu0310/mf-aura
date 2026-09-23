@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2 } from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
 import { MarketingTab } from "@/components/gestor/marketing-tab";
+import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
 import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
 
- type AbaGestor = "aura" | "dashboard" | "usuarios" | "configuracoes" | "marketing";
+ type AbaGestor = "aura" | "dashboard" | "planilha" | "usuarios" | "configuracoes" | "marketing";
 
 const ABAS: Array<{
   id: AbaGestor;
@@ -27,6 +28,12 @@ const ABAS: Array<{
     label: "Dashboard",
     descricao: "Visão comercial, equipe e resultados",
     icon: BarChart3,
+  },
+  {
+    id: "planilha",
+    label: "Planilha de Leads",
+    descricao: "Indicadores de leads preenchidos pela equipe",
+    icon: Table2,
   },
   {
     id: "usuarios",
@@ -99,6 +106,7 @@ export default function GestorPage() {
 
       {aba === "aura" && <GestorPainelAura />}
       {aba === "dashboard" && <DashboardTab />}
+      {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
       {aba === "marketing" && <MarketingTab />}

@@ -5,6 +5,7 @@ import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } 
 import { AlertOctagon, AlertTriangle, CheckCircle2, Flame, Loader2, MessageCircle, Store } from "lucide-react";
 import { AuraInsightCard } from "./aura-insight-card";
 import { MateriaisAura } from "./materiais-aura";
+import { ResumoExecutivoIA } from "@/components/gestor/resumo-executivo-ia";
 
 interface Vendedor {
   id: string;
@@ -87,6 +88,9 @@ export function GestorPainelAura() {
       </div>
 
       <AuraInsightCard pagina="gestor" loja={loja || undefined} />
+
+      {/* Resumo executivo por escrito: existia no sistema, mas não tinha botão. */}
+      <ResumoExecutivoIA />
 
       {erro && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</p>}
 

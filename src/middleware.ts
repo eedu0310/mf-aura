@@ -29,7 +29,36 @@ export async function middleware(request: NextRequest) {
   // Essa chamada é o que efetivamente renova o token da sessão quando
   // necessário e reescreve os cookies corretos na resposta. Sem isso, a
   // sessão criada no login pode não sobreviver a um F5 ou nova aba.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Telas que podem ser abertas sem login: a de entrar, a avaliação que o
+  // cliente recebe por link e as rotas chamadas por robô (cron/webhook),
+  // que têm a própria autenticação por segredo.
+  const caminho = request.nextUrl.pathname;
+  const publica =
+    caminho === "/" ||
+    caminho.startsWith("/login") ||
+    caminho.startsWith("/avaliar") ||
+    caminho.startsWith("/api/cron") ||
+    caminho.startsWith("/api/whatsapp/webhook") ||
+    caminho.startsWith("/auth") ||
+    caminho.startsWith("/_next") ||
+    caminho.startsWith("/manifest") ||
+    caminho.startsWith("/icons");
+
+  if (!user && !publica) {
+    // Antes, quem não estava logado ainda carregava a tela inteira (só os
+    // dados vinham vazios). Agora o servidor já manda para o login.
+    if (caminho.startsWith("/api/")) {
+      return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+    }
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/login";
+    destino.search = `?voltar=${encodeURIComponent(caminho)}`;
+    return NextResponse.redirect(destino);
+  }
 
   return response;
 }
