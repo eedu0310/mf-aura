@@ -138,11 +138,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase || perfilCarregando || !empresaAtual) {
-      console.log("⏳ Aguardando carregamento...", {
-        supabase: !!supabase,
-        perfilCarregando,
-        empresaAtual,
-      });
       return;
     }
 
@@ -150,7 +145,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     async function carregarTudo() {
       setCarregandoDados(true);
-      console.log("📥 Carregando dados do Supabase...");
 
       const limiteAtividades = vejoTudoInicial ? 400 : 50;
       const [relRes, opRes, vendaRes, ativRes, playbookRes, leadsRes] =
@@ -185,11 +179,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       if (!ativo) return;
 
-      console.log("📦 Relacionamentos carregados:", relRes.data?.length || 0);
       if (relRes.data) {
         const mapeados = relRes.data.map(relacionamentoDoBanco);
         setTodosRelacionamentos(mapeados);
-        console.log("✅ Relacionamentos setados:", mapeados.length);
       }
 
       if (opRes.data)
@@ -211,7 +203,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
 
       setCarregandoDados(false);
-      console.log("✅ Dados carregados com sucesso!");
     }
 
     carregarTudo();
@@ -223,7 +214,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase || !empresaAtual) return;
 
-    console.log("🔔 Iniciando Realtime subscription...");
 
     function aplicarEvento<T extends { id: string }>(
       setState: Dispatch<SetStateAction<T[]>>,
@@ -237,18 +227,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ) {
       if (payload.eventType === "INSERT") {
         const nova = doBanco(payload.new);
-        console.log(`🆕 [${tabela}] INSERT:`, nova.id);
         setState((prev) =>
           prev.some((x) => x.id === nova.id) ? prev : [nova, ...prev],
         );
       } else if (payload.eventType === "UPDATE") {
         const atualizada = doBanco(payload.new);
-        console.log(`🔄 [${tabela}] UPDATE:`, atualizada.id);
         setState((prev) =>
           prev.map((x) => (x.id === atualizada.id ? atualizada : x)),
         );
       } else if (payload.eventType === "DELETE") {
-        console.log(`🗑️ [${tabela}] DELETE:`, payload.old.id);
         setState((prev) =>
           prev.filter((x) => x.id !== (payload.old.id as string)),
         );
@@ -327,7 +314,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         },
       )
       .subscribe((status) => {
-        console.log("🔔 Subscription status:", status);
       });
 
     return () => {
@@ -349,12 +335,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ? todasAtividades
     : todasAtividades.filter((a) => a.empresa === empresaAtual);
 
-  console.log("👁️ VISÃO:", {
-    vejoTudo,
-    empresaAtual,
-    totalRelacionamentos: todosRelacionamentos.length,
-    relaciomamentosFiltrados: relacionamentos.length,
-  });
 
   const resumoPorEmpresa: ResumoEmpresa[] = NOMES_EMPRESAS.map((empresa) => {
     const relEmpresa = todosRelacionamentos.filter(
@@ -614,10 +594,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       let relacionamentoId = dadosComEmpresa.relacionamentoId;
 
       if (!relacionamentoId) {
-        console.log(
-          "🔗 Criando relacionamento automaticamente para:",
-          dadosComEmpresa.cliente,
-        );
 
         const novoRelacionamento = await addRelacionamento({
           vendedorId: "",
@@ -631,7 +607,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
         if (novoRelacionamento) {
           relacionamentoId = novoRelacionamento.id;
-          console.log("✅ Relacionamento criado:", novoRelacionamento.id);
         } else {
           console.error("❌ Erro ao criar relacionamento");
           return null;
@@ -643,17 +618,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         relacionamentoId,
       };
 
-      console.log(
-        "📋 DADOS FINAIS:",
-        JSON.stringify(dadosComRelacionamento, null, 2),
-      );
 
       const payload = {
         ...oportunidadeParaBanco(dadosComRelacionamento),
         owner_id: user.id,
       };
 
-      console.log("📤 PAYLOAD FINAL:", JSON.stringify(payload, null, 2));
 
       const { data, error } = await supabase
         .from("oportunidades")
@@ -670,7 +640,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error("❌ SEM DADOS RETORNADOS");
         return null;
       }
-      console.log("✅ OPORTUNIDADE SALVA:", data);
       const nova = oportunidadeDoBanco(data);
       setTodasOportunidades((prev) => [nova, ...prev]);
 
@@ -716,7 +685,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         .eq("id", id)
         .then(({ error }) => {
           if (!error) {
-            console.log(`✅ Oportunidade ${id} movida para ${novaEtapa}`);
             integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa);
           } else {
             console.error("Erro ao mover oportunidade:", error);
@@ -1075,7 +1043,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }
 
   async function integrarNovaOportunidade(oportunidade: Oportunidade) {
-    console.log("🔗 INTEGRANDO: Nova oportunidade", oportunidade.id);
 
     await addAtividade({
       vendedorId: "",
@@ -1112,9 +1079,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
     if (!oportunidade) return;
 
-    console.log(
-      `🔗 INTEGRANDO: Oportunidade movida de ${etapaAnterior} para ${novaEtapa}`,
-    );
 
     await addAtividade({
       vendedorId: "",
@@ -1150,11 +1114,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         status: "aguardando_detalhes",
       });
 
-      console.log("💰 VENDA REGISTRADA:", oportunidade.cliente);
     }
 
     if (novaEtapa === "Perdidos") {
-      console.log("❌ Oportunidade marcada como perdida");
     }
   }
 

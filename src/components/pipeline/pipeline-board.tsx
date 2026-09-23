@@ -191,7 +191,6 @@ export function PipelineBoard({}: PipelineBoardProps) {
   const [oportunidadePerdendo, setOportunidadePerdendo] =
     useState<Oportunidade | null>(null);
 
-  console.log("🔍 oportunidadePerdendo state:", oportunidadePerdendo);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {}),
@@ -217,29 +216,21 @@ export function PipelineBoard({}: PipelineBoardProps) {
     const { active, over } = event;
 
     if (!over) {
-      console.log("❌ Over é null");
       return;
     }
 
     const oportunidadeId = active.id as string;
     const overData = over.data.current;
 
-    console.log("🔍 Over data:", overData);
-    console.log("🔍 Over id:", over.id);
-    console.log("🔍 Active id:", active.id);
 
     // Se está sobre uma ETAPA (coluna)
     if (overData?.type === "Etapa") {
       const novaEtapa = over.id as Etapa;
-      console.log(`📦 Movendo ${oportunidadeId} para ETAPA: ${novaEtapa}`);
 
       // ⭐ SE FOR "PERDIDOS", ABRE MODAL
       if (novaEtapa === "Perdidos") {
-        console.log("🔴 Etapa é PERDIDOS! Procurando oportunidade...");
         const opp = oportunidades.find((o) => o.id === oportunidadeId);
-        console.log("🔴 Oportunidade encontrada:", opp);
         if (opp) {
-          console.log("🔴 ABRINDO MODAL DE PERDA!");
           setOportunidadePerdendo(opp);
         }
         return;
@@ -257,17 +248,11 @@ export function PipelineBoard({}: PipelineBoardProps) {
     if (overData?.type === "Oportunidade") {
       const oportunidadeOver = oportunidades.find((o) => o.id === over.id);
       if (oportunidadeOver) {
-        console.log(
-          `📦 Movendo ${oportunidadeId} para ETAPA (via oportunidade): ${oportunidadeOver.etapa}`,
-        );
 
         // ⭐ SE FOR "PERDIDOS", ABRE MODAL
         if (oportunidadeOver.etapa === "Perdidos") {
-          console.log("🔴 Etapa é PERDIDOS! Procurando oportunidade...");
           const opp = oportunidades.find((o) => o.id === oportunidadeId);
-          console.log("🔴 Oportunidade encontrada:", opp);
           if (opp) {
-            console.log("🔴 ABRINDO MODAL DE PERDA!");
             setOportunidadePerdendo(opp);
           }
           return;
@@ -282,7 +267,6 @@ export function PipelineBoard({}: PipelineBoardProps) {
       }
     }
 
-    console.log("❌ Tipo de drop inválido:", overData?.type);
   }
 
   return (
@@ -397,7 +381,6 @@ export function PipelineBoard({}: PipelineBoardProps) {
             oportunidade={oportunidadePerdendo}
             onClose={() => setOportunidadePerdendo(null)}
             onConfirm={async () => {
-              console.log("✅ Confirmando perda...");
               moveOportunidade(oportunidadePerdendo.id, "Perdidos");
               setOportunidadePerdendo(null);
             }}

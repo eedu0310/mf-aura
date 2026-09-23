@@ -23,7 +23,6 @@ export async function listarUsuariosPorEmpresa(empresa: string): Promise<Usuario
   }
 
   try {
-    console.log("Buscando usuários para empresa:", empresa);
 
     // Buscar dados da tabela profiles
     const { data, error } = await supabase
@@ -37,7 +36,6 @@ export async function listarUsuariosPorEmpresa(empresa: string): Promise<Usuario
       return [];
     }
 
-    console.log("Usuários encontrados:", data);
 
     if (!data || data.length === 0) {
       console.warn("Nenhum usuário encontrado para:", empresa);
@@ -70,7 +68,6 @@ export async function criarUsuario(
   if (!supabase) return { sucesso: false, mensagem: "Supabase não disponível" };
 
   try {
-    console.log("Criando usuário:", { email, nome, cargo, empresa });
 
     // Criar usuário no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -94,7 +91,6 @@ export async function criarUsuario(
       return { sucesso: false, mensagem: "Erro ao criar usuário" };
     }
 
-    console.log("Usuário auth criado:", authData.user.id);
 
     // Criar perfil na tabela profiles (SEM email, pois ele fica no auth)
     const { data: profileData, error: profileError } = await supabase
@@ -113,7 +109,6 @@ export async function criarUsuario(
       return { sucesso: false, mensagem: profileError.message };
     }
 
-    console.log("Perfil criado:", profileData);
 
     return {
       sucesso: true,
@@ -134,7 +129,6 @@ export async function excluirUsuario(usuarioId: string): Promise<{
   if (!supabase) return { sucesso: false, mensagem: "Supabase não disponível" };
 
   try {
-    console.log("Desativando usuário:", usuarioId);
 
     // Desativar no perfil
     const { error: profileError } = await supabase
@@ -147,7 +141,6 @@ export async function excluirUsuario(usuarioId: string): Promise<{
       return { sucesso: false, mensagem: profileError.message };
     }
 
-    console.log("Usuário desativado com sucesso");
     return { sucesso: true, mensagem: "Usuário desativado com sucesso!" };
   } catch (erro: any) {
     console.error("Erro geral:", erro);

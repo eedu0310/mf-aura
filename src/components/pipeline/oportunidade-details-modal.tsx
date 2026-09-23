@@ -71,7 +71,6 @@ export function OportunidadeDetailsModal({
     try {
       // Aqui você implementaria o upload do arquivo
       // Por enquanto, apenas mostramos um feedback
-      console.log("Arquivo selecionado:", file.name);
       alert(`Orçamento "${file.name}" será anexado em breve`);
     } finally {
       setUploadandoOrcamento(false);

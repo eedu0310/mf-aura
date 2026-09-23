@@ -125,7 +125,6 @@ export function precisaRegenerarTarefas(
   const checksumAtual = calcularChecksum(dadosAtuais);
 
   if (checksumAtual !== cache.checksum) {
-    console.log("🔄 Mudanças detectadas, regenerando tarefas...");
     return true;
   }
 
@@ -135,7 +134,6 @@ export function precisaRegenerarTarefas(
   );
 
   if (novoFollowUp) {
-    console.log("🔔 Novo follow-up detectado!");
     return true;
   }
 
@@ -148,7 +146,6 @@ export function precisaRegenerarTarefas(
   );
 
   if (atividadesConcluidas) {
-    console.log("✅ Atividades concluídas detectadas!");
     return true;
   }
 
@@ -158,7 +155,6 @@ export function precisaRegenerarTarefas(
   );
 
   if (difencaPercentual > 5) {
-    console.log("📊 Meta mudou significativamente!");
     return true;
   }
 
@@ -226,15 +222,7 @@ export function resetarCacheTarefasParaTeste(): void {
 export function debugCacheTarefas() {
   const cache = obterCacheTarefas();
   if (!cache) {
-    console.log("❌ Sem cache");
     return;
   }
 
-  console.log("✅ Cache de tarefas:");
-  console.log(`  Data: ${cache.data}`);
-  console.log(`  Hora: ${cache.hora}`);
-  console.log(`  Tarefas: ${cache.tarefas.length}`);
-  console.log(`  Follow-ups rastreados: ${cache.ultimosFolowUps.length}`);
-  console.log(`  Atividades de hoje: ${cache.ultimasAtividades.length}`);
-  console.log(`  Meta ao gerar: ${cache.percentualMetaAoGerar}%`);
 }

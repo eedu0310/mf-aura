@@ -204,13 +204,11 @@ export function PipelineBoard({}: PipelineBoardProps) {
 
     // Verificar se over.id é uma etapa válida
     if (!ETAPAS.includes(etapaOuId as Etapa)) {
-      console.log("❌ Over não é uma etapa válida:", etapaOuId);
       return;
     }
 
     const novaEtapa = etapaOuId as Etapa;
 
-    console.log(`📦 Movendo ${oportunidadeId} para ${novaEtapa}`);
 
     // Chamar função de mover
     moveOportunidade(oportunidadeId, novaEtapa);

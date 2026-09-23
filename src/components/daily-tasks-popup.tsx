@@ -39,7 +39,6 @@ export function DailyTasksPopup({ onClose, aberto = true }: DailyTasksPopupProps
     setCarregando(true);
     setErro(null);
     try {
-      console.log("📋 Carregando tarefas inteligentes...");
       
       const usuarioId = (profile as any)?.usuario_id || (profile as any)?.id || "";
       
@@ -55,7 +54,6 @@ export function DailyTasksPopup({ onClose, aberto = true }: DailyTasksPopupProps
       setTarefas(resultado.tarefas);
       
       if (resultado.synced) {
-        console.log("✅ Tarefas sincronizadas com CRM!");
       } else {
         setErro("Não foi possível gerar tarefas com dados reais agora.");
       }

@@ -61,9 +61,6 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
 
       // Se o relacionamento não foi selecionado, criar automaticamente
       if (!relacionamentoId) {
-        console.log("📤 Criando novo relacionamento...", {
-          nome: busca.trim(),
-        });
 
         const novoRelacionamento = await addRelacionamento({
           vendedorId: "", // Será preenchido pelo contexto com user.id
@@ -73,7 +70,6 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
           proximoContato: new Date().toISOString().slice(0, 10),
         });
 
-        console.log("✅ Relacionamento criado:", novoRelacionamento);
 
         if (novoRelacionamento) {
           finalRelacionamentoId = novoRelacionamento.id;
@@ -89,11 +85,6 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
         }
       }
 
-      console.log("📤 Criando oportunidade...", {
-        cliente: finalRelacionamentoNome || busca.trim(),
-        relacionamentoId: finalRelacionamentoId,
-        valor: valorNumerico,
-      });
 
       // Criar oportunidade
       const novaOportunidade = await addOportunidade({
@@ -105,7 +96,6 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
         probabilidade,
       });
 
-      console.log("✅ Oportunidade criada:", novaOportunidade);
 
       if (novaOportunidade) {
         setMensagem({
