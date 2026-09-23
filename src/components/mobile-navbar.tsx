@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
+import { menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 
 export function MobileNavbar() {
   const [aberto, setAberto] = useState(false);
@@ -17,18 +18,8 @@ export function MobileNavbar() {
   const { relacionamentos } = useAppData();
   const notificacoes = computePendingTasks(relacionamentos);
 
-  const links = [
-    { href: "/meu-dia", label: "Meu Dia", icon: Home },
-    { href: "/agenda", label: "Agenda", icon: Calendar },
-    { href: "/atividades", label: "Atividades", icon: FileText },
-    { href: "/registrar-atividade", label: "Registrar atividade", icon: ClipboardCheck },
-    { href: "/relacionamentos", label: "Relacionamentos", icon: Users },
-    { href: "/pipeline", label: "Pipeline", icon: Filter },
-    { href: "/vendas", label: "Vendas", icon: BarChart3 },
-    { href: "/ranking", label: "Ranking", icon: Trophy },
-    { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-    { href: "/aura-coach", label: "AURA Coach", icon: Sparkles },
-  ];
+  // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
+  const links = [...menuDoCargo(profile.cargo), ...menuDeGestao(profile.cargo)];
 
   return (
     <>

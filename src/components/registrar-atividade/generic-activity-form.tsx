@@ -55,7 +55,7 @@ export function GenericActivityForm({
     exigeSubtipo && !subtipo && "Tipo de prospecção",
     tipoLabel === "Outro" && !outroDetalhe.trim() && "Explique qual foi a atividade",
     !resultado && "Como foi",
-    !observacao.trim() && "Detalhamento do que foi apresentado/conversado",
+    !observacao.trim() && "Relato do atendimento (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
     !proximoPasso && "Próximo passo",
     exigeData && !quando && "Quando será o próximo contacto",
@@ -164,7 +164,12 @@ export function GenericActivityForm({
       <ChoiceChips label="Origem do contato" options={ORIGENS} value={origem} onChange={setOrigem} />
 
       <ResultRating value={resultado} onChange={setResultado} />
-      <ObservationField value={observacao} onChange={setObservacao} />
+      <ObservationField
+        value={observacao}
+        onChange={setObservacao}
+        label="Relato do atendimento"
+        ajuda="Obrigatório. Fale pelo microfone ou escreva o que aconteceu neste contato."
+      />
 
       <ChoiceChips
         label="Próximo passo"

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { OpenAI } from "openai";
+import { getOpenAIClient } from "@/lib/openai-client";
 import { DadosTarefas } from "@/lib/obter-dados-tarefas";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Usa a chave do Claude (ou a da OpenAI, se existir) pela ponte comum.
 
 export interface TarefaDiaria {
   id: string;
@@ -31,6 +29,11 @@ export async function POST(request: NextRequest) {
     }
 
     const prompt = montarPromptTarefas(dados, cargo);
+
+    const openai = getOpenAIClient();
+    if (!openai) {
+      return NextResponse.json({ erro: "IA não configurada no servidor." }, { status: 503 });
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",

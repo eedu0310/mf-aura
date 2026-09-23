@@ -5,6 +5,7 @@ import { AlertCircle, Loader2, Paperclip, X } from "lucide-react";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
 import { CamposFaltando } from "./campos-faltando";
+import { ObservationField } from "./observation-field";
 import {
   LocationCaptureField,
   type ActivityLocation,
@@ -47,6 +48,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
   const [indicadoPor, setIndicadoPor] = useState<Relacionamento | null>(null);
   const [possibilidadeFutura, setPossibilidadeFutura] = useState("");
   const [dataPossibilidadeFutura, setDataPossibilidadeFutura] = useState("");
+  const [relato, setRelato] = useState("");
   const [orcamento, setOrcamento] = useState<File | null>(null);
   const [localizacao, setLocalizacao] = useState<ActivityLocation>({});
   const [erroArquivo, setErroArquivo] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
         !origem && "Origem da venda",
         !foiIndicada && "Informe se houve indicação",
         foiIndicada === "Sim" && !indicadoPor && "Quem indicou",
+        !relato.trim() && "Relato do fechamento (fale pelo microfone ou escreva)",
         !possibilidadeFutura.trim() && "Possibilidade futura de venda",
         !dataPossibilidadeFutura && "Agendamento futuro da possibilidade",
         !pagamentoAVista && parcelas < 1 && "Quantidade de parcelas",
@@ -95,6 +98,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       parcelas,
       produto,
       quemComprou,
+      relato,
       dataPossibilidadeFutura,
       possibilidadeFutura,
     ],
@@ -177,7 +181,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
           fechado,
         )} — ${formaPagamento}${
           parcelasFinais > 1 ? ` — ${parcelasFinais}x` : ""
-        }${orcamento ? " — orçamento anexado" : ""} — possibilidade futura: ${possibilidadeFutura.trim()}`,
+        }${orcamento ? " — orçamento anexado" : ""}\n\nRelato do fechamento: ${relato.trim()}\n\nPossibilidade futura: ${possibilidadeFutura.trim()}`,
         resultado: "Venda fechada",
         objetivo: produto.trim(),
         proximoPasso: "Pós-venda",
@@ -436,6 +440,13 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
           </p>
         )}
       </div>
+
+      <ObservationField
+        value={relato}
+        onChange={setRelato}
+        label="Relato do fechamento"
+        ajuda="Obrigatório. Fale pelo microfone ou escreva: o que pesou na decisão, o que foi negociado e o que o cliente espera."
+      />
 
       <LocationCaptureField value={localizacao} onChange={setLocalizacao} />
 

@@ -21,6 +21,9 @@ export function UsuariosTab() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
+  const [erroForm, setErroForm] = useState<string | null>(null);
+  const [credencial, setCredencial] = useState<{ email: string; senha: string } | null>(null);
+  const [salvando, setSalvando] = useState(false);
   const [novoUsuario, setNovoUsuario] = useState({
     nome: "",
     email: "",
@@ -57,60 +60,55 @@ export function UsuariosTab() {
   }
 
   async function adicionarUsuario() {
-    if (!novoUsuario.nome || !novoUsuario.email) {
-      alert("Preencha todos os campos");
+    setErroForm(null);
+    setCredencial(null);
+
+    if (!novoUsuario.nome.trim() || !novoUsuario.email.trim()) {
+      setErroForm("Preencha o nome e o e-mail.");
       return;
     }
 
-    setCarregando(true);
-
+    setSalvando(true);
     try {
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error("Supabase não disponível");
-
-      // Criar usuário no Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: novoUsuario.email,
-        password: Math.random().toString(36).slice(-8),
+      // Criado pelo servidor: assim a sessão do gestor não é trocada pela
+      // do usuário novo, e a conta já nasce confirmada.
+      const resposta = await fetch("/api/admin/criar-usuario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: novoUsuario.nome.trim(),
+          email: novoUsuario.email.trim(),
+          cargo: novoUsuario.cargo,
+        }),
       });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui criar o usuário.");
 
-      if (authError || !authData.user) throw authError;
-
-      // Criar perfil
-      const { error: profileError } = await supabase.from("profiles").insert({
-        id: authData.user.id,
-        nome: novoUsuario.nome,
-        cargo: novoUsuario.cargo,
-        empresa: profile.empresa,
-        ativo: true,
-      });
-
-      if (profileError) throw profileError;
-
-      setModalAberto(false);
+      setCredencial({ email: dados.email, senha: dados.senhaProvisoria });
       setNovoUsuario({ nome: "", email: "", cargo: "Vendedor", empresa: profile.empresa });
       await carregar();
-    } catch (erro) {
-      console.error("Erro ao adicionar usuário:", erro);
-      alert("Erro ao criar usuário");
+    } catch (erro: any) {
+      setErroForm(erro?.message ?? "Não consegui criar o usuário.");
     } finally {
-      setCarregando(false);
+      setSalvando(false);
     }
   }
 
   async function toggleAtivar(usuario: Usuario) {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-
+    setErroForm(null);
     try {
-      await supabase
-        .from("profiles")
-        .update({ ativo: !usuario.ativo })
-        .eq("id", usuario.id);
-
+      // Pela rota de administração: além de marcar o perfil como inativo,
+      // bloqueia o acesso no Auth. O update direto não bloqueava o login.
+      const resposta = await fetch("/api/admin/definir-status-usuario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: usuario.id, ativo: !usuario.ativo }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui atualizar o acesso.");
       await carregar();
-    } catch (erro) {
-      console.error("Erro ao atualizar usuário:", erro);
+    } catch (erro: any) {
+      setErroForm(erro?.message ?? "Não consegui atualizar o acesso.");
     }
   }
 
@@ -174,19 +172,36 @@ export function UsuariosTab() {
               </div>
             </div>
 
+            {erroForm && (
+              <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erroForm}</p>
+            )}
+
+            {credencial && (
+              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
+                <p className="font-semibold">Acesso criado.</p>
+                <p className="mt-1">Entregue estes dados para a pessoa (ela troca a senha depois):</p>
+                <p className="mt-2 font-mono text-xs">E-mail: {credencial.email}</p>
+                <p className="font-mono text-xs">Senha provisória: {credencial.senha}</p>
+              </div>
+            )}
+
             <div className="mt-6 flex gap-2">
               <button
-                onClick={() => setModalAberto(false)}
+                onClick={() => {
+                  setModalAberto(false);
+                  setErroForm(null);
+                  setCredencial(null);
+                }}
                 className="flex-1 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
               >
-                Cancelar
+                {credencial ? "Fechar" : "Cancelar"}
               </button>
               <button
                 onClick={adicionarUsuario}
-                disabled={carregando}
+                disabled={salvando}
                 className="flex-1 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
               >
-                {carregando ? "Criando..." : "Criar"}
+                {salvando ? "Criando..." : "Criar"}
               </button>
             </div>
           </div>

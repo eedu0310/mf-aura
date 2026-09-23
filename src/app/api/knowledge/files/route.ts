@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
-import { getOpenAIClient } from "@/lib/openai-client";
+import { getOpenAIClient, temOpenAIDeVerdade } from "@/lib/openai-client";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  if (!temOpenAIDeVerdade()) {
+    return NextResponse.json(
+      {
+        erro:
+          "Esta base antiga precisa de uma chave da OpenAI. Para a AURA estudar seus manuais, use a área \"Materiais que a AURA estuda\", na Visão do Gestor.",
+      },
+      { status: 503 },
+    );
+  }
   const openai = getOpenAIClient();
   if (!openai) {
     return NextResponse.json({
@@ -64,6 +73,15 @@ export async function GET() {
 }
 
 export async function DELETE(request: Request) {
+  if (!temOpenAIDeVerdade()) {
+    return NextResponse.json(
+      {
+        erro:
+          "Esta base antiga precisa de uma chave da OpenAI. Para a AURA estudar seus manuais, use a área \"Materiais que a AURA estuda\", na Visão do Gestor.",
+      },
+      { status: 503 },
+    );
+  }
   const openai = getOpenAIClient();
   const auth = await getEmpresaAutenticada();
   if (!openai || !auth) {

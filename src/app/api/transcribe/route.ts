@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const openai = getOpenAIClient();
 
   if (!openai) {
-    return NextResponse.json({ erro: "Transcrição IA não configurada." }, { status: 503 });
+    return NextResponse.json({ erro: "Este navegador não transcreve sozinho. Use o Chrome (o texto aparece enquanto você fala) ou escreva o relato." }, { status: 503 });
   }
 
   try {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("Erro ao transcrever áudio:", err);
     return NextResponse.json(
-      { erro: "Falha ao transcrever o áudio. Verifique a chave da OpenAI." },
+      { erro: "Não consegui transcrever o áudio. Use o Chrome para ditar ou escreva o relato." },
       { status: 500 }
     );
   }

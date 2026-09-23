@@ -30,40 +30,31 @@ export function TransferirCarteiraCard() {
     setProcessando(true);
     setMensagem("");
 
-    const { data: relacionamentos, error: buscaError } = await supabase
-      .from("relacionamentos")
-      .select("id")
-      .eq("empresa", profile.empresa)
-      .eq("owner_id", origem);
-
-    if (buscaError) {
-      setMensagem(buscaError.message);
-      setProcessando(false);
-      return;
-    }
-
-    const ids = (relacionamentos ?? []).map((item) => item.id);
-    const { error: updateError } = ids.length
-      ? await supabase.from("relacionamentos").update({ owner_id: destino }).in("id", ids)
-      : { error: null };
-
-    if (updateError) {
-      setMensagem(updateError.message);
-      setProcessando(false);
-      return;
-    }
-
-    const { data: auth } = await supabase.auth.getUser();
-    await supabase.from("transferencias_carteira").insert({
-      empresa: profile.empresa,
-      de_owner_id: origem,
-      para_owner_id: destino,
-      executado_por: auth.user?.id,
-      quantidade_relacionamentos: ids.length,
-      observacao: "Transferência realizada pelo painel do gestor",
+    // Usa a função do banco: ela move os relacionamentos E as oportunidades
+    // em aberto, e registra a transferência no histórico. A versão anterior
+    // movia só os relacionamentos e deixava o pipeline com o dono antigo.
+    const { data, error } = await supabase.rpc("aura_transferir_carteira", {
+      p_usuario_origem: origem,
+      p_usuario_destino: destino,
+      p_motivo: "Transferência realizada pelo painel do gestor",
+      p_desativar_origem: false,
     });
 
-    setMensagem(`${ids.length} relacionamento(s) transferido(s) com sucesso.`);
+    if (error) {
+      setMensagem(error.message);
+      setProcessando(false);
+      return;
+    }
+
+    const resultado = (data ?? {}) as {
+      relacionamentos_transferidos?: number;
+      oportunidades_transferidas?: number;
+    };
+    setMensagem(
+      `${resultado.relacionamentos_transferidos ?? 0} cliente(s) e ${
+        resultado.oportunidades_transferidas ?? 0
+      } negócio(s) do pipeline transferidos.`,
+    );
     setProcessando(false);
   }
 

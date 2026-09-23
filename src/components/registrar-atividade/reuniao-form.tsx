@@ -46,7 +46,7 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
     !quem && "Participante",
     !assunto.trim() && "Assunto",
     !resultado && "Resultado",
-    !observacoes.trim() && "Detalhamento do que foi apresentado/conversado",
+    !observacoes.trim() && "Relato da reunião (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
     !proximoPasso && "Próximo passo",
     exigeData && !quando && "Quando será o próximo contacto",
@@ -183,7 +183,12 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
         </select>
       </div>
 
-      <ObservationField value={observacoes} onChange={setObservacoes} />
+      <ObservationField
+        value={observacoes}
+        onChange={setObservacoes}
+        label="Relato da reunião"
+        ajuda="Obrigatório. Fale pelo microfone ou escreva o que foi tratado e o que ficou combinado."
+      />
       <ChoiceChips label="Origem do contato" options={["Marketing", "Loja", "Prospecção", "Indicação", "Site", "WhatsApp", "Outro"]} value={origem} onChange={setOrigem} />
 
       <ChoiceChips

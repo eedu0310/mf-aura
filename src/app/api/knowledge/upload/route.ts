@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOpenAIClient } from "@/lib/openai-client";
+import { getOpenAIClient, temOpenAIDeVerdade } from "@/lib/openai-client";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getOrCreateVectorStore } from "@/lib/knowledge-base";
 import { NOMES_EMPRESAS } from "@/lib/companies";
@@ -7,6 +7,15 @@ import { NOMES_EMPRESAS } from "@/lib/companies";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!temOpenAIDeVerdade()) {
+    return NextResponse.json(
+      {
+        erro:
+          "Esta base antiga precisa de uma chave da OpenAI. Para a AURA estudar seus manuais, use a área \"Materiais que a AURA estuda\", na Visão do Gestor.",
+      },
+      { status: 503 },
+    );
+  }
   const openai = getOpenAIClient();
   if (!openai) {
     return NextResponse.json(

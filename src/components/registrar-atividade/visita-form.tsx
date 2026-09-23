@@ -47,7 +47,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
     !objetivo && "Objectivo da visita",
     objetivo === "Outro" && !outroDetalhe.trim() && "Explique o outro objetivo",
     !resultado && "Como foi",
-    !observacao.trim() && "Detalhamento do que foi apresentado/conversado",
+    !observacao.trim() && "Relato da visita (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
     !proximoPasso && "Próximo passo",
     exigeData && !quando && "Quando será o próximo contacto",
@@ -172,7 +172,12 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       )}
 
       <ResultRating value={resultado} onChange={setResultado} />
-      <ObservationField value={observacao} onChange={setObservacao} />
+      <ObservationField
+        value={observacao}
+        onChange={setObservacao}
+        label="Relato da visita"
+        ajuda="Obrigatório. Fale pelo microfone ou escreva: o que foi apresentado, o que o cliente falou e o que ficou combinado."
+      />
 
       <ChoiceChips label="Origem do contato" options={["Marketing", "Loja", "Prospecção", "Indicação", "Site", "WhatsApp", "Outro"]} value={origem} onChange={setOrigem} />
 
