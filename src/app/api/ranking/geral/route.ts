@@ -14,16 +14,30 @@ export async function GET() {
   // Esta rota usa a chave de serviço (ignora as regras do banco), então o
   // recorte por loja precisa ser feito aqui: vendedor vê só a própria loja,
   // o gestor vê todas.
-  const vejoTudo = ["Gestor"].includes(auth.cargo);
-  const daMinhaLoja = <T extends { empresa?: string | null }>(q: any) =>
-    vejoTudo ? q : q.eq("empresa", auth.empresa);
+  const vejoTudo = auth.cargo === "Gestor";
+  const loja = auth.empresa;
 
-  const [{ data: vendedores, error: vendedoresError }, { data: vendas }, { data: atividades }, { data: relacionamentos }] = await Promise.all([
-    daMinhaLoja(supabase.from("profiles").select("id,nome,empresa").in("cargo", ["Vendedor", "Vendedor Interno"]).eq("ativo", true)),
-    daMinhaLoja(supabase.from("vendas").select("owner_id,valor_fechado,valor,empresa")),
-    daMinhaLoja(supabase.from("atividades").select("owner_id,tipo,subtipo,empresa")),
-    daMinhaLoja(supabase.from("relacionamentos").select("owner_id,id,empresa")),
-  ]);
+  interface LinhaVendedor { id: string; nome: string | null; empresa: string | null }
+  interface LinhaVenda { owner_id: string | null; valor_fechado: number | null; valor: number | null }
+  interface LinhaDona { owner_id: string | null }
+
+  const qVendedores = supabase
+    .from("profiles")
+    .select("id,nome,empresa")
+    .in("cargo", ["Vendedor", "Vendedor Interno"])
+    .eq("ativo", true);
+  const qVendas = supabase.from("vendas").select("owner_id,valor_fechado,valor,empresa");
+  const qAtividades = supabase.from("atividades").select("owner_id,tipo,subtipo,empresa");
+  const qRelacionamentos = supabase.from("relacionamentos").select("owner_id,id,empresa");
+
+  const [{ data: vendedores, error: vendedoresError }, { data: vendas }, { data: atividades }, { data: relacionamentos }] =
+    await Promise.all([
+      (vejoTudo ? qVendedores : qVendedores.eq("empresa", loja)).returns<LinhaVendedor[]>(),
+      (vejoTudo ? qVendas : qVendas.eq("empresa", loja)).returns<LinhaVenda[]>(),
+      (vejoTudo ? qAtividades : qAtividades.eq("empresa", loja)).returns<LinhaDona[]>(),
+      (vejoTudo ? qRelacionamentos : qRelacionamentos.eq("empresa", loja)).returns<LinhaDona[]>(),
+    ]);
+
   if (vendedoresError) return NextResponse.json({ erro: "Não foi possível carregar o ranking." }, { status: 500 });
 
   const ranking = (vendedores ?? []).map((v) => {

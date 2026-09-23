@@ -5,14 +5,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/whatsapp-agent",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/autonomous-agent",
-      "schedule": "*/30 * * * *"
-    },
-    {
       "path": "/api/cron/supervisao-aura",
       "schedule": "0 12 * * *"
     },
