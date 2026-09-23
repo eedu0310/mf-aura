@@ -99,7 +99,8 @@ async function criarChatCompletion(opts: any) {
   const resposta = await client.messages.create({
     model: MODELO(),
     max_tokens: opts.max_tokens ?? 2000,
-    temperature: typeof opts.temperature === "number" ? Math.min(1, opts.temperature) : undefined,
+    // O parâmetro "temperature" das rotas antigas não é aceito pelos modelos
+    // atuais do Claude — mandar isso derrubava a resposta com erro 400.
     system: sistema || undefined,
     messages: arrumarMensagens(conversa),
   });
@@ -154,7 +155,6 @@ async function criarResponse(opts: any) {
   const resposta = await client.messages.create({
     model: MODELO(),
     max_tokens: opts.max_tokens ?? 2000,
-    temperature: typeof opts.temperature === "number" ? Math.min(1, opts.temperature) : undefined,
     system: opts.instructions || undefined,
     messages: arrumarMensagens(mensagens),
     ...(ferramentas.length ? { tools: ferramentas } : {}),

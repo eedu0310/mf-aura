@@ -252,8 +252,21 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ resposta, simulado: false, usandoDocumentos: Boolean(vectorStoreId) });
-  } catch (err) {
-    console.error("Erro ao chamar OpenAI (chat):", err);
-    return NextResponse.json({ erro: "Não foi possível responder usando os dados reais." }, { status: 502 });
+  } catch (err: any) {
+    const detalhe = err?.message ?? String(err);
+    console.error("[coach] falha ao responder:", detalhe, err);
+    try {
+      const fs = await import("fs");
+      fs.appendFileSync(
+        ".whatsapp-sessions/diagnostico.log",
+        `${new Date().toISOString()} [coach] ${detalhe}\n`,
+      );
+    } catch {
+      /* o log é só apoio */
+    }
+    return NextResponse.json(
+      { erro: `Não consegui responder agora: ${detalhe}` },
+      { status: 502 },
+    );
   }
 }
