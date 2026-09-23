@@ -121,6 +121,8 @@ function getOrCreate(userId: string): WaSession {
   s.raw ??= new Map();
   s.avatars ??= new Map();
   s.names ??= new Map();
+  s.ciclosQr ??= 0;
+  s.jaAbriu ??= false;
   return s;
 }
 
@@ -465,12 +467,19 @@ export async function startSession(userId: string): Promise<WaSession> {
     fs.mkdirSync(dir, { recursive: true });
     const { state, saveCreds } = await B.useMultiFileAuthState(dir);
 
+    // A consulta da versão vai à internet e pode travar; 5s no máximo.
     let version: number[] | undefined;
     try {
-      version = (await B.fetchLatestBaileysVersion()).version;
+      const resultado = await Promise.race([
+        B.fetchLatestBaileysVersion(),
+        new Promise<null>((r) => setTimeout(() => r(null), 5000)),
+      ]);
+      version = (resultado as any)?.version;
+      if (!version) console.warn("[whatsapp] versão não veio a tempo; usando a embutida");
     } catch {
       version = undefined;
     }
+    console.log(`[whatsapp] abrindo conexão (versão ${version ? version.join(".") : "embutida"})`);
 
     const sock = B.makeWASocket({
       auth: state,
@@ -494,6 +503,7 @@ export async function startSession(userId: string): Promise<WaSession> {
         try {
           s.qrDataUrl = await QRCode.toDataURL(u.qr, { width: 320, margin: 1 });
           s.status = "qr";
+          console.log("[whatsapp] QR code gerado — escaneie pelo celular");
         } catch (e) {
           s.error = "Falha ao gerar o QR code";
           console.error("[whatsapp] QR:", e);
