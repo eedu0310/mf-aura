@@ -12,12 +12,20 @@ export function ConfiguracoesView() {
   const router = useRouter();
   const { profile, setProfile, clearProfile } = useUserProfile();
   // Só ficam os avisos que o sistema realmente emite hoje.
-  const [notifFollowUp, setNotifFollowUp] = useState(() =>
-    typeof window === "undefined" ? true : localStorage.getItem("aura:avisoFollowUp") !== "false",
-  );
-  const [notifMissoes, setNotifMissoes] = useState(() =>
-    typeof window !== "undefined" && localStorage.getItem("aura:missoes") === "true",
-  );
+  // Os valores salvos são lidos depois que a tela monta: ler no estado
+  // inicial faz o servidor e o navegador desenharem coisas diferentes e o
+  // React acusa erro de hidratação.
+  const [notifFollowUp, setNotifFollowUp] = useState(true);
+  const [notifMissoes, setNotifMissoes] = useState(false);
+
+  useEffect(() => {
+    try {
+      setNotifFollowUp(localStorage.getItem("aura:avisoFollowUp") !== "false");
+      setNotifMissoes(localStorage.getItem("aura:missoes") === "true");
+    } catch {
+      /* navegador sem armazenamento: mantém o padrão */
+    }
+  }, []);
 
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
