@@ -24,24 +24,21 @@ export function TransferirCarteiraCard() {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-
     setProcessando(true);
     setMensagem("");
 
-    // Usa a função do banco: ela move os relacionamentos E as oportunidades
-    // em aberto, e registra a transferência no histórico. A versão anterior
-    // movia só os relacionamentos e deixava o pipeline com o dono antigo.
-    const { data, error } = await supabase.rpc("aura_transferir_carteira", {
-      p_usuario_origem: origem,
-      p_usuario_destino: destino,
-      p_motivo: "Transferência realizada pelo painel do gestor",
-      p_desativar_origem: false,
+    // A transferência passa por uma rota do servidor que confere o cargo.
+    // Chamar a função do banco direto daqui deixava qualquer vendedor
+    // logado puxar a carteira de um colega para si.
+    const res = await fetch("/api/gestor/transferir-carteira", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ origem, destino }),
     });
+    const data = await res.json().catch(() => ({}));
 
-    if (error) {
-      setMensagem(error.message);
+    if (!res.ok) {
+      setMensagem(data?.erro ?? "Não consegui transferir a carteira.");
       setProcessando(false);
       return;
     }
