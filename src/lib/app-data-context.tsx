@@ -693,39 +693,46 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function updateOportunidade(id: string, patch: Partial<Oportunidade>) {
+  /**
+   * Atualiza a oportunidade na tela e no banco. Se o banco recusar, desfaz a
+   * mudança na tela e avisa — antes o erro só ia para o console e o vendedor
+   * achava que tinha salvado.
+   */
+  async function updateOportunidade(id: string, patch: Partial<Oportunidade>) {
+    const anterior = todasOportunidades.find((o) => o.id === id);
     setTodasOportunidades((prev) =>
       prev.map((o) => (o.id === id ? { ...o, ...patch } : o)),
     );
-    if (supabase) {
-      const payload: Record<string, unknown> = {};
-      if (patch.cliente !== undefined) payload.cliente = patch.cliente;
-      if (patch.produto !== undefined) payload.produto = patch.produto;
-      if (patch.valor !== undefined) payload.valor = patch.valor;
-      if (patch.probabilidade !== undefined)
-        payload.probabilidade = patch.probabilidade;
-      if (patch.etapa !== undefined) payload.etapa = patch.etapa;
+    if (!supabase) return;
 
-      supabase
-        .from("oportunidades")
-        .update(payload)
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.error("Erro ao atualizar oportunidade:", error);
-        });
+    const payload: Record<string, unknown> = {};
+    if (patch.cliente !== undefined) payload.cliente = patch.cliente;
+    if (patch.produto !== undefined) payload.produto = patch.produto;
+    if (patch.valor !== undefined) payload.valor = patch.valor;
+    if (patch.probabilidade !== undefined) payload.probabilidade = patch.probabilidade;
+    if (patch.etapa !== undefined) payload.etapa = patch.etapa;
+
+    const { error } = await supabase.from("oportunidades").update(payload).eq("id", id);
+    if (error) {
+      console.error("Erro ao atualizar oportunidade:", error);
+      if (anterior) {
+        setTodasOportunidades((prev) => prev.map((o) => (o.id === id ? anterior : o)));
+      }
+      throw new Error("Não consegui salvar a oportunidade. Tente de novo.");
     }
   }
 
-  function deleteOportunidade(id: string) {
+  /** Exclui a oportunidade. Se o banco recusar, devolve o card para a tela. */
+  async function deleteOportunidade(id: string) {
+    const anterior = todasOportunidades.find((o) => o.id === id);
     setTodasOportunidades((prev) => prev.filter((o) => o.id !== id));
-    if (supabase) {
-      supabase
-        .from("oportunidades")
-        .delete()
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.error("Erro ao excluir oportunidade:", error);
-        });
+    if (!supabase) return;
+
+    const { error } = await supabase.from("oportunidades").delete().eq("id", id);
+    if (error) {
+      console.error("Erro ao excluir oportunidade:", error);
+      if (anterior) setTodasOportunidades((prev) => [anterior, ...prev]);
+      throw new Error("Não consegui excluir a oportunidade. Verifique suas permissões.");
     }
   }
 
@@ -1059,7 +1066,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         (r) => r.id === oportunidade.relacionamentoId,
       );
       if (relacionamento) {
-        updateRelacionamento(oportunidade.relacionamentoId, {
+        await updateRelacionamento(oportunidade.relacionamentoId, {
           temperatura: "ativo",
           proximoContato: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
             .toISOString()
@@ -1091,7 +1098,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
 
     if (oportunidade.relacionamentoId) {
-      updateRelacionamento(oportunidade.relacionamentoId, {
+      await updateRelacionamento(oportunidade.relacionamentoId, {
         ultimoContato: new Date().toISOString().slice(0, 10),
       });
     }

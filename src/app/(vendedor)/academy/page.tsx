@@ -99,7 +99,7 @@ export default function AcademyPage() {
 
       {!usandoSupabase && (
         <p className="rounded-xl bg-aura-warning/10 px-4 py-2.5 text-xs text-aura-warning">
-          Supabase não configurado — a Academy precisa dele para funcionar.
+          A Academy está indisponível no momento. Avise seu gestor.
         </p>
       )}
 

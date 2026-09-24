@@ -22,7 +22,6 @@ import { buscarMetaDoMes } from "@/lib/supabase/metas";
 interface DadosVenda {
   mes: string;
   vendido: number;
-  previsto: number;
   meta: number;
 }
 
@@ -35,7 +34,7 @@ interface ComparativoMeses {
 }
 
 export function RelatóriosAvançados() {
-  const { vendas } = useAppData();
+  const { vendas, oportunidades } = useAppData();
   const [periodoSelecionado, setPeriodoSelecionado] = useState("6m");
   const [metaAtual, setMetaAtual] = useState<number | null>(null);
 
@@ -73,7 +72,6 @@ export function RelatóriosAvançados() {
       mesesProcessados.push({
         mes: mesNome,
         vendido: vendidoMes,
-        previsto: 0,
         meta: i === 0 ? (metaAtual ?? 0) : 0,
       });
     }
@@ -104,7 +102,6 @@ export function RelatóriosAvançados() {
         dados: dadosVendas.map((d) => ({
           "Mês": d.mes,
           "Vendido (R$)": d.vendido,
-          "Previsto (R$)": d.previsto,
           "Meta (R$)": d.meta,
           "% Meta": d.meta > 0 ? ((d.vendido / d.meta) * 100).toFixed(1) : "Não cadastrada",
         })),
@@ -125,7 +122,16 @@ export function RelatóriosAvançados() {
   }
 
   const totalVendido = dadosVendas.reduce((s, d) => s + d.vendido, 0);
-  const totalPrevisto = dadosVendas.reduce((s, d) => s + d.previsto, 0);
+  // Quanto o pipeline aberto tende a virar venda, pesando cada negócio pela
+  // probabilidade. Substitui o antigo "Total Previsto", que era sempre R$ 0
+  // porque não existe previsão cadastrada em lugar nenhum do sistema.
+  const PESO: Record<string, number> = { Alta: 0.8, Média: 0.5, Baixa: 0.2 };
+  const pipelinePonderado = (oportunidades ?? [])
+    .filter((o) => o.etapa !== "Fechados" && o.etapa !== "Perdidos")
+    .reduce((soma, o) => soma + o.valor * (PESO[o.probabilidade] ?? 0.5), 0);
+  const negociosAbertos = (oportunidades ?? []).filter(
+    (o) => o.etapa !== "Fechados" && o.etapa !== "Perdidos",
+  ).length;
   const totalMeta = dadosVendas.reduce((s, d) => s + d.meta, 0);
   const percentualMeta = totalMeta > 0 ? ((totalVendido / totalMeta) * 100).toFixed(1) : "0";
   const ticketMedio = dadosVendas.length > 0 ? (totalVendido / dadosVendas.length) : 0;
@@ -153,12 +159,14 @@ export function RelatóriosAvançados() {
         </div>
 
         <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="text-sm text-aura-graphite-soft">Total Previsto</p>
+          <p className="text-sm text-aura-graphite-soft">Pipeline ponderado</p>
           <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(totalPrevisto)}
+            {formatarMoeda(pipelinePonderado)}
           </p>
-          <p className="mt-1 text-xs text-blue-600">
-            {totalPrevisto > 0 ? `${((totalVendido / totalPrevisto) * 100).toFixed(0)}% do previsto` : "Sem previsão cadastrada"}
+          <p className="mt-1 text-xs text-aura-graphite-soft">
+            {negociosAbertos > 0
+              ? `${negociosAbertos} negócio${negociosAbertos !== 1 ? "s" : ""} aberto${negociosAbertos !== 1 ? "s" : ""}, pesado pela probabilidade`
+              : "Nenhum negócio aberto no pipeline"}
           </p>
         </div>
 
@@ -230,13 +238,6 @@ export function RelatóriosAvançados() {
                 dataKey="vendido"
                 stroke="#0F766E"
                 name="Vendido"
-                strokeWidth={2}
-              />
-              <Line
-                type="monotone"
-                dataKey="previsto"
-                stroke="#14B8A6"
-                name="Previsto"
                 strokeWidth={2}
               />
               <Line

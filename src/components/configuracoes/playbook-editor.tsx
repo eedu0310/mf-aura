@@ -41,7 +41,7 @@ export function PlaybookEditor() {
       {!usandoSupabase && (
         <p className="mt-2 flex items-center gap-1.5 rounded-lg bg-aura-warning/10 px-3 py-2 text-xs text-aura-warning">
           <AlertCircle size={12} />
-          Supabase não configurado — isso fica salvo só nesta sessão (some ao atualizar a página).
+          Sem conexão com o servidor — o texto fica salvo só nesta sessão (some ao atualizar a página).
         </p>
       )}
 

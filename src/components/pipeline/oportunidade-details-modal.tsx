@@ -43,7 +43,7 @@ export function OportunidadeDetailsModal({
   async function salvarEdicoes() {
     setSalvando(true);
     try {
-      updateOportunidade(oportunidade.id, {
+      await updateOportunidade(oportunidade.id, {
         cliente: formData.cliente,
         produto: formData.produto || undefined,
         valor: formData.valor,
@@ -53,6 +53,7 @@ export function OportunidadeDetailsModal({
       setEditando(false);
     } catch (error) {
       console.error("Erro ao salvar:", error);
+      window.alert(error instanceof Error ? error.message : "Não consegui salvar. Tente de novo.");
     } finally {
       setSalvando(false);
     }
@@ -62,11 +63,12 @@ export function OportunidadeDetailsModal({
     if (!confirm("Tem certeza que deseja excluir esta oportunidade?")) return;
     setDeletando(true);
     try {
-      deleteOportunidade(oportunidade.id);
+      await deleteOportunidade(oportunidade.id);
       onDelete(oportunidade.id);
       onClose();
     } catch (error) {
       console.error("Erro ao excluir:", error);
+      window.alert(error instanceof Error ? error.message : "Não consegui excluir. Tente de novo.");
     } finally {
       setDeletando(false);
     }

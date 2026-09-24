@@ -64,7 +64,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
         await props.onConfirmar(formData.motivoPerda, descricao);
       } else {
         if (props.oportunidade) {
-          updateOportunidade(props.oportunidade.id, {
+          await updateOportunidade(props.oportunidade.id, {
             motivoPerda: formData.motivoPerda as any,
             descricaoPerda: descricao,
             dataPerda: new Date().toISOString().slice(0, 10),

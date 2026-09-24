@@ -64,7 +64,7 @@ export default function AreaVendedorPage() {
 
       {!usandoSupabase && (
         <p className="rounded-xl bg-aura-warning/10 px-4 py-2.5 text-xs text-aura-warning">
-          Supabase não configurado — essa área precisa dele para funcionar.
+          Esta área está indisponível no momento. Avise seu gestor.
         </p>
       )}
 

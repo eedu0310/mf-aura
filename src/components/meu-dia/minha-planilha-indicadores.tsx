@@ -192,7 +192,7 @@ export function MinhaPlanilhaIndicadores() {
         });
       }
 
-      alert("✅ Planilha salva com sucesso! Marketing foi notificado.");
+      alert("Planilha salva. O Marketing vê esses números no painel dele.");
     } catch (erro) {
       console.error("Erro ao salvar:", erro);
       alert("Não consegui salvar a planilha. Tente de novo.");
@@ -228,7 +228,7 @@ export function MinhaPlanilhaIndicadores() {
             })}
           </h2>
           <p className="text-xs text-aura-graphite-soft">
-            Preencha semana a semana. Marketing será notificado quando você salvar.
+            Preencha semana a semana. O Marketing acompanha esses números no painel dele.
           </p>
         </div>
         <button

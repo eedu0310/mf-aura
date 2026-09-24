@@ -46,7 +46,7 @@ export function RelacionamentoDetailsModal({
   async function salvarEdicoes() {
     setSalvando(true);
     try {
-      updateRelacionamento(relacionamento.id, {
+      await updateRelacionamento(relacionamento.id, {
         nome: formData.nome,
         categoria: formData.categoria,
         telefone: formData.telefone || undefined,
@@ -58,6 +58,7 @@ export function RelacionamentoDetailsModal({
       setEditando(false);
     } catch (error) {
       console.error("Erro ao salvar:", error);
+      window.alert(error instanceof Error ? error.message : "Não consegui salvar. Tente de novo.");
     } finally {
       setSalvando(false);
     }

@@ -37,7 +37,7 @@ export function PopupMotivacional() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-2xl bg-gradient-to-br from-aura-petrol-600 to-aura-petrol-700 p-8 text-white">
+      <div className="relative w-full max-w-md rounded-2xl bg-gradient-to-br from-aura-petrol-600 to-aura-petrol-700 p-8 text-white">
         <button
           onClick={() => setAberto(false)}
           className="absolute right-4 top-4 rounded-lg p-1 transition hover:bg-white/20"

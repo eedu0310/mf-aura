@@ -8,6 +8,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
 import { saudacaoDoDia } from "@/lib/date-local";
+import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
 export function VendorTopbar() {
   const router = useRouter();
@@ -35,7 +36,26 @@ export function VendorTopbar() {
     }
   }, []);
   const notificacoes = avisarFollowUp ? todasNotificacoes : [];
-  const naoLidas = notificacoesLidas ? 0 : notificacoes.length;
+
+  // Avisos gravados pelo sistema (lead novo, lead sem resposta, negócio que
+  // entrou no pipeline, alertas do WhatsApp). Antes eram gravados no banco e
+  // não apareciam em lugar nenhum.
+  const [avisos, setAvisos] = useState<Notificacao[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    async function carregar() {
+      const lista = await listarNotificacoes();
+      if (vivo) setAvisos(lista.filter((a) => !a.lida));
+    }
+    void carregar();
+    const t = setInterval(() => void carregar(), 60_000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  const naoLidas = notificacoesLidas ? 0 : notificacoes.length + avisos.length;
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {
@@ -113,12 +133,28 @@ export function VendorTopbar() {
               <p className="border-b border-aura-mist px-4 py-3 text-sm font-medium text-aura-graphite">
                 Notificações
               </p>
-              {notificacoes.length === 0 ? (
+              {notificacoes.length === 0 && avisos.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">
-                  Nenhum follow-up pendente agora.
+                  Nada pendente agora.
                 </p>
               ) : (
                 <ul className="max-h-72 overflow-y-auto">
+                  {avisos.map((a) => (
+                    <li key={a.id} className="border-b border-aura-mist last:border-b-0">
+                      <Link
+                        href={a.acaoUrl || "/meu-dia"}
+                        onClick={() => {
+                          setNotificacoesAbertas(false);
+                          setAvisos((atual) => atual.filter((x) => x.id !== a.id));
+                          void marcarComoLida(a.id);
+                        }}
+                        className="block px-4 py-3 hover:bg-aura-bg"
+                      >
+                        <p className="text-sm font-medium text-aura-graphite">{a.titulo}</p>
+                        <p className="mt-1 text-xs text-aura-graphite-soft">{a.mensagem}</p>
+                      </Link>
+                    </li>
+                  ))}
                   {notificacoes.map((n) => (
                     <li key={n.id} className="border-b border-aura-mist last:border-b-0">
                       <Link

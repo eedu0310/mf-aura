@@ -8,6 +8,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
 import { menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
 export function MobileNavbar() {
   const [aberto, setAberto] = useState(false);
@@ -28,6 +29,23 @@ export function MobileNavbar() {
   }, []);
   const notificacoes = avisarFollowUp ? todasNotificacoes : [];
 
+  // Avisos gravados pelo sistema (lead novo, lead sem resposta, pipeline).
+  const [avisos, setAvisos] = useState<Notificacao[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    async function carregar() {
+      const lista = await listarNotificacoes();
+      if (vivo) setAvisos(lista.filter((a) => !a.lida));
+    }
+    void carregar();
+    const t = setInterval(() => void carregar(), 60_000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, []);
+  const totalAvisos = notificacoes.length + avisos.length;
+
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
   const links = [...menuDoCargo(profile.cargo), ...menuDeGestao(profile.cargo)];
 
@@ -45,11 +63,11 @@ export function MobileNavbar() {
               className="relative p-2 text-white"
             >
               <Bell size={21} />
-              {notificacoes.length > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-aura-danger px-1 text-[10px] font-semibold text-white">{notificacoes.length}</span>}
+              {totalAvisos > 0 && <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-aura-danger px-1 text-[10px] font-semibold text-white">{totalAvisos}</span>}
             </button>
             {notificacoesAbertas && <div className="absolute right-12 top-12 z-[80] w-72 overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-xl">
               <p className="border-b border-aura-mist px-4 py-3 text-sm font-medium text-aura-graphite">Notificações</p>
-              {notificacoes.length === 0 ? <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">Nenhum follow-up pendente agora.</p> : <ul className="max-h-64 overflow-y-auto">{notificacoes.map((n) => <li key={n.id} className="border-b border-aura-mist last:border-0"><Link href={`/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`} onClick={() => setNotificacoesAbertas(false)} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{n.titulo}</p><p className={`mt-1 text-xs ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p></Link></li>)}</ul>}
+              {totalAvisos === 0 ? <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">Nada pendente agora.</p> : <ul className="max-h-64 overflow-y-auto">{avisos.map((a) => <li key={a.id} className="border-b border-aura-mist last:border-0"><Link href={a.acaoUrl || "/meu-dia"} onClick={() => { setNotificacoesAbertas(false); setAvisos((atual) => atual.filter((x) => x.id !== a.id)); void marcarComoLida(a.id); }} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{a.titulo}</p><p className="mt-1 text-xs text-aura-graphite-soft">{a.mensagem}</p></Link></li>)}{notificacoes.map((n) => <li key={n.id} className="border-b border-aura-mist last:border-0"><Link href={`/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`} onClick={() => setNotificacoesAbertas(false)} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{n.titulo}</p><p className={`mt-1 text-xs ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p></Link></li>)}</ul>}
             </div>}
             <button
               type="button"
