@@ -67,7 +67,7 @@ const TELAS: Record<string, string> = {
   vendas: "Vendas — resultado do mês e meta",
   atividades: "Atividades — ligações, visitas, WhatsApp, orçamentos",
   relatorio: "Relatório — desempenho do período",
-  ranking: "Ranking — posição entre os vendedores da loja",
+  ranking: "Ranking — posição entre todos os vendedores do grupo",
   whatsapp: "WhatsApp — atendimento aos clientes",
   gestor: "Visão do Gestor — equipe e lojas",
 };

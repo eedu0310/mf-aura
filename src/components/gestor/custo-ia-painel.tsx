@@ -51,6 +51,7 @@ export function CustoIAPainel() {
   const [descricao, setDescricao] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [ajustes, setAjustes] = useState(false);
+  const [confirmando, setConfirmando] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -105,7 +106,7 @@ export function CustoIAPainel() {
   }
 
   async function removerDeposito(id: string) {
-    if (!window.confirm("Remover este depósito do histórico?")) return;
+    setConfirmando(null);
     await fetch(`/api/gestor/custo-ia?id=${id}`, { method: "DELETE" });
     await carregar();
   }
@@ -160,10 +161,12 @@ export function CustoIAPainel() {
               noVermelho ? "text-red-600" : perto ? "text-amber-600" : "text-aura-graphite"
             }`}
           >
-            {dolar(s.saldo)}
+            {semDeposito ? "—" : dolar(s.saldo)}
           </p>
           <p className="mt-1 text-xs text-aura-graphite-soft">
-            {semDeposito ? "Registre o primeiro depósito" : `${dolar(s.depositado)} depositado`}
+            {semDeposito
+              ? "Registre o primeiro depósito para acompanhar o saldo"
+              : `${dolar(s.depositado)} depositado`}
           </p>
         </div>
         <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
@@ -179,7 +182,11 @@ export function CustoIAPainel() {
         <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">Dura até</p>
           <p className="mt-2 text-3xl font-bold tabular-nums text-aura-graphite">
-            {semDeposito ? "—" : dados.diasRestantes != null ? `${dados.diasRestantes} dias` : "—"}
+            {semDeposito || dados.diasRestantes == null
+              ? "—"
+              : dados.diasRestantes > 365
+                ? "+1 ano"
+                : `${dados.diasRestantes} dias`}
           </p>
           <p className="mt-1 text-xs text-aura-graphite-soft">No ritmo dos últimos 7 dias</p>
         </div>
@@ -229,14 +236,33 @@ export function CustoIAPainel() {
                       {c.descricao ? ` · ${c.descricao}` : ""}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void removerDeposito(c.id)}
-                    aria-label="Remover depósito"
-                    className="rounded-lg p-2 text-aura-graphite-soft hover:bg-red-50 hover:text-red-600"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {confirmando === c.id ? (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => void removerDeposito(c.id)}
+                        className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white"
+                      >
+                        Remover
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmando(null)}
+                        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-aura-graphite-soft hover:bg-aura-bg"
+                      >
+                        Cancelar
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmando(c.id)}
+                      aria-label="Remover depósito"
+                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft hover:bg-red-50 hover:text-red-600"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -248,7 +274,7 @@ export function CustoIAPainel() {
           <h3 className="mb-3 text-sm font-semibold text-aura-graphite">Consumo dos últimos 30 dias</h3>
           <div style={{ height: 180 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dados.porDia} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+              <AreaChart data={dados.porDia} margin={{ top: 4, right: 14, left: -18, bottom: 0 }}>
                 <XAxis
                   dataKey="dia"
                   tickFormatter={diaCurto}
@@ -257,7 +283,13 @@ export function CustoIAPainel() {
                   axisLine={false}
                   tickLine={false}
                 />
-                <YAxis tick={{ fontSize: 11, fill: COR.texto }} axisLine={false} tickLine={false} width={46} />
+                <YAxis
+                  tickFormatter={(v: number) => (v ? `$${v.toFixed(2)}` : "0")}
+                  tick={{ fontSize: 11, fill: COR.texto }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={56}
+                />
                 <Tooltip
                   content={({ active, payload, label }: any) =>
                     active && payload?.length ? (

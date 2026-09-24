@@ -155,9 +155,9 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string, agora = Date.now
 
   // Ranking na loja do vendedor, pelo valor vendido no mês.
   const perfil = d.perfis.find((p) => p.id === vendedorId);
-  const colegas = d.perfis.filter(
-    (p) => p.empresa === perfil?.empresa && p.ativo !== false && /vendedor/i.test(p.cargo ?? ""),
-  );
+  // O ranking é do grupo inteiro, igual à tela de Ranking: todo mundo
+  // disputa com todo mundo. Só a carteira de cada um é que é privada.
+  const colegas = d.perfis.filter((p) => p.ativo !== false && /vendedor/i.test(p.cargo ?? ""));
   const placar = colegas
     .map((p) => ({
       id: p.id,
