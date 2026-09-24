@@ -43,6 +43,7 @@ export function DashboardTab() {
             nome: profile.nome || "Você",
             empresa: profile.empresa,
             ativo: true,
+            cargo: profile.cargo ?? "Vendedor",
             vendasTotal: vendasTodasLojas.reduce((s, v) => s + v.valor, 0),
             vendasEsteMes: vendasTodasLojas.reduce((s, v) => s + v.valor, 0),
             vendasMesPassado: 0,

@@ -5,6 +5,7 @@ export interface MembroEquipe {
   nome: string;
   empresa: string;
   ativo: boolean;
+  cargo: string;
   vendasTotal: number;
   vendasEsteMes: number;
   vendasMesPassado: number;
@@ -34,7 +35,7 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
 
   let { data: perfis, error: erroPerfis } = await supabase
     .from("profiles")
-    .select("id, nome, empresa, ativo")
+    .select("id, nome, empresa, ativo, cargo")
     .order("created_at", { ascending: true });
 
   // Compatibilidade com bancos criados antes da coluna profiles.ativo.
@@ -43,7 +44,7 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
       .from("profiles")
       .select("id, nome, empresa")
       .order("created_at", { ascending: true });
-    perfis = legado.data?.map((perfil) => ({ ...perfil, ativo: true })) ?? null;
+    perfis = legado.data?.map((perfil) => ({ ...perfil, ativo: true, cargo: "Vendedor" })) ?? null;
     erroPerfis = legado.error;
   }
 
@@ -69,7 +70,11 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
     (contagemAtividades ?? []).map((c: { owner_id: string; total: number }) => [c.owner_id, Number(c.total)])
   );
 
-  return perfis.map((p) => {
+  // Conta desativada some de tudo que usa "a equipe". Sem isso o card do
+  // Meu Dia mostrava "11º de 11" com nove contas de teste desligadas.
+  return perfis
+    .filter((p) => p.ativo !== false)
+    .map((p) => {
     const vendasDoVendedor = (vendas ?? []).filter((v) => v.owner_id === p.id);
 
     return {
@@ -77,6 +82,7 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
       nome: p.nome,
       empresa: p.empresa,
       ativo: p.ativo ?? true,
+      cargo: p.cargo ?? "",
       vendasTotal: vendasDoVendedor.reduce((s, v) => s + Number(v.valor), 0),
       vendasEsteMes: vendasDoVendedor
         .filter((v) => (v.data as string)?.startsWith(mesAtual))

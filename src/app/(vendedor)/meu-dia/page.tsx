@@ -95,11 +95,19 @@ export default function MeuDiaPage() {
       );
     }
 
-    if (equipe && equipe.length > 0) {
-      const ordenado = [...equipe].sort((a, b) => b.vendasTotal - a.vendasTotal);
-      const minhaPosicao = ordenado.findIndex((membro) => membro.souEu) + 1;
-      setPosicaoRanking(minhaPosicao > 0 ? minhaPosicao : null);
-      setTotalEquipe(ordenado.length);
+    // A posição vem da mesma fonte da tela de Ranking: a disputa é do grupo
+    // inteiro. Antes este card contava só a própria loja e mostrava um número
+    // diferente do que o vendedor via no Ranking.
+    try {
+      const res = await fetch("/api/ranking/geral", { cache: "no-store" });
+      if (res.ok) {
+        const dados: { ranking: { id: string; posicao: number }[]; eu: string } = await res.json();
+        const minha = dados.ranking.find((p) => p.id === dados.eu);
+        setPosicaoRanking(minha?.posicao ?? null);
+        setTotalEquipe(dados.ranking.length);
+      }
+    } catch {
+      // sem ranking agora, o card some sozinho
     }
 
     setMetaValor(meta);
