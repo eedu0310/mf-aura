@@ -24,6 +24,10 @@ export function CompromissoModal({
     relacionamentoNome?: string;
     data: string;
     hora?: string;
+    duracaoMinutos?: number;
+    local?: string;
+    observacao?: string;
+    relacionamentoId?: string;
   }) => void;
 }) {
   const [titulo, setTitulo] = useState(compromissoExistente?.titulo ?? "");
@@ -32,6 +36,9 @@ export function CompromissoModal({
   const [relacionamento, setRelacionamento] = useState<Relacionamento | null>(null);
   const [data, setData] = useState(compromissoExistente?.data ?? dataInicial);
   const [hora, setHora] = useState(compromissoExistente?.hora ?? "");
+  const [duracao, setDuracao] = useState(String(compromissoExistente?.duracaoMinutos ?? 60));
+  const [local, setLocal] = useState(compromissoExistente?.local ?? "");
+  const [observacao, setObservacao] = useState(compromissoExistente?.observacao ?? "");
 
   const podeSalvar = titulo.trim().length > 0 && data;
 
@@ -45,12 +52,16 @@ export function CompromissoModal({
       relacionamentoNome: relacionamento?.nome ?? compromissoExistente?.relacionamentoNome ?? undefined,
       data,
       hora: hora || undefined,
+      duracaoMinutos: Number(duracao) || 60,
+      local: local.trim() || undefined,
+      observacao: observacao.trim() || undefined,
+      relacionamentoId: relacionamento?.id ?? compromissoExistente?.relacionamentoId ?? undefined,
     });
   }
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <p className="font-display text-lg font-semibold text-aura-graphite">
             {compromissoExistente ? "Editar compromisso" : "Novo compromisso"}
@@ -127,6 +138,44 @@ export function CompromissoModal({
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              Duração
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[30, 60, 90, 120].map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setDuracao(String(m))}
+                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                    Number(duracao) === m
+                      ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
+                      : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
+                  }`}
+                >
+                  {m < 60 ? `${m} min` : `${m / 60}h`}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-aura-graphite-soft">
+              Usada para reservar o horário no calendário do seu celular.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              Local (opcional)
+            </label>
+            <input
+              type="text"
+              value={local}
+              onChange={(e) => setLocal(e.target.value)}
+              placeholder="Ex.: Obra na Av. Ipiranga, 300"
+              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
               Observação (opcional)
             </label>
             <input
@@ -135,6 +184,19 @@ export function CompromissoModal({
               onChange={(e) => setSubtitulo(e.target.value)}
               placeholder="Ex.: Levar catálogo atualizado"
               className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              Anotações para você (opcional)
+            </label>
+            <textarea
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              rows={2}
+              placeholder="O que precisa estar pronto, o que combinar..."
+              className="w-full resize-none rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
             />
           </div>
 

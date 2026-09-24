@@ -90,6 +90,8 @@ export function oportunidadeDoBanco(
     atualizado: texto(linha.updated_at),
     empresa: texto(linha.empresa),
     diasParado: numero(linha.dias_parado),
+    orcamentoPath: texto(linha.orcamento_path) || null,
+    orcamentoNome: texto(linha.orcamento_nome) || null,
   };
 }
 

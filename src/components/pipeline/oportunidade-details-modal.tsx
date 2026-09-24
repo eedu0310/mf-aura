@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { X, Trash2, Download, Upload, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useUserProfile } from "@/lib/user-profile-context";
 import type { Oportunidade, Etapa, Probabilidade } from "@/lib/types";
 
 const ETAPAS: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"];
@@ -22,6 +24,13 @@ export function OportunidadeDetailsModal({
   const [salvando, setSalvando] = useState(false);
   const [deletando, setDeletando] = useState(false);
   const [uploadandoOrcamento, setUploadandoOrcamento] = useState(false);
+  const [erroOrcamento, setErroOrcamento] = useState<string | null>(null);
+  const [orcamento, setOrcamento] = useState<{ path: string; nome: string } | null>(
+    oportunidade.orcamentoPath
+      ? { path: oportunidade.orcamentoPath, nome: oportunidade.orcamentoNome ?? "orçamento" }
+      : null,
+  );
+  const { profile } = useUserProfile();
 
   const [formData, setFormData] = useState({
     cliente: oportunidade.cliente,
@@ -63,18 +72,64 @@ export function OportunidadeDetailsModal({
     }
   }
 
+  const TAMANHO_MAXIMO_MB = 10;
+
+  /** Envia o orçamento para o armazenamento da loja e guarda o caminho na oportunidade. */
   async function handleUploadOrcamento(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setErroOrcamento(null);
+
+    if (file.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
+      setErroOrcamento(`O arquivo passa de ${TAMANHO_MAXIMO_MB} MB.`);
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setErroOrcamento("Armazenamento indisponível.");
+      return;
+    }
 
     setUploadandoOrcamento(true);
     try {
-      // Aqui você implementaria o upload do arquivo
-      // Por enquanto, apenas mostramos um feedback
-      alert(`Orçamento "${file.name}" será anexado em breve`);
+      const loja = oportunidade.empresa || profile.empresa;
+      const nomeSeguro = file.name.replace(/[^\w.\-]+/g, "_");
+      const caminho = `${loja}/oportunidades/${oportunidade.id}/${nomeSeguro}`;
+
+      const { error: erroUpload } = await supabase.storage
+        .from("orcamentos")
+        .upload(caminho, file, { upsert: true });
+      if (erroUpload) throw erroUpload;
+
+      const { error: erroBanco } = await supabase
+        .from("oportunidades")
+        .update({ orcamento_path: caminho, orcamento_nome: file.name })
+        .eq("id", oportunidade.id);
+      if (erroBanco) throw erroBanco;
+
+      setOrcamento({ path: caminho, nome: file.name });
+    } catch (erro: any) {
+      console.error("Erro ao anexar orçamento:", erro);
+      setErroOrcamento(erro?.message ?? "Não consegui anexar o orçamento.");
     } finally {
       setUploadandoOrcamento(false);
+      e.target.value = "";
     }
+  }
+
+  /** Abre o orçamento anexado por um link temporário e assinado. */
+  async function baixarOrcamento() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !orcamento) return;
+    const { data, error } = await supabase.storage
+      .from("orcamentos")
+      .createSignedUrl(orcamento.path, 60);
+    if (error || !data?.signedUrl) {
+      setErroOrcamento("Não consegui abrir o arquivo.");
+      return;
+    }
+    window.open(data.signedUrl, "_blank", "noopener");
   }
 
   function formatarMoeda(valor: number) {
@@ -151,35 +206,65 @@ export function OportunidadeDetailsModal({
               </div>
             </div>
 
-            {/* Upload de Orçamento */}
+            {/* Orçamento anexado */}
             <div className="rounded-xl border border-aura-mist p-4">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="mb-3 flex items-center gap-2">
                 <Upload size={16} className="text-aura-petrol-600" />
-                <p className="text-sm font-medium text-aura-graphite">Anexar Orçamento</p>
+                <p className="text-sm font-medium text-aura-graphite">Orçamento</p>
               </div>
-              <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-aura-mist bg-aura-bg/50 px-4 py-8 transition hover:border-aura-petrol-300">
-                <input
-                  type="file"
-                  onChange={handleUploadOrcamento}
-                  disabled={uploadandoOrcamento}
-                  className="hidden"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx"
-                />
-                <div className="text-center">
-                  {uploadandoOrcamento ? (
-                    <Loader2 size={24} className="mx-auto animate-spin text-aura-petrol-600" />
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium text-aura-graphite">
-                        Clique para selecionar ou arraste um arquivo
-                      </p>
-                      <p className="mt-1 text-xs text-aura-graphite-soft">
-                        PDF, DOC, DOCX, XLS, XLSX
-                      </p>
-                    </>
-                  )}
+
+              {orcamento ? (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-aura-mist bg-aura-bg/50 px-3 py-3">
+                  <p className="min-w-0 truncate text-sm text-aura-graphite">{orcamento.nome}</p>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void baixarOrcamento()}
+                      className="flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-white"
+                    >
+                      <Download size={13} /> Abrir
+                    </button>
+                    <label className="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-aura-petrol-700 hover:underline">
+                      Trocar
+                      <input
+                        type="file"
+                        onChange={handleUploadOrcamento}
+                        disabled={uploadandoOrcamento}
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                      />
+                    </label>
+                  </div>
                 </div>
-              </label>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-aura-mist bg-aura-bg/50 px-4 py-8 transition hover:border-aura-petrol-300">
+                  <input
+                    type="file"
+                    onChange={handleUploadOrcamento}
+                    disabled={uploadandoOrcamento}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+                  />
+                  <div className="text-center">
+                    {uploadandoOrcamento ? (
+                      <Loader2 size={24} className="mx-auto animate-spin text-aura-petrol-600" />
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-aura-graphite">
+                          Clique para anexar o orçamento
+                        </p>
+                        <p className="mt-1 text-xs text-aura-graphite-soft">
+                          PDF, Word, Excel ou foto — até 10 MB
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </label>
+              )}
+
+              {erroOrcamento && (
+                <p className="mt-2 text-xs text-aura-danger">{erroOrcamento}</p>
+              )}
             </div>
 
             {/* Botões de Ação */}

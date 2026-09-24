@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { useUserProfile } from "@/lib/user-profile-context";
 import type { TipoAtividade } from "@/lib/types";
 
 const TIPOS_ATIVIDADE: TipoAtividade[] = [
@@ -22,6 +23,7 @@ export function NovaAtividadeModal({
   onCriada: () => void;
 }) {
   const { addAtividade, relacionamentos } = useAppData();
+  const { profile } = useUserProfile();
   const [salvando, setSalvando] = useState(false);
   const [formData, setFormData] = useState({
     tipo: "Ligação" as TipoAtividade,
@@ -45,7 +47,9 @@ export function NovaAtividadeModal({
         quando: new Date(formData.quando).toISOString(),
         relacionamentoId: formData.relacionamentoId || undefined,
         anotacoes: formData.anotacoes || undefined,
-        empresa: "LF Lareiras", // TODO: pegar da context
+        // A loja vem do perfil de quem está registrando: antes ficava fixo
+        // em "LF Lareiras" e um vendedor da MF gravava na loja errada.
+        empresa: profile.empresa,
       });
 
       onCriada();

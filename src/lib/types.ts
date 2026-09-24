@@ -334,4 +334,7 @@ export interface Oportunidade {
   atualizado?: string;
   empresa?: string;
   diasParado?: number;
+  /** Orçamento anexado (caminho no armazenamento e nome original). */
+  orcamentoPath?: string | null;
+  orcamentoNome?: string | null;
 }

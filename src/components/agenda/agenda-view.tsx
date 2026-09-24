@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
+import { ConectarCalendario } from "./conectar-calendario";
 import { useAppData } from "@/lib/app-data-context";
 import { CompromissoModal } from "./compromisso-modal";
 import {
@@ -215,6 +216,10 @@ export function AgendaView() {
       </div>
 
       <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+        <ConectarCalendario />
+      </div>
+
+      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* CALENDÁRIO */}
           <div className="lg:col-span-1 rounded-2xl border border-aura-mist bg-white p-6">
@@ -404,7 +409,7 @@ export function AgendaView() {
           onSalvar={async (dados) => {
             const criado = await criarCompromisso(dados);
             if (!criado) {
-              alert("Não foi possível salvar o compromisso. Verifique o Supabase.");
+              alert("Não consegui salvar o compromisso. Verifique sua conexão e tente de novo.");
               return;
             }
             setCompromissos((atual) => [...atual, criado]);

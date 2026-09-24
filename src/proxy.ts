@@ -42,6 +42,9 @@ export async function proxy(request: NextRequest) {
     caminho.startsWith("/login") ||
     caminho.startsWith("/avaliar") ||
     caminho.startsWith("/api/cron") ||
+    // O calendário é aberto de propósito: quem acessa é o Google Agenda ou o
+    // calendário do iPhone, que não fazem login. O segredo é o token da URL.
+    caminho.startsWith("/api/agenda/") ||
     caminho.startsWith("/api/whatsapp/webhook") ||
     caminho.startsWith("/auth") ||
     caminho.startsWith("/_next") ||
