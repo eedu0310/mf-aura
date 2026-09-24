@@ -10,6 +10,7 @@
  * Assim nenhuma dessas telas precisou ser reescrita.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { registrarUsoIA } from "@/lib/aura/custo-ia";
 
 type Papel = "user" | "assistant";
 interface MensagemSimples {
@@ -80,7 +81,7 @@ function ferramentasParaClaude(tools: any[]): any[] {
 }
 
 // --------------------------------------------------------------- chat.completions
-async function criarChatCompletion(opts: any) {
+async function criarChatCompletion(opts: any, extra?: any) {
   const client = anthropic();
   if (!client) throw new Error("Falta a chave da IA (ANTHROPIC_API_KEY).");
 
@@ -105,6 +106,8 @@ async function criarChatCompletion(opts: any) {
     messages: arrumarMensagens(conversa),
   });
 
+  void registrarUsoIA({ funcao: extra?.__funcao ?? "chat", modelo: MODELO(), uso: (resposta as any).usage });
+
   let conteudo = resposta.content.map((b: any) => (b.type === "text" ? b.text : "")).join("").trim();
   if (querJson) {
     const limpo = conteudo.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -121,7 +124,7 @@ async function criarChatCompletion(opts: any) {
  * Aceita o `input` da Responses API, inclusive os itens `function_call` e
  * `function_call_output` que a rota do coach devolve na segunda rodada.
  */
-async function criarResponse(opts: any) {
+async function criarResponse(opts: any, extra?: any) {
   const client = anthropic();
   if (!client) throw new Error("Falta a chave da IA (ANTHROPIC_API_KEY).");
 
@@ -159,6 +162,8 @@ async function criarResponse(opts: any) {
     messages: arrumarMensagens(mensagens),
     ...(ferramentas.length ? { tools: ferramentas } : {}),
   });
+
+  void registrarUsoIA({ funcao: extra?.__funcao ?? "coach", modelo: MODELO(), uso: (resposta as any).usage });
 
   const output = resposta.content.map((bloco: any) =>
     bloco.type === "tool_use"

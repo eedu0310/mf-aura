@@ -102,7 +102,7 @@ async function perguntarIA({
       input: inputInicial,
       tools: tools as never,
       temperature,
-    });
+    }, { __funcao: "coach" } as never);
 
     const chamadasFuncao = (response.output ?? []).filter(
       (item): item is Extract<(typeof response.output)[number], { type: "function_call" }> =>
@@ -124,7 +124,7 @@ async function perguntarIA({
         input: [...inputInicial, ...response.output, ...resultados] as never,
         tools: tools as never,
         temperature,
-      });
+      }, { __funcao: "coach" } as never);
 
       return limparMarkdown(segundaResposta.output_text ?? "Ação realizada.");
     }
@@ -136,7 +136,7 @@ async function perguntarIA({
     model: "gpt-4o-mini",
     messages: [{ role: "system", content: systemPrompt }, ...mensagens] as never,
     temperature,
-  });
+  }, { __funcao: "coach" } as never);
 
   return limparMarkdown(completion.choices[0]?.message?.content ?? "Não consegui responder agora.");
 }

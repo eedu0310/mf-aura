@@ -1,15 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2 } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet } from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
 import { MarketingTab } from "@/components/gestor/marketing-tab";
 import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
 import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
+import { CustoIAPainel } from "@/components/gestor/custo-ia-painel";
 
- type AbaGestor = "aura" | "dashboard" | "planilha" | "usuarios" | "configuracoes" | "marketing";
+ type AbaGestor =
+  | "aura"
+  | "dashboard"
+  | "planilha"
+  | "usuarios"
+  | "custo-ia"
+  | "configuracoes"
+  | "marketing";
 
 const ABAS: Array<{
   id: AbaGestor;
@@ -42,6 +50,12 @@ const ABAS: Array<{
     icon: Users,
   },
   {
+    id: "custo-ia",
+    label: "Custo da IA",
+    descricao: "Saldo, consumo e depósitos da AURA",
+    icon: Wallet,
+  },
+  {
     id: "configuracoes",
     label: "Configurações",
     descricao: "Base de conhecimento e regras do CRM",
@@ -70,7 +84,7 @@ export default function GestorPage() {
       </header>
 
       <nav
-        className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-5"
+        className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-4"
         aria-label="Navegação do painel do gestor"
       >
         {ABAS.map((item) => {
@@ -108,6 +122,7 @@ export default function GestorPage() {
       {aba === "dashboard" && <DashboardTab />}
       {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}
+      {aba === "custo-ia" && <CustoIAPainel />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
       {aba === "marketing" && <MarketingTab />}
     </div>

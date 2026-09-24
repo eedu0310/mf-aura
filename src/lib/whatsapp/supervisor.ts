@@ -9,6 +9,7 @@
  *  4. avisa quando o cliente está sem resposta ou precisa de follow-up.
  */
 import fs from "fs";
+import { registrarUsoIA } from "@/lib/aura/custo-ia";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -285,6 +286,12 @@ ${transcricao(msgs, nomeCliente)}`;
     tools: [FERRAMENTA_ANALISE],
     tool_choice: { type: "tool", name: "analise" },
   });
+  void registrarUsoIA({
+    funcao: "whatsapp",
+    modelo: process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+    uso: (resp as any).usage,
+  });
+
   const bloco = resp.content.find((b: any) => b.type === "tool_use") as any;
   let r: any = bloco?.input;
   if (!r) {

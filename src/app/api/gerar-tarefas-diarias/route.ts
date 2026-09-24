@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       ],
       temperature: 0.7,
       max_tokens: 1500,
-    });
+    }, { __funcao: "tarefas-do-dia" } as never);
 
     const tarefasTexto = response.choices[0].message.content || "";
     const tarefas = parseaTarefas(tarefasTexto);

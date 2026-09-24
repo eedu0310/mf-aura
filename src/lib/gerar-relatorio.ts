@@ -297,6 +297,7 @@ export async function gerarRelatorioLoja(
     texto = await chamarClaude({
       sistema: `Você é um analista comercial sênior escrevendo o relatório ${tipo === "semanal_gestor" ? "semanal" : "mensal"} consolidado da loja ${empresa} para o Gestor. Analise os dados de cada vendedor e escreva um resumo direto em português: quem se destacou, quem precisa de atenção/conversa individual, e prioridades gerais da loja para o período seguinte. IMPORTANTE: quando um vendedor tiver metas do mês (Compromisso Mensal aprovado) e estiver claramente abaixo do combinado em algum item, aponte isso especificamente — é justamente pra isso que essas metas existem, pra dar ao gestor motivo concreto de conversa individual. Máximo 6 tópicos com "•". Cite vendedores pelo nome. Não invente dados.`,
       pergunta: resumoTextual,
+      funcao: "relatorio",
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro desconhecido ao chamar a IA.";

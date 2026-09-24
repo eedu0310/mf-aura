@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Insight } from "./metricas";
+import { podeChamarIA, registrarUsoIA } from "./custo-ia";
 
 export interface RespostaAura {
   manchete: string;
@@ -130,6 +131,9 @@ export async function gerarRecados(opts: {
 
   const client = ai();
   if (!client) return regras;
+  // Sem saldo (quando o gestor liga o bloqueio), a AURA segue funcionando
+  // com os recados calculados por regra, sem chamar a IA.
+  if (!(await podeChamarIA())) return regras;
 
   const gestor = opts.pessoa.cargo === "Gestor";
   const system = `Você é a AURA, supervisora comercial com IA do CRM de uma empresa de lareiras, churrasqueiras e aquecimento (lojas LF Lareiras e MF International). Você acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
@@ -168,6 +172,13 @@ ${JSON.stringify(opts.recadosBase)}`;
       tools: [FERRAMENTA_RECADOS],
       tool_choice: { type: "tool", name: "recados" },
     });
+    void registrarUsoIA({
+      funcao: "recados",
+      modelo: process.env.AURA_IA_MODEL || process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+      uso: (resp as any).usage,
+      empresa: opts.pessoa.loja,
+    });
+
     const bloco = resp.content.find((b) => b.type === "tool_use");
     if (!bloco || bloco.type !== "tool_use") throw new Error("IA não devolveu os recados.");
     const j = bloco.input as any;

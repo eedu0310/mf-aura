@@ -100,7 +100,7 @@ export async function POST() {
         { role: "user", content: resumoTextual },
       ],
       temperature: 0.4,
-    });
+    }, { __funcao: "resumo-gestor" } as never);
 
     const texto = completion.choices[0]?.message?.content?.trim();
     return NextResponse.json({ resumo: texto || "Não consegui gerar o resumo agora." });

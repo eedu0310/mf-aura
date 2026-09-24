@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         json_schema: { name: "rascunho_atividade_aura", strict: true, schema },
       },
       temperature: 0.1,
-    });
+    }, { __funcao: "rascunho" } as never);
 
     const conteudo = resposta.choices[0]?.message?.content;
     if (!conteudo) return NextResponse.json({ erro: "A AURA não conseguiu estruturar o relato." }, { status: 502 });
