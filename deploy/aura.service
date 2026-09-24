@@ -1,0 +1,33 @@
+# Serviço do AURA Sales OS.
+#
+#   sudo cp deploy/aura.service /etc/systemd/system/aura.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now aura
+#   sudo systemctl status aura
+#
+# Ajuste User, WorkingDirectory e o caminho do node se a sua VPS for diferente.
+
+[Unit]
+Description=AURA Sales OS
+After=network.target
+
+[Service]
+Type=simple
+User=aura
+WorkingDirectory=/opt/aura
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/opt/aura/.env.local
+ExecStart=/usr/bin/npm run start
+Restart=always
+RestartSec=5
+
+# O WhatsApp guarda a sessão em disco. Se esta pasta sumir, o QR precisa ser
+# lido de novo — por isso ela fica fora de qualquer limpeza de deploy.
+ReadWritePaths=/opt/aura/.whatsapp-sessions
+
+StandardOutput=append:/var/log/aura.log
+StandardError=append:/var/log/aura.log
+
+[Install]
+WantedBy=multi-user.target

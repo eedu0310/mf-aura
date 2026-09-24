@@ -1,0 +1,31 @@
+# Crons do AURA Sales OS numa VPS.
+#
+# Na Vercel isso vinha do vercel.json; numa VPS o vercel.json é ignorado e
+# nada roda sozinho. Instale com:
+#
+#   sudo cp deploy/aura-crons /etc/cron.d/aura
+#   sudo chmod 644 /etc/cron.d/aura
+#   sudo systemctl restart cron
+#
+# Troque SEU_CRON_SECRET pelo mesmo valor do .env.local (variável CRON_SECRET).
+# Os horários estão no fuso da máquina: rode `timedatectl` e, se a VPS não
+# estiver em America/Sao_Paulo, ajuste com
+#   sudo timedatectl set-timezone America/Sao_Paulo
+# — é o mais simples, porque aí os horários abaixo são os de Brasília mesmo.
+
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+CRON_SECRET=SEU_CRON_SECRET
+ALVO=http://127.0.0.1:3000
+
+# Briefing do dia para cada vendedor, 7h da manhã.
+0 7 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/briefing-do-dia >> /var/log/aura-cron.log 2>&1
+
+# Lead parado volta para a fila, de 5 em 5 minutos.
+*/5 * * * * root curl -sS -m 120 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/repassar-leads >> /var/log/aura-cron.log 2>&1
+
+# Supervisão da AURA, 9h.
+0 9 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/supervisao-aura >> /var/log/aura-cron.log 2>&1
+
+# Relatórios semanais, segunda-feira às 8h.
+0 8 * * 1 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
