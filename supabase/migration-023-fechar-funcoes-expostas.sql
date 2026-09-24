@@ -62,3 +62,12 @@ grant execute on function
   public.meu_cargo(), public.cargo_atual(), public.minha_empresa(),
   public.pode_ver_marketing(), public.pode_ver_todas_empresas()
 to authenticated;
+
+-- ADENDO 2: aura_avancar_oportunidade não confere dono. Aberta ao usuário
+-- logado, permitia um vendedor mover o negócio de um colega pelo funil —
+-- inclusive para "Fechados", que dispara a criação de venda. Nenhum código
+-- do navegador a chama: quem usa é a AURA no servidor, com a chave de
+-- serviço, que ignora estes grants.
+revoke execute on function
+  public.aura_avancar_oportunidade(uuid, uuid, text, text, boolean)
+from public, anon, authenticated;
