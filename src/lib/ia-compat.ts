@@ -10,7 +10,7 @@
  * Assim nenhuma dessas telas precisou ser reescrita.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { registrarUsoIA } from "@/lib/aura/custo-ia";
+import { podeChamarIA, registrarUsoIA } from "@/lib/aura/custo-ia";
 
 type Papel = "user" | "assistant";
 interface MensagemSimples {
@@ -68,6 +68,9 @@ function arrumarMensagens(msgs: { role: Papel; content: any }[]) {
   return saida;
 }
 
+const SEM_SALDO =
+  "O saldo da IA acabou. Peça ao gestor para registrar um depósito em Painel do Gestor \u2192 Custo da IA.";
+
 function ferramentasParaClaude(tools: any[]): any[] {
   return (tools ?? [])
     .filter((t) => t && (t.type === "function" || t.name))
@@ -84,6 +87,7 @@ function ferramentasParaClaude(tools: any[]): any[] {
 async function criarChatCompletion(opts: any, extra?: any) {
   const client = anthropic();
   if (!client) throw new Error("Falta a chave da IA (ANTHROPIC_API_KEY).");
+  if (!(await podeChamarIA())) throw new Error(SEM_SALDO);
 
   const entrada: MensagemSimples[] = opts.messages ?? [];
   const sistemaPartes = entrada.filter((m) => m.role === "system").map((m) => texto(m.content));
@@ -127,6 +131,7 @@ async function criarChatCompletion(opts: any, extra?: any) {
 async function criarResponse(opts: any, extra?: any) {
   const client = anthropic();
   if (!client) throw new Error("Falta a chave da IA (ANTHROPIC_API_KEY).");
+  if (!(await podeChamarIA())) throw new Error(SEM_SALDO);
 
   const itens: any[] = Array.isArray(opts.input) ? opts.input : [{ role: "user", content: String(opts.input ?? "") }];
   const mensagens: { role: Papel; content: any }[] = [];
