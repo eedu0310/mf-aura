@@ -18,3 +18,25 @@ CREATE INDEX IF NOT EXISTS compromissos_owner_data_idx ON public.compromissos (o
 ALTER TABLE public.oportunidades
   ADD COLUMN IF NOT EXISTS orcamento_path text,
   ADD COLUMN IF NOT EXISTS orcamento_nome text;
+
+-- Telefone no perfil (a tela mostrava um número fixo no código)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS telefone text;
+
+-- Uma venda por oportunidade: sem isso, mover o negócio para "Fechados"
+-- duas vezes criava duas vendas e inflava o faturamento.
+CREATE OR REPLACE FUNCTION public.aura_impedir_venda_duplicada()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  IF NEW.oportunidade_id IS NULL THEN RETURN NEW; END IF;
+  IF EXISTS (SELECT 1 FROM public.vendas
+             WHERE oportunidade_id = NEW.oportunidade_id
+               AND (TG_OP = 'INSERT' OR id <> NEW.id)) THEN
+    RAISE EXCEPTION 'Esta oportunidade já tem uma venda registrada.' USING ERRCODE = 'unique_violation';
+  END IF;
+  RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_aura_impedir_venda_duplicada ON public.vendas;
+CREATE TRIGGER trg_aura_impedir_venda_duplicada
+BEFORE INSERT OR UPDATE OF oportunidade_id ON public.vendas
+FOR EACH ROW EXECUTE FUNCTION public.aura_impedir_venda_duplicada();

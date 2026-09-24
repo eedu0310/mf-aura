@@ -755,6 +755,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error || !data) {
+        // O banco impede duas vendas para a mesma oportunidade. Quando isso
+        // acontece, o negócio já foi registrado — não é erro para o usuário.
+        if (error?.code === "23505" || /já tem uma venda/i.test(error?.message ?? "")) {
+          console.warn("Venda já registrada para esta oportunidade; ignorando a segunda.");
+          return null;
+        }
         console.error("Erro ao criar venda:", error);
         return null;
       }
