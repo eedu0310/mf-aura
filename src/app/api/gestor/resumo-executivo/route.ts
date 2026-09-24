@@ -16,7 +16,10 @@ export async function POST() {
 
   const openai = getOpenAIClient();
   if (!openai) {
-    return NextResponse.json({ erro: "Configure OPENAI_API_KEY no .env.local." }, { status: 400 });
+    return NextResponse.json(
+      { erro: "A chave da IA não está configurada (ANTHROPIC_API_KEY)." },
+      { status: 400 },
+    );
   }
 
   const supabase = auth.supabase;
