@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, TrendingUp, AlertCircle, Plus, Download } from "lucide-react";
+import { Layers, TrendingUp, AlertCircle, Plus, Download, Pencil, Trash2 } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
+import { EditVendaModal } from "./edit-venda-modal";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
 
@@ -22,7 +23,7 @@ function formatarData(data: string) {
 }
 
 export function VendasView() {
-  const { vendas, oportunidades } = useAppData();
+  const { vendas, oportunidades , deleteVenda } = useAppData();
   const { profile } = useUserProfile();
   const [filtroEmpresa, setFiltroEmpresa] = useState<string>("todas");
   const [abaSelecionada, setAbaSelecionada] = useState<"realizadas" | "fechadas" | "resumo">("realizadas");
@@ -105,6 +106,22 @@ export function VendasView() {
   const ticketMedio = quantidadeVendas > 0 ? totalVendido / quantidadeVendas : 0;
   const ticketMedioFechado =
     quantidadeFechadas > 0 ? totalFechado / quantidadeFechadas : 0;
+
+  const [vendaEditando, setVendaEditando] = useState<(typeof vendasFiltradas)[number] | null>(null);
+  const [excluindo, setExcluindo] = useState<string | null>(null);
+
+  /** Corrige um lançamento errado: só o dono da venda ou o gestor conseguem. */
+  async function excluirVenda(venda: (typeof vendasFiltradas)[number]) {
+    if (!window.confirm(`Excluir a venda de ${venda.cliente}? Ela sai dos totais e do ranking.`)) return;
+    setExcluindo(venda.id);
+    try {
+      await deleteVenda(venda.id);
+    } catch (erro: any) {
+      window.alert(erro?.message ?? "Não consegui excluir a venda.");
+    } finally {
+      setExcluindo(null);
+    }
+  }
 
   // ============================================
   // RENDER
@@ -290,6 +307,9 @@ export function VendasView() {
                       <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
                         Loja
                       </th>
+                      <th className="px-4 py-3 text-right text-sm font-medium text-aura-graphite">
+                        Ações
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-aura-mist">
@@ -314,6 +334,29 @@ export function VendasView() {
                         )}
                         <td className="px-4 py-3 text-sm text-aura-graphite-soft">
                           {venda.loja || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setVendaEditando(venda)}
+                              title="Corrigir esta venda"
+                              aria-label={`Corrigir a venda de ${venda.cliente}`}
+                              className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void excluirVenda(venda)}
+                              disabled={excluindo === venda.id}
+                              title="Excluir esta venda"
+                              aria-label={`Excluir a venda de ${venda.cliente}`}
+                              className="rounded-lg p-2 text-aura-danger hover:bg-red-50 disabled:opacity-40"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -475,6 +518,18 @@ export function VendasView() {
           </div>
         )}
       </div>
+
+      {vendaEditando && (
+        <EditVendaModal
+          venda={{
+            id: vendaEditando.id,
+            cliente: vendaEditando.cliente,
+            produto: vendaEditando.produto,
+            valor: vendaEditando.valor,
+          }}
+          onClose={() => setVendaEditando(null)}
+        />
+      )}
     </div>
   );
 }

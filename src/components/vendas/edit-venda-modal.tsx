@@ -21,7 +21,7 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
   const [valor, setValor] = useState(String(venda.valor));
   const [salvando, setSalvando] = useState(false);
 
-  function salvar(e: React.FormEvent) {
+  async function salvar(e: React.FormEvent) {
     e.preventDefault();
 
     if (!cliente.trim() || !(produto || "").trim() || !valor.trim()) {
@@ -32,13 +32,18 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
     setSalvando(true);
     const valorNumerico = parseFloat(valor.replace(/\D/g, "")) / 100 || 0;
 
-    updateVenda(venda.id, {
-      cliente: cliente.trim(),
-      produto: (produto || "").trim() || "Não especificado",
-      valor: valorNumerico,
-    });
-
-    onClose();
+    try {
+      await updateVenda(venda.id, {
+        cliente: cliente.trim(),
+        produto: (produto || "").trim() || "Não especificado",
+        valor: valorNumerico,
+      });
+      onClose();
+    } catch (erro: any) {
+      alert(erro?.message ?? "Não consegui salvar a venda.");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -56,7 +61,7 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
           </button>
         </div>
 
-        <form onSubmit={salvar} className="space-y-4">
+        <form onSubmit={(e) => void salvar(e)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-aura-graphite mb-1">
               Cliente

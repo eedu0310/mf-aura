@@ -9,6 +9,7 @@ import {
   MapPin,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
@@ -63,7 +64,20 @@ function atividadeConcluida(atividade: Atividade) {
 }
 
 export default function AtividadesPage() {
-  const { atividades, nomesPorOwnerId } = useAppData();
+  const { atividades, nomesPorOwnerId, deleteAtividade } = useAppData();
+  const [excluindo, setExcluindo] = useState<string | null>(null);
+
+  /** Remove uma atividade lançada por engano. */
+  async function excluirAtividade(id: string, titulo: string) {
+    if (!window.confirm(`Excluir "${titulo}"? Ela sai do seu histórico e das contagens.`)) return;
+    setExcluindo(id);
+    try {
+      const ok = await deleteAtividade(id);
+      if (!ok) window.alert("Não consegui excluir a atividade. Verifique suas permissões.");
+    } finally {
+      setExcluindo(null);
+    }
+  }
   const { profile } = useUserProfile();
 
   const [busca, setBusca] = useState("");
@@ -331,6 +345,16 @@ export default function AtividadesPage() {
                         {atividade.titulo}
                       </h3>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => void excluirAtividade(atividade.id, atividade.titulo)}
+                      disabled={excluindo === atividade.id}
+                      title="Excluir esta atividade"
+                      aria-label={`Excluir ${atividade.titulo}`}
+                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft transition hover:bg-red-50 hover:text-aura-danger disabled:opacity-40"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
 
                   {atividade.contexto && (

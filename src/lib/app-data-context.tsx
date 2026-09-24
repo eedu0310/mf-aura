@@ -71,8 +71,8 @@ interface AppDataContextValue {
     dados: Omit<Venda, "id">,
     arquivoOrcamento?: File,
   ) => Promise<Venda | null>;
-  updateVenda: (id: string, patch: Partial<Venda>) => void;
-  deleteVenda: (id: string) => void;
+  updateVenda: (id: string, patch: Partial<Venda>) => Promise<void>;
+  deleteVenda: (id: string) => Promise<void>;
 
   atividades: Atividade[];
   addAtividade: (dados: NovaAtividade) => Promise<Atividade | null>;
@@ -794,36 +794,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return nova;
   }
 
-  function updateVenda(id: string, patch: Partial<Venda>) {
-    setTodasVendas((prev) =>
-      prev.map((v) => (v.id === id ? { ...v, ...patch } : v)),
-    );
-    if (supabase) {
-      const payload: Record<string, unknown> = {};
-      if (patch.cliente !== undefined) payload.cliente = patch.cliente;
-      if (patch.produto !== undefined) payload.produto = patch.produto;
-      if (patch.valor !== undefined) payload.valor = patch.valor;
+  /** Corrige uma venda. Se o banco recusar, desfaz na tela e avisa. */
+  async function updateVenda(id: string, patch: Partial<Venda>) {
+    const anterior = todasVendas.find((v) => v.id === id);
+    setTodasVendas((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+    if (!supabase) return;
 
-      supabase
-        .from("vendas")
-        .update(payload)
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.error("Erro ao atualizar venda:", error);
-        });
+    const payload: Record<string, unknown> = {};
+    if (patch.cliente !== undefined) payload.cliente = patch.cliente;
+    if (patch.produto !== undefined) payload.produto = patch.produto;
+    if (patch.valor !== undefined) payload.valor = patch.valor;
+
+    const { error } = await supabase.from("vendas").update(payload).eq("id", id);
+    if (error) {
+      console.error("Erro ao atualizar venda:", error);
+      if (anterior) setTodasVendas((prev) => prev.map((v) => (v.id === id ? anterior : v)));
+      throw new Error("Não consegui salvar a venda. Tente de novo.");
     }
   }
 
-  function deleteVenda(id: string) {
+  /** Exclui uma venda lançada errada. Se o banco recusar, devolve para a lista. */
+  async function deleteVenda(id: string) {
+    const anterior = todasVendas.find((v) => v.id === id);
     setTodasVendas((prev) => prev.filter((v) => v.id !== id));
-    if (supabase) {
-      supabase
-        .from("vendas")
-        .delete()
-        .eq("id", id)
-        .then(({ error }) => {
-          if (error) console.error("Erro ao excluir venda:", error);
-        });
+    if (!supabase) return;
+
+    const { error } = await supabase.from("vendas").delete().eq("id", id);
+    if (error) {
+      console.error("Erro ao excluir venda:", error);
+      if (anterior) setTodasVendas((prev) => [anterior, ...prev]);
+      throw new Error("Não consegui excluir a venda. Verifique suas permissões.");
     }
   }
 
