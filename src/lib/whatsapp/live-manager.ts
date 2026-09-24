@@ -78,7 +78,11 @@ interface WaSession {
 
 type MessageListener = (userId: string, chatId: string, msg: WaMessage) => void;
 
-const SESSIONS_DIR = path.join(process.cwd(), ".whatsapp-sessions");
+// Esta pasta guarda a sessão do WhatsApp e as conversas em disco. O caminho é
+// montado em tempo de execução; o comentário abaixo impede que o empacotador
+// tente rastrear o conteúdo dela e acabe embutindo milhares de arquivos no
+// pacote do servidor.
+const SESSIONS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), ".whatsapp-sessions");
 const MAX_MSGS_PER_CHAT = 400;
 const MAX_RAW = 3000;
 const AVATAR_TTL = 6 * 60 * 60 * 1000;
@@ -97,7 +101,7 @@ export function onMessage(listener: MessageListener) {
 }
 
 function authDir(userId: string) {
-  return path.join(SESSIONS_DIR, userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  return path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
 }
 
 /**
@@ -110,7 +114,7 @@ function anotar(mensagem: string) {
   console.log(`[whatsapp] ${mensagem}`);
   try {
     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-    fs.appendFileSync(path.join(SESSIONS_DIR, "diagnostico.log"), linha + "\n");
+    fs.appendFileSync(path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, "diagnostico.log"), linha + "\n");
   } catch {
     /* o log é só apoio; nunca derruba a conexão */
   }
@@ -165,7 +169,7 @@ function getOrCreate(userId: string): WaSession {
 // (quando o aparelho é conectado), então sem isso tudo sumia ao reiniciar.
 
 function storePath(userId: string) {
-  return path.join(SESSIONS_DIR, "_store", `${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
+  return path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, "_store", `${userId.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`);
 }
 
 async function loadStore(s: WaSession) {
@@ -867,11 +871,11 @@ export async function getAvatar(userId: string, jid: string): Promise<string | n
 }
 
 function mediaDir(userId: string) {
-  return path.join(authDir(userId), "..", "_media", userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  return path.join(/*turbopackIgnore: true*/ authDir(userId), "..", "_media", userId.replace(/[^a-zA-Z0-9_-]/g, "_"));
 }
 
 function mediaPath(userId: string, msgId: string) {
-  return path.join(mediaDir(userId), msgId.replace(/[^a-zA-Z0-9_-]/g, "_"));
+  return path.join(/*turbopackIgnore: true*/ mediaDir(userId), msgId.replace(/[^a-zA-Z0-9_-]/g, "_"));
 }
 
 function saveMediaCache(userId: string, msgId: string, buffer: Buffer) {
