@@ -94,6 +94,16 @@ Sem isso o "Esqueceu a senha?" manda o usuário para `localhost` e o link morre.
 
 ## 8. WhatsApp
 
+Confira que o `.env.local` tem:
+
+```
+WHATSAPP_SESSION_DIR=/opt/aura/.whatsapp-sessions
+```
+
+**Não deixe isso apontando para `/tmp`.** A VPS limpa `/tmp` no reboot, e o
+pareamento do WhatsApp iria junto — o QR teria que ser lido de novo a cada
+reinício da máquina.
+
 A sessão fica em `/opt/aura/.whatsapp-sessions`. Depois de subir, entre em
 **/whatsapp** e leia o QR uma vez. A pasta sobrevive a `npm run build` e a
 `systemctl restart` — só não apague ela, senão o QR precisa ser lido de novo.
