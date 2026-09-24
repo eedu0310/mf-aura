@@ -15,6 +15,8 @@ const CATEGORIAS: CategoriaRelacionamento[] = [
   "Revendedor",
   "Engenheiro",
   "Designer de Interiores",
+  "Consultor",
+  "Obra",
   "Distribuidor",
   "Outro",
 ];

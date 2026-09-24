@@ -50,6 +50,8 @@ export type CategoriaRelacionamento =
   | "Revendedor"
   | "Engenheiro"
   | "Designer de Interiores"
+  | "Consultor"
+  | "Obra"
   | "Distribuidor"
   | "Outro";
 
