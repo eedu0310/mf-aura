@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
@@ -33,6 +33,12 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
   const [modoCadastro, setModoCadastro] = useState(false);
+  const [bloqueado, setBloqueado] = useState(false);
+
+  // O proxy manda para cá com ?bloqueado=1 quando a conta foi desativada.
+  useEffect(() => {
+    setBloqueado(new URLSearchParams(window.location.search).has("bloqueado"));
+  }, []);
 
   const supabase = getSupabaseBrowserClient();
 
@@ -163,6 +169,12 @@ export function LoginForm() {
           {supabase
             ? `Se existir uma conta com o e-mail ${email}, enviamos instruções de recuperação.`
             : `Enviamos instruções de recuperação para ${email}. (simulado — configure o Supabase para envio real)`}
+        </p>
+      )}
+
+      {bloqueado && !error && (
+        <p role="alert" className="rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-warning">
+          Seu acesso foi desativado pelo gestor. Fale com ele para voltar a entrar.
         </p>
       )}
 

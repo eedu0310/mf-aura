@@ -51,6 +51,28 @@ export async function proxy(request: NextRequest) {
     caminho.startsWith("/manifest") ||
     caminho.startsWith("/icons");
 
+  // Uma conta desativada pelo gestor não pode mais entrar. Antes o campo
+  // "ativo" só escondia a pessoa das listas: ela continuava logando e
+  // usando o sistema normalmente.
+  if (user && !publica) {
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("ativo")
+      .eq("id", user.id)
+      .single();
+
+    if (perfil && perfil.ativo === false) {
+      await supabase.auth.signOut();
+      if (caminho.startsWith("/api/")) {
+        return NextResponse.json({ erro: "Acesso desativado pelo gestor." }, { status: 403 });
+      }
+      const destino = request.nextUrl.clone();
+      destino.pathname = "/login";
+      destino.search = "?bloqueado=1";
+      return NextResponse.redirect(destino);
+    }
+  }
+
   if (!user && !publica) {
     // Antes, quem não estava logado ainda carregava a tela inteira (só os
     // dados vinham vazios). Agora o servidor já manda para o login.

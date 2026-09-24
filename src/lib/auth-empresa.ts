@@ -28,11 +28,13 @@ export async function getEmpresaAutenticada(request?: Request) {
 
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("empresa, cargo")
+    .select("empresa, cargo, ativo")
     .eq("id", user.id)
     .single();
 
   if (!perfil) return null;
+  // Conta desativada pelo gestor não responde mais por nenhuma rota.
+  if (perfil.ativo === false) return null;
 
   return { supabase, empresa: perfil.empresa as string, cargo: perfil.cargo as string, userId: user.id };
 }

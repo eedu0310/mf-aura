@@ -540,8 +540,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Usuário não autenticado. Entre novamente para excluir o relacionamento.");
 
-      // Remove apenas os vínculos, preservando o histórico comercial para não
-      // apagar atividades ou vendas auditáveis junto com o contato.
+      // Atividades e vendas ficam: são histórico auditável, e apagar uma venda
+      // porque o contato saiu seria perder faturamento já realizado. Só o
+      // vínculo é desfeito.
       const tabelasVinculadas = ["atividades", "vendas"] as const;
       for (const tabela of tabelasVinculadas) {
         const { error: vinculoError } = await supabase
@@ -552,6 +553,39 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           console.error(`Erro ao limpar vínculo em ${tabela}:`, vinculoError);
           throw new Error(`Não foi possível preservar o histórico do relacionamento (${tabela}). ${vinculoError.message}`);
         }
+      }
+
+      // As oportunidades, ao contrário, vão junto. Antes elas ficavam órfãs no
+      // banco e continuavam somando no funil: negócio aberto, com valor, sem
+      // cliente nenhum atrás. A exceção é a oportunidade que virou venda, que
+      // é histórico financeiro e já está em "Fechados", fora do pipeline.
+      const { data: comVenda } = await supabase
+        .from("vendas")
+        .select("oportunidade_id")
+        .eq("relacionamento_id", id)
+        .not("oportunidade_id", "is", null);
+      const preservar = (comVenda ?? []).map((v: { oportunidade_id: string }) => v.oportunidade_id);
+
+      let apagarOportunidades = supabase.from("oportunidades").delete().eq("relacionamento_id", id);
+      if (preservar.length) {
+        apagarOportunidades = apagarOportunidades.not("id", "in", `(${preservar.map((v) => `"${v}"`).join(",")})`);
+      }
+      const { error: erroOportunidade } = await apagarOportunidades;
+      if (erroOportunidade) {
+        console.error("Erro ao apagar oportunidades do relacionamento:", erroOportunidade);
+        throw new Error(`Não foi possível apagar os negócios do contato. ${erroOportunidade.message}`);
+      }
+
+      // Compromissos que ainda não aconteceram somem da agenda: não faz
+      // sentido manter visita marcada para um cliente que não existe mais.
+      const hoje = new Date().toISOString().slice(0, 10);
+      const { error: erroCompromisso } = await supabase
+        .from("compromissos")
+        .delete()
+        .eq("relacionamento_id", id)
+        .gte("data", hoje);
+      if (erroCompromisso && erroCompromisso.code !== "PGRST116") {
+        console.error("Erro ao apagar compromissos do relacionamento:", erroCompromisso);
       }
 
       // Não usar .select() após o DELETE: o retorno exige uma leitura RLS
@@ -576,6 +610,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     }
     setTodosRelacionamentos((prev) => prev.filter((r) => r.id !== id));
+    setTodasOportunidades((prev) => prev.filter((o) => o.relacionamentoId !== id || o.etapa === "Fechados"));
   }
 
   async function addOportunidade(
