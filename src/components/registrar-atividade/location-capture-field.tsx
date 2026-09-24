@@ -15,8 +15,12 @@ export interface ActivityLocation {
 interface LocationCaptureFieldProps {
   value: ActivityLocation;
   onChange: (value: ActivityLocation) => void;
-  /** Na visita o local é cobrado: a captura começa sozinha ao abrir o formulário. */
-  obrigatoria?: boolean;
+  /**
+   * Começa a captura sozinha ao abrir o formulário, sem esperar clique.
+   * O registro continua opcional: se o GPS falhar ou a pessoa negar, o
+   * formulário segue normalmente.
+   */
+  capturarSozinho?: boolean;
 }
 
 function mensagemErro(error: GeolocationPositionError) {
@@ -35,7 +39,7 @@ function mensagemErro(error: GeolocationPositionError) {
 export function LocationCaptureField({
   value,
   onChange,
-  obrigatoria = false,
+  capturarSozinho = false,
 }: LocationCaptureFieldProps) {
   const [capturando, setCapturando] = useState(false);
   const [erro, setErro] = useState("");
@@ -86,9 +90,9 @@ export function LocationCaptureField({
   // ela é pedida assim que o formulário abre, em vez de esperar um clique que
   // nunca acontecia.
   useEffect(() => {
-    if (obrigatoria && !temCoordenadas && !tentou) capturar();
+    if (capturarSozinho && !temCoordenadas && !tentou) capturar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [obrigatoria]);
+  }, [capturarSozinho]);
 
   function limpar() {
     onChange({ endereco: value.endereco });
@@ -96,24 +100,16 @@ export function LocationCaptureField({
     setTentou(false);
   }
 
-  const pendente = obrigatoria && !temCoordenadas && !value.endereco?.trim();
-
   return (
-    <div
-      className={`rounded-xl border p-4 ${
-        pendente ? "border-aura-warning/50 bg-aura-warning/5" : "border-aura-mist bg-aura-bg"
-      }`}
-    >
+    <div className="rounded-xl border border-aura-mist bg-aura-bg p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
             <MapPin size={16} className="text-aura-petrol-600" />
-            Local da atividade {obrigatoria ? "*" : "(opcional)"}
+            Local da atividade (opcional)
           </p>
           <p className="mt-1 text-xs text-aura-graphite-soft">
-            {obrigatoria
-              ? "É o comprovante de que você esteve no cliente."
-              : "A localização só é capturada depois que você autorizar."}
+            Fica como comprovante de que você esteve no cliente. Se não quiser, é só seguir.
           </p>
         </div>
 
@@ -163,7 +159,7 @@ export function LocationCaptureField({
 
       <div className="mt-3">
         <label className="mb-1.5 block text-xs text-aura-graphite-soft">
-          Endereço ou referência {obrigatoria && !temCoordenadas ? "*" : ""}
+          Endereço ou referência
         </label>
         <input
           type="text"

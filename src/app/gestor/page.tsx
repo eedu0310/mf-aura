@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star } from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -9,12 +9,14 @@ import { MarketingTab } from "@/components/gestor/marketing-tab";
 import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
 import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
 import { CustoIAPainel } from "@/components/gestor/custo-ia-painel";
+import { AvaliacoesTab } from "@/components/gestor/avaliacoes-tab";
 
  type AbaGestor =
   | "aura"
   | "dashboard"
   | "planilha"
   | "usuarios"
+  | "avaliacoes"
   | "custo-ia"
   | "configuracoes"
   | "marketing";
@@ -48,6 +50,12 @@ const ABAS: Array<{
     label: "Usuários",
     descricao: "Gerencie os acessos da empresa",
     icon: Users,
+  },
+  {
+    id: "avaliacoes",
+    label: "Avaliações",
+    descricao: "Links do Google e redes, e quem já avaliou",
+    icon: Star,
   },
   {
     id: "custo-ia",
@@ -122,6 +130,7 @@ export default function GestorPage() {
       {aba === "dashboard" && <DashboardTab />}
       {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}
+      {aba === "avaliacoes" && <AvaliacoesTab />}
       {aba === "custo-ia" && <CustoIAPainel />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
       {aba === "marketing" && <MarketingTab />}
