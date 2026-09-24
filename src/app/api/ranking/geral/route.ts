@@ -21,6 +21,14 @@ const PROSPECCOES = [
   { id: "clientes", titulo: "Prospecção de clientes novos", categorias: ["Cliente Final", "Cliente"] },
 ] as const;
 
+interface Disputa {
+  id: string;
+  titulo: string;
+  descricao: string;
+  unidade: "moeda" | "quantidade";
+  linhas: LinhaRanking[];
+}
+
 interface LinhaRanking {
   id: string;
   nome: string;
@@ -50,8 +58,15 @@ export async function GET(request: Request) {
   interface V { owner_id: string | null; valor_fechado: number | null; valor: number | null }
   interface R { owner_id: string | null; categoria: string | null }
   interface A { owner_id: string | null }
+  interface Av { vendedor_id: string | null; enviado_em: string | null; aberto_em: string | null; confirmado_em: string | null }
 
-  const [{ data: pessoas, error: erroPessoas }, { data: vendas }, { data: relacionamentos }, { data: atividades }] =
+  const [
+    { data: pessoas, error: erroPessoas },
+    { data: vendas },
+    { data: relacionamentos },
+    { data: atividades },
+    { data: avaliacoes },
+  ] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -62,6 +77,11 @@ export async function GET(request: Request) {
       supabase.from("vendas").select("owner_id,valor_fechado,valor").gte("data", desdeIso.slice(0, 10)).returns<V[]>(),
       supabase.from("relacionamentos").select("owner_id,categoria").gte("created_at", desdeIso).returns<R[]>(),
       supabase.from("atividades").select("owner_id").gte("created_at", desdeIso).returns<A[]>(),
+      supabase
+        .from("pedidos_avaliacao")
+        .select("vendedor_id,enviado_em,aberto_em,confirmado_em")
+        .gte("criado_em", desdeIso)
+        .returns<Av[]>(),
     ]);
 
   if (erroPessoas) {
@@ -89,7 +109,7 @@ export async function GET(request: Request) {
     faturamentoPorPessoa.set(v.owner_id, (faturamentoPorPessoa.get(v.owner_id) ?? 0) + valor);
   }
 
-  const rankings = [
+  const rankings: Disputa[] = [
     {
       id: "faturamento",
       titulo: "Faturamento",
@@ -114,6 +134,29 @@ export async function GET(request: Request) {
     }),
   ];
 
+  // Avaliação só conta quando o cliente de fato abriu o link ou o gestor
+  // confirmou. "Eu mandei" não vira ponto — senão o ranking premiaria
+  // disparo de mensagem em vez de cliente satisfeito.
+  const avaliacoesPorPessoa = new Map<string, number>();
+  const pedidosEnviadosPorPessoa = new Map<string, number>();
+  for (const a of avaliacoes ?? []) {
+    if (!a.vendedor_id) continue;
+    if (a.enviado_em) {
+      pedidosEnviadosPorPessoa.set(a.vendedor_id, (pedidosEnviadosPorPessoa.get(a.vendedor_id) ?? 0) + 1);
+    }
+    if (a.confirmado_em || a.aberto_em) {
+      avaliacoesPorPessoa.set(a.vendedor_id, (avaliacoesPorPessoa.get(a.vendedor_id) ?? 0) + 1);
+    }
+  }
+
+  rankings.push({
+    id: "avaliacoes",
+    titulo: "Avaliações e engajamento",
+    descricao: "Clientes que abriram a avaliação depois do seu convite",
+    unidade: "quantidade",
+    linhas: classificar(avaliacoesPorPessoa),
+  });
+
   // Mantém o formato antigo, que as telas atuais já consomem.
   const atividadesPorPessoa = new Map<string, number>();
   for (const a of atividades ?? []) {
@@ -137,6 +180,8 @@ export async function GET(request: Request) {
       const qtdVendas = vendasPorPessoa.get(p.id) ?? 0;
       const qtdAtividades = atividadesPorPessoa.get(p.id) ?? 0;
       const qtdRelacionamentos = relacionamentosPorPessoa.get(p.id) ?? 0;
+      const qtdAvaliacoes = avaliacoesPorPessoa.get(p.id) ?? 0;
+      const qtdPedidosEnviados = pedidosEnviadosPorPessoa.get(p.id) ?? 0;
       return {
         id: p.id,
         nome: p.nome,
@@ -145,7 +190,16 @@ export async function GET(request: Request) {
         vendas: qtdVendas,
         atividades: qtdAtividades,
         relacionamentos: qtdRelacionamentos,
-        pontos: qtdVendas * 100 + qtdAtividades * 10 + qtdRelacionamentos * 2,
+        avaliacoes: qtdAvaliacoes,
+        pedidosEnviados: qtdPedidosEnviados,
+        // A avaliação pesa como meia venda: é o que traz cliente novo sem
+        // custo de mídia, e é o comportamento que a loja quer criar.
+        pontos:
+          qtdVendas * 100 +
+          qtdAvaliacoes * 50 +
+          qtdAtividades * 10 +
+          qtdPedidosEnviados * 5 +
+          qtdRelacionamentos * 2,
       };
     })
     .sort((a, b) => b.pontos - a.pontos || b.faturamento - a.faturamento)

@@ -49,6 +49,9 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
     !resultado && "Como foi",
     !observacao.trim() && "Relato da visita (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
+    typeof localizacao.latitude !== "number" &&
+      !localizacao.endereco?.trim() &&
+      "Local da visita (use o GPS ou escreva o endereço)",
     !proximoPasso && "Próximo passo",
     exigeData && !quando && "Quando será o próximo contato",
     !houveOportunidade && "Informe se houve oportunidade",
@@ -233,7 +236,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
         </div>
       )}
 
-      <LocationCaptureField value={localizacao} onChange={setLocalizacao} />
+      <LocationCaptureField value={localizacao} onChange={setLocalizacao} obrigatoria />
 
       <CamposFaltando campos={camposFaltando} />
       {erro && <p className="text-sm text-aura-danger">{erro}</p>}

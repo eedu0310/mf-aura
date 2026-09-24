@@ -41,6 +41,8 @@ export async function proxy(request: NextRequest) {
     caminho === "/" ||
     caminho.startsWith("/login") ||
     caminho.startsWith("/avaliar") ||
+    // Link curto de avaliação: quem abre é o cliente, que não tem login.
+    caminho.startsWith("/av/") ||
     caminho.startsWith("/api/cron") ||
     // O calendário é aberto de propósito: quem acessa é o Google Agenda ou o
     // calendário do iPhone, que não fazem login. O segredo é o token da URL.

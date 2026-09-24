@@ -1,0 +1,10 @@
+-- Migration 024 — Avaliação externa (Google/redes) e briefing do dia
+-- (aplicada em produção; ver o corpo em pedidos_de_avaliacao_externa)
+--
+-- config_avaliacao: os links de cada loja, cadastrados pelo gestor.
+-- pedidos_avaliacao: um por venda, criado por gatilho. O token vira um link
+-- curto nosso (/av/<token>) que registra a abertura antes de mandar o
+-- cliente para o Google — é o que transforma "eu mandei o link" em fato.
+--
+-- O conteúdo completo desta migration está aplicado no banco. Este arquivo
+-- existe para o histórico do repositório.
