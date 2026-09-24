@@ -240,11 +240,14 @@ export function RelationshipsExplorer() {
         )}
       </div>
 
-      {/* Botão Flutuante para Adicionar */}
+      {/* Botão flutuante para adicionar. No celular fica acima do botão de
+          registrar atividade — antes ele era escondido e não havia nenhum
+          outro caminho para cadastrar um cliente pelo telefone. */}
       <button
         onClick={() => setShowNovaModal(true)}
-        className="fixed bottom-8 right-8 z-30 hidden h-14 w-14 items-center justify-center rounded-full bg-aura-petrol-700 text-white shadow-lg transition hover:bg-aura-petrol-600 sm:flex"
+        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-aura-petrol-700 text-white shadow-lg transition hover:bg-aura-petrol-600 sm:bottom-8 sm:right-8"
         title="Adicionar novo relacionamento"
+        aria-label="Adicionar novo relacionamento"
       >
         <Plus size={24} />
       </button>

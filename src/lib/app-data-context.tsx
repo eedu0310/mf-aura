@@ -934,7 +934,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     mensagemInicial?: string;
   }): Promise<Lead | null> {
     if (!supabase) {
-      alert("Erro: Supabase não disponível");
+      alert("Sem conexão com o servidor. Verifique sua internet e tente de novo.");
       return null;
     }
 
@@ -942,7 +942,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) {
-      alert("Erro: utilizador não autenticado");
+      alert("Sua sessão expirou. Entre de novo para continuar.");
       return null;
     }
 
@@ -967,7 +967,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
 
     if (!relacionamento) {
-      alert("Erro ao criar ou actualizar o relacionamento do lead");
+      alert("Não consegui salvar o cliente deste lead.");
       return null;
     }
 
@@ -1015,7 +1015,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     if (error || !data) {
       console.error("Erro ao criar lead:", error);
-      alert("Erro ao guardar o lead");
+      alert("Não consegui salvar o lead.");
       return null;
     }
 

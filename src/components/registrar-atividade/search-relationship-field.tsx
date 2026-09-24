@@ -341,7 +341,7 @@ export function SearchRelationshipField({
               ) : (
                 <Check size={12} />
               )}
-              {salvando ? "A guardar..." : "Guardar e seleccionar"}
+              {salvando ? "Salvando..." : "Salvar e selecionar"}
             </button>
             <button
               type="button"

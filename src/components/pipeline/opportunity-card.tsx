@@ -61,7 +61,7 @@ export function OpportunityCard({
       setMarcandoPerdido(false);
       onAtualizar?.();
     } else {
-      alert("Erro ao marcar como perdido. Tente novamente.");
+      alert("Não consegui marcar como perdido. Tente de novo.");
     }
   }
 
@@ -73,7 +73,7 @@ export function OpportunityCard({
     if (ok) {
       onAtualizar?.();
     } else {
-      alert("Erro ao recuperar oportunidade. Tente novamente.");
+      alert("Não consegui recuperar a oportunidade. Tente de novo.");
     }
   }
 

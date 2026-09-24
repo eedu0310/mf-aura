@@ -78,7 +78,7 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
     const { data: { user } } = await supabase!.auth.getUser();
     
     if (!user) {
-      alert("Erro: usuário não autenticado");
+      alert("Sua sessão expirou. Entre de novo para continuar.");
       setSalvando(false);
       return;
     }
@@ -116,7 +116,7 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
     const { data: { user } } = await supabase!.auth.getUser();
     
     if (!user) {
-      alert("Erro: usuário não autenticado");
+      alert("Sua sessão expirou. Entre de novo para continuar.");
       setEnviando(false);
       return;
     }
@@ -143,7 +143,7 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
       alert("Compromisso enviado para aprovação!");
       onClose();
     } else {
-      alert("Erro ao enviar compromisso");
+      alert("Não consegui enviar o compromisso. Tente de novo.");
     }
   }
 

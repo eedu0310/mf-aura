@@ -86,7 +86,7 @@ export function LocationCaptureField({
         <div>
           <p className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
             <MapPin size={16} className="text-aura-petrol-600" />
-            Local da actividade {obrigatoria ? "*" : "(opcional)"}
+            Local da atividade {obrigatoria ? "*" : "(opcional)"}
           </p>
           <p className="mt-1 text-xs text-aura-graphite-soft">
             A localização só é capturada após a sua autorização.

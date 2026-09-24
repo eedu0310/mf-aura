@@ -56,7 +56,7 @@ export function NovaAtividadeModal({
       onClose();
     } catch (error) {
       console.error("Erro ao criar atividade:", error);
-      alert("Erro ao criar atividade");
+      alert("Não consegui registrar a atividade. Tente de novo.");
     } finally {
       setSalvando(false);
     }

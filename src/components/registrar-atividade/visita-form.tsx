@@ -44,13 +44,13 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
   const camposFaltando = [
     !quem && "Quem você visitou",
     !tipoVisita && "Tipo de visita",
-    !objetivo && "Objectivo da visita",
+    !objetivo && "Objetivo da visita",
     objetivo === "Outro" && !outroDetalhe.trim() && "Explique o outro objetivo",
     !resultado && "Como foi",
     !observacao.trim() && "Relato da visita (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
     !proximoPasso && "Próximo passo",
-    exigeData && !quando && "Quando será o próximo contacto",
+    exigeData && !quando && "Quando será o próximo contato",
     !houveOportunidade && "Informe se houve oportunidade",
     houveOportunidade === "Sim" && valorNumerico <= 0 && "Valor estimado",
     houveOportunidade === "Sim" && !probabilidade && "Probabilidade",
@@ -99,7 +99,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       });
 
       if (!actividade) {
-        setErro("Não foi possível guardar a visita.");
+        setErro("Não consegui salvar a visita.");
         return;
       }
 
@@ -119,7 +119,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
 
         if (!oportunidade) {
           setErro(
-            "A visita foi guardada, mas não foi possível criar a oportunidade.",
+            "A visita foi salva, mas não consegui criar a oportunidade.",
           );
           return;
         }
@@ -150,8 +150,8 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       />
 
       <ChoiceChips
-        label="Objectivo da visita"
-        options={["Apresentação", "Levantar projecto", "Entregar catálogo", "Negociação", "Relacionamento", "Medição", "Outro"]}
+        label="Objetivo da visita"
+        options={["Apresentação", "Levantar projeto", "Entregar catálogo", "Negociação", "Relacionamento", "Medição", "Outro"]}
         value={objetivo}
         onChange={setObjetivo}
       />
@@ -246,7 +246,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       >
         {salvando ? (
           <>
-            <Loader2 size={16} className="animate-spin" />A guardar...
+            <Loader2 size={16} className="animate-spin" />Salvando...
           </>
         ) : (
           "Concluir visita"

@@ -6,16 +6,22 @@ import { LogOut, Factory, Store, Pencil, Check, X, Lock } from "lucide-react";
 import { ToggleSwitch } from "./toggle-switch";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { EMPRESAS } from "@/lib/companies";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function ConfiguracoesView() {
   const router = useRouter();
   const { profile, setProfile, clearProfile } = useUserProfile();
-  const [notifFollowUp, setNotifFollowUp] = useState(true);
-  const [notifRanking, setNotifRanking] = useState(true);
+  // Só ficam os avisos que o sistema realmente emite hoje.
+  const [notifFollowUp, setNotifFollowUp] = useState(() =>
+    typeof window === "undefined" ? true : localStorage.getItem("aura:avisoFollowUp") !== "false",
+  );
   const [notifMissoes, setNotifMissoes] = useState(() =>
     typeof window !== "undefined" && localStorage.getItem("aura:missoes") === "true",
   );
-  const [resumoDiario, setResumoDiario] = useState(true);
+
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [telefoneRascunho, setTelefoneRascunho] = useState("");
 
   const [editando, setEditando] = useState(false);
   const [nomeRascunho, setNomeRascunho] = useState(profile.nome);
@@ -24,6 +30,24 @@ export function ConfiguracoesView() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("editarPerfil") === "1") setEditando(true);
+  }, []);
+
+  // E-mail e telefone reais da pessoa — antes a tela mostrava um telefone
+  // fixo no código e um e-mail montado a partir do nome.
+  useEffect(() => {
+    void (async () => {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      setEmail(user.email ?? "");
+      const { data } = await supabase.from("profiles").select("telefone").eq("id", user.id).maybeSingle();
+      const tel = (data?.telefone as string) ?? "";
+      setTelefone(tel);
+      setTelefoneRascunho(tel);
+    })();
   }, []);
 
   const empresaAtual = EMPRESAS.find((e) => e.nome === profile.empresa);
@@ -36,10 +60,26 @@ export function ConfiguracoesView() {
     try {
       // A loja é definida apenas no cadastro inicial e não pode ser alterada aqui.
       await setProfile(nomeRascunho, profile.empresa, profile.cargo);
+
+      const supabase = getSupabaseBrowserClient();
+      if (supabase) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { error } = await supabase
+            .from("profiles")
+            .update({ telefone: telefoneRascunho.trim() || null })
+            .eq("id", user.id);
+          if (error) throw error;
+          setTelefone(telefoneRascunho.trim());
+        }
+      }
+
       setEditando(false);
     } catch (error) {
       console.error("Erro ao salvar perfil:", error);
-      setErroPerfil("Não foi possível salvar seu perfil no banco de dados.");
+      setErroPerfil("Não consegui salvar seu perfil. Tente de novo.");
     } finally {
       setSalvandoPerfil(false);
     }
@@ -47,6 +87,7 @@ export function ConfiguracoesView() {
 
   function cancelarEdicao() {
     setNomeRascunho(profile.nome);
+    setTelefoneRascunho(telefone);
     setEditando(false);
   }
 
@@ -97,14 +138,11 @@ export function ConfiguracoesView() {
             <div className="mt-5 flex flex-col divide-y divide-aura-mist border-t border-aura-mist">
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm text-aura-graphite-soft">E-mail</span>
-                <span className="text-sm text-aura-graphite">
-                  {profile.nome.split(" ")[0]?.toLowerCase()}@
-                  {profile.empresa.toLowerCase().replace(/[^a-z]/g, "")}.com.br
-                </span>
+                <span className="text-sm text-aura-graphite">{email || "—"}</span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm text-aura-graphite-soft">Telefone</span>
-                <span className="text-sm text-aura-graphite">(54) 99988-7766</span>
+                <span className="text-sm text-aura-graphite">{telefone || "não informado"}</span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm text-aura-graphite-soft">Perfil de acesso</span>
@@ -123,6 +161,18 @@ export function ConfiguracoesView() {
                 value={nomeRascunho}
                 onChange={(e) => setNomeRascunho(e.target.value)}
                 className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                Telefone
+              </label>
+              <input
+                type="tel"
+                value={telefoneRascunho}
+                onChange={(e) => setTelefoneRascunho(e.target.value)}
+                placeholder="(54) 99999-0000"
+                className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
               />
             </div>
             <div>
@@ -168,15 +218,12 @@ export function ConfiguracoesView() {
         <div className="mt-1 flex flex-col divide-y divide-aura-mist">
           <ToggleSwitch
             label="Follow-ups atrasados"
-            descricao="Avisar quando um follow-up passar do prazo"
+            descricao="Mostrar no sininho os clientes que passaram do prazo de contato"
             checked={notifFollowUp}
-            onChange={setNotifFollowUp}
-          />
-          <ToggleSwitch
-            label="Mudanças no ranking"
-            descricao="Avisar quando eu subir ou descer de posição"
-            checked={notifRanking}
-            onChange={setNotifRanking}
+            onChange={(valor) => {
+              setNotifFollowUp(valor);
+              localStorage.setItem("aura:avisoFollowUp", String(valor));
+            }}
           />
           <ToggleSwitch
             label="Novas missões"
@@ -186,12 +233,6 @@ export function ConfiguracoesView() {
               setNotifMissoes(valor);
               localStorage.setItem("aura:missoes", String(valor));
             }}
-          />
-          <ToggleSwitch
-            label="Resumo diário"
-            descricao="Receber um resumo do meu dia toda manhã"
-            checked={resumoDiario}
-            onChange={setResumoDiario}
           />
         </div>
       </div>

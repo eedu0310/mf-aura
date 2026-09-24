@@ -90,7 +90,7 @@ export function TarefasInteligentes() {
         await carregar();
       } else {
         console.error("Erro ao inserir tarefa:", error);
-        window.alert("Não foi possível salvar a tarefa. Execute a migration 012 no Supabase.");
+        window.alert("Não consegui salvar a tarefa. Tente de novo.");
       }
     } catch (erro) {
       console.error("Erro ao adicionar tarefa:", erro);

@@ -213,7 +213,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
 
       if (!actividade) {
         setErro(
-          "A venda foi guardada, mas não foi possível criar a actividade.",
+          "A venda foi salva, mas não consegui registrar a atividade.",
         );
         return;
       }
@@ -461,7 +461,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       >
         {enviando ? (
           <>
-            <Loader2 size={14} className="animate-spin" />A guardar...
+            <Loader2 size={14} className="animate-spin" />Salvando...
           </>
         ) : (
           "Concluir venda"

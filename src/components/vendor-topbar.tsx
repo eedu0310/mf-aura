@@ -24,7 +24,17 @@ export function VendorTopbar() {
   const painelRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const notificacoes = computePendingTasks(relacionamentos);
+  const todasNotificacoes = computePendingTasks(relacionamentos);
+  // Respeita o interruptor "Follow-ups atrasados" das Configurações.
+  const [avisarFollowUp, setAvisarFollowUp] = useState(true);
+  useEffect(() => {
+    try {
+      setAvisarFollowUp(localStorage.getItem("aura:avisoFollowUp") !== "false");
+    } catch {
+      /* navegador sem armazenamento: mantém ligado */
+    }
+  }, []);
+  const notificacoes = avisarFollowUp ? todasNotificacoes : [];
   const naoLidas = notificacoesLidas ? 0 : notificacoes.length;
 
   useEffect(() => {

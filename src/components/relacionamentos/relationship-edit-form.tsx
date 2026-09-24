@@ -60,7 +60,7 @@ export function RelationshipEditForm({
 
   async function handleSalvar() {
     if (!nome.trim()) {
-      alert("Nome é obrigatório");
+      alert("Informe o nome do cliente.");
       return;
     }
 
@@ -89,7 +89,7 @@ export function RelationshipEditForm({
       });
     } catch (erro) {
       console.error("Erro ao atualizar:", erro);
-      alert("Erro ao salvar");
+      alert("Não consegui salvar. Tente de novo.");
     } finally {
       setSalvando(false);
     }

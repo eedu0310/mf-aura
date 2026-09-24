@@ -86,10 +86,21 @@ export function VendasView() {
 
   const totalVendido = vendasFiltradas.reduce((sum, v) => sum + v.valor, 0);
   const totalFechado = oportunidadeFechadosFiltradas.reduce((sum, o) => sum + o.valor, 0);
-  const totalGeral = totalVendido + totalFechado;
+
+  // Todo negócio movido para "Fechados" já vira uma venda automaticamente.
+  // Por isso o total geral soma as vendas e, das oportunidades fechadas, só
+  // as que ainda não viraram venda — senão o mesmo dinheiro contava duas vezes.
+  const oportunidadesComVenda = new Set(
+    vendasFiltradas.map((v) => v.oportunidadeId).filter(Boolean) as string[],
+  );
+  const fechadasSemVenda = oportunidadeFechadosFiltradas.filter(
+    (o) => !oportunidadesComVenda.has(o.id),
+  );
+  const totalGeral = totalVendido + fechadasSemVenda.reduce((sum, o) => sum + o.valor, 0);
 
   const quantidadeVendas = vendasFiltradas.length;
   const quantidadeFechadas = oportunidadeFechadosFiltradas.length;
+  const quantidadeGeral = quantidadeVendas + fechadasSemVenda.length;
 
   const ticketMedio = quantidadeVendas > 0 ? totalVendido / quantidadeVendas : 0;
   const ticketMedioFechado =
@@ -188,7 +199,7 @@ export function VendasView() {
               {formatarMoeda(totalGeral)}
             </p>
             <p className="mt-1 text-xs text-aura-graphite-soft">
-              {quantidadeVendas + quantidadeFechadas} itens
+              {quantidadeGeral} negócio{quantidadeGeral !== 1 ? "s" : ""}
             </p>
           </div>
 

@@ -25,7 +25,7 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
     e.preventDefault();
 
     if (!cliente.trim() || !(produto || "").trim() || !valor.trim()) {
-      alert("Preencha todos os campos");
+      alert("Preencha todos os campos antes de salvar.");
       return;
     }
 

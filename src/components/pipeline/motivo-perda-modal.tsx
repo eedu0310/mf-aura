@@ -43,7 +43,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
 
   async function salvar() {
     if (!formData.motivoPerda.trim()) {
-      alert("Por favor, selecione um motivo da perda");
+      alert("Selecione o motivo da perda.");
       return;
     }
 
@@ -78,7 +78,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
       fechar();
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      alert("Erro ao registrar motivo da perda");
+      alert("Não consegui registrar o motivo da perda.");
     } finally {
       setSalvando(false);
     }

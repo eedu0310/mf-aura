@@ -195,7 +195,7 @@ export function MinhaPlanilhaIndicadores() {
       alert("✅ Planilha salva com sucesso! Marketing foi notificado.");
     } catch (erro) {
       console.error("Erro ao salvar:", erro);
-      alert("❌ Erro ao salvar planilha");
+      alert("Não consegui salvar a planilha. Tente de novo.");
     } finally {
       setSalvando(false);
     }

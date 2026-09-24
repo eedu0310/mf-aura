@@ -58,7 +58,7 @@ export function GenericActivityForm({
     !observacao.trim() && "Relato do atendimento (fale pelo microfone ou escreva)",
     !origem && "Origem do contato",
     !proximoPasso && "Próximo passo",
-    exigeData && !quando && "Quando será o próximo contacto",
+    exigeData && !quando && "Quando será o próximo contato",
   ].filter(Boolean) as string[];
 
   const podeConcluir = camposFaltando.length === 0 && !salvando;
@@ -113,7 +113,7 @@ export function GenericActivityForm({
       });
 
       if (!actividade) {
-        setErro("Não foi possível guardar a actividade.");
+        setErro("Não consegui salvar a atividade.");
         return;
       }
 
@@ -204,10 +204,10 @@ export function GenericActivityForm({
       >
         {salvando ? (
           <>
-            <Loader2 size={16} className="animate-spin" />A guardar...
+            <Loader2 size={16} className="animate-spin" />Salvando...
           </>
         ) : (
-          "Concluir actividade"
+          "Concluir atividade"
         )}
       </button>
     </div>

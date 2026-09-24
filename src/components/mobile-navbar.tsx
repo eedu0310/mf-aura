@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X, Home, FileText, Users, BarChart3, MessageCircle, Calendar, Filter, Trophy, Sparkles, ClipboardCheck, UserCircle, ChevronDown, Settings, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,7 +16,17 @@ export function MobileNavbar() {
   const pathname = usePathname();
   const { profile } = useUserProfile();
   const { relacionamentos } = useAppData();
-  const notificacoes = computePendingTasks(relacionamentos);
+  const todasNotificacoes = computePendingTasks(relacionamentos);
+  // Respeita o interruptor "Follow-ups atrasados" das Configurações.
+  const [avisarFollowUp, setAvisarFollowUp] = useState(true);
+  useEffect(() => {
+    try {
+      setAvisarFollowUp(localStorage.getItem("aura:avisoFollowUp") !== "false");
+    } catch {
+      /* navegador sem armazenamento: mantém ligado */
+    }
+  }, []);
+  const notificacoes = avisarFollowUp ? todasNotificacoes : [];
 
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
   const links = [...menuDoCargo(profile.cargo), ...menuDeGestao(profile.cargo)];

@@ -62,7 +62,7 @@ export function AprovacaoCompromissosMensais() {
 
   async function handleRejeitar(id: string, feedback: string) {
     if (!feedback.trim()) {
-      alert("Insira um feedback para rejeição");
+      alert("Escreva o motivo antes de rejeitar.");
       return;
     }
     setProcessando(id);
