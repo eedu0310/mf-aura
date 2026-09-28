@@ -1,0 +1,14 @@
+-- Migration 030 — Gestores mestres e permissões por pessoa (aplicada)
+--
+-- Qualquer pessoa que se cadastrasse escolhendo "Gestor" virava gestor, com
+-- acesso a tudo — faturamento do grupo, carteira de todos, custo da IA —
+-- sem passar por ninguém.
+--
+--  * gestor_mestre: quem aprova outros gestores e altera permissões
+--  * gestor_aprovado: gestor novo entra pendente até um mestre liberar
+--  * permissoes jsonb: ajustes por pessoa sobre o padrão do cargo
+--  * política RESTRICTIVE profiles_nao_se_autopromove: ninguém muda o
+--    próprio cargo, a própria aprovação nem se torna mestre sozinho
+--
+-- Charles e Elton entraram como mestres. Quem já era gestor foi marcado como
+-- aprovado, para ninguém perder acesso na virada.
