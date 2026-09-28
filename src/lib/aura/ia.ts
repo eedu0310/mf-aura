@@ -8,6 +8,7 @@ import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import type { Insight } from "./metricas";
 import { podeChamarIA, registrarUsoIA } from "./custo-ia";
+import { modeloDeVolume } from "@/lib/aura/modelos";
 
 export interface RespostaAura {
   manchete: string;
@@ -165,7 +166,7 @@ ${JSON.stringify(opts.recadosBase)}`;
   try {
     // Resposta via "ferramenta" com esquema fixo: o JSON sempre vem válido.
     const resp = await client.messages.create({
-      model: process.env.AURA_IA_MODEL || process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+      model: modeloDeVolume(),
       max_tokens: 1000,
       system,
       messages: [{ role: "user", content: user }],
@@ -174,7 +175,7 @@ ${JSON.stringify(opts.recadosBase)}`;
     });
     void registrarUsoIA({
       funcao: "recados",
-      modelo: process.env.AURA_IA_MODEL || process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+      modelo: modeloDeVolume(),
       uso: (resp as any).usage,
       empresa: opts.pessoa.loja,
     });

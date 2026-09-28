@@ -13,6 +13,7 @@ import { registrarUsoIA } from "@/lib/aura/custo-ia";
 import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { modeloDeVolume } from "@/lib/aura/modelos";
 import {
   connectedUserIds,
   getChat,
@@ -289,7 +290,7 @@ CONVERSA (mais recentes por último):
 ${transcricao(msgs, nomeCliente)}`;
 
   const resp = await client.messages.create({
-    model: process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+    model: modeloDeVolume(),
     max_tokens: 1500,
     system: system + "\n\nEntregue a análise chamando a ferramenta \"analise\".",
     messages: [{ role: "user", content: user }],
@@ -298,7 +299,7 @@ ${transcricao(msgs, nomeCliente)}`;
   });
   void registrarUsoIA({
     funcao: "whatsapp",
-    modelo: process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5",
+    modelo: modeloDeVolume(),
     uso: (resp as any).usage,
   });
 

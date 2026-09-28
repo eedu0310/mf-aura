@@ -11,6 +11,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { podeChamarIA, registrarUsoIA, registrarFalhaIA } from "@/lib/aura/custo-ia";
+import { modeloDeRaciocinio } from "@/lib/aura/modelos";
 
 type Papel = "user" | "assistant";
 interface MensagemSimples {
@@ -38,7 +39,10 @@ function anthropic() {
   return cliente;
 }
 
-const MODELO = () => process.env.AURA_IA_MODEL || process.env.WHATSAPP_IA_MODEL || "claude-sonnet-5";
+// A ponte serve o que conversa com gente (Coach, resumo do gestor,
+// rascunho, tarefas do dia). O volume — supervisor do WhatsApp e recados —
+// escolhe o seu em modelos.ts e pode rodar num modelo mais barato.
+const MODELO = () => modeloDeRaciocinio();
 
 function texto(conteudo: unknown): string {
   if (typeof conteudo === "string") return conteudo;
