@@ -1,0 +1,23 @@
+-- Migration 025 — Fechar o card sempre cria a venda (aplicada em produção)
+--
+-- Fechar um negócio tinha três caminhos na tela: arrastar o card, editar a
+-- etapa na ficha, e criar a oportunidade já como "Fechados". Só o arraste
+-- criava a venda — os outros dois gravavam a etapa e nada mais, sem sequer
+-- registrar atividade.
+--
+-- Resultado em produção: três negócios do Charles somando R$ 24.132 estavam
+-- em Fechados e não existiam na tabela de vendas. O mês não fechava, o
+-- ranking não mexia e o faturamento marcava zero. Pior, a tela ainda
+-- perguntava "Confirmar o fechamento? Ela será registrada nas vendas do mês"
+-- — uma promessa que o código não cumpria.
+--
+-- A regra passa a viver no banco, onde nenhum caminho escapa dela: nem a
+-- tela, nem a AURA, nem uma importação futura. O conteúdo aplicado está na
+-- migration `fechar_card_sempre_cria_venda`; este arquivo é o histórico.
+--
+-- Comportamento:
+--   entra em Fechados  -> cria a venda a partir do card (status
+--                         'aguardando_detalhes'), o que dispara em cascata o
+--                         pós-venda e o pedido de avaliação
+--   sai de Fechados    -> apaga a venda que o próprio fechamento criou, mas
+--                         só se ninguém tiver completado os dados dela
