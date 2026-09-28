@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Circle, Trash2, Plus, Loader2 } from "lucide-react";
+import { CheckCircle2, Circle, Trash2, Plus, Loader2, Lock } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Tarefa {
@@ -11,6 +11,19 @@ interface Tarefa {
   concluida: boolean;
   prioridade: "alta" | "media" | "baixa";
   criada_em: string;
+  /** vendedor = criada pela pessoa. aura/gestor = obrigatória, só concluir. */
+  origem?: "vendedor" | "aura" | "gestor";
+}
+
+/**
+ * Tarefa que a AURA ou o gestor mandou é obrigação, não sugestão.
+ *
+ * Antes o vendedor podia apagar qualquer uma com a lixeira, inclusive as
+ * que existiam justamente para cobrar dele. O botão agora só aparece nas
+ * que ele mesmo criou — o banco recusa as outras de qualquer forma.
+ */
+function ehObrigatoria(t: Tarefa) {
+  return (t.origem ?? "vendedor") !== "vendedor";
 }
 
 export function TarefasInteligentes() {
@@ -180,13 +193,27 @@ export function TarefasInteligentes() {
                   </button>
                   <span className="flex-1 text-sm text-aura-graphite">
                     {tarefa.titulo}
+                    {ehObrigatoria(tarefa) && (
+                      <span className="ml-2 rounded-full bg-aura-gold/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-aura-graphite">
+                        Obrigatória
+                      </span>
+                    )}
                   </span>
-                  <button
-                    onClick={() => deletarTarefa(tarefa.id)}
-                    className="text-aura-graphite-soft transition hover:text-aura-danger"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  {ehObrigatoria(tarefa) ? (
+                    <span
+                      title="Tarefa da AURA: conclua, não dá para descartar"
+                      className="shrink-0 text-aura-graphite-soft/50"
+                    >
+                      <Lock size={14} />
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => deletarTarefa(tarefa.id)}
+                      className="text-aura-graphite-soft transition hover:text-aura-danger"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

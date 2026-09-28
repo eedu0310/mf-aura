@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { DadosTarefas } from "@/lib/obter-dados-tarefas";
+import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Usa a chave do Claude (ou a da OpenAI, se existir) pela ponte comum.
 
@@ -36,19 +38,24 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: process.env.AURA_IA_MODEL || "claude-sonnet-5",
       messages: [
         {
           role: "user",
           content: prompt,
         },
       ],
-      temperature: 0.7,
       max_tokens: 1500,
     }, { __funcao: "tarefas-do-dia" } as never);
 
     const tarefasTexto = response.choices[0].message.content || "";
     const tarefas = parseaTarefas(tarefasTexto);
+
+    // As tarefas do dia eram geradas e jogadas fora: a rota devolvia o texto
+    // e ninguém gravava. Por isso o card do vendedor vivia dizendo "Nenhuma
+    // tarefa". Agora elas ficam salvas como obrigatórias — o vendedor
+    // conclui, não descarta.
+    await salvarComoObrigatorias(tarefas);
 
     return NextResponse.json({
       sucesso: true,
@@ -63,6 +70,47 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Grava as tarefas do dia como obrigatórias, sem repetir as de hoje.
+ *
+ * Usa a chave de serviço porque a tarefa é imposta ao vendedor, não criada
+ * por ele: a política de escrita dele não cobre esse caso.
+ */
+async function salvarComoObrigatorias(tarefas: TarefaDiaria[]) {
+  if (!tarefas.length) return;
+
+  const auth = await getEmpresaAutenticada();
+  const sb = getSupabaseServiceClient();
+  if (!auth || !sb) return;
+
+  const hoje = new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+
+  const { data: jaTem } = await sb
+    .from("tarefas")
+    .select("titulo")
+    .eq("vendedor_id", auth.userId)
+    .eq("origem", "aura")
+    .gte("criada_em", `${hoje}T00:00:00`);
+
+  const existentes = new Set((jaTem ?? []).map((t: { titulo: string }) => t.titulo.trim().toLowerCase()));
+
+  const novas = tarefas
+    .filter((t) => t.titulo && !existentes.has(t.titulo.trim().toLowerCase()))
+    .map((t) => ({
+      vendedor_id: auth.userId,
+      titulo: t.titulo.slice(0, 300),
+      descricao: (t.descricao ?? "").slice(0, 1000),
+      concluida: false,
+      prioridade: t.prioridade === "urgente" || t.prioridade === "alta" ? "alta" : "media",
+      origem: "aura",
+    }));
+
+  if (!novas.length) return;
+
+  const { error } = await sb.from("tarefas").insert(novas);
+  if (error) console.error("Não consegui salvar as tarefas do dia:", error);
 }
 
 function montarPromptTarefas(dados: DadosTarefas, cargo: string): string {
