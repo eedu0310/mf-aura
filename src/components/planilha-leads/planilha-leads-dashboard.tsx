@@ -36,16 +36,23 @@ export function PlanilhaLeadsDashboard() {
 
     setCarregando(true);
     try {
-      const { data, error } = await supabase
-        .from("planilha_leads_indicadores")
-        .select("*")
-        .eq("mes", mesSelecionado)
-        .eq("ano", anoSelecionado)
-        .order("usuario_nome", { ascending: true });
+      const [{ data, error }, { data: pessoas }] = await Promise.all([
+        supabase
+          .from("planilha_leads_indicadores")
+          .select("*")
+          .eq("mes", mesSelecionado)
+          .eq("ano", anoSelecionado)
+          .order("usuario_nome", { ascending: true }),
+        supabase.from("profiles").select("id").eq("ativo", true),
+      ]);
 
       if (error) throw error;
 
-      setDados(data || []);
+      // Conta desativada nao entra na planilha: as contas de teste ficavam
+      // na tabela ao lado da equipe de verdade, e o "Total de Vendedores"
+      // do resumo contava elas junto.
+      const ativos = new Set(((pessoas ?? []) as { id: string }[]).map((p) => p.id));
+      setDados((data || []).filter((d: DadosVendedor) => ativos.has(d.usuario_id)));
     } catch (erro) {
       console.error("Erro ao carregar dados:", erro);
     } finally {
