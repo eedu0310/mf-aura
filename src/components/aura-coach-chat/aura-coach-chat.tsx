@@ -36,7 +36,7 @@ type Mensagem = { id: string; autor: "usuario" | "aura"; texto: string };
 function motivoLegivel(erro: unknown): string {
   const bruto = String((erro as { message?: string })?.message ?? erro ?? "").trim();
   if (!bruto) return "Tente novamente em instantes.";
-  if (/saldo/i.test(bruto)) return bruto;
+  if (/saldo|cr[eé]dito|sobrecarregada|pedidos demais/i.test(bruto)) return bruto;
   if (/n[aã]o configurada|ANTHROPIC_API_KEY|chave/i.test(bruto)) {
     return "A chave da IA não está configurada. Avise o gestor.";
   }

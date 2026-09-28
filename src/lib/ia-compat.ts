@@ -125,6 +125,34 @@ function ferramentasParaClaude(tools: any[]): any[] {
     .filter((t) => t.name);
 }
 
+
+/**
+ * Traduz o erro da API para uma frase que o vendedor entende.
+ *
+ * Sem isto a tela mostrava o JSON cru em ingles — "Your credit balance is too
+ * low to access the Anthropic API" — para quem so quer saber por que a AURA
+ * nao respondeu. A mensagem original continua no registro de falhas, que e
+ * onde ela serve.
+ */
+function erroLegivel(erro: unknown): Error {
+  const bruto = String((erro as { message?: string })?.message ?? erro ?? "");
+  if (/credit balance|insufficient.*(credit|fund)|billing/i.test(bruto)) {
+    return new Error(
+      "A IA ficou sem crédito na conta da Anthropic. Avise o gestor: ele recarrega em console.anthropic.com, em Plans & Billing.",
+    );
+  }
+  if (/invalid x-api-key|authentication_error|invalid_api_key/i.test(bruto)) {
+    return new Error("A chave da IA foi recusada. Avise o gestor para conferir a chave no servidor.");
+  }
+  if (/rate.?limit|429/i.test(bruto)) {
+    return new Error("A IA está recebendo pedidos demais agora. Tente de novo em um minuto.");
+  }
+  if (/overloaded|529|503/i.test(bruto)) {
+    return new Error("A IA está sobrecarregada no momento. Tente de novo em instantes.");
+  }
+  return erro instanceof Error ? erro : new Error(bruto || "A IA não respondeu.");
+}
+
 // --------------------------------------------------------------- chat.completions
 async function criarChatCompletion(opts: any, extra?: any) {
   const client = anthropic();
@@ -160,7 +188,7 @@ async function criarChatCompletion(opts: any, extra?: any) {
       erro,
       detalhe: { papeis: mensagens.map((m) => m.role).join(">"), mensagens: mensagens.length },
     });
-    throw erro;
+    throw erroLegivel(erro);
   }
 
   void registrarUsoIA({ funcao: extra?.__funcao ?? "chat", modelo: MODELO(), uso: (resposta as any).usage });
@@ -233,7 +261,7 @@ async function criarResponse(opts: any, extra?: any) {
         ferramentas: ferramentas.length,
       },
     });
-    throw erro;
+    throw erroLegivel(erro);
   }
 
   void registrarUsoIA({ funcao: extra?.__funcao ?? "coach", modelo: MODELO(), uso: (resposta as any).usage });
