@@ -1,41 +1,23 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Ranking do grupo — todos os vendedores, de todas as lojas, na mesma lista.
+ * Ranking do grupo — nota de 0 a 10, com os critérios que o gestor definiu.
  *
- * É de propósito que um vendedor da LF veja um da MF: a disputa é geral. O
- * que NÃO sai daqui é carteira: nenhum nome de cliente e nenhum negócio
- * individual. Só nome, loja, posição e o número de cada disputa.
+ * O que NÃO sai daqui é carteira: nenhum nome de cliente, nenhum negócio
+ * individual. Só nome, loja, nota e o quanto cada um fez em cada critério.
+ *
+ * A MF é fábrica e vende para revendedor, não para cliente final — disputar
+ * com as lojas distorce os dois lados. Ela fica de fora por padrão, e o
+ * gestor liga pela tela quando quiser.
  */
 
-/** As disputas, e o que conta em cada uma. */
-const PROSPECCOES = [
-  { id: "arquiteto", titulo: "Prospecção de arquitetos", categorias: ["Arquiteto"] },
-  { id: "consultor", titulo: "Prospecção de consultores", categorias: ["Consultor"] },
-  { id: "obra", titulo: "Prospecção de obras", categorias: ["Obra", "Construtora"] },
-  { id: "clientes", titulo: "Prospecção de clientes novos", categorias: ["Cliente Final", "Cliente"] },
-] as const;
-
-interface Disputa {
-  id: string;
-  titulo: string;
-  descricao: string;
-  unidade: "moeda" | "quantidade";
-  linhas: LinhaRanking[];
-}
-
-interface LinhaRanking {
-  id: string;
-  nome: string;
-  loja: string;
-  valor: number;
-  posicao: number;
-}
+const MF = "MF International";
 
 export async function GET(request: Request) {
   const auth = await getEmpresaAutenticada();
@@ -44,7 +26,6 @@ export async function GET(request: Request) {
   const supabase = getSupabaseServiceClient();
   if (!supabase) return NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 });
 
-  // Período: mês atual por padrão; "dias=90" olha os últimos 90 dias.
   const { searchParams } = new URL(request.url);
   const dias = Number(searchParams.get("dias") ?? 0);
   const agora = new Date();
@@ -53,162 +34,119 @@ export async function GET(request: Request) {
       ? new Date(agora.getTime() - dias * 86400_000)
       : new Date(agora.getFullYear(), agora.getMonth(), 1);
   const desdeIso = desde.toISOString();
+  const desdeDia = desdeIso.slice(0, 10);
 
-  interface P { id: string; nome: string | null; empresa: string | null }
-  interface V { owner_id: string | null; valor_fechado: number | null; valor: number | null }
-  interface R { owner_id: string | null; categoria: string | null }
-  interface A { owner_id: string | null }
-  interface Av { vendedor_id: string | null; enviado_em: string | null; aberto_em: string | null; confirmado_em: string | null }
+  const cfg = await carregarConfigRanking();
+  const bonusMinimo = Number(cfg?.config?.bonus_crm_minimo ?? 80);
+  const mfEntra = Boolean(cfg?.config?.mf_no_ranking_do_grupo);
+  const criterios = cfg?.criterios ?? [];
 
   const [
     { data: pessoas, error: erroPessoas },
     { data: vendas },
+    { data: vendasAnteriores },
     { data: relacionamentos },
     { data: atividades },
     { data: avaliacoes },
-  ] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id,nome,empresa")
-        .in("cargo", ["Vendedor", "Vendedor Interno"])
-        .eq("ativo", true)
-        .returns<P[]>(),
-      supabase.from("vendas").select("owner_id,valor_fechado,valor").gte("data", desdeIso.slice(0, 10)).returns<V[]>(),
-      supabase.from("relacionamentos").select("owner_id,categoria").gte("created_at", desdeIso).returns<R[]>(),
-      supabase.from("atividades").select("owner_id").gte("created_at", desdeIso).returns<A[]>(),
-      supabase
-        .from("pedidos_avaliacao")
-        .select("vendedor_id,enviado_em,aberto_em,confirmado_em")
-        .gte("criado_em", desdeIso)
-        .returns<Av[]>(),
-    ]);
+    { data: oportunidades },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id,nome,empresa")
+      .in("cargo", ["Vendedor", "Vendedor Interno"])
+      .eq("ativo", true),
+    supabase
+      .from("vendas")
+      .select("owner_id,valor_fechado,valor,relacionamento_id")
+      .gte("data", desdeDia),
+    supabase.from("vendas").select("relacionamento_id").lt("data", desdeDia),
+    supabase
+      .from("relacionamentos")
+      .select("id,owner_id,categoria,proximo_contato_em,ultimo_contato_em,created_at")
+      .limit(5000),
+    supabase.from("atividades").select("owner_id").gte("created_at", desdeIso),
+    supabase
+      .from("pedidos_avaliacao")
+      .select("vendedor_id,aberto_em,confirmado_em")
+      .gte("criado_em", desdeIso),
+    supabase.from("oportunidades").select("owner_id,relacionamento_id,etapa"),
+  ]);
 
   if (erroPessoas) {
     return NextResponse.json({ erro: "Não consegui carregar o ranking." }, { status: 500 });
   }
 
-  const time = (pessoas ?? []).map((p) => ({
-    id: p.id,
-    nome: p.nome ?? "Sem nome",
-    loja: p.empresa ?? "Sem loja",
+  // O gestor da MF sempre vê a própria equipe; quem é de loja só vê a MF
+  // quando a chave está ligada.
+  const souDaMF = auth.empresa === MF;
+  const time = (pessoas ?? [])
+    .filter((p) => mfEntra || souDaMF || p.empresa !== MF)
+    .map((p) => ({
+      id: p.id,
+      nome: p.nome ?? "Sem nome",
+      loja: p.empresa ?? "Sem loja",
+    }));
+
+  const insumos: Insumos = {
+    vendas: (vendas ?? []) as Insumos["vendas"],
+    vendasAnteriores: (vendasAnteriores ?? []) as Insumos["vendasAnteriores"],
+    relacionamentos: (relacionamentos ?? []) as Insumos["relacionamentos"],
+    atividades: (atividades ?? []) as Insumos["atividades"],
+    avaliacoes: (avaliacoes ?? []) as Insumos["avaliacoes"],
+    oportunidades: (oportunidades ?? []) as Insumos["oportunidades"],
+  };
+
+  const notas = time
+    .map((p) => calcularNota(p, criterios, insumos, desdeIso, bonusMinimo))
+    .sort((a, b) => b.nota - a.nota || a.nome.localeCompare(b.nome, "pt-BR"))
+    .map((n, i) => ({ ...n, posicao: i + 1 }));
+
+  // Uma disputa por critério, para quem quiser ver o detalhe de cada frente.
+  const rankings = criterios
+    .filter((c) => c.ativo)
+    .map((c) => ({
+      id: c.id,
+      titulo: c.titulo,
+      descricao: c.descricao ?? "",
+      unidade: c.medida === "faturamento" ? ("moeda" as const) : ("quantidade" as const),
+      linhas: notas
+        .map((n) => {
+          const parcela = n.parcelas.find((p) => p.criterioId === c.id);
+          return { id: n.vendedorId, nome: n.nome, loja: n.loja, valor: parcela?.feito ?? 0 };
+        })
+        .sort((a, b) => b.valor - a.valor || a.nome.localeCompare(b.nome, "pt-BR"))
+        .map((l, i) => ({ ...l, posicao: i + 1 })),
+    }));
+
+  // Formato antigo, que as telas atuais ainda consomem.
+  const ranking = notas.map((n) => ({
+    id: n.vendedorId,
+    nome: n.nome,
+    empresa: n.loja,
+    posicao: n.posicao,
+    pontos: n.nota,
+    nota: n.nota,
+    crmEmDia: n.crmEmDia,
+    bonus: n.bonus,
+    faturamento: insumos.vendas
+      .filter((v) => v.owner_id === n.vendedorId)
+      .reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0),
+    vendas: insumos.vendas.filter((v) => v.owner_id === n.vendedorId).length,
+    atividades: insumos.atividades.filter((a) => a.owner_id === n.vendedorId).length,
+    relacionamentos: insumos.relacionamentos.filter((r) => r.owner_id === n.vendedorId).length,
   }));
-
-  /** Ordena e numera, deixando quem tem zero no fim, mas ainda na lista. */
-  function classificar(valorPorPessoa: Map<string, number>): LinhaRanking[] {
-    return time
-      .map((p) => ({ ...p, valor: valorPorPessoa.get(p.id) ?? 0 }))
-      .sort((a, b) => b.valor - a.valor || a.nome.localeCompare(b.nome, "pt-BR"))
-      .map((linha, i) => ({ ...linha, posicao: i + 1 }));
-  }
-
-  const faturamentoPorPessoa = new Map<string, number>();
-  for (const v of vendas ?? []) {
-    if (!v.owner_id) continue;
-    const valor = Number(v.valor_fechado ?? v.valor ?? 0);
-    faturamentoPorPessoa.set(v.owner_id, (faturamentoPorPessoa.get(v.owner_id) ?? 0) + valor);
-  }
-
-  const rankings: Disputa[] = [
-    {
-      id: "faturamento",
-      titulo: "Faturamento",
-      descricao: "Soma das vendas fechadas no período",
-      unidade: "moeda" as const,
-      linhas: classificar(faturamentoPorPessoa),
-    },
-    ...PROSPECCOES.map((disputa) => {
-      const contagem = new Map<string, number>();
-      for (const r of relacionamentos ?? []) {
-        if (!r.owner_id || !r.categoria) continue;
-        if (!(disputa.categorias as readonly string[]).includes(r.categoria)) continue;
-        contagem.set(r.owner_id, (contagem.get(r.owner_id) ?? 0) + 1);
-      }
-      return {
-        id: disputa.id,
-        titulo: disputa.titulo,
-        descricao: "Contatos novos cadastrados no período",
-        unidade: "quantidade" as const,
-        linhas: classificar(contagem),
-      };
-    }),
-  ];
-
-  // Avaliação só conta quando o cliente de fato abriu o link ou o gestor
-  // confirmou. "Eu mandei" não vira ponto — senão o ranking premiaria
-  // disparo de mensagem em vez de cliente satisfeito.
-  const avaliacoesPorPessoa = new Map<string, number>();
-  const pedidosEnviadosPorPessoa = new Map<string, number>();
-  for (const a of avaliacoes ?? []) {
-    if (!a.vendedor_id) continue;
-    if (a.enviado_em) {
-      pedidosEnviadosPorPessoa.set(a.vendedor_id, (pedidosEnviadosPorPessoa.get(a.vendedor_id) ?? 0) + 1);
-    }
-    if (a.confirmado_em || a.aberto_em) {
-      avaliacoesPorPessoa.set(a.vendedor_id, (avaliacoesPorPessoa.get(a.vendedor_id) ?? 0) + 1);
-    }
-  }
-
-  rankings.push({
-    id: "avaliacoes",
-    titulo: "Avaliações e engajamento",
-    descricao: "Clientes que abriram a avaliação depois do seu convite",
-    unidade: "quantidade",
-    linhas: classificar(avaliacoesPorPessoa),
-  });
-
-  // Mantém o formato antigo, que as telas atuais já consomem.
-  const atividadesPorPessoa = new Map<string, number>();
-  for (const a of atividades ?? []) {
-    if (!a.owner_id) continue;
-    atividadesPorPessoa.set(a.owner_id, (atividadesPorPessoa.get(a.owner_id) ?? 0) + 1);
-  }
-  const relacionamentosPorPessoa = new Map<string, number>();
-  for (const r of relacionamentos ?? []) {
-    if (!r.owner_id) continue;
-    relacionamentosPorPessoa.set(r.owner_id, (relacionamentosPorPessoa.get(r.owner_id) ?? 0) + 1);
-  }
-  const vendasPorPessoa = new Map<string, number>();
-  for (const v of vendas ?? []) {
-    if (!v.owner_id) continue;
-    vendasPorPessoa.set(v.owner_id, (vendasPorPessoa.get(v.owner_id) ?? 0) + 1);
-  }
-
-  const ranking = time
-    .map((p) => {
-      const faturamento = faturamentoPorPessoa.get(p.id) ?? 0;
-      const qtdVendas = vendasPorPessoa.get(p.id) ?? 0;
-      const qtdAtividades = atividadesPorPessoa.get(p.id) ?? 0;
-      const qtdRelacionamentos = relacionamentosPorPessoa.get(p.id) ?? 0;
-      const qtdAvaliacoes = avaliacoesPorPessoa.get(p.id) ?? 0;
-      const qtdPedidosEnviados = pedidosEnviadosPorPessoa.get(p.id) ?? 0;
-      return {
-        id: p.id,
-        nome: p.nome,
-        empresa: p.loja,
-        faturamento,
-        vendas: qtdVendas,
-        atividades: qtdAtividades,
-        relacionamentos: qtdRelacionamentos,
-        avaliacoes: qtdAvaliacoes,
-        pedidosEnviados: qtdPedidosEnviados,
-        // A avaliação pesa como meia venda: é o que traz cliente novo sem
-        // custo de mídia, e é o comportamento que a loja quer criar.
-        pontos:
-          qtdVendas * 100 +
-          qtdAvaliacoes * 50 +
-          qtdAtividades * 10 +
-          qtdPedidosEnviados * 5 +
-          qtdRelacionamentos * 2,
-      };
-    })
-    .sort((a, b) => b.pontos - a.pontos || b.faturamento - a.faturamento)
-    .map((item, i) => ({ ...item, posicao: i + 1 }));
 
   return NextResponse.json({
     ranking,
+    notas,
+    rankings,
+    criterios,
     eu: auth.userId,
     periodo: dias > 0 ? `Últimos ${dias} dias` : "Este mês",
-    rankings,
+    bonus: {
+      crmMinimo: bonusMinimo,
+      descricao: cfg?.config?.bonus_descricao ?? "Bônus mensal da equipe",
+    },
+    mfNoRanking: mfEntra,
   });
 }

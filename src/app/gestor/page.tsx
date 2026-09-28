@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy } from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -10,12 +10,14 @@ import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-lea
 import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
 import { CustoIAPainel } from "@/components/gestor/custo-ia-painel";
 import { AvaliacoesTab } from "@/components/gestor/avaliacoes-tab";
+import { RankingConfigTab } from "@/components/gestor/ranking-config-tab";
 
  type AbaGestor =
   | "aura"
   | "dashboard"
   | "planilha"
   | "usuarios"
+  | "ranking"
   | "avaliacoes"
   | "custo-ia"
   | "configuracoes"
@@ -50,6 +52,12 @@ const ABAS: Array<{
     label: "Usuários",
     descricao: "Gerencie os acessos da empresa",
     icon: Users,
+  },
+  {
+    id: "ranking",
+    label: "Ranking",
+    descricao: "O que conta, quanto pesa e o corte do bônus",
+    icon: Trophy,
   },
   {
     id: "avaliacoes",
@@ -130,6 +138,7 @@ export default function GestorPage() {
       {aba === "dashboard" && <DashboardTab />}
       {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}
+      {aba === "ranking" && <RankingConfigTab />}
       {aba === "avaliacoes" && <AvaliacoesTab />}
       {aba === "custo-ia" && <CustoIAPainel />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
