@@ -56,6 +56,9 @@ export interface WaState {
 }
 
 export interface LeadInfo {
+  /** A AURA achou que pode ser lead, mas não teve certeza: espera confirmação. */
+  leadSugerido?: boolean;
+  motivoSugestao?: string | null;
   chatJid: string;
   ehLead: boolean;
   ignorado: boolean;

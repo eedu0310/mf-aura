@@ -36,6 +36,9 @@ export interface LeadInfo {
   chatJid: string;
   ehLead: boolean;
   ignorado: boolean;
+  /** A AURA achou que pode ser lead, mas não teve certeza: espera confirmação. */
+  leadSugerido: boolean;
+  motivoSugestao: string | null;
   etapa: Etapa | null;
   etapaPipeline: Etapa | null;
   oportunidadeId: string | null;
@@ -243,6 +246,13 @@ async function analisarComIa(
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
 
+REGRA DE OURO SOBRE "e_lead": na dúvida, diga que NÃO tem certeza em vez de
+chutar que sim. O campo "confianca" é levado a sério: abaixo de 0,75 o
+sistema não cria nada e apenas pergunta ao vendedor. Criar lead errado suja
+a carteira da pessoa e faz ela perder confiança no sistema — é pior do que
+perguntar. Use confiança alta só quando a conversa fala claramente de
+produto, preço, medida, prazo, instalação ou orçamento do nosso ramo.
+
 Use o MANUAL DE TREINAMENTO abaixo como a regra da casa. Suas dicas devem aplicar o manual ao caso concreto, citando o que o cliente disse.
 
 ETAPAS DO PIPELINE (em ordem):
@@ -255,7 +265,7 @@ ETAPAS DO PIPELINE (em ordem):
 
 Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 {
-  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para família, amigos, fornecedores, spam)
+  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para família, amigos, fornecedores, spam, suporte técnico, ou qualquer assunto fora de lareira/churrasqueira/aquecimento)
   "etapa": "Prospecção"|"Apresentação"|"Proposta"|"Negociação"|"Fechados"|"Perdidos"|null,
   "confianca": número de 0 a 1,
   "evidencia": "trecho curto da conversa que justifica a etapa",
@@ -609,6 +619,8 @@ function linhaParaLead(row: any, extra: Partial<LeadInfo> = {}): LeadInfo {
   return {
     chatJid: row?.chat_jid ?? "",
     ehLead: !!row?.oportunidade_id || !!row?.relacionamento_id,
+    leadSugerido: !!row?.lead_sugerido,
+    motivoSugestao: (row?.motivo_sugestao as string | null) ?? null,
     ignorado: !!row?.ignorado,
     etapa: row?.etapa ?? null,
     etapaPipeline: null,
@@ -710,8 +722,30 @@ export async function analisarConversa(
       }
     }
 
-    // Decide se é lead: IA manda; sem IA, vale a detecção por palavras-chave.
-    const ehLead = !!opts.comoLead || !!row?.oportunidade_id || (analise ? analise.e_lead : regras.comercial);
+    /**
+     * Decide se é lead — e, principalmente, quando NÃO decidir sozinha.
+     *
+     * Antes bastava a IA achar que era comercial, sem olhar o quanto ela
+     * tinha certeza; e sem IA caía na detecção por palavras-chave, ainda
+     * mais solta. O pipeline encheu de conversa que não era venda: papo de
+     * amigo, suporte técnico, um orçamento de tatuagem.
+     *
+     * Agora só vira lead sozinha quando a IA tem confiança alta ou o
+     * vendedor já abriu negócio com aquele contato. Na dúvida, fica como
+     * sugestão esperando um toque do vendedor — melhor perguntar do que
+     * sujar a carteira dele.
+     */
+    const CONFIANCA_MINIMA = 0.75;
+    const jaEhNegocio = !!row?.oportunidade_id;
+    const confiancaLead = analise ? Number(analise.confianca ?? 0) : 0;
+
+    const iaTemCerteza = !!analise?.e_lead && confiancaLead >= CONFIANCA_MINIMA;
+    const iaDesconfia = !!analise?.e_lead && confiancaLead < CONFIANCA_MINIMA;
+    // Sem IA, palavra-chave não cria nada: no máximo sugere.
+    const soRegrasAchou = !analise && regras.comercial;
+
+    const ehLead = !!opts.comoLead || jaEhNegocio || iaTemCerteza;
+    const sugerirLead = !ehLead && (iaDesconfia || soRegrasAchou);
 
     // Etapa detectada: a mais avançada entre regras e IA (IA só com confiança ≥ 0,7).
     let detectada: Etapa | null = regras.etapa;
@@ -746,7 +780,18 @@ export async function analisarConversa(
       interesse: analise?.interesse ?? row?.interesse ?? null,
       valor_estimado: analise?.valor_estimado ?? row?.valor_estimado ?? null,
     };
-    if (opts.comoLead) patch.ignorado = false;
+    patch.lead_sugerido = sugerirLead;
+    patch.confianca_lead = analise ? confiancaLead : null;
+    patch.motivo_sugestao = sugerirLead
+      ? analise?.resumo
+        ? `A AURA não teve certeza (${Math.round(confiancaLead * 100)}%): ${analise.resumo}`
+        : "Apareceram palavras de venda na conversa, mas a AURA não conseguiu confirmar."
+      : null;
+    if (opts.comoLead) {
+      patch.ignorado = false;
+      patch.lead_sugerido = false;
+      patch.motivo_sugestao = null;
+    }
     if (analise?.sugestao_resposta) sugestoes.set(key, analise.sugestao_resposta);
 
     const historico: any[] = Array.isArray(row?.historico) ? [...row.historico] : [];

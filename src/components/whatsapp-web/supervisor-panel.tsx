@@ -127,23 +127,50 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
         )}
 
         {!ehLead ? (
-          <Secao icone={<UserPlus className="h-4 w-4" />} titulo="Lead no CRM">
+          <Secao
+            icone={<UserPlus className="h-4 w-4" />}
+            titulo={lead?.leadSugerido ? "É um lead?" : "Lead no CRM"}
+          >
+            {/*
+              Antes a AURA criava o lead sozinha sempre que achasse a conversa
+              comercial, e o pipeline enchia de papo de amigo e suporte
+              técnico. Agora, quando ela não tem certeza, pergunta em vez de
+              decidir — quem conhece o contato é o vendedor.
+            */}
             <p className="text-sm text-[#8696a0]">
               {lead?.ignorado
                 ? "Você marcou esta conversa como não sendo lead. A IA não acompanha ela."
                 : lead?.analisando
                 ? "Verificando se é uma conversa comercial…"
+                : lead?.leadSugerido
+                ? (lead.motivoSugestao ??
+                  "A AURA achou que isto pode ser um cliente, mas não teve certeza.")
                 : "A IA não identificou esta conversa como um lead."}
             </p>
-            <button
-              type="button"
-              onClick={() => acao("lead", { action: "ignore", ignorado: false })}
-              disabled={!!ocupado}
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#06cf9c] disabled:opacity-60"
-            >
-              {ocupado === "lead" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              Tratar como lead
-            </button>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => acao("lead", { action: "ignore", ignorado: false })}
+                disabled={!!ocupado}
+                className="inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#06cf9c] disabled:opacity-60"
+              >
+                {ocupado === "lead" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                {lead?.leadSugerido ? "Sim, é um lead" : "Tratar como lead"}
+              </button>
+
+              {lead?.leadSugerido && (
+                <button
+                  type="button"
+                  onClick={() => acao("ignorar", { action: "ignore", ignorado: true })}
+                  disabled={!!ocupado}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#2a3942] px-4 py-2 text-sm font-medium text-[#8696a0] hover:bg-[#202c33] disabled:opacity-60"
+                >
+                  {ocupado === "ignorar" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Não é
+                </button>
+              )}
+            </div>
           </Secao>
         ) : (
           <>
