@@ -14,9 +14,18 @@ import pino from "pino";
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected";
 export type WaMsgType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact";
 
+/** A mensagem que esta sendo respondida, como o WhatsApp mostra acima do texto. */
+export interface WaQuote {
+  id: string;
+  text: string;
+  type: WaMsgType;
+  fromMe: boolean;
+}
+
 export interface WaMessage {
   id: string;
   chatId: string;
+  quoted?: WaQuote;
   fromMe: boolean;
   text: string;
   timestamp: number;
@@ -301,6 +310,38 @@ interface Parsed {
   fileName?: string;
 }
 
+/**
+ * A mensagem que esta sendo respondida.
+ *
+ * O WhatsApp manda isso no `contextInfo` de qualquer tipo de mensagem, nao
+ * num campo proprio — por isso a busca varre os blocos ate achar um que
+ * traga `quotedMessage`.
+ */
+function contextoDe(m: any): any {
+  for (const chave of Object.keys(m ?? {})) {
+    const ctx = m?.[chave]?.contextInfo;
+    if (ctx?.quotedMessage) return ctx;
+  }
+  return null;
+}
+
+function citacaoDe(m: any, s: WaSession, jid: string): WaMessage["quoted"] {
+  const ctx = contextoDe(m);
+  if (!ctx) return undefined;
+  const citada = parseMessage(ctx.quotedMessage);
+  if (!citada) return undefined;
+  const id = String(ctx.stanzaId ?? "");
+  // Quem escreveu a citada: se ela esta na nossa lista, ela manda; senao
+  // vale o participant que veio no contexto.
+  const guardada = id ? s.messages.get(jid)?.find((m2) => m2.id === id) : undefined;
+  return {
+    id,
+    text: citada.text || previewOf(citada),
+    type: citada.type,
+    fromMe: guardada ? guardada.fromMe : Boolean(ctx.participant && ctx.participant === s.jid),
+  };
+}
+
 function parseMessage(raw: any): Parsed | null {
   const m = unwrap(raw);
   if (!m) return null;
@@ -417,6 +458,9 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     status: fromMe ? (typeof msg.status === "number" ? msg.status : 2) : undefined,
     ...parsed,
   };
+  const citacao = citacaoDe(unwrap(msg.message), s, jid);
+  if (citacao) item.quoted = citacao;
+
   list.push(item);
   list.sort((a, b) => a.timestamp - b.timestamp);
   if (list.length > MAX_MSGS_PER_CHAT) list.splice(0, list.length - MAX_MSGS_PER_CHAT);
@@ -956,10 +1000,30 @@ async function afterSend(s: WaSession, jid: string, sent: any) {
   }
 }
 
-export async function sendText(userId: string, to: string, text: string) {
+/**
+ * Monta o `quoted` que o Baileys espera para responder uma mensagem.
+ *
+ * So mensagem com midia fica guardada inteira em `s.raw` — texto, nao. Para
+ * o texto, o par { key, message } e remontado a partir do que ja esta na
+ * conversa, que e tudo que o WhatsApp precisa para mostrar a citacao.
+ */
+function paraCitar(s: WaSession, jid: string, quotedId?: string | null) {
+  if (!quotedId) return undefined;
+  const raw = s.raw.get(quotedId);
+  if (raw?.key && raw?.message) return raw;
+  const guardada = s.messages.get(jid)?.find((m) => m.id === quotedId);
+  if (!guardada) return undefined;
+  return {
+    key: { remoteJid: jid, fromMe: guardada.fromMe, id: quotedId },
+    message: { conversation: guardada.text || previewOf(guardada) },
+  };
+}
+
+export async function sendText(userId: string, to: string, text: string, quotedId?: string | null) {
   const s = requireConnected(userId);
   const jid = await resolveJid(s, to);
-  const sent = await s.sock.sendMessage(jid, { text });
+  const quoted = paraCitar(s, jid, quotedId);
+  const sent = await s.sock.sendMessage(jid, { text }, quoted ? { quoted } : undefined);
   await afterSend(s, jid, sent);
   return { chatId: jid };
 }
@@ -969,6 +1033,7 @@ export async function sendFile(
   to: string,
   file: { buffer: Buffer; mimetype: string; fileName: string },
   caption?: string,
+  opts?: { quotedId?: string | null; ptt?: boolean },
 ) {
   const s = requireConnected(userId);
   const jid = await resolveJid(s, to);
@@ -979,11 +1044,17 @@ export async function sendFile(
   } else if (mimetype.startsWith("video/")) {
     content = { video: buffer, mimetype, caption };
   } else if (mimetype.startsWith("audio/")) {
-    content = { audio: buffer, mimetype };
+    // ptt = a bolinha de voz do WhatsApp, com onda e play, em vez de um
+    // arquivo anexado. O celular so a reconhece como Opus em OGG; o que o
+    // navegador grava e convertido antes de chegar aqui.
+    content = opts?.ptt
+      ? { audio: buffer, mimetype: "audio/ogg; codecs=opus", ptt: true }
+      : { audio: buffer, mimetype };
   } else {
     content = { document: buffer, mimetype, fileName, caption };
   }
-  const sent = await s.sock.sendMessage(jid, content);
+  const quoted = paraCitar(s, jid, opts?.quotedId);
+  const sent = await s.sock.sendMessage(jid, content, quoted ? { quoted } : undefined);
   if (sent?.key?.id) saveMediaCache(userId, sent.key.id, buffer);
   await afterSend(s, jid, sent);
   return { chatId: jid };

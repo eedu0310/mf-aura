@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Check, CheckCheck, Clock, Download, FileText, ImageOff, MapPin, Mic, Pause, Play } from "lucide-react";
+import { Check, CheckCheck, Clock, Download, FileText, ImageOff, MapPin, Mic, Pause, Play, Reply } from "lucide-react";
 import { Avatar } from "./avatar";
-import { API, formatHour, type WaMessage } from "./types";
+import { API, formatHour, type WaMessage, type WaQuote } from "./types";
 
 export const mediaUrl = (id: string) => `${API}?media=${encodeURIComponent(id)}`;
 
@@ -14,16 +14,58 @@ function Ticks({ status }: { status?: number }) {
   return <CheckCheck className={`h-4 w-4 ${status >= 4 ? "text-[#53bdeb]" : "text-[#ffffff99]"}`} />;
 }
 
-function linkify(texto: string) {
-  return texto.split(/(https?:\/\/[^\s]+)/g).map((p, i) =>
-    /^https?:\/\//.test(p) ? (
-      <a key={i} href={p} target="_blank" rel="noreferrer" className="break-all text-[#53bdeb] hover:underline">
-        {p}
-      </a>
-    ) : (
-      <span key={i}>{p}</span>
-    ),
-  );
+/**
+ * Telefone escrito no meio do texto.
+ *
+ * O cliente manda "o contato dele e 51995068865" e o vendedor tinha que
+ * copiar, abrir "Nova conversa" e colar. Reconhecendo o numero ali mesmo,
+ * um toque ja abre a conversa.
+ *
+ * Aceita de 10 a 13 digitos (fixo com DDD ate celular com o 55 na frente),
+ * com ou sem espaco, parenteses, ponto ou traco. CPF e CNPJ escritos do
+ * jeito deles ficam de fora — CPF tem os mesmos 11 digitos de um celular,
+ * e so a pontuacao os separa.
+ */
+const TELEFONE = /(\+?\(?\d[\d\s().-]{8,16}\d)/g;
+const CPF_OU_CNPJ = /^\d{2,3}\.\d{3}\.\d{3}([/-]\d{2,4})?-?\d{0,2}$/;
+
+export function ehTelefone(trecho: string) {
+  const t = trecho.trim();
+  if (CPF_OU_CNPJ.test(t)) return false;
+  const digitos = t.replace(/\D/g, "");
+  if (digitos.length < 10 || digitos.length > 13) return false;
+  if (digitos.length === 13 && !digitos.startsWith("55")) return false;
+  if (digitos.length === 12 && !digitos.startsWith("55") && !/^\d{2}\d{10}$/.test(digitos)) return false;
+  return true;
+}
+
+function linkify(texto: string, onAbrirNumero?: (numero: string) => void) {
+  return texto.split(/(https?:\/\/[^\s]+)/g).flatMap((parte, i) => {
+    if (/^https?:\/\//.test(parte)) {
+      return [
+        <a key={`l${i}`} href={parte} target="_blank" rel="noreferrer" className="break-all text-[#53bdeb] hover:underline">
+          {parte}
+        </a>,
+      ];
+    }
+    return parte.split(TELEFONE).map((trecho, j) => {
+      const chave = `${i}-${j}`;
+      if (onAbrirNumero && trecho && ehTelefone(trecho)) {
+        return (
+          <button
+            key={`t${chave}`}
+            type="button"
+            onClick={() => onAbrirNumero(trecho.replace(/\D/g, ""))}
+            title="Abrir conversa com este número"
+            className="font-medium text-[#53bdeb] underline decoration-dotted underline-offset-2 hover:text-[#8ad4f5]"
+          >
+            {trecho}
+          </button>
+        );
+      }
+      return <span key={`s${chave}`}>{trecho}</span>;
+    });
+  });
 }
 
 function fmtSeg(s: number) {
@@ -161,20 +203,84 @@ function Midia({ msg, onAbrir }: { msg: WaMessage; onAbrir: () => void }) {
   }
 }
 
+/** Resumo de uma mídia citada, já que a citação não traz o arquivo. */
+function resumoDaCitacao(q: WaQuote) {
+  if (q.text) return q.text;
+  switch (q.type) {
+    case "image":
+      return "Foto";
+    case "video":
+      return "Vídeo";
+    case "audio":
+      return "Mensagem de voz";
+    case "document":
+      return "Documento";
+    case "sticker":
+      return "Figurinha";
+    default:
+      return "Mensagem";
+  }
+}
+
+/** O bloco cinza que o WhatsApp mostra acima do texto, com a mensagem citada. */
+function Citacao({ quote, nomeDoOutro, onIr }: { quote: WaQuote; nomeDoOutro: string; onIr?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onIr}
+      className="mb-1 flex w-full items-stretch gap-2 overflow-hidden rounded-md bg-black/25 text-left hover:bg-black/35"
+      title="Ver a mensagem respondida"
+    >
+      <span aria-hidden className={`w-1 shrink-0 ${quote.fromMe ? "bg-[#00a884]" : "bg-[#53bdeb]"}`} />
+      <span className="min-w-0 flex-1 py-1.5 pr-2">
+        <span className={`block text-[13px] font-medium ${quote.fromMe ? "text-[#00a884]" : "text-[#53bdeb]"}`}>
+          {quote.fromMe ? "Você" : nomeDoOutro}
+        </span>
+        <span className="line-clamp-2 block text-[13px] leading-[18px] text-[#ffffffb3]">{resumoDaCitacao(quote)}</span>
+      </span>
+    </button>
+  );
+}
+
 interface Props {
   msg: WaMessage;
   primeiraDoGrupo: boolean;
   onAbrirMidia: (id: string) => void;
   avatarJid: string | null;
   avatarNome: string;
+  onResponder?: (msg: WaMessage) => void;
+  onIrPara?: (id: string) => void;
+  onAbrirNumero?: (numero: string) => void;
+  nomeDoOutro?: string;
 }
 
-export function MessageBubble({ msg, primeiraDoGrupo, onAbrirMidia, avatarJid, avatarNome }: Props) {
+export function MessageBubble({
+  msg,
+  primeiraDoGrupo,
+  onAbrirMidia,
+  avatarJid,
+  avatarNome,
+  onResponder,
+  onIrPara,
+  onAbrirNumero,
+  nomeDoOutro,
+}: Props) {
   const sticker = msg.type === "sticker";
   const cor = msg.fromMe ? "bg-[#005c4b]" : "bg-[#202c33]";
   const corCauda = msg.fromMe ? "#005c4b" : "#202c33";
   return (
-    <div className={`flex ${msg.fromMe ? "justify-end" : "justify-start"} ${primeiraDoGrupo ? "mt-3" : "mt-0.5"} px-[4%] md:px-[6%]`}>
+    <div id={`msg-${msg.id}`} className={`group flex items-center gap-1 ${msg.fromMe ? "justify-end" : "justify-start"} ${primeiraDoGrupo ? "mt-3" : "mt-0.5"} px-[4%] md:px-[6%]`}>
+      {msg.fromMe && onResponder && (
+        <button
+          type="button"
+          onClick={() => onResponder(msg)}
+          aria-label="Responder esta mensagem"
+          title="Responder"
+          className="order-2 ml-1 rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Reply className="h-4 w-4" />
+        </button>
+      )}
       <div
         className={`relative max-w-[85%] md:max-w-[65%] ${sticker ? "" : `${cor} rounded-lg px-1.5 pb-1 pt-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]`} ${
           primeiraDoGrupo && !sticker ? (msg.fromMe ? "rounded-tr-none" : "rounded-tl-none") : ""
@@ -187,6 +293,13 @@ export function MessageBubble({ msg, primeiraDoGrupo, onAbrirMidia, avatarJid, a
             style={{ backgroundColor: corCauda, clipPath: msg.fromMe ? "polygon(0 0, 100% 0, 0 100%)" : "polygon(0 0, 100% 0, 100% 100%)" }}
           />
         )}
+        {msg.quoted && (
+          <Citacao
+            quote={msg.quoted}
+            nomeDoOutro={nomeDoOutro ?? avatarNome}
+            onIr={msg.quoted.id && onIrPara ? () => onIrPara(msg.quoted!.id) : undefined}
+          />
+        )}
         {msg.type === "audio" ? (
           <NotaDeVoz msg={msg} avatarJid={avatarJid} avatarNome={avatarNome} />
         ) : (
@@ -195,7 +308,7 @@ export function MessageBubble({ msg, primeiraDoGrupo, onAbrirMidia, avatarJid, a
         {msg.type === "location" && <MapPin className="mb-1 ml-1 h-5 w-5 text-[#8696a0]" />}
         {msg.text && (
           <p className="whitespace-pre-wrap break-words px-1.5 text-[14.2px] leading-[19px] text-[#e9edef]">
-            {linkify(msg.text)}
+            {linkify(msg.text, onAbrirNumero)}
             <span className="inline-block w-[68px]" aria-hidden />
           </p>
         )}
@@ -204,6 +317,17 @@ export function MessageBubble({ msg, primeiraDoGrupo, onAbrirMidia, avatarJid, a
           {msg.fromMe && <Ticks status={msg.status} />}
         </div>
       </div>
+      {!msg.fromMe && onResponder && (
+        <button
+          type="button"
+          onClick={() => onResponder(msg)}
+          aria-label="Responder esta mensagem"
+          title="Responder"
+          className="ml-1 rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Reply className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }

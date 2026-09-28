@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, FileText, Headphones, Image as ImageIcon, Loader2, Plus, Send, Smile, Sparkles, X } from "lucide-react";
-import { API } from "./types";
+import { Camera, FileText, Headphones, Image as ImageIcon, Loader2, Mic, Plus, Send, Smile, Sparkles, Trash2, Video, X } from "lucide-react";
+import { API, type WaMessage } from "./types";
 
 interface Props {
   chatId: string;
@@ -10,11 +10,54 @@ interface Props {
   onSent: () => void;
   arquivoArrastado: File | null;
   limparArrastado: () => void;
+  respondendo?: WaMessage | null;
+  onCancelarResposta?: () => void;
+}
+
+/** Como a mensagem citada aparece na barra acima do campo de texto. */
+function resumoCitado(msg: WaMessage) {
+  if (msg.text) return msg.text;
+  switch (msg.type) {
+    case "image":
+      return "Foto";
+    case "video":
+      return "Vídeo";
+    case "audio":
+      return "Mensagem de voz";
+    case "document":
+      return msg.fileName ?? "Documento";
+    case "sticker":
+      return "Figurinha";
+    default:
+      return "Mensagem";
+  }
+}
+
+function duracaoLegivel(segundos: number) {
+  const m = Math.floor(segundos / 60);
+  return `${m}:${String(segundos % 60).padStart(2, "0")}`;
+}
+
+/** O formato que este navegador consegue gravar. O servidor converte depois. */
+function formatoDeGravacao() {
+  if (typeof MediaRecorder === "undefined") return null;
+  for (const tipo of ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm", "audio/mp4"]) {
+    if (MediaRecorder.isTypeSupported(tipo)) return tipo;
+  }
+  return null;
 }
 
 const EMOJIS = "😀 😃 😄 😁 😅 😂 🙂 😉 😊 😍 🥰 😘 🤩 🤗 🤔 😎 🙏 👍 👎 👏 🙌 🤝 💪 👌 ✌️ 👋 ❤️ 🔥 ✨ 🎉 ✅ ❌ ⭐ 📍 📞 📅 ⏰ 💰 🏠 🪵".split(" ");
 
-export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArrastado }: Props) {
+export function Composer({
+  chatId,
+  sugestao,
+  onSent,
+  arquivoArrastado,
+  limparArrastado,
+  respondendo,
+  onCancelarResposta,
+}: Props) {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -26,7 +69,14 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
   const fotoRef = useRef<HTMLInputElement>(null);
   const docRef = useRef<HTMLInputElement>(null);
   const camRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
+  const [gravando, setGravando] = useState(false);
+  const [segundos, setSegundos] = useState(0);
+  const gravadorRef = useRef<MediaRecorder | null>(null);
+  const pedacosRef = useRef<BlobPart[]>([]);
+  const cancelouRef = useRef(false);
+  const relogioRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -78,12 +128,13 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
       const res = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send", to: chatId, text: t }),
+        body: JSON.stringify({ action: "send", to: chatId, text: t, quotedId: respondendo?.id ?? null }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Erro ao enviar");
       setTexto("");
       setEmojis(false);
+      onCancelarResposta?.();
       onSent();
     } catch (e: any) {
       setErro(e?.message ?? "Erro ao enviar");
@@ -101,12 +152,14 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
       form.append("file", arquivo);
       form.append("to", chatId);
       if (legenda.trim()) form.append("caption", legenda.trim());
+      if (respondendo?.id) form.append("quotedId", respondendo.id);
       const res = await fetch(API, { method: "POST", body: form });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Erro ao enviar arquivo");
       setArquivo(null);
       setLegenda("");
       setTexto("");
+      onCancelarResposta?.();
       onSent();
     } catch (e: any) {
       setErro(e?.message ?? "Erro ao enviar arquivo");
@@ -115,10 +168,88 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
     }
   }
 
+
+  // ----------------------------------------------------------- voz
+  useEffect(() => {
+    return () => {
+      if (relogioRef.current) clearInterval(relogioRef.current);
+      gravadorRef.current?.stream.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  async function comecarAGravar() {
+    if (gravando || enviando) return;
+    const formato = formatoDeGravacao();
+    if (!formato) {
+      setErro("Este navegador não grava áudio. Use o Chrome no celular ou no computador.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const gravador = new MediaRecorder(stream, { mimeType: formato });
+      pedacosRef.current = [];
+      cancelouRef.current = false;
+      gravador.ondataavailable = (e) => e.data.size && pedacosRef.current.push(e.data);
+      gravador.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (relogioRef.current) clearInterval(relogioRef.current);
+        setGravando(false);
+        const blob = new Blob(pedacosRef.current, { type: formato });
+        pedacosRef.current = [];
+        if (cancelouRef.current || blob.size < 1200) return;
+        void enviarVoz(blob, formato);
+      };
+      gravadorRef.current = gravador;
+      gravador.start();
+      setErro(null);
+      setSegundos(0);
+      setGravando(true);
+      relogioRef.current = setInterval(() => setSegundos((v) => v + 1), 1000);
+    } catch {
+      // Negar o microfone e uma escolha da pessoa; o recado diz como desfazer.
+      setErro("Preciso da permissão do microfone. Libere no cadeado ao lado do endereço e tente de novo.");
+    }
+  }
+
+  function pararEEnviar() {
+    cancelouRef.current = false;
+    gravadorRef.current?.stop();
+  }
+
+  function cancelarGravacao() {
+    cancelouRef.current = true;
+    gravadorRef.current?.stop();
+    setSegundos(0);
+  }
+
+  async function enviarVoz(blob: Blob, formato: string) {
+    setEnviando(true);
+    setErro(null);
+    try {
+      const extensao = formato.includes("ogg") ? "ogg" : formato.includes("mp4") ? "m4a" : "webm";
+      const form = new FormData();
+      form.append("file", new File([blob], `voz.${extensao}`, { type: formato }));
+      form.append("to", chatId);
+      form.append("ptt", "1");
+      if (respondendo?.id) form.append("quotedId", respondendo.id);
+      const res = await fetch(API, { method: "POST", body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Erro ao enviar o áudio");
+      onCancelarResposta?.();
+      onSent();
+    } catch (e: any) {
+      setErro(e?.message ?? "Erro ao enviar o áudio");
+    } finally {
+      setEnviando(false);
+      setSegundos(0);
+    }
+  }
+
   const itensMenu = [
     { label: "Documento", cor: "#7f66ff", icone: <FileText className="h-4 w-4" />, ref: docRef },
     { label: "Fotos e vídeos", cor: "#007bfc", icone: <ImageIcon className="h-4 w-4" />, ref: fotoRef },
     { label: "Câmera", cor: "#ff2e74", icone: <Camera className="h-4 w-4" />, ref: camRef },
+    { label: "Gravar vídeo", cor: "#25d366", icone: <Video className="h-4 w-4" />, ref: videoRef },
     { label: "Áudio", cor: "#ff8b1f", icone: <Headphones className="h-4 w-4" />, ref: audioRef },
   ];
 
@@ -189,6 +320,25 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
             </span>
           </button>
         )}
+        {respondendo && (
+          <div className="mb-2 flex items-stretch gap-2 overflow-hidden rounded-lg bg-[#1d282f]">
+            <span aria-hidden className={`w-1 shrink-0 ${respondendo.fromMe ? "bg-[#00a884]" : "bg-[#53bdeb]"}`} />
+            <div className="min-w-0 flex-1 py-2">
+              <p className={`text-[13px] font-medium ${respondendo.fromMe ? "text-[#00a884]" : "text-[#53bdeb]"}`}>
+                {respondendo.fromMe ? "Você" : "Cliente"}
+              </p>
+              <p className="line-clamp-2 text-[13px] leading-[18px] text-[#8696a0]">{resumoCitado(respondendo)}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelarResposta}
+              aria-label="Cancelar resposta"
+              className="shrink-0 self-start p-2 text-[#8696a0] hover:text-[#e9edef]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         {erro && !arquivo && <p className="mb-1 text-sm text-[#f15c6d]">{erro}</p>}
 
         {emojis && (
@@ -201,6 +351,30 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
           </div>
         )}
 
+        {gravando ? (
+          <div className="flex items-center gap-3 py-1">
+            <button
+              type="button"
+              onClick={cancelarGravacao}
+              aria-label="Descartar gravação"
+              title="Descartar"
+              className="rounded-full p-2 text-[#f15c6d] transition hover:bg-white/10"
+            >
+              <Trash2 className="h-6 w-6" />
+            </button>
+            <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-[#f15c6d]" aria-hidden />
+            <span className="tabular-nums text-[15px] text-[#e9edef]">{duracaoLegivel(segundos)}</span>
+            <span className="flex-1 text-sm text-[#8696a0]">Gravando… toque no verde para enviar</span>
+            <button
+              type="button"
+              onClick={pararEEnviar}
+              aria-label="Enviar mensagem de voz"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#00a884] text-[#111b21] shadow hover:bg-[#06cf9c]"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </div>
+        ) : (
         <div className="flex items-end gap-1">
           <div className="relative">
             <button
@@ -229,6 +403,9 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
             <input ref={fotoRef} type="file" accept="image/*,video/*" hidden onChange={aoEscolher} onClick={limparInput} />
             <input ref={docRef} type="file" hidden onChange={aoEscolher} onClick={limparInput} />
             <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={aoEscolher} onClick={limparInput} />
+            {/* capture="environment" abre a camera do celular direto na gravacao.
+                No computador, vira um seletor de arquivo — que e o certo la. */}
+            <input ref={videoRef} type="file" accept="video/*" capture="environment" hidden onChange={aoEscolher} onClick={limparInput} />
             <input ref={audioRef} type="file" accept="audio/*" hidden onChange={aoEscolher} onClick={limparInput} />
           </div>
           <button type="button" onClick={() => setEmojis((v) => !v)} className={`rounded-full p-2 transition hover:bg-white/10 ${emojis ? "text-[#00a884]" : "text-[#aebac1]"}`} aria-label="Emojis">
@@ -255,16 +432,30 @@ export function Composer({ chatId, sugestao, onSent, arquivoArrastado, limparArr
             placeholder="Digite uma mensagem"
             className="mx-1 max-h-[140px] flex-1 resize-none rounded-lg bg-[#2a3942] px-3 py-[9px] text-[15px] leading-5 text-[#e9edef] outline-none placeholder:text-[#8696a0]"
           />
-          <button
-            type="button"
-            onClick={enviarTexto}
-            disabled={enviando || !texto.trim()}
-            className="rounded-full p-2 text-[#aebac1] transition hover:bg-white/10 disabled:opacity-40"
-            aria-label="Enviar"
-          >
-            {enviando ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
-          </button>
+          {texto.trim() ? (
+            <button
+              type="button"
+              onClick={enviarTexto}
+              disabled={enviando}
+              className="rounded-full p-2 text-[#aebac1] transition hover:bg-white/10 disabled:opacity-40"
+              aria-label="Enviar"
+            >
+              {enviando ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={comecarAGravar}
+              disabled={enviando}
+              className="rounded-full p-2 text-[#aebac1] transition hover:bg-white/10 disabled:opacity-40"
+              aria-label="Gravar mensagem de voz"
+              title="Gravar mensagem de voz"
+            >
+              {enviando ? <Loader2 className="h-6 w-6 animate-spin" /> : <Mic className="h-6 w-6" />}
+            </button>
+          )}
         </div>
+        )}
       </div>
     </>
   );

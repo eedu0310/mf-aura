@@ -112,6 +112,7 @@ export default function WhatsAppPage() {
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [mudandoEtapa, setMudandoEtapa] = useState(false);
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
+  const [respondendo, setRespondendo] = useState<WaMessage | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const colarNoFim = useRef(true);
 
@@ -220,6 +221,7 @@ export default function WhatsAppPage() {
 
   function abrirChat(chat: WaChat) {
     setSelectedChatId(chat.id);
+    setRespondendo(null);
     if (chat.unread > 0) {
       postJson({ action: "read", chat: chat.id }).catch(() => {});
       setState((s) => (s ? { ...s, chats: s.chats.map((c) => (c.id === chat.id ? { ...c, unread: 0 } : c)) } : s));
@@ -264,6 +266,39 @@ export default function WhatsAppPage() {
     } finally {
       setBuscandoAntigas(false);
     }
+  }
+
+  /**
+   * Telefone citado numa mensagem.
+   *
+   * Se ja existe conversa com aquele numero, abre; senao leva ao "Nova
+   * conversa" com o numero preenchido, faltando so escrever o recado. Era
+   * o caminho que o vendedor fazia na mao, copiando e colando.
+   */
+  function abrirNumero(numero: string) {
+    const digitos = numero.replace(/\D/g, "");
+    const fim = digitos.slice(-8);
+    const existente = chats.find((c) => {
+      const dele = (c.phone || c.id).replace(/\D/g, "");
+      return fim.length === 8 && dele.endsWith(fim);
+    });
+    if (existente) {
+      abrirChat(existente);
+      return;
+    }
+    setNovoNumero(digitos);
+    setNovoTexto("");
+    setNovoErro(null);
+    setNovaAberta(true);
+  }
+
+  /** Leva a mensagem que foi citada, e pisca para a pessoa achar. */
+  function irParaMensagem(id: string) {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("ring-2", "ring-[#00a884]", "rounded-lg");
+    setTimeout(() => el.classList.remove("ring-2", "ring-[#00a884]", "rounded-lg"), 1500);
   }
 
   async function iniciarConversa() {
@@ -608,6 +643,10 @@ export default function WhatsAppPage() {
                   onAbrirMidia={setViewerId}
                   avatarJid={item.msg.fromMe ? state.myJid : chatAvatarJid}
                   avatarNome={item.msg.fromMe ? state.name ?? "Eu" : selectedChat.name}
+                  onResponder={setRespondendo}
+                  onIrPara={irParaMensagem}
+                  onAbrirNumero={abrirNumero}
+                  nomeDoOutro={selectedChat.name}
                 />
               ),
             )}
@@ -623,6 +662,8 @@ export default function WhatsAppPage() {
             }}
             arquivoArrastado={arrastado}
             limparArrastado={() => setArrastado(null)}
+            respondendo={respondendo}
+            onCancelarResposta={() => setRespondendo(null)}
           />
 
           {arrastando && (

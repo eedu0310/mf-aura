@@ -15,9 +15,18 @@ export interface WaChat {
   unread: number;
 }
 
+/** A mensagem que esta sendo respondida, como o WhatsApp mostra acima do texto. */
+export interface WaQuote {
+  id: string;
+  text: string;
+  type: WaMsgType;
+  fromMe: boolean;
+}
+
 export interface WaMessage {
   id: string;
   chatId: string;
+  quoted?: WaQuote;
   fromMe: boolean;
   text: string;
   timestamp: number;

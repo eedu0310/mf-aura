@@ -23,6 +23,7 @@ import {
   obterLead,
 } from "@/lib/whatsapp/supervisor";
 import { calcularAlertas, ETAPAS, type Etapa } from "@/lib/whatsapp/stage-rules";
+import { paraVozOpus } from "@/lib/whatsapp/voz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -108,7 +109,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST JSON { action: "connect" | "send" | "read" | "logout" | "analyze" | "ignore" | "stage", ... }
- * POST multipart (file, to, caption) → envia foto/vídeo/documento
+ * POST multipart (file, to, caption, quotedId?, ptt?) → foto, vídeo,
+ *   documento ou mensagem de voz, respondendo uma mensagem se quiser
  */
 /** Marca como respondido o lead do número para quem o vendedor escreveu. */
 async function fecharLeadDoContato(userId: string, jid: string) {
@@ -139,19 +141,35 @@ export async function POST(request: NextRequest) {
       const file = form.get("file");
       const to = String(form.get("to") ?? "").trim();
       const caption = String(form.get("caption") ?? "").trim() || undefined;
+      const quotedId = String(form.get("quotedId") ?? "").trim() || null;
+      const ehVoz = String(form.get("ptt") ?? "") === "1";
       if (!(file instanceof File) || !to) {
         return NextResponse.json({ error: "Arquivo ou destinatário ausente." }, { status: 400 });
       }
       if (file.size > MAX_FILE_BYTES) {
         return NextResponse.json({ error: "Arquivo muito grande (máx. 60 MB)." }, { status: 413 });
       }
-      const buffer = Buffer.from(await file.arrayBuffer());
+      let buffer: Buffer = Buffer.from(await file.arrayBuffer());
+      let mimetype = file.type || "application/octet-stream";
+      if (ehVoz) {
+        // O navegador grava Opus em WebM; a bolinha de voz do WhatsApp exige
+        // Opus em OGG. Se o servidor nao converter, o vendedor recebe o
+        // motivo em vez de o cliente receber um audio que nao toca.
+        try {
+          buffer = await paraVozOpus(buffer, mimetype);
+          mimetype = "audio/ogg; codecs=opus";
+        } catch (e: any) {
+          return NextResponse.json({ error: e?.message ?? "Não consegui preparar o áudio." }, { status: 422 });
+        }
+      }
       const result = await sendFile(
         userId,
         to,
-        { buffer, mimetype: file.type || "application/octet-stream", fileName: file.name || "arquivo" },
+        { buffer, mimetype, fileName: file.name || "arquivo" },
         caption,
+        { quotedId, ptt: ehVoz },
       );
+      void fecharLeadDoContato(userId, to);
       return NextResponse.json({ ok: true, ...result });
     }
 
@@ -173,7 +191,7 @@ export async function POST(request: NextRequest) {
         if (!to || !text) {
           return NextResponse.json({ error: "Informe o destinatário e a mensagem." }, { status: 400 });
         }
-        const result = await sendText(userId, to, text);
+        const result = await sendText(userId, to, text, String(body.quotedId ?? "").trim() || null);
         // Respondeu pelo WhatsApp: fecha o lead correspondente, zera o alerta
         // de "sem resposta" do gestor e joga o negócio no pipeline.
         void fecharLeadDoContato(userId, to);
