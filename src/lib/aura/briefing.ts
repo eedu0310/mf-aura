@@ -84,7 +84,7 @@ export async function montarBriefing(vendedorId: string): Promise<Briefing | nul
       tipo: "avaliacao",
       titulo: `Pedir avaliação de ${a.cliente ?? "cliente"}`,
       detalhe: "vale ponto no ranking",
-      link: "/meu-dia",
+      link: "/meu-dia#avaliacoes",
     });
   }
 

@@ -89,6 +89,7 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
 
   return (
     <section
+      id="avaliacoes"
       className={`rounded-2xl border border-aura-gold/40 bg-aura-gold/5 p-4 sm:p-5 ${className}`}
       aria-label="Avaliações pendentes"
     >

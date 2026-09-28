@@ -21,6 +21,7 @@ import { BriefingDoDia } from "@/components/meu-dia/briefing-do-dia";
 import { useAppData } from "@/lib/app-data-context";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { computeDnaScore } from "@/lib/compute-dna-score";
+import { quandoAconteceu } from "@/lib/date-local";
 import { computeMissoesDoDia } from "@/lib/compute-missoes";
 import { computeConquistas } from "@/lib/compute-conquistas";
 import { listarCompromissos, type Compromisso } from "@/lib/supabase/compromissos";
@@ -178,6 +179,14 @@ export default function MeuDiaPage() {
     .slice(0, 6);
 
   const dnaResultado = computeDnaScore({ relacionamentos, oportunidades, atividades });
+  // "Recentes" só é recente se estiver ordenado: a lista vinha na ordem que o
+  // banco devolveu, então uma atividade de semanas atrás podia encabeçar.
+  const atividadesRecentes = useMemo(() => {
+    const quandoDe = (a: { quando?: string; criadoEm?: string }) =>
+      new Date(a.quando || a.criadoEm || 0).getTime();
+    return [...(atividades ?? [])].sort((a, b) => quandoDe(b) - quandoDe(a)).slice(0, 5);
+  }, [atividades]);
+
   const missoes = missoesHabilitadas
     ? computeMissoesDoDia({ relacionamentos, oportunidades, atividades })
     : [];
@@ -366,18 +375,20 @@ export default function MeuDiaPage() {
           </PanelCard> : null}
 
           <PanelCard icon={Activity} titulo="Atividades Recentes" acaoLabel="Ver todas atividades" acaoHref="/atividades">
-            {atividades.length === 0 ? (
+            {atividadesRecentes.length === 0 ? (
               <p className="py-4 text-center text-sm text-aura-graphite-soft">Nenhuma atividade registrada ainda. Que tal começar agora?</p>
             ) : (
               <ul className="flex flex-col divide-y divide-aura-mist">
-                {atividades.slice(0, 5).map((atividade) => (
+                {atividadesRecentes.map((atividade) => (
                   <li key={atividade.id}>
                     <Link href={`/relacionamentos?buscar=${encodeURIComponent(atividade.contexto)}`} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0 hover:opacity-70">
                       <div>
                         <p className="text-sm font-medium text-aura-graphite">{atividade.titulo}</p>
                         <p className="text-xs text-aura-graphite-soft">{atividade.contexto}</p>
                       </div>
-                      <span className="shrink-0 text-xs text-aura-graphite-soft">{atividade.quando}</span>
+                      <span className="shrink-0 text-xs text-aura-graphite-soft">
+                        {quandoAconteceu(atividade.quando || atividade.criadoEm)}
+                      </span>
                     </Link>
                   </li>
                 ))}

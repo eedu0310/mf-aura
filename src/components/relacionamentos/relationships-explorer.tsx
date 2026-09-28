@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
@@ -23,6 +24,28 @@ export function RelationshipsExplorer() {
   }
   const [filtroTemperatura, setFiltroTemperatura] = useState<string>("todos");
   const [showNovaModal, setShowNovaModal] = useState(false);
+
+  /**
+   * Abre direto no cliente quando alguém chega por um link de outra tela.
+   *
+   * As flechas do briefing, das atividades recentes e dos recados da AURA
+   * sempre mandaram `?id=` ou `?buscar=`, mas esta tela ignorava os dois e
+   * abria a lista inteira — parecia que o botão não fazia nada.
+   */
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const buscar = searchParams.get("buscar");
+
+    if (id) {
+      const achado = (relacionamentos ?? []).find((r) => r.id === id);
+      if (achado) {
+        setSelectedRelacionamento(achado);
+        return;
+      }
+    }
+    if (buscar) setSearchQuery(buscar);
+  }, [searchParams, relacionamentos]);
 
   const relacionamentosFiltrados = useMemo(() => {
     let resultado = relacionamentos;

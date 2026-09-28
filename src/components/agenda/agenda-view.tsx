@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
@@ -12,6 +13,24 @@ import {
   type Compromisso,
 } from "@/lib/supabase/compromissos";
 import { parseDataLocal } from "@/lib/date-local";
+
+/**
+ * A agenda mostra o que ainda vai acontecer, não o que já aconteceu.
+ *
+ * Antes ela listava TODA atividade do dia, incluindo as que o sistema grava
+ * sozinho ("Oportunidade movida: Proposta → Fechados", "Atendimento pelo
+ * WhatsApp"). Era isso que aparecia como anotação solta no meio dos
+ * compromissos.
+ */
+const TIPOS_DE_AGENDA = ["Visita", "Reunião"];
+
+function ehCompromissoReal(a: { tipo?: string; titulo?: string; origem?: string }) {
+  if (!TIPOS_DE_AGENDA.includes(a.tipo ?? "")) return false;
+  // Registro automático não é compromisso, mesmo quando o tipo bate.
+  if (a.origem === "automatica") return false;
+  if (/oportunidade movida|criada pela ia|atendimento pelo whatsapp/i.test(a.titulo ?? "")) return false;
+  return true;
+}
 
 export function AgendaView() {
   const { atividades, relacionamentos } = useAppData();
@@ -76,6 +95,7 @@ export function AgendaView() {
     if (!diaSelecionado) {
       const hoje = new Date();
       return todasAtividades
+        .filter(ehCompromissoReal)
         .filter((a) => {
           const data = parseDataLocal(dataAgenda(a));
           return (
@@ -92,6 +112,7 @@ export function AgendaView() {
     }
 
     return todasAtividades
+      .filter(ehCompromissoReal)
       .filter((a) => {
         const data = parseDataLocal(dataAgenda(a));
         return (
@@ -112,6 +133,31 @@ export function AgendaView() {
     const data = dataLocal(alvo);
     return compromissos.filter((item) => item.data === data);
   }, [compromissos, diaSelecionado]);
+
+  /**
+   * Follow-up marcado é compromisso: o vendedor prometeu voltar a falar com
+   * o cliente naquele dia. Antes isso não aparecia na agenda em lugar
+   * nenhum — só na lista de relacionamentos, onde é fácil passar batido.
+   * O que venceu e não foi feito continua aparecendo, marcado como atrasado.
+   */
+  const followupsDia = useMemo(() => {
+    const alvo = dataLocal(diaSelecionado ?? new Date());
+    const hoje = dataLocal(new Date());
+    return (relacionamentos ?? [])
+      .filter((r) => {
+        const quando = (r.proximoContatoEm ?? "").slice(0, 10);
+        if (!quando) return false;
+        // No dia de hoje, mostra também o que ficou para trás.
+        return alvo === hoje ? quando <= alvo : quando === alvo;
+      })
+      .map((r) => ({
+        id: r.id,
+        nome: r.nome,
+        quando: (r.proximoContatoEm ?? "").slice(0, 10),
+        atrasado: (r.proximoContatoEm ?? "").slice(0, 10) < hoje,
+      }))
+      .sort((a, b) => a.quando.localeCompare(b.quando));
+  }, [relacionamentos, diaSelecionado]);
 
   // ========== PRÓXIMAS ATIVIDADES (PRÓXIMOS 7 DIAS) ==========
   const proximasAtividades = useMemo(() => {
@@ -308,8 +354,39 @@ export function AgendaView() {
                 </button>
               </div>
 
-              {compromissosDia.length > 0 || atividadesDia.length > 0 ? (
+              {compromissosDia.length > 0 || atividadesDia.length > 0 || followupsDia.length > 0 ? (
                 <div className="space-y-3">
+                  {followupsDia.map((f) => (
+                    <Link
+                      key={`followup-${f.id}`}
+                      href={`/relacionamentos?id=${f.id}`}
+                      className={`block rounded-lg border p-4 transition hover:border-aura-petrol-500 ${
+                        f.atrasado
+                          ? "border-aura-danger/40 bg-aura-danger/5"
+                          : "border-aura-mist bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-aura-graphite">Falar com {f.nome}</p>
+                          <p className="mt-1 text-xs text-aura-graphite-soft">
+                            {f.atrasado
+                              ? `Follow-up venceu em ${f.quando.slice(8, 10)}/${f.quando.slice(5, 7)}`
+                              : "Follow-up marcado para hoje"}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
+                            f.atrasado
+                              ? "bg-aura-danger/15 text-aura-danger"
+                              : "bg-aura-petrol-100 text-aura-petrol-700"
+                          }`}
+                        >
+                          {f.atrasado ? "Atrasado" : "Follow-up"}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
                   {compromissosDia.map((compromisso) => (
                     <div key={compromisso.id} className="rounded-lg border border-aura-gold/40 bg-aura-gold/10 p-4">
                       <div className="flex items-start justify-between gap-3">
@@ -345,7 +422,7 @@ export function AgendaView() {
                 </div>
               ) : (
                 <p className="text-center text-sm text-aura-graphite-soft py-8">
-                  Nenhuma atividade agendada
+                  Nada marcado para este dia
                 </p>
               )}
             </div>

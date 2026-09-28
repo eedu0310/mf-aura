@@ -31,3 +31,44 @@ export function parseDataLocal(valor?: string | null): Date {
   }
   return new Date(ano, mes - 1, dia);
 }
+
+/**
+ * Quando uma coisa aconteceu, do jeito que se fala.
+ *
+ * O "Atividades Recentes" do Meu Dia mostrava o carimbo cru do banco —
+ * "2026-09-24T13:43:45.423+00:00" na tela do vendedor.
+ */
+export function quandoAconteceu(valor?: string | null): string {
+  if (!valor) return "";
+  const data = parseDataLocal(valor);
+  if (Number.isNaN(data.getTime())) return "";
+
+  const diaDe = (d: Date) =>
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+    }).format(d);
+  const horaDe = (d: Date) =>
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+
+  const hoje = new Date();
+  const ontem = new Date(hoje.getTime() - 86400_000);
+
+  if (diaDe(data) === diaDe(hoje)) return horaDe(data);
+  if (diaDe(data) === diaDe(ontem)) return `ontem ${horaDe(data)}`;
+
+  const mesmoAno = data.getFullYear() === hoje.getFullYear();
+  return mesmoAno
+    ? diaDe(data)
+    : new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+      }).format(data);
+}
