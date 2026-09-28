@@ -1,0 +1,12 @@
+-- Migration 032 — Onde a IA registra por que não respondeu (aplicada)
+--
+-- Quando o coach falhava, o vendedor via "Não consegui responder com os dados
+-- reais agora" e o motivo morria ali: a rota escrevia num arquivo de log
+-- dentro do servidor, que ninguém abre. Sem o motivo, o conserto vira
+-- adivinhação — foi exatamente o que aconteceu com o Charles.
+--
+--  * ia_falhas: função, usuário, empresa, mensagem e o corpo do erro
+--  * leitura só para Gestor e Diretor
+--
+-- O conteúdo aplicado está na migration `registrar_falha_da_ia`; este arquivo
+-- é o histórico.

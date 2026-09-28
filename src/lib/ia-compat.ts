@@ -10,7 +10,7 @@
  * Assim nenhuma dessas telas precisou ser reescrita.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { podeChamarIA, registrarUsoIA } from "@/lib/aura/custo-ia";
+import { podeChamarIA, registrarUsoIA, registrarFalhaIA } from "@/lib/aura/custo-ia";
 
 type Papel = "user" | "assistant";
 interface MensagemSimples {
@@ -52,19 +52,61 @@ function texto(conteudo: unknown): string {
   return conteudo == null ? "" : String(conteudo);
 }
 
-/** Junta mensagens seguidas do mesmo papel — o Claude exige alternância. */
+/**
+ * Normaliza o conteudo em blocos e descarta o que a API recusa.
+ *
+ * Texto vazio derruba a chamada inteira com 400 ("text content blocks must be
+ * non-empty"), e isso acontecia sozinho: quando o Claude responde so com uma
+ * ferramenta, o bloco de texto que vem junto vem vazio.
+ */
+function comoBlocos(conteudo: any): any[] {
+  if (typeof conteudo === "string") {
+    const limpo = conteudo.trim();
+    return limpo ? [{ type: "text", text: limpo }] : [];
+  }
+  if (Array.isArray(conteudo)) {
+    return conteudo.filter((bloco: any) => {
+      if (!bloco || typeof bloco !== "object") return false;
+      if (bloco.type === "text") return String(bloco.text ?? "").trim().length > 0;
+      return true;
+    });
+  }
+  const texto = String(conteudo ?? "").trim();
+  return texto ? [{ type: "text", text: texto }] : [];
+}
+
+/**
+ * Junta mensagens seguidas do mesmo papel — o Claude exige alternancia.
+ *
+ * A versao anterior so juntava quando os DOIS conteudos eram string, e por
+ * isso falhava justamente na segunda rodada do coach: ali o Claude devolve
+ * um texto (string) seguido de um tool_use (array), os dois do assistente.
+ * Iam dois "assistant" seguidos para a API e a conversa inteira caia — o
+ * vendedor via "Nao consegui responder com os dados reais agora".
+ *
+ * Os tool_result vem na frente do proprio recado do usuario, que e onde a
+ * API exige que eles estejam.
+ */
 function arrumarMensagens(msgs: { role: Papel; content: any }[]) {
-  const saida: { role: Papel; content: any }[] = [];
+  const saida: { role: Papel; content: any[] }[] = [];
   for (const m of msgs) {
+    const blocos = comoBlocos(m.content);
+    if (!blocos.length) continue;
     const ultima = saida[saida.length - 1];
-    if (ultima && ultima.role === m.role && typeof ultima.content === "string" && typeof m.content === "string") {
-      ultima.content = `${ultima.content}\n\n${m.content}`;
-    } else {
-      saida.push({ ...m });
+    if (ultima && ultima.role === m.role) ultima.content.push(...blocos);
+    else saida.push({ role: m.role, content: blocos });
+  }
+
+  for (const m of saida) {
+    if (m.role !== "user") continue;
+    const resultados = m.content.filter((b: any) => b.type === "tool_result");
+    if (resultados.length && resultados.length !== m.content.length) {
+      m.content = [...resultados, ...m.content.filter((b: any) => b.type !== "tool_result")];
     }
   }
-  if (!saida.length) saida.push({ role: "user", content: "." });
-  if (saida[0].role !== "user") saida.unshift({ role: "user", content: "." });
+
+  if (!saida.length) saida.push({ role: "user", content: [{ type: "text", text: "." }] });
+  if (saida[0].role !== "user") saida.unshift({ role: "user", content: [{ type: "text", text: "." }] });
   return saida;
 }
 
@@ -101,14 +143,25 @@ async function criarChatCompletion(opts: any, extra?: any) {
     sistema += "\n\nResponda SOMENTE com um JSON válido, sem comentários e sem cercas de código.";
   }
 
-  const resposta = await client.messages.create({
-    model: MODELO(),
-    max_tokens: opts.max_tokens ?? 2000,
-    // O parâmetro "temperature" das rotas antigas não é aceito pelos modelos
-    // atuais do Claude — mandar isso derrubava a resposta com erro 400.
-    system: sistema || undefined,
-    messages: arrumarMensagens(conversa),
-  });
+  const mensagens = arrumarMensagens(conversa);
+  let resposta;
+  try {
+    resposta = await client.messages.create({
+      model: MODELO(),
+      max_tokens: opts.max_tokens ?? 2000,
+      // O parâmetro "temperature" das rotas antigas não é aceito pelos modelos
+      // atuais do Claude — mandar isso derrubava a resposta com erro 400.
+      system: sistema || undefined,
+      messages: mensagens as never,
+    });
+  } catch (erro) {
+    await registrarFalhaIA({
+      funcao: extra?.__funcao ?? "chat",
+      erro,
+      detalhe: { papeis: mensagens.map((m) => m.role).join(">"), mensagens: mensagens.length },
+    });
+    throw erro;
+  }
 
   void registrarUsoIA({ funcao: extra?.__funcao ?? "chat", modelo: MODELO(), uso: (resposta as any).usage });
 
@@ -160,13 +213,28 @@ async function criarResponse(opts: any, extra?: any) {
 
   const ferramentas = ferramentasParaClaude(opts.tools ?? []);
 
-  const resposta = await client.messages.create({
-    model: MODELO(),
-    max_tokens: opts.max_tokens ?? 2000,
-    system: opts.instructions || undefined,
-    messages: arrumarMensagens(mensagens),
-    ...(ferramentas.length ? { tools: ferramentas } : {}),
-  });
+  const conversa = arrumarMensagens(mensagens);
+  let resposta;
+  try {
+    resposta = await client.messages.create({
+      model: MODELO(),
+      max_tokens: opts.max_tokens ?? 2000,
+      system: opts.instructions || undefined,
+      messages: conversa as never,
+      ...(ferramentas.length ? { tools: ferramentas } : {}),
+    });
+  } catch (erro) {
+    await registrarFalhaIA({
+      funcao: extra?.__funcao ?? "coach",
+      erro,
+      detalhe: {
+        papeis: conversa.map((m) => m.role).join(">"),
+        mensagens: conversa.length,
+        ferramentas: ferramentas.length,
+      },
+    });
+    throw erro;
+  }
 
   void registrarUsoIA({ funcao: extra?.__funcao ?? "coach", modelo: MODELO(), uso: (resposta as any).usage });
 

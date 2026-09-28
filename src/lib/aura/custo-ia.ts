@@ -129,3 +129,43 @@ export async function registrarUsoIA(dados: {
     console.error("[custo-ia] não consegui anotar o consumo:", e?.message ?? e);
   }
 }
+
+/**
+ * Anota por que a IA nao respondeu.
+ *
+ * Antes o motivo morria num arquivo de log dentro do servidor e o vendedor
+ * so via "Nao consegui responder agora". Sem o motivo, o conserto vira
+ * adivinhacao. Nunca derruba a chamada: se nem isso der certo, so nao anota.
+ */
+export async function registrarFalhaIA(dados: {
+  funcao: string;
+  erro: unknown;
+  empresa?: string | null;
+  usuarioId?: string | null;
+  detalhe?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const e = dados.erro as { message?: string; status?: number; error?: unknown };
+    const mensagem = String(e?.message ?? dados.erro ?? "erro sem mensagem").slice(0, 2000);
+
+    const sb = getSupabaseServiceClient();
+    if (!sb) {
+      console.error(`[ia] ${dados.funcao} falhou:`, mensagem);
+      return;
+    }
+
+    await sb.from("ia_falhas").insert({
+      funcao: dados.funcao,
+      usuario_id: dados.usuarioId ?? null,
+      empresa: dados.empresa ?? null,
+      mensagem,
+      detalhe: {
+        ...(dados.detalhe ?? {}),
+        status: e?.status ?? null,
+        corpo: e?.error ? JSON.parse(JSON.stringify(e.error)) : null,
+      },
+    });
+  } catch (falha: any) {
+    console.error("[custo-ia] nao consegui anotar a falha:", falha?.message ?? falha);
+  }
+}

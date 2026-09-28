@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR } from "@/lib/aura-coach-prompt";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { registrarFalhaIA } from "@/lib/aura/custo-ia";
 import { textoDosMateriais } from "@/lib/aura/materiais";
 import {
   ferramentasParaResponsesAPI,
@@ -279,15 +280,15 @@ export async function POST(request: Request) {
   } catch (err: any) {
     const detalhe = err?.message ?? String(err);
     console.error("[coach] falha ao responder:", detalhe, err);
-    try {
-      const fs = await import("fs");
-      fs.appendFileSync(
-        ".whatsapp-sessions/diagnostico.log",
-        `${new Date().toISOString()} [coach] ${detalhe}\n`,
-      );
-    } catch {
-      /* o log é só apoio */
-    }
+    // Antes isto ia para um arquivo dentro do servidor, que ninguem abre.
+    // No banco o gestor ve o motivo em Custo da IA, e eu tambem.
+    await registrarFalhaIA({
+      funcao: "coach",
+      erro: err,
+      empresa: auth.empresa,
+      usuarioId: auth.userId,
+      detalhe: { mensagens: mensagens.length, tamanhoContexto: contextoDados.length },
+    });
     return NextResponse.json(
       { erro: `Não consegui responder agora: ${detalhe}` },
       { status: 502 },

@@ -24,6 +24,27 @@ import { ConversationSidebar } from "./conversation-sidebar";
 
 type Mensagem = { id: string; autor: "usuario" | "aura"; texto: string };
 
+/**
+ * O que dizer ao vendedor quando a IA nao respondeu.
+ *
+ * A tela trocava qualquer falha por "Tente novamente em instantes", entao o
+ * motivo que a rota ja mandava morria na traducao e ninguem tinha como
+ * consertar. Saldo e configuracao sao recados que ele entende e resolve
+ * (ou leva ao gestor); o resto vira uma frase curta com a causa, que e o
+ * que se copia para quem cuida do sistema.
+ */
+function motivoLegivel(erro: unknown): string {
+  const bruto = String((erro as { message?: string })?.message ?? erro ?? "").trim();
+  if (!bruto) return "Tente novamente em instantes.";
+  if (/saldo/i.test(bruto)) return bruto;
+  if (/n[aã]o configurada|ANTHROPIC_API_KEY|chave/i.test(bruto)) {
+    return "A chave da IA não está configurada. Avise o gestor.";
+  }
+  if (/autenticad/i.test(bruto)) return "Sua sessão expirou. Entre de novo.";
+  const curto = bruto.replace(/^Não consegui responder agora:\s*/i, "").slice(0, 180);
+  return `Motivo: ${curto}`;
+}
+
 export function AuraCoachChat() {
   const { profile } = useUserProfile();
   const { relacionamentos, oportunidades, vendas, atividades, playbook } = useAppData();
@@ -91,7 +112,11 @@ export function AuraCoachChat() {
     } catch (error) {
       console.error("AURA: falha ao carregar saudação com dados reais", error);
       return [
-        { id: "erro-aura", autor: "aura", texto: `Oi, ${primeiroNome}! Não consegui carregar seus dados reais agora. Atualize a página ou tente novamente em instantes.` },
+        {
+          id: "erro-aura",
+          autor: "aura",
+          texto: `Oi, ${primeiroNome}! Não consegui carregar seus dados reais agora. ${motivoLegivel(error)}`,
+        },
       ];
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,7 +268,7 @@ export function AuraCoachChat() {
       if (idConversa) void salvarMensagemCoach(idConversa, "aura", dados.resposta);
     } catch (error) {
       console.error("AURA: falha ao responder com dados reais", error);
-      const textoErro = "Não consegui responder com os dados reais agora. Tente novamente em instantes.";
+      const textoErro = `Não consegui responder com os dados reais agora. ${motivoLegivel(error)}`;
       setMensagens((prev) => [...prev, { id: crypto.randomUUID(), autor: "aura", texto: textoErro }]);
     } finally {
       setDigitando(false);
