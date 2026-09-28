@@ -14,91 +14,39 @@ interface LeadIndicador {
   tipo: "Total";
 }
 
+/**
+ * As linhas que toda loja preenche. O gestor acrescenta as dele em
+ * `planilha_linhas`, e elas entram depois destas, na ordem que ele definiu.
+ */
+const LINHAS_PADRAO = [
+  "Leads novos Recebidos Loja",
+  "Leads novos Recebidos MF",
+  "Leads novos Rec. Marketing",
+  "Faturamento Leads Recebidos Loja",
+  "Vendas Totais Leads Recebidos Loja",
+  "Faturamento de Leads Recebidos MF",
+  "Vendas Totais Leads Recebidos MF",
+  "Faturamento Leads Rec. Marketing",
+  "Vendas Totais Leads Rec. Marketing",
+];
+
+function linhaVazia(indicador: string): LeadIndicador {
+  return {
+    indicador,
+    semana1: 0,
+    semana2: 0,
+    semana3: 0,
+    semana4: 0,
+    semana5: 0,
+    tipo: "Total",
+  };
+}
+
 export function MinhaPlanilhaIndicadores() {
   const { profile } = useUserProfile();
-  const [indicadores, setIndicadores] = useState<LeadIndicador[]>([
-    {
-      indicador: "Leads novos Recebidos Loja",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Leads novos Recebidos MF",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Leads novos Rec. Marketing",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Faturamento Leads Recebidos Loja",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Vendas Totais Leads Recebidos Loja",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Faturamento de Leads Recebidos MF",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Vendas Totais Leads Recebidos MF",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Faturamento Leads Rec. Marketing",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-    {
-      indicador: "Vendas Totais Leads Rec. Marketing",
-      semana1: 0,
-      semana2: 0,
-      semana3: 0,
-      semana4: 0,
-      semana5: 0,
-      tipo: "Total",
-    },
-  ]);
+  const [indicadores, setIndicadores] = useState<LeadIndicador[]>(
+    LINHAS_PADRAO.map(linhaVazia),
+  );
 
   const [carregando, setCarregando] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -122,14 +70,29 @@ export function MinhaPlanilhaIndicadores() {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) return;
 
-      const { data, error } = await supabase
-        .from("planilha_leads_indicadores")
-        .select("*")
-        .eq("usuario_id", user.user.id)
-        .eq("mes", mesAtual)
-        .eq("ano", anoAtual);
+      const [{ data, error }, { data: extras }] = await Promise.all([
+        supabase
+          .from("planilha_leads_indicadores")
+          .select("*")
+          .eq("usuario_id", user.user.id)
+          .eq("mes", mesAtual)
+          .eq("ano", anoAtual),
+        supabase
+          .from("planilha_linhas")
+          .select("titulo, ordem")
+          .eq("ativo", true)
+          .order("ordem", { ascending: true }),
+      ]);
 
       if (error) throw error;
+
+      // As linhas do gestor entram depois das padrao. Se ele repetiu um nome
+      // que ja existe, a linha padrao manda — senao a planilha ficaria com a
+      // mesma pergunta duas vezes e o upsert brigaria pela mesma chave.
+      const titulosExtras = ((extras ?? []) as { titulo: string }[])
+        .map((l) => l.titulo)
+        .filter((t) => !LINHAS_PADRAO.includes(t));
+      const base = [...LINHAS_PADRAO, ...titulosExtras].map(linhaVazia);
 
       if (data && data.length > 0) {
         // Mesclar dados existentes
@@ -141,7 +104,7 @@ export function MinhaPlanilhaIndicadores() {
           {}
         );
 
-        const novoIndicadores = indicadores.map((ind) => {
+        const novoIndicadores = base.map((ind) => {
           const existente = dadosExistentes[ind.indicador];
           return existente
             ? {
@@ -156,6 +119,8 @@ export function MinhaPlanilhaIndicadores() {
         });
 
         setIndicadores(novoIndicadores);
+      } else {
+        setIndicadores(base);
       }
     } catch (erro) {
       console.error("Erro ao carregar dados:", erro);

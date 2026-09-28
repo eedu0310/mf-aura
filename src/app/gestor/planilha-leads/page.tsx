@@ -1,6 +1,7 @@
 "use client";
 
 import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
+import { PlanilhaLinhasCard } from "@/components/gestor/planilha-linhas-card";
 
 export default function PlanilhaLeadsGestorPage() {
   return (
@@ -18,7 +19,8 @@ export default function PlanilhaLeadsGestorPage() {
       </div>
 
       {/* Conteúdo */}
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 sm:px-8">
+        <PlanilhaLinhasCard />
         <PlanilhaLeadsDashboard />
       </div>
     </div>

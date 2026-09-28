@@ -1,0 +1,15 @@
+-- Migration 031 — O gestor acrescenta linhas na planilha mensal (aplicada)
+--
+-- As nove linhas da planilha estavam escritas dentro do componente, então
+-- medir qualquer coisa nova dependia de alguém mexer no código. E cada loja
+-- mede coisas diferentes: a linha nasce da empresa de quem a criou, e só
+-- aparece para a equipe dela.
+--
+--  * planilha_linhas: título, ordem e liga/desliga, por empresa
+--  * leitura para quem é da loja (gestor, diretor e marketing veem todas,
+--    porque o painel consolidado mostra as quatro lado a lado)
+--  * escrita só para Gestor e Diretor
+--
+-- Desligar em vez de apagar: o mês já preenchido continua com a linha, senão
+-- o histórico perde uma coluna no meio do ano. O conteúdo aplicado está na
+-- migration `gestor_acrescenta_linha_na_planilha`; este arquivo é o histórico.
