@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Trash2, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { HistoricoCompras } from "./historico-compras";
 import type { Relacionamento, CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
 
@@ -316,6 +317,10 @@ export function RelacionamentoDetailsModal({
             </div>
           </form>
         )}
+
+        <div className="mt-5">
+          <HistoricoCompras relacionamentoId={relacionamento.id} />
+        </div>
       </div>
     </div>
   );

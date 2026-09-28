@@ -1,0 +1,13 @@
+-- Migration 029 — Cliente recorrente e histórico de compras (aplicada)
+--
+-- Cliente que compra hoje e volta daqui a um ano entrava como contato novo:
+-- o histórico se partia em dois, o vendedor não via que já tinha vendido
+-- para aquela pessoa, e a recompra não pontuava no ranking — justamente o
+-- comportamento que o ranking novo quer premiar.
+--
+--  * view cliente_historico: quantas compras, quanto, primeira e última,
+--    e há quantos dias foi a última
+--  * índice único por (empresa, telefone_normalizado): o mesmo telefone
+--    pode ser cliente de duas lojas do grupo, mas não duas fichas na mesma
+--  * aura_achar_ou_criar_relacionamento: o contato que volta cai na ficha
+--    que já existe, com o nome atualizado quando a ficha só tinha o número
