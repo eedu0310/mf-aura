@@ -32,6 +32,19 @@ function ehCompromissoReal(a: { tipo?: string; titulo?: string; origem?: string 
   return true;
 }
 
+/**
+ * Distancia em dias de CALENDARIO, nao em horas. Comparar com `new Date()`
+ * fazia o compromisso das 07h de hoje cair em "Amanha" as 10h: a diferenca
+ * ficava negativa e o arredondamento para cima a empurrava de volta.
+ */
+function diasAteODia(data: Date) {
+  const alvo = new Date(data);
+  alvo.setHours(0, 0, 0, 0);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return Math.round((alvo.getTime() - hoje.getTime()) / 86400000);
+}
+
 export function AgendaView() {
   const { atividades, relacionamentos } = useAppData();
   const [mesAtual, setMesAtual] = useState(new Date());
@@ -167,6 +180,7 @@ export function AgendaView() {
     semanaDepois.setDate(semanaDepois.getDate() + 7);
 
     return todasAtividades
+      .filter(ehCompromissoReal)
       .filter((a) => {
         const data = parseDataLocal(dataAgenda(a));
         data.setHours(0, 0, 0, 0);
@@ -184,7 +198,7 @@ export function AgendaView() {
   function contarAtividadesDia(dia: Date | null): number {
     if (!dia) return 0;
 
-    const atividadesCount = todasAtividades.filter((a) => {
+    const atividadesCount = todasAtividades.filter(ehCompromissoReal).filter((a) => {
       const data = parseDataLocal(dataAgenda(a));
       return (
         data.getDate() === dia.getDate() &&
@@ -433,11 +447,7 @@ export function AgendaView() {
               {proximasAtividades.length > 0 ? (
                 <div className="space-y-3">
                   {proximasAtividades.map((a) => {
-                    const dataAtividade = parseDataLocal(dataAgenda(a));
-                    const hoje = new Date();
-                    const dias = Math.ceil(
-                      (dataAtividade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24)
-                    );
+                    const dias = diasAteODia(parseDataLocal(dataAgenda(a)));
 
                     return (
                       <div key={a.id} className="rounded-lg border border-aura-mist bg-aura-bg p-4">

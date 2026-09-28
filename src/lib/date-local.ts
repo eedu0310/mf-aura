@@ -21,6 +21,16 @@ export function saudacaoDoDia(agora: Date = new Date()): string {
 
 export function parseDataLocal(valor?: string | null): Date {
   if (!valor) return new Date(NaN);
+  // Carimbo que ja traz o fuso ("...Z", "...+00:00") aponta um instante
+  // exato: quem o traduz para Brasilia e o Intl, na hora de escrever.
+  // Montar a data a mao aqui jogava fora o offset, entao o UTC do banco
+  // entrava como hora local e a atividade das 07:32 aparecia como 10:32
+  // em "Atividades Recentes". So data solta ("2026-09-28") continua sendo
+  // montada no fuso do usuario, senao ela volta um dia.
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(valor.trim())) {
+    const exato = new Date(valor);
+    if (!Number.isNaN(exato.getTime())) return exato;
+  }
   const [data, hora] = valor.split("T");
   const partes = data?.split("-").map(Number);
   if (!partes || partes.length !== 3 || partes.some(Number.isNaN)) return new Date(valor);
