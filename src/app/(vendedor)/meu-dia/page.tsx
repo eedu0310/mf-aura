@@ -6,6 +6,7 @@ import { Filter, AlertCircle, Activity, Calendar, ListChecks, ArrowRight, CheckC
 
 import { PanelCard } from "@/components/panel-card";
 import { MetaDoMesCard } from "@/components/meu-dia/meta-do-mes-card";
+import { MetasVendedorModal } from "@/components/gestor/metas-vendedor-modal";
 import { DnaScoreCard } from "@/components/meu-dia/dna-score-card";
 import { RankingMiniCard } from "@/components/meu-dia/ranking-mini-card";
 import { ConquistasCard } from "@/components/meu-dia/conquistas-card";
@@ -25,7 +26,7 @@ import { quandoAconteceu } from "@/lib/date-local";
 import { computeMissoesDoDia } from "@/lib/compute-missoes";
 import { computeConquistas } from "@/lib/compute-conquistas";
 import { listarCompromissos, type Compromisso } from "@/lib/supabase/compromissos";
-import { carregarEquipe } from "@/lib/supabase/team";
+import { carregarEquipe, type MembroEquipe } from "@/lib/supabase/team";
 import { buscarMetaDoMes, definirMetaDoMes } from "@/lib/supabase/metas";
 import { listarNiveis, type NivelPerformance } from "@/lib/supabase/niveis";
 import { listarMinhasPendenciasPosVenda, type PosVenda } from "@/lib/supabase/pos-venda";
@@ -74,6 +75,8 @@ export default function MeuDiaPage() {
   const [metaValor, setMetaValor] = useState<number | null>(null);
   const [niveis, setNiveis] = useState<NivelPerformance[]>([]);
   const [pendenciasPosVenda, setPendenciasPosVenda] = useState<PosVenda[]>([]);
+  const [euNaEquipe, setEuNaEquipe] = useState<MembroEquipe | null>(null);
+  const [metasAbertas, setMetasAbertas] = useState(false);
   const [missoesHabilitadas, setMissoesHabilitadas] = useState(false);
 
   async function carregarExtras() {
@@ -114,6 +117,7 @@ export default function MeuDiaPage() {
     setMetaValor(meta);
     if (listaNiveis) setNiveis(listaNiveis);
     setPendenciasPosVenda(pendencias);
+    setEuNaEquipe((equipe ?? []).find((m) => m.souEu) ?? null);
   }
 
   useEffect(() => {
@@ -222,7 +226,18 @@ export default function MeuDiaPage() {
 
         <PedidosAvaliacaoCard />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <MetaDoMesCard valor={metaValor} atingido={totalVendasMes} onDefinir={definirMeta} />
+          <div className="space-y-2">
+            <MetaDoMesCard valor={metaValor} atingido={totalVendasMes} onDefinir={definirMeta} />
+            {euNaEquipe && (
+              <button
+                type="button"
+                onClick={() => setMetasAbertas(true)}
+                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-xs font-medium text-aura-petrol-700 transition hover:border-aura-petrol-500"
+              >
+                Definir metas de prospecção e indicadores
+              </button>
+            )}
+          </div>
           <DnaScoreCard
             score={dnaResultado.score}
             detalhes={dnaResultado.detalhes}
@@ -396,6 +411,16 @@ export default function MeuDiaPage() {
             )}
           </PanelCard>
         </div>
+
+        {metasAbertas && euNaEquipe && (
+          <MetasVendedorModal
+            membro={euNaEquipe}
+            onClose={() => {
+              setMetasAbertas(false);
+              void carregarExtras();
+            }}
+          />
+        )}
 
         <ConquistasCard conquistas={conquistas} niveis={niveis} vendasTotal={vendasTotal} />
 
