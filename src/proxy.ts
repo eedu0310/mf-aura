@@ -1,5 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { esquecerSessao, lembrarSessao, sessaoLembrada, tokenDaRequisicao } from "@/lib/sessao-cache";
+
+/**
+ * Cabeçalho onde o proxy entrega à rota quem ele já validou.
+ *
+ * A rota chamava `auth.getUser()` por conta própria, repetindo a ida ao
+ * Supabase que o proxy acabara de fazer. Agora ela lê daqui.
+ *
+ * Só é confiável porque o proxy passa em TODA requisição (veja o matcher) e
+ * apaga o cabeçalho antes de escrevê-lo: o que vier de fora nunca sobrevive.
+ */
+export const CABECALHO_USUARIO = "x-aura-usuario";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -26,17 +38,40 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // Essa chamada é o que efetivamente renova o token da sessão quando
-  // necessário e reescreve os cookies corretos na resposta. Sem isso, a
-  // sessão criada no login pode não sobreviver a um F5 ou nova aba.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const caminhoPedido = request.nextUrl.pathname;
+  const token = tokenDaRequisicao(request.cookies.getAll());
+  const lembrada = token ? sessaoLembrada(token) : null;
+
+  let userId: string | null = lembrada?.userId ?? null;
+  let contaAtiva = lembrada?.ativo ?? true;
+
+  if (!lembrada) {
+    // Esta chamada é o que renova o token da sessão quando necessário e
+    // reescreve os cookies corretos na resposta. Sem ela, a sessão criada no
+    // login pode não sobreviver a um F5 ou nova aba — por isso ela continua
+    // acontecendo sempre que o token é novo para nós.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+
+    if (userId) {
+      const { data: perfil } = await supabase
+        .from("profiles")
+        .select("ativo")
+        .eq("id", userId)
+        .single();
+      contaAtiva = perfil?.ativo !== false;
+      lembrarSessao(token, userId, contaAtiva);
+    }
+  }
+
+  const user = userId ? { id: userId } : null;
 
   // Telas que podem ser abertas sem login: a de entrar, a avaliação que o
   // cliente recebe por link e as rotas chamadas por robô (cron/webhook),
   // que têm a própria autenticação por segredo.
-  const caminho = request.nextUrl.pathname;
+  const caminho = caminhoPedido;
   const publica =
     caminho === "/" ||
     caminho.startsWith("/login") ||
@@ -57,13 +92,8 @@ export async function proxy(request: NextRequest) {
   // "ativo" só escondia a pessoa das listas: ela continuava logando e
   // usando o sistema normalmente.
   if (user && !publica) {
-    const { data: perfil } = await supabase
-      .from("profiles")
-      .select("ativo")
-      .eq("id", user.id)
-      .single();
-
-    if (perfil && perfil.ativo === false) {
+    if (!contaAtiva) {
+      esquecerSessao(token);
       await supabase.auth.signOut();
       if (caminho.startsWith("/api/")) {
         return NextResponse.json({ erro: "Acesso desativado pelo gestor." }, { status: 403 });
@@ -87,7 +117,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(destino);
   }
 
-  return response;
+  // Entrega à rota quem já foi validado aqui, para ela não repetir a ida ao
+  // Supabase. O cabeçalho é montado agora, no fim, para já levar os cookies
+  // renovados acima; o valor que veio de fora é apagado antes de escrevermos
+  // o nosso, então ninguém da internet se apresenta como validado. Se por
+  // algum motivo ele não chegar, a rota volta a perguntar sozinha — fica
+  // mais lento, nunca inseguro.
+  const cabecalhos = new Headers(request.headers);
+  cabecalhos.delete(CABECALHO_USUARIO);
+  if (user) cabecalhos.set(CABECALHO_USUARIO, user.id);
+
+  const saida = NextResponse.next({ request: { headers: cabecalhos } });
+  for (const cookie of response.cookies.getAll()) saida.cookies.set(cookie);
+  return saida;
 }
 
 export const config = {

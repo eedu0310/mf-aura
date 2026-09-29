@@ -113,6 +113,7 @@ export default function WhatsAppPage() {
   const [mudandoEtapa, setMudandoEtapa] = useState(false);
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
   const [respondendo, setRespondendo] = useState<WaMessage | null>(null);
+  const [abaVisivel, setAbaVisivel] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const colarNoFim = useRef(true);
 
@@ -157,6 +158,27 @@ export default function WhatsAppPage() {
     }
   }, []);
 
+  // Vendedor deixa a tela aberta o dia inteiro atras de outra janela. Sem
+  // isto, ela continuava pedindo dados tres vezes por segundo para ninguem.
+  useEffect(() => {
+    function aoMudar() {
+      setAbaVisivel(document.visibilityState === "visible");
+    }
+    document.addEventListener("visibilitychange", aoMudar);
+    return () => document.removeEventListener("visibilitychange", aoMudar);
+  }, []);
+
+  // Voltou para a tela: atualiza na hora, sem esperar o proximo ciclo.
+  useEffect(() => {
+    if (!abaVisivel) return;
+    loadState();
+    if (selectedChatId && connected) {
+      loadMessages(selectedChatId);
+      loadLead(selectedChatId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abaVisivel]);
+
   // O Supervisor fica sempre aberto em telas largas.
   useEffect(() => {
     if (window.innerWidth >= 1280) setPainelIa(true);
@@ -164,9 +186,10 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     loadState();
+    if (!abaVisivel) return;
     const t = setInterval(loadState, status === "connected" ? 3000 : 1500);
     return () => clearInterval(t);
-  }, [loadState, status]);
+  }, [loadState, status, abaVisivel]);
 
   useEffect(() => {
     setMessages([]);
@@ -174,16 +197,16 @@ export default function WhatsAppPage() {
     setAlertasChat([]);
     setViewerId(null);
     colarNoFim.current = true;
-    if (!selectedChatId || !connected) return;
+    if (!selectedChatId || !connected || !abaVisivel) return;
     loadMessages(selectedChatId);
     loadLead(selectedChatId);
     const t1 = setInterval(() => loadMessages(selectedChatId), 2000);
-    const t2 = setInterval(() => loadLead(selectedChatId), 5000);
+    const t2 = setInterval(() => loadLead(selectedChatId), 8000);
     return () => {
       clearInterval(t1);
       clearInterval(t2);
     };
-  }, [selectedChatId, connected, loadMessages, loadLead]);
+  }, [selectedChatId, connected, abaVisivel, loadMessages, loadLead]);
 
   useEffect(() => {
     const el = scrollRef.current;

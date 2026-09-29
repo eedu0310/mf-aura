@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getAvatar,
@@ -31,6 +32,12 @@ export const dynamic = "force-dynamic";
 const MAX_FILE_BYTES = 60 * 1024 * 1024;
 
 async function currentUserId(): Promise<string | null> {
+  // O proxy já validou a sessão nesta requisição e deixou o id no cabeçalho.
+  // Perguntar de novo ao Supabase custava uma ida à rede em cada pedido — e
+  // esta tela faz três por segundo com uma conversa aberta.
+  const doProxy = (await headers()).get("x-aura-usuario");
+  if (doProxy) return doProxy;
+
   const supabase = await getSupabaseServerClient();
   if (!supabase) return "demo";
   const { data } = await supabase.auth.getUser();
