@@ -78,6 +78,8 @@ interface WaSession {
   chats: Map<string, WaChat>;
   messages: Map<string, WaMessage[]>;
   raw: Map<string, any>;
+  /** O @lid novo do WhatsApp apontando para o JID do numero da mesma pessoa. */
+  lidParaPn: Map<string, string>;
   avatars: Map<string, { url: string | null; at: number }>;
   /** Nomes da agenda/pushName por JID (para conversas que chegam sem nome). */
   names: Map<string, string>;
@@ -152,6 +154,7 @@ function getOrCreate(userId: string): WaSession {
       chats: new Map(),
       messages: new Map(),
       raw: new Map(),
+      lidParaPn: new Map(),
       avatars: new Map(),
       names: new Map(),
       storeLoaded: false,
@@ -160,6 +163,7 @@ function getOrCreate(userId: string): WaSession {
     sessions.set(userId, s);
   }
   s.raw ??= new Map();
+  s.lidParaPn ??= new Map();
   s.avatars ??= new Map();
   s.names ??= new Map();
   s.ciclosQr ??= 0;
@@ -199,6 +203,13 @@ async function loadStore(s: WaSession) {
       s.messages.set(jid, juntos.slice(-MAX_MSGS_PER_CHAT));
     }
     for (const [id, raw] of Object.entries(data.raw ?? {})) if (!s.raw.has(id)) s.raw.set(id, raw);
+    for (const [lid, pn] of Object.entries(data.lidParaPn ?? {}) as [string, string][]) s.lidParaPn.set(lid, pn);
+
+    // Conversas que ja estavam partidas em duas antes desta correcao: o par
+    // esta gravado em cada uma, basta usa-lo para juntar.
+    for (const chat of Array.from(s.chats.values())) {
+      if (chat.id.endsWith("@lid") && chat.pnJid) lembrarLid(s, chat.id, chat.pnJid);
+    }
     for (const [jid, nome] of Object.entries(data.names ?? {}) as [string, string][]) s.names.set(jid, nome);
     console.log(`[whatsapp] ${s.chats.size} conversas carregadas do disco`);
   } catch (e) {
@@ -223,6 +234,7 @@ async function saveStore(s: WaSession) {
     chats: Array.from(s.chats.values()),
     messages: Object.fromEntries(s.messages),
     raw: Object.fromEntries(s.raw),
+    lidParaPn: Object.fromEntries(s.lidParaPn),
     names: Object.fromEntries(s.names),
   };
   const tmp = `${file}.tmp`;
@@ -231,13 +243,17 @@ async function saveStore(s: WaSession) {
 }
 
 function upsertChatInfo(s: WaSession, c: any) {
-  const jid: string | undefined = c?.id;
-  if (!jid || isIgnoredJid(jid)) return;
-  const pnJid: string | null = jid.endsWith("@s.whatsapp.net")
-    ? jid
+  const jidBruto: string | undefined = c?.id;
+  if (!jidBruto || isIgnoredJid(jidBruto)) return;
+  const pnJid: string | null = jidBruto.endsWith("@s.whatsapp.net")
+    ? jidBruto
     : typeof c.pnJid === "string" && c.pnJid.endsWith("@s.whatsapp.net")
     ? c.pnJid
     : null;
+  // Aprender o par ANTES de mexer na conversa: senao juntamos as duas e em
+  // seguida recriamos a do @lid, do jeito que estava.
+  if (jidBruto.endsWith("@lid") && pnJid) lembrarLid(s, jidBruto, pnJid);
+  const jid = jidCanonico(s, jidBruto);
   const phone = phoneFromJid(pnJid ?? jid);
   const nomeConhecido = c.name || c.displayName || s.names.get(jid) || (pnJid ? s.names.get(pnJid) : undefined);
   const chat: WaChat = s.chats.get(jid) ?? {
@@ -416,6 +432,74 @@ export function formatPhoneBr(phone: string) {
   return d.length > 13 ? "Contato" : `+${d}`;
 }
 
+
+/**
+ * A mesma pessoa, uma conversa so.
+ *
+ * O WhatsApp esta trocando o identificador do contato: alem do JID com o
+ * numero (5554...@s.whatsapp.net) existe agora o @lid. A mesma pessoa chega
+ * ora por um, ora pelo outro — e o AURA abria DUAS conversas para ela, cada
+ * uma com metade das mensagens. Foi o que aconteceu quando o mesmo contato
+ * respondeu de outro aparelho.
+ *
+ * O numero manda: e o que vale para o CRM, para o cadastro do cliente e para
+ * iniciar conversa. Quando descobrimos o par, o @lid passa a apontar para
+ * ele e o que ja estava separado e juntado.
+ */
+function jidCanonico(s: WaSession, jid: string): string {
+  return (jid.endsWith("@lid") && s.lidParaPn.get(jid)) || jid;
+}
+
+function lembrarLid(s: WaSession, lid: string, pnJid: string) {
+  if (!lid.endsWith("@lid") || !pnJid.endsWith("@s.whatsapp.net")) return;
+  if (s.lidParaPn.get(lid) === pnJid) return;
+  s.lidParaPn.set(lid, pnJid);
+  juntarConversas(s, lid, pnJid);
+}
+
+/** Move o que estava sob o @lid para a conversa do numero. */
+function juntarConversas(s: WaSession, de: string, para: string) {
+  if (de === para) return;
+  const antiga = s.chats.get(de);
+  const msgsAntigas = s.messages.get(de) ?? [];
+
+  if (msgsAntigas.length) {
+    const juntas = [...(s.messages.get(para) ?? [])];
+    const vistos = new Set(juntas.map((m) => m.id));
+    for (const m of msgsAntigas) {
+      if (vistos.has(m.id)) continue;
+      vistos.add(m.id);
+      juntas.push({ ...m, chatId: para });
+    }
+    juntas.sort((a, b) => a.timestamp - b.timestamp);
+    if (juntas.length > MAX_MSGS_PER_CHAT) juntas.splice(0, juntas.length - MAX_MSGS_PER_CHAT);
+    s.messages.set(para, juntas);
+  }
+  s.messages.delete(de);
+
+  if (antiga) {
+    const atual = s.chats.get(para);
+    if (!atual) {
+      s.chats.set(para, { ...antiga, id: para, pnJid: para });
+    } else {
+      atual.unread += antiga.unread;
+      // O nome de verdade vence o "+55 54 ..." montado a partir do numero.
+      if (!atual.hasName && antiga.hasName) {
+        atual.name = antiga.name;
+        atual.hasName = true;
+      }
+      if (antiga.timestamp > atual.timestamp) {
+        atual.timestamp = antiga.timestamp;
+        atual.lastMessage = antiga.lastMessage;
+        atual.lastFromMe = antiga.lastFromMe;
+        atual.lastType = antiga.lastType;
+      }
+    }
+    s.chats.delete(de);
+  }
+  markDirty(s);
+}
+
 /** Baileys 7 identifica alguns contatos por LID; aqui buscamos o número real. */
 async function resolvePn(s: WaSession, chat: WaChat) {
   if (chat.pnJid || !chat.id.endsWith("@lid") || !s.sock) return;
@@ -426,6 +510,7 @@ async function resolvePn(s: WaSession, chat: WaChat) {
       chat.pnJid = pnJid;
       chat.phone = phoneFromJid(pnJid);
       if (!chat.hasName) chat.name = formatPhoneBr(chat.phone);
+      lembrarLid(s, chat.id, pnJid);
     }
   } catch {
     /* sem mapeamento ainda */
@@ -439,10 +524,16 @@ function toMillis(ts: any): number {
 }
 
 function addMessage(s: WaSession, msg: any, live: boolean) {
-  const jid: string | undefined = msg?.key?.remoteJid;
-  if (!jid || isIgnoredJid(jid)) return;
+  const jidBruto: string | undefined = msg?.key?.remoteJid;
+  if (!jidBruto || isIgnoredJid(jidBruto)) return;
   const parsed = parseMessage(msg.message);
   if (!parsed) return;
+
+  // A propria mensagem costuma trazer os dois identificadores da pessoa.
+  // Aproveitamos para aprender o par e manter tudo numa conversa so.
+  const altJid: string | undefined = msg.key.remoteJidAlt ?? msg.key.senderPn;
+  if (jidBruto.endsWith("@lid") && altJid?.endsWith("@s.whatsapp.net")) lembrarLid(s, jidBruto, altJid);
+  const jid = jidCanonico(s, jidBruto);
 
   const id: string = msg.key.id ?? `${Date.now()}-${Math.random()}`;
   const list = s.messages.get(jid) ?? [];
@@ -474,7 +565,6 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     }
   }
 
-  const altJid: string | undefined = msg.key.remoteJidAlt ?? msg.key.senderPn;
   const pnJid = jid.endsWith("@s.whatsapp.net") ? jid : altJid?.endsWith("@s.whatsapp.net") ? altJid : null;
   const phone = phoneFromJid(pnJid ?? jid);
   const existente = s.chats.get(jid);
