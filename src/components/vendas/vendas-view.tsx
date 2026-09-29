@@ -228,8 +228,18 @@ export function VendasView() {
             <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
               {formatarMoeda(ticketMedio || 0)}
             </p>
+            {/* O rótulo dizia "Realizado" embaixo do ticket das oportunidades
+                FECHADAS, o oposto do que os cards ao lado chamam de realizado.
+                Na tela aparecia "Ticket Médio R$ 0 / Realizado: R$ 12.712" —
+                dois números que se desmentiam no mesmo cartão. */}
             <p className="mt-1 text-xs text-aura-graphite-soft">
-              Realizado: {formatarMoeda(ticketMedioFechado || 0)}
+              {quantidadeVendas > 0 ? "por venda registrada" : "nenhuma venda registrada ainda"}
+              {quantidadeFechadas > 0 && (
+                <>
+                  {" · "}
+                  Fechado: {formatarMoeda(ticketMedioFechado || 0)}
+                </>
+              )}
             </p>
           </div>
         </div>

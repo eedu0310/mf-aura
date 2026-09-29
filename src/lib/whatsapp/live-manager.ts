@@ -884,14 +884,44 @@ export async function startSession(
       for (const m of messages ?? []) addMessage(s, m, type === "notify");
     });
 
-    // Tiques de enviado / entregue / lido.
+    /**
+     * Tiques de enviado / entregue / lido.
+     *
+     * O WhatsApp avisa por DOIS caminhos e o codigo escutava so um. Alem de
+     * "messages.update" com o status, vem "message-receipt.update" com o
+     * carimbo de entrega e de leitura — em muitas contas e so por ele que o
+     * recibo chega, e por isso a mensagem ficava no reloginho para sempre.
+     *
+     * A conversa tambem precisa ser a canonica: o recibo chega pelo @lid e a
+     * mensagem esta guardada sob o numero.
+     */
+    const marcarStatus = (key: any, status: number) => {
+      if (!key?.remoteJid || !Number.isFinite(status)) return false;
+      const jid = jidCanonico(s, key.remoteJid);
+      const msg =
+        s.messages.get(jid)?.find((m) => m.id === key.id) ??
+        s.messages.get(key.remoteJid)?.find((m) => m.id === key.id);
+      if (!msg || !msg.fromMe || status <= (msg.status ?? 0)) return false;
+      msg.status = status;
+      return true;
+    };
+
     sock.ev.on("messages.update", (updates: any[]) => {
+      let mudou = false;
       for (const { key, update } of updates ?? []) {
-        if (typeof update?.status !== "number" || !key?.remoteJid) continue;
-        const msg = s.messages.get(key.remoteJid)?.find((m) => m.id === key.id);
-        if (msg && msg.fromMe && update.status > (msg.status ?? 0)) msg.status = update.status;
+        if (typeof update?.status === "number" && marcarStatus(key, update.status)) mudou = true;
       }
-      markDirty(s);
+      if (mudou) markDirty(s);
+    });
+
+    sock.ev.on("message-receipt.update", (updates: any[]) => {
+      let mudou = false;
+      for (const { key, receipt } of updates ?? []) {
+        // readTimestamp vence: lido (4) esta acima de entregue (3).
+        const status = receipt?.readTimestamp ? 4 : receipt?.receiptTimestamp ? 3 : null;
+        if (status && marcarStatus(key, status)) mudou = true;
+      }
+      if (mudou) markDirty(s);
     });
 
     sock.ev.on("contacts.upsert", (contacts: any[]) => {

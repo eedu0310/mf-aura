@@ -112,6 +112,7 @@ export default function WhatsAppPage() {
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [mudandoEtapa, setMudandoEtapa] = useState(false);
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
+  const [erroAntigas, setErroAntigas] = useState<string | null>(null);
   const [respondendo, setRespondendo] = useState<WaMessage | null>(null);
   const [abaVisivel, setAbaVisivel] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -275,17 +276,36 @@ export default function WhatsAppPage() {
     }
   }
 
+  /**
+   * Busca o pedaco anterior da conversa no celular.
+   *
+   * Chamada pelo botao e, agora, por rolar ate o topo — como no WhatsApp.
+   * Duas coisas que ela precisa acertar: nao pedir de novo enquanto um
+   * pedido esta em voo (rolar dispara varias vezes seguidas), e devolver a
+   * pessoa ao ponto onde ela estava lendo. Sem isso, as mensagens antigas
+   * entram por cima e a conversa salta debaixo do dedo.
+   */
   async function carregarAntigas() {
     if (!selectedChatId || buscandoAntigas) return;
     setBuscandoAntigas(true);
     colarNoFim.current = false;
+    const el = scrollRef.current;
+    const alturaAntes = el?.scrollHeight ?? 0;
+    const posicaoAntes = el?.scrollTop ?? 0;
     try {
       await postJson({ action: "older", chat: selectedChatId });
       // O celular responde em alguns segundos; o polling traz as mensagens.
       await new Promise((r) => setTimeout(r, 4000));
       await loadMessages(selectedChatId);
+      requestAnimationFrame(() => {
+        const atual = scrollRef.current;
+        if (!atual) return;
+        const cresceu = atual.scrollHeight - alturaAntes;
+        if (cresceu > 0) atual.scrollTop = posicaoAntes + cresceu;
+      });
     } catch (e: any) {
-      window.alert(e?.message ?? "Não foi possível buscar mensagens anteriores.");
+      setErroAntigas(e?.message ?? "Não consegui buscar as mensagens anteriores.");
+      setTimeout(() => setErroAntigas(null), 6000);
     } finally {
       setBuscandoAntigas(false);
     }
@@ -632,6 +652,12 @@ export default function WhatsAppPage() {
             onScroll={(e) => {
               const el = e.currentTarget;
               colarNoFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+              // Chegou perto do topo: puxa o pedaco anterior sozinho, como no
+              // WhatsApp. A altura evita disparar numa conversa curta, que ja
+              // nasce com o topo a vista.
+              if (el.scrollTop < 120 && el.scrollHeight > el.clientHeight + 200 && messages.length > 0) {
+                void carregarAntigas();
+              }
             }}
             className="flex-1 overflow-y-auto pb-3"
             style={FUNDO_CHAT}
@@ -642,15 +668,24 @@ export default function WhatsAppPage() {
               </div>
             ) : (
               <div className="flex justify-center pt-3">
-                <button
-                  type="button"
-                  onClick={carregarAntigas}
-                  disabled={buscandoAntigas}
-                  className="flex items-center gap-2 rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow hover:text-[#e9edef] disabled:opacity-70"
-                >
-                  {buscandoAntigas && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {buscandoAntigas ? "Buscando no celular…" : "Carregar mensagens anteriores"}
-                </button>
+                {erroAntigas ? (
+                  <span className="rounded-full bg-[#4a1d1d] px-4 py-1.5 text-xs text-[#f15c6d] shadow">{erroAntigas}</span>
+                ) : buscandoAntigas ? (
+                  <span className="flex items-center gap-2 rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Buscando no celular…
+                  </span>
+                ) : (
+                  // O botao continua, para quem prefere pedir em vez de rolar,
+                  // e para quando a conversa cabe inteira na tela.
+                  <button
+                    type="button"
+                    onClick={carregarAntigas}
+                    className="rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow hover:text-[#e9edef]"
+                  >
+                    Carregar mensagens anteriores
+                  </button>
+                )}
               </div>
             )}
             {mensagensComDias.map((item) =>

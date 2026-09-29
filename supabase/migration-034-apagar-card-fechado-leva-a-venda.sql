@@ -1,0 +1,13 @@
+-- Migration 034 — Apagar o card fechado leva junto a venda (aplicada)
+--
+-- A chave estrangeira de vendas.oportunidade_id era ON DELETE SET NULL: o
+-- vendedor apagava a oportunidade e a venda continuava lá, somando no
+-- faturamento do mês, sem card nenhum apontando para ela. Ele achava que
+-- tinha apagado. Foi assim que sobrou uma venda órfã na base.
+--
+-- A regra é a mesma do card que sai de Fechados: some a venda que o próprio
+-- fechamento criou, e só enquanto ninguém completou os dados dela. Venda com
+-- detalhes preenchidos é dinheiro que alguém conferiu — essa fica, e apenas
+-- perde o vínculo, como antes.
+--
+-- Aplicada como `apagar_card_fechado_leva_a_venda`; este arquivo é o histórico.
