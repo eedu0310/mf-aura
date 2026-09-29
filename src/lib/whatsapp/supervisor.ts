@@ -479,6 +479,23 @@ async function garantirOportunidade(
     .maybeSingle();
   if (aberta) return aberta as { id: string; etapa: Etapa; valor: number; cliente: string };
 
+  // Sem negocio aberto, o padrao e criar um — e assim que o cliente que volta
+  // depois de meses ganha a venda nova dele. Mas so existe um card fechado
+  // porque a busca acima ignora Fechados e Perdidos, entao cada nova analise
+  // criava OUTRO card para a mesma pessoa: "Tiago nunes" acumulou tres em
+  // tres minutos, cada um contando como fechamento do mes. Negocio fechado
+  // hoje e o mesmo negocio; recompra de verdade acontece noutro dia.
+  const inicioDeHoje = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })}T00:00:00-03:00`).toISOString();
+  const { data: deHoje } = await sb
+    .from("oportunidades")
+    .select("id, etapa, valor, cliente")
+    .eq("relacionamento_id", relacionamentoId)
+    .gte("created_at", inicioDeHoje)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (deHoje) return deHoje as { id: string; etapa: Etapa; valor: number; cliente: string };
+
   const { data, error } = await sb
     .from("oportunidades")
     .insert({

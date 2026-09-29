@@ -60,12 +60,14 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Vendedor vê a si mesmo; gestor pode abrir a visão de um vendedor específico.
-  const alvo = gestor && sp.get("vendedor") ? String(sp.get("vendedor")) : userId;
+  // Vendedor vê a si mesmo. Gestor vê a equipe — o mesmo recorte do quadro na
+  // tela — a menos que abra a visão de um vendedor específico. Antes ele via a
+  // propria carteira, que e vazia, e a tela jurava que nao havia nada.
+  const alvo = sp.get("vendedor") && gestor ? String(sp.get("vendedor")) : gestor ? null : userId;
   const r = resumoVendedor(dados, alvo);
   const base = insightsRegras(pagina, r);
   const aura = await gerarRecados({
-    cacheKey: `${userId}|${pagina}|${alvo}`,
+    cacheKey: `${userId}|${pagina}|${alvo ?? "equipe"}`,
     pagina,
     pessoa,
     metricas: r,

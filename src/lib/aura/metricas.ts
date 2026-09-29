@@ -91,18 +91,28 @@ export interface ResumoVendedor {
   ranking: { posicao: number | null; total: number; lider: string | null; distanciaProximo: number | null };
 }
 
-export function resumoVendedor(d: DadosCrm, vendedorId: string, agora = Date.now()): ResumoVendedor {
+/**
+ * O retrato de quem esta olhando.
+ *
+ * `vendedorId` nulo significa "tudo que esta pessoa enxerga" — e o caso do
+ * gestor, que nao tem carteira propria. Antes ele recebia o mesmo recorte de
+ * um vendedor e, como nao possui nenhum negocio, a tela dizia "pipeline
+ * zerado, 0 negocios abertos" logo acima de um quadro com 34 oportunidades
+ * e R$ 213 mil. O numero do cabecalho passa a ser o mesmo do quadro.
+ */
+export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = Date.now()): ResumoVendedor {
   const hoje = diaSP(agora);
   const mes = mesSP(agora);
   const mesAnt = mesAnterior(mes);
-  const e: Escopo = { vendedorId };
+  const e: Escopo = vendedorId ? { vendedorId } : {};
 
   const vendas = noEscopo(d.vendas, e);
   const doMes = vendas.filter((v) => v.data?.slice(0, 7) === mes);
   const doMesAnt = vendas.filter((v) => v.data?.slice(0, 7) === mesAnt);
   const valorMes = doMes.reduce((s, v) => s + valorVenda(v), 0);
 
-  const meta = d.metas.find((m) => m.owner_id === vendedorId && m.mes === mes)?.valor_meta ?? null;
+  // Meta e ranking sao pessoais: quem olha a equipe inteira nao tem os seus.
+  const meta = vendedorId ? d.metas.find((m) => m.owner_id === vendedorId && m.mes === mes)?.valor_meta ?? null : null;
   const diaDoMes = Number(hoje.slice(8, 10));
   const diasRestantes = Math.max(0, diasNoMes(mes) - diaDoMes + 1);
   const falta = meta != null ? Math.max(0, meta - valorMes) : null;
