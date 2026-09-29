@@ -724,29 +724,26 @@ export async function analisarConversa(
     }
 
     /**
-     * Decide se é lead — e, principalmente, quando NÃO decidir sozinha.
+     * Quem decide se é lead é o vendedor. Sempre.
      *
-     * Antes bastava a IA achar que era comercial, sem olhar o quanto ela
-     * tinha certeza; e sem IA caía na detecção por palavras-chave, ainda
-     * mais solta. O pipeline encheu de conversa que não era venda: papo de
-     * amigo, suporte técnico, um orçamento de tatuagem.
+     * A AURA já criou lead sozinha com base na confiança dela, e o pipeline
+     * encheu de conversa que não era venda: papo de amigo, suporte técnico,
+     * um orçamento de tatuagem. Confiança alta também erra, e o erro cai na
+     * carteira de alguém.
      *
-     * Agora só vira lead sozinha quando a IA tem confiança alta ou o
-     * vendedor já abriu negócio com aquele contato. Na dúvida, fica como
-     * sugestão esperando um toque do vendedor — melhor perguntar do que
-     * sujar a carteira dele.
+     * Agora ela só entra no CRM por duas portas: o vendedor tocou em
+     * "Tratar como lead", ou aquele contato já tem negócio aberto — nesse
+     * caso alguém já decidiu antes. Fora isso, ela sugere e espera.
      */
     const CONFIANCA_MINIMA = 0.75;
     const jaEhNegocio = !!row?.oportunidade_id;
     const confiancaLead = analise ? Number(analise.confianca ?? 0) : 0;
 
-    const iaTemCerteza = !!analise?.e_lead && confiancaLead >= CONFIANCA_MINIMA;
-    const iaDesconfia = !!analise?.e_lead && confiancaLead < CONFIANCA_MINIMA;
-    // Sem IA, palavra-chave não cria nada: no máximo sugere.
+    // Sem IA, palavra-chave também não cria nada: no máximo sugere.
     const soRegrasAchou = !analise && regras.comercial;
 
-    const ehLead = !!opts.comoLead || jaEhNegocio || iaTemCerteza;
-    const sugerirLead = !ehLead && (iaDesconfia || soRegrasAchou);
+    const ehLead = !!opts.comoLead || jaEhNegocio;
+    const sugerirLead = !ehLead && (!!analise?.e_lead || soRegrasAchou);
 
     // Etapa detectada: a mais avançada entre regras e IA (IA só com confiança ≥ 0,7).
     let detectada: Etapa | null = regras.etapa;
@@ -761,9 +758,28 @@ export async function analisarConversa(
     }
     if (ehLead && !detectada) detectada = "Prospecção";
 
+    /**
+     * Fechar e perder são do vendedor, nunca da AURA.
+     *
+     * Entrar em Fechados cria a venda do mês. Uma IA que move o card
+     * sozinha até lá registra faturamento que ninguém vendeu — foi o que
+     * aconteceu quando um cliente mandou valores por WhatsApp e a conversa
+     * apareceu como negócio fechado. Perdidos tem o problema espelhado:
+     * encerra sozinha um negócio que ainda estava de pé.
+     *
+     * A AURA continua reconhecendo os dois e dizendo o que viu. Quem
+     * arrasta o card é gente.
+     */
+    const soDoVendedor = (e: Etapa | null): boolean => e === "Fechados" || e === "Perdidos";
+
     const alertasIa = [...(analise?.alertas ?? [])];
     if (regras.sinalPerda) alertasIa.unshift(`Risco de perda: cliente disse "${regras.sinalPerda.slice(0, 120)}"`);
     if (analise?.etapa === "Perdidos" && analise.confianca >= 0.7) alertasIa.unshift(`A IA acha que este lead está sendo perdido: ${analise.evidencia}`);
+    if (ehLead && detectada === "Fechados") {
+      alertasIa.unshift(
+        `A AURA achou que este negócio fechou${evidencia ? `: "${evidencia.slice(0, 120)}"` : ""}. Se fechou mesmo, arraste o card para Fechados — a venda do mês só entra quando você confirma.`,
+      );
+    }
 
     const patch: Record<string, unknown> = {
       owner_id: userId,
@@ -785,8 +801,8 @@ export async function analisarConversa(
     patch.confianca_lead = analise ? confiancaLead : null;
     patch.motivo_sugestao = sugerirLead
       ? analise?.resumo
-        ? `A AURA não teve certeza (${Math.round(confiancaLead * 100)}%): ${analise.resumo}`
-        : "Apareceram palavras de venda na conversa, mas a AURA não conseguiu confirmar."
+        ? `${confiancaLead >= CONFIANCA_MINIMA ? "Parece venda" : "Pode ser venda"} (${Math.round(confiancaLead * 100)}%): ${analise.resumo}`
+        : "Apareceram palavras de venda na conversa. Confirme se é cliente."
       : null;
     if (opts.comoLead) {
       patch.ignorado = false;
@@ -825,7 +841,7 @@ export async function analisarConversa(
           // não "desfaz" a decisão dele sem evidência nova).
           if (
             detectada &&
-            detectada !== "Perdidos" &&
+            !soDoVendedor(detectada) &&
             op.etapa !== "Fechados" &&
             op.etapa !== "Perdidos" &&
             ORDEM_ETAPA[detectada] > ORDEM_ETAPA[op.etapa as Etapa] &&
@@ -838,7 +854,9 @@ export async function analisarConversa(
           }
         }
       }
-      patch.etapa = detectada;
+      // Guardar "Fechados" aqui pintaria a etiqueta de fechado sem que o
+      // negócio tenha fechado. Vale o que está no card de verdade.
+      patch.etapa = soDoVendedor(detectada) ? ((row?.etapa as Etapa | null) ?? null) : detectada;
     } else {
       patch.etapa = null;
     }

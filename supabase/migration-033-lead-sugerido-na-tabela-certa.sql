@@ -1,0 +1,13 @@
+-- Migration 033 — Conserto da 028: as colunas foram para a tabela errada
+--
+-- O "lead só com confiança" grava em whatsapp_ia_leads, a tabela do
+-- supervisor que roda hoje (Baileys). Eu adicionei lead_sugerido,
+-- confianca_lead e motivo_sugestao em whatsapp_conversas, da integração
+-- antiga por API oficial.
+--
+-- Consequência: TODA gravação de análise falhava com "column does not
+-- exist". A conversa nunca recebia ultima_analise_em, então o painel pedia
+-- análise a cada consulta e mostrava "Analisando conversa..." para sempre —
+-- e "Tratar como lead" não colava, porque morria no mesmo upsert.
+--
+-- Aplicada como `lead_sugerido_na_tabela_certa`; este arquivo é o histórico.
