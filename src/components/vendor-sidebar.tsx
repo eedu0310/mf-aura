@@ -2,15 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Settings } from "lucide-react";
+import { Sparkles, Settings, AtSign } from "lucide-react";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { usarMeuAcesso } from "@/lib/usar-permissoes";
 
 export function VendorSidebar() {
   const pathname = usePathname();
   const { profile } = useUserProfile();
 
+  const acesso = usarMeuAcesso();
+  // O Instagram nao e do cargo, e da pessoa: em cada loja so o vendedor
+  // interno responde. Quem manda de verdade e a rota, que confere no
+  // servidor; aqui so evitamos mostrar um caminho que vai recusar.
+  const podeInstagram = acesso.permissoes.usar_instagram || ["Gestor", "Diretor"].includes(acesso.cargo);
   const itensNav = menuDoCargo(profile.cargo);
   const itensGestao = menuDeGestao(profile.cargo);
 
@@ -36,6 +42,13 @@ export function VendorSidebar() {
             </Link>
           );
         })}
+
+        {podeInstagram && (
+          <Link href="/instagram" className={classe(pathname === "/instagram")}>
+            <AtSign size={18} strokeWidth={pathname === "/instagram" ? 2.25 : 1.75} />
+            Instagram
+          </Link>
+        )}
 
         <Link href="/aura-coach" className={`mt-1 ${classe(pathname === "/aura-coach")}`}>
           <Sparkles size={18} strokeWidth={1.75} className="text-aura-gold" />

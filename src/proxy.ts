@@ -83,6 +83,9 @@ export async function proxy(request: NextRequest) {
     // calendário do iPhone, que não fazem login. O segredo é o token da URL.
     caminho.startsWith("/api/agenda/") ||
     caminho.startsWith("/api/whatsapp/webhook") ||
+    // A Meta bate aqui de fora, sem login. Quem autentica e a assinatura
+    // X-Hub-Signature-256, conferida dentro da propria rota.
+    caminho.startsWith("/api/meta/webhook") ||
     caminho.startsWith("/auth") ||
     caminho.startsWith("/_next") ||
     caminho.startsWith("/manifest") ||

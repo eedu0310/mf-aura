@@ -1,14 +1,2 @@
 -- Migration 035 — Instagram dentro do AURA: a fundação (aplicada)
---
--- Diferente do WhatsApp, que pareia lendo um QR, o Instagram só fala pela API
--- oficial da Meta: cada loja conecta a própria conta profissional e o AURA
--- guarda o token dela.
---
---  * meta_contas: uma conta por loja. SEM política de leitura para quem está
---    logado — o token é segredo e só o serviço o lê. A tela usa a visão
---    meta_contas_visiveis, que diz apenas se está conectada.
---  * meta_conversas: as DMs. `responde_ate` guarda a janela de 24 horas da
---    Meta; sem isso na tela, o vendedor escreve e toma erro sem entender.
---  * meta_mensagens e meta_comentarios
---
--- Aplicada como `instagram_no_aura_fundacao`; este arquivo é o histórico.
+-- (ver histórico no commit "Instagram no AURA: fundacao e o controle do gestor")
