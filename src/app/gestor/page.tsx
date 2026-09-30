@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck } from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -12,6 +12,7 @@ import { CustoIAPainel } from "@/components/gestor/custo-ia-painel";
 import { AvaliacoesTab } from "@/components/gestor/avaliacoes-tab";
 import { RankingConfigTab } from "@/components/gestor/ranking-config-tab";
 import { PermissoesTab } from "@/components/gestor/permissoes-tab";
+import { InstagramTab } from "@/components/gestor/instagram-tab";
 
  type AbaGestor =
   | "aura"
@@ -19,6 +20,7 @@ import { PermissoesTab } from "@/components/gestor/permissoes-tab";
   | "planilha"
   | "usuarios"
   | "permissoes"
+  | "instagram"
   | "ranking"
   | "avaliacoes"
   | "custo-ia"
@@ -60,6 +62,12 @@ const ABAS: Array<{
     label: "Permissões",
     descricao: "Aprovar gestores e definir o que cada um faz",
     icon: ShieldCheck,
+  },
+  {
+    id: "instagram",
+    label: "Instagram",
+    descricao: "Conectar a conta de cada loja e liberar quem atende",
+    icon: AtSign,
   },
   {
     id: "ranking",
@@ -147,6 +155,7 @@ export default function GestorPage() {
       {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}
       {aba === "permissoes" && <PermissoesTab />}
+      {aba === "instagram" && <InstagramTab />}
       {aba === "ranking" && <RankingConfigTab />}
       {aba === "avaliacoes" && <AvaliacoesTab />}
       {aba === "custo-ia" && <CustoIAPainel />}

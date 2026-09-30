@@ -18,6 +18,9 @@ export const PERMISSOES = [
   { chave: "transferir_carteira", rotulo: "Transferir carteira", ajuda: "Mover clientes de um vendedor para outro. Normalmente só gestor.", padrao: false },
   { chave: "ver_custo_ia", rotulo: "Ver o custo da IA", ajuda: "Saldo e consumo da AURA. Normalmente só gestor.", padrao: false },
   { chave: "editar_avaliacoes", rotulo: "Configurar avaliações", ajuda: "Cadastrar os links do Google e das redes.", padrao: false },
+  // Instagram nao vem ligado para ninguem: quem atende a rede e uma escolha
+  // do gestor, e a caixa de entrada da loja e uma so para todo mundo que tiver.
+  { chave: "usar_instagram", rotulo: "Atender pelo Instagram", ajuda: "Ver e responder as mensagens e os comentários da conta da loja.", padrao: false },
 ];
 
 async function somenteMestre() {
