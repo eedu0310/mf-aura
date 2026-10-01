@@ -18,6 +18,7 @@ import { textoDosMateriais } from "@/lib/aura/materiais";
 import { textoDoAprendizado } from "@/lib/aura/aprendizado";
 import { analisarFechamento, registrarLaudo, type Fala, type Resultado } from "@/lib/aura/fechamento";
 import { getChats, getMessages } from "@/lib/whatsapp/live-manager";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -155,7 +156,24 @@ export async function POST(req: NextRequest) {
 
   const vendedor = (dados.perfis ?? []).find((p: { id: string }) => p.id === op.owner_id);
 
-  await registrarLaudo(sb, {
+  // ATENÇÃO: a gravação vai pelo cliente de SERVIÇO, não pelo do usuário.
+  //
+  // O laudo é escrito pelo servidor, não pela pessoa: aura_feedback_fechamento
+  // tem política de SELECT e de DELETE, e nenhuma de INSERT — de propósito,
+  // para ninguém forjar laudo a mão. Com o cliente do usuário o insert era
+  // recusado pela RLS e a falha era só um console.error: o negócio fechava, o
+  // aprendizado entrava, e o laudo sumia sem ninguém notar. Foi exatamente o
+  // que aconteceu em produção na primeira perda depois do deploy.
+  //
+  // O mesmo vale para o aprendizado: a política de insert de aura_aprendizado
+  // só cobre Gestor, então um vendedor comum fechando negócio também não
+  // conseguiria gravar.
+  //
+  // A autorização continua vindo do cliente do usuário: a oportunidade acima
+  // foi lida com RLS, então um id de outra loja nem chega até aqui.
+  const sbServico = getSupabaseServiceClient() ?? sb;
+
+  await registrarLaudo(sbServico, {
     laudo,
     empresa: op.empresa,
     vendedorId: op.owner_id ?? userId,

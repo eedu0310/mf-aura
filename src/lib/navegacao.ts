@@ -47,6 +47,7 @@ const VENDEDOR: ItemMenu[] = [
 ];
 
 const POS_VENDA: ItemMenu[] = [
+  { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
   { href: "/relacionamentos", label: "Clientes", icon: Users },
   { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
@@ -55,6 +56,7 @@ const POS_VENDA: ItemMenu[] = [
 ];
 
 const SDR: ItemMenu[] = [
+  { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/leads", label: "Leads Recebidos", icon: UserPlus },
   { href: "/relacionamentos", label: "Clientes", icon: Users },
   { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
@@ -64,6 +66,7 @@ const SDR: ItemMenu[] = [
 ];
 
 const VENDEDOR_INTERNO: ItemMenu[] = [
+  { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/leads", label: "Leads", icon: UserPlus },
   { href: "/relacionamentos", label: "Atendimento", icon: Users },
   { href: "/pipeline", label: "Pipeline", icon: Filter },
@@ -74,7 +77,15 @@ const VENDEDOR_INTERNO: ItemMenu[] = [
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
 ];
 
-/** Menu principal do cargo. */
+/**
+ * Menu principal do cargo.
+ *
+ * Meu Dia abre a lista de TODOS os cargos: é a tela onde a pessoa vê o que
+ * tem para fazer hoje, e isso vale para quem atende no balcão, para o
+ * pós-venda e para o marketing igual vale para o vendedor externo. Antes só o
+ * menu de vendedor tinha, e quem era de outro cargo simplesmente não
+ * alcançava a tela.
+ */
 export function menuDoCargo(cargo?: string | null): ItemMenu[] {
   const c = normalizar(cargo);
   if (c === "pós-venda" || c === "pos-venda") return POS_VENDA;

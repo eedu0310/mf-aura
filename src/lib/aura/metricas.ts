@@ -419,8 +419,15 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
 
   const vendido = vendas.reduce((s, v) => s + valorVenda(v), 0);
 
+  // ativo !== false: conta desativada continua no banco, e sem este filtro quem
+  // saiu da empresa seguia aparecendo no painel da equipe e no ranking, com
+  // zeros que puxavam a media do time para baixo.
   const vendedores = d.perfis.filter(
-    (p) => (!e.loja || p.empresa === e.loja) && (!e.vendedorId || p.id === e.vendedorId) && /vendedor/i.test(p.cargo ?? ""),
+    (p) =>
+      p.ativo !== false &&
+      (!e.loja || p.empresa === e.loja) &&
+      (!e.vendedorId || p.id === e.vendedorId) &&
+      /vendedor/i.test(p.cargo ?? ""),
   );
   const porVendedor = vendedores
     .map((p) => ({

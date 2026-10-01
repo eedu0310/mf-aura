@@ -71,7 +71,10 @@ export async function GET(req: NextRequest) {
     sb!.from("pontos_do_mes").select("*").eq("empresa", loja).eq("mes", mes),
     sb!.from("pontos_do_ano").select("*").eq("empresa", loja).eq("ano", ano),
     sb!.from("premios").select("*").eq("empresa", loja).order("criado_em", { ascending: false }),
-    sb!.from("profiles").select("id, nome, cargo").eq("empresa", loja),
+    // Só gente ativa: conta desativada continua no banco e, sem este filtro,
+    // aparecia na lista de metas e na disputa do prêmio depois de a pessoa já
+    // ter saído da empresa.
+    sb!.from("profiles").select("id, nome, cargo, ativo").eq("empresa", loja).neq("ativo", false),
   ]);
 
   const nome = new Map((pessoas.data ?? []).map((p) => [p.id as string, p.nome as string]));
