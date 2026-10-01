@@ -83,26 +83,23 @@ async function perguntarIA({
   openai,
   systemPrompt,
   mensagens,
-  vectorStoreId,
   ctx,
   temperature = 0.6,
 }: {
   openai: OpenAI;
   systemPrompt: string;
   mensagens: { role: "user" | "assistant"; content: string }[];
-  vectorStoreId?: string | null;
   ctx?: CtxExecucao | null;
   temperature?: number;
 }): Promise<string> {
-  if (vectorStoreId || ctx) {
-    const tools: Array<Record<string, unknown>> = [];
-    if (vectorStoreId) tools.push({ type: "file_search", vector_store_ids: [vectorStoreId] });
-    if (ctx) tools.push(...ferramentasParaResponsesAPI());
+  if (ctx) {
+    const tools: Array<Record<string, unknown>> = [...ferramentasParaResponsesAPI()];
 
     const inputInicial = mensagens.map((m) => ({ role: m.role, content: m.content }));
 
     const response = await openai.responses.create({
-      model: "gpt-4o-mini",
+      // o modelo real vem de modelos.ts; a ponte ignora este campo
+      model: "claude",
       instructions: systemPrompt,
       input: inputInicial,
       tools: tools as never,
@@ -124,7 +121,8 @@ async function perguntarIA({
       );
 
       const segundaResposta = await openai.responses.create({
-        model: "gpt-4o-mini",
+        // o modelo real vem de modelos.ts; a ponte ignora este campo
+      model: "claude",
         instructions: systemPrompt,
         input: [...inputInicial, ...response.output, ...resultados] as never,
         tools: tools as never,
@@ -138,7 +136,7 @@ async function perguntarIA({
   }
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: "claude",
     messages: [{ role: "system", content: systemPrompt }, ...mensagens] as never,
     temperature,
   }, { __funcao: "coach" } as never);
@@ -154,16 +152,7 @@ export async function POST(request: Request) {
   // Busca, no servidor, quem está autenticado, a empresa, e se essa
   // empresa já tem documentos indexados (base de conhecimento). Isso é
   // o que ativa tanto o File Search quanto as ferramentas de ação real.
-  let vectorStoreId: string | null = null;
   const auth = await getEmpresaAutenticada();
-  if (auth) {
-    const { data } = await auth.supabase
-      .from("playbook")
-      .select("vector_store_id")
-      .eq("empresa", auth.empresa)
-      .maybeSingle();
-    vectorStoreId = (data?.vector_store_id as string) ?? null;
-  }
 
   // Biblioteca de materiais da empresa (o gestor envia na Visão do Gestor).
   let materiais = "";
@@ -210,7 +199,6 @@ export async function POST(request: Request) {
             content: `Prepare a pauta da reunião semanal de segunda-feira com esta equipe de vendas, seguindo a estrutura Reconhecer → Aprender → Desenvolver → Comprometer. Seja específico usando os dados abaixo, mas sem inventar números que não foram informados.\n\nEquipe:\n${resumoEquipe}`,
           },
         ],
-        vectorStoreId,
         temperature: 0.5,
       });
 
@@ -236,7 +224,6 @@ export async function POST(request: Request) {
             content: `Aqui está a transcrição de uma reunião/visita com um cliente. Analise conforme suas instruções.\n\nTranscrição:\n"""\n${transcricao}\n"""`,
           },
         ],
-        vectorStoreId,
         temperature: 0.5,
       });
 
@@ -282,11 +269,10 @@ export async function POST(request: Request) {
         role: m.autor === "usuario" ? "user" : "assistant",
         content: m.texto,
       })),
-      vectorStoreId,
       ctx,
     });
 
-    return NextResponse.json({ resposta, simulado: false, usandoDocumentos: Boolean(vectorStoreId) });
+    return NextResponse.json({ resposta, simulado: false });
   } catch (err: any) {
     const detalhe = err?.message ?? String(err);
     console.error("[coach] falha ao responder:", detalhe, err);

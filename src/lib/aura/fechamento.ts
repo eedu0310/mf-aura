@@ -188,7 +188,15 @@ ${transcricao(opts.falas, opts.cliente) || "(não há conversa de WhatsApp regis
       // aqui sai caro em qualidade de julgamento.
       model: modeloDeRaciocinio(),
       max_tokens: 2000,
-      system,
+      // Mesmo motivo do supervisor: o manual e o aprendizado são idênticos em
+      // todo fechamento da mesma loja. Só o que vem depois, no user, muda.
+      system: [
+        {
+          type: "text" as const,
+          text: system,
+          cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+        },
+      ],
       messages: [{ role: "user", content: user }],
       tools: [FERRAMENTA],
       tool_choice: { type: "tool", name: "laudo" },

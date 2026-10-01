@@ -294,7 +294,22 @@ ${transcricao(msgs, nomeCliente)}`;
   const resp = await client.messages.create({
     model: modeloDeVolume(),
     max_tokens: 1500,
-    system: system + "\n\nEntregue a análise chamando a ferramenta \"analise\".",
+    // O prompt do sistema é IDÊNTICO em toda análise da mesma loja: as regras,
+    // o manual e o aprendizado só mudam quando o gestor mexe neles. Marcado
+    // como cacheável, a Anthropic cobra 10% pela releitura em vez do preço
+    // cheio — e isto roda centenas de vezes por dia.
+    //
+    // TTL de 1 hora, não os 5 minutos padrão: com as análises espalhadas ao
+    // longo do dia, um cache de 5 min expiraria entre boa parte das chamadas e
+    // a gente pagaria escrita atrás de escrita. A escrita de 1h custa 2x, mas
+    // todas as leituras da hora seguinte custam 0,1x.
+    system: [
+      {
+        type: "text" as const,
+        text: system + "\n\nEntregue a análise chamando a ferramenta \"analise\".",
+        cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+      },
+    ],
     messages: [{ role: "user", content: user }],
     tools: [FERRAMENTA_ANALISE],
     tool_choice: { type: "tool", name: "analise" },
