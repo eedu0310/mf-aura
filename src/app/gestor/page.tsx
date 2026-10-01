@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign} from "lucide-react";
+import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -13,6 +13,9 @@ import { AvaliacoesTab } from "@/components/gestor/avaliacoes-tab";
 import { RankingConfigTab } from "@/components/gestor/ranking-config-tab";
 import { PermissoesTab } from "@/components/gestor/permissoes-tab";
 import { InstagramTab } from "@/components/gestor/instagram-tab";
+import { AprendizadoCard } from "@/components/gestor/aprendizado-card";
+import { RelatorioSemanalTab } from "@/components/gestor/relatorio-semanal-tab";
+import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 
  type AbaGestor =
   | "aura"
@@ -25,7 +28,10 @@ import { InstagramTab } from "@/components/gestor/instagram-tab";
   | "avaliacoes"
   | "custo-ia"
   | "configuracoes"
-  | "marketing";
+  | "marketing"
+  | "aprendizado"
+  | "semanal"
+  | "pontuacao";
 
 const ABAS: Array<{
   id: AbaGestor;
@@ -38,6 +44,24 @@ const ABAS: Array<{
     label: "Supervisora AURA",
     descricao: "Equipe, riscos e o que fazer agora",
     icon: Sparkles,
+  },
+  {
+    id: "semanal",
+    label: "Relatório do período",
+    descricao: "Fechou, perdeu e onde cada um erra",
+    icon: CalendarRange,
+  },
+  {
+    id: "pontuacao",
+    label: "Metas e prêmios",
+    descricao: "Meta por pessoa, pontos e premiação",
+    icon: Target,
+  },
+  {
+    id: "aprendizado",
+    label: "Aprendizado da AURA",
+    descricao: "Aprove o que ela tirou das conversas",
+    icon: GraduationCap,
   },
   {
     id: "dashboard",
@@ -151,6 +175,9 @@ export default function GestorPage() {
       </nav>
 
       {aba === "aura" && <GestorPainelAura />}
+      {aba === "semanal" && <RelatorioSemanalTab />}
+      {aba === "pontuacao" && <PontuacaoTab />}
+      {aba === "aprendizado" && <AprendizadoCard />}
       {aba === "dashboard" && <DashboardTab />}
       {aba === "planilha" && <PlanilhaLeadsDashboard />}
       {aba === "usuarios" && <UsuariosTab />}

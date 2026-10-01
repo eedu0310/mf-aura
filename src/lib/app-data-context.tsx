@@ -1164,7 +1164,28 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     }
 
-    if (novaEtapa === "Perdidos") {
+    // A AURA analisa o negócio decidido: escreve para o vendedor o que ele
+    // acertou e onde errou (à luz do manual), colhe o aprendizado da conversa
+    // e avisa o gestor. Sem await de propósito — o card já se moveu e a venda
+    // já está registrada; o laudo chega como notificação em seguida e uma
+    // falha aqui não pode desfazer nem travar o fechamento.
+    if (
+      (novaEtapa === "Fechados" && etapaAnterior !== "Fechados") ||
+      (novaEtapa === "Perdidos" && etapaAnterior !== "Perdidos")
+    ) {
+      void fetch("/api/aura/fechamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oportunidadeId: oportunidade.id,
+          resultado: novaEtapa === "Fechados" ? "fechado" : "perdido",
+          // O motivo da perda vem do próprio card, já gravado pelo modal que
+          // o vendedor preenche ao arrastar para Perdidos.
+          motivo: oportunidade.motivoPerda ?? null,
+        }),
+      }).catch(() => {
+        /* sem IA ou sem rede: o fechamento vale do mesmo jeito */
+      });
     }
   }
 

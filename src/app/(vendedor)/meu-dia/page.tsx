@@ -13,6 +13,7 @@ import { ConquistasCard } from "@/components/meu-dia/conquistas-card";
 import { PopupMotivacional } from "@/components/popups/popup-motivacional";
 import { TarefasInteligentes } from "@/components/tarefas/tarefas-inteligentes";
 import { MinhaPlanilhaIndicadores } from "@/components/meu-dia/minha-planilha-indicadores";
+import { RetornoPorOrigemCard } from "@/components/meu-dia/retorno-por-origem-card";
 import { AuraSupervisorPanel } from "@/components/aura-supervisor-panel";
 import { AuraCoachPanel } from "@/components/aura-coach-panel";
 import { CompromissoMensalBanner } from "@/components/meu-dia/compromisso-mensal-banner";
@@ -446,6 +447,8 @@ export default function MeuDiaPage() {
             <p className="mt-2 text-xs text-aura-graphite-soft">Fale com o time de Pós-venda se puder ajudar a resolver mais rápido.</p>
           </div>
         )}
+
+        <RetornoPorOrigemCard />
 
         <MinhaPlanilhaIndicadores />
       </div>

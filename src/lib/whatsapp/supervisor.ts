@@ -14,6 +14,7 @@ import path from "path";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { modeloDeVolume } from "@/lib/aura/modelos";
+import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import {
   connectedUserIds,
   getChat,
@@ -239,6 +240,7 @@ async function analisarComIa(
   etapaAtual: Etapa | null,
   alertas: Alerta[],
   materiais?: string,
+  aprendizado?: string,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -280,7 +282,7 @@ Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 }
 
 MANUAL DE TREINAMENTO:
-${manual || "(nenhum manual cadastrado — use boas práticas de venda consultiva)"}`;
+${manual || "(nenhum manual cadastrado — use boas práticas de venda consultiva)"}${blocoDeAprendizado(aprendizado ?? "")}`;
 
   const user = `Agora: ${agora}
 Etapa atual no pipeline: ${etapaAtual ?? "sem oportunidade ainda"}
@@ -729,7 +731,15 @@ export async function analisarConversa(
     let analise: AnaliseIa | null = null;
     let aviso: string | null = null;
     try {
-      analise = await analisarComIa(msgs, chat.name, etapaPipelineAtual, alertas, await materiaisDaEmpresa(empresa));
+      const sb0 = db();
+      analise = await analisarComIa(
+        msgs,
+        chat.name,
+        etapaPipelineAtual,
+        alertas,
+        await materiaisDaEmpresa(empresa),
+        sb0 ? await textoDoAprendizado(sb0, empresa) : "",
+      );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);
       if (e?.status === 401) {

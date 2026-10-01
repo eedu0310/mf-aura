@@ -97,6 +97,12 @@ const SESSIONS_DIR = path.join(/*turbopackIgnore: true*/ process.cwd(), ".whatsa
 const MAX_MSGS_PER_CHAT = 400;
 const MAX_RAW = 3000;
 const AVATAR_TTL = 6 * 60 * 60 * 1000;
+/** Quando não veio foto, tentamos de novo bem antes das 6h: no contato que não
+ *  está salvo a primeira busca falha com frequência (o pnJid ainda não foi
+ *  resolvido, ou o WhatsApp recusa a foto naquele instante). Guardar esse "sem
+ *  foto" por 6 horas deixava o vendedor sem a imagem o resto do dia — e é pela
+ *  imagem que ele localiza o cliente. */
+const AVATAR_TTL_VAZIO = 15 * 60 * 1000;
 
 const g = globalThis as unknown as {
   __auraWaSessions?: Map<string, WaSession>;
@@ -586,8 +592,13 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     if (!chat.hasName) chat.name = formatPhoneBr(phone);
   }
   if (!fromMe && msg.pushName) {
-    chat.name = msg.pushName;
-    chat.hasName = true;
+    // registrarNome grava no mapa s.names, que é persistido em disco. Antes
+    // isto só escrevia em chat.name: o pré-nome do contato não salvo aparecia
+    // enquanto a sessão vivia e, ao reiniciar, a conversa voltava a mostrar o
+    // número cru. Registramos também sob o pnJid porque a conversa pode estar
+    // indexada por @lid e o nome precisa ser achado pelos dois caminhos.
+    registrarNome(s, jid, msg.pushName);
+    if (chat.pnJid) registrarNome(s, chat.pnJid, msg.pushName);
   }
   if (!chat.pnJid) void resolvePn(s, chat);
   if (timestamp >= chat.timestamp) {
@@ -1017,7 +1028,8 @@ export async function getAvatar(userId: string, jid: string): Promise<string | n
   const s = sessions.get(userId);
   if (!s?.sock) return null;
   const cached = s.avatars.get(jid);
-  if (cached && Date.now() - cached.at < AVATAR_TTL) return cached.url;
+  const ttl = cached?.url ? AVATAR_TTL : AVATAR_TTL_VAZIO;
+  if (cached && Date.now() - cached.at < ttl) return cached.url;
   const chat = s.chats.get(jid);
   if (chat && !chat.pnJid) await resolvePn(s, chat);
   const alvos = [chat?.pnJid, jid].filter((x, i, a): x is string => !!x && a.indexOf(x) === i);

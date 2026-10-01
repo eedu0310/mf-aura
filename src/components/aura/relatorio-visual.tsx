@@ -33,7 +33,7 @@ interface Relatorio {
   atividadesPorDia: { dia: string; qtd: number }[];
   atividadesPorTipo: { tipo: string; qtd: number }[];
   funil: { etapa: string; qtd: number; valor: number }[];
-  porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number }[];
+  porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; leads: number; fechadas: number; perdidas: number }[];
   porLoja: { loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; clientes: number }[];
   topClientes: { cliente: string; valor: number }[];
 }
@@ -346,6 +346,61 @@ export function RelatorioVisual() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </Cartao>
+          )}
+
+          {/* Número por número, por vendedor. O gráfico acima responde "quem
+              vendeu mais"; esta tabela responde "quantos leads cada um recebeu
+              e o que fez com eles", que é o que o gestor pediu para cobrar. */}
+          {dados?.gestor && r.porVendedor.length > 0 && !vendedor && (
+            <Cartao titulo="Leads e vendas por vendedor">
+              <div className="-mx-2 overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-aura-mist text-left text-xs text-aura-graphite-soft">
+                      <th className="px-2 py-2 font-medium">Vendedor</th>
+                      <th className="px-2 py-2 font-medium">Loja</th>
+                      <th className="px-2 py-2 text-right font-medium">Leads</th>
+                      <th className="px-2 py-2 text-right font-medium">Fechou</th>
+                      <th className="px-2 py-2 text-right font-medium">Perdeu</th>
+                      <th className="px-2 py-2 text-right font-medium">Conversão</th>
+                      <th className="px-2 py-2 text-right font-medium">Faturamento</th>
+                      <th className="px-2 py-2 text-right font-medium">Pipeline</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.porVendedor.map((v) => {
+                      // Conversão sobre o que foi decidido (fechou + perdeu), e
+                      // não sobre os leads recebidos: lead que ainda está em
+                      // negociação não é acerto nem erro, e contá-lo como erro
+                      // puniria quem tem muita coisa em aberto.
+                      const decididos = v.fechadas + v.perdidas;
+                      const conv = decididos
+                        ? Math.round((v.fechadas / decididos) * 100)
+                        : null;
+                      return (
+                        <tr key={v.id} className="border-b border-aura-mist/60 last:border-0">
+                          <td className="px-2 py-2 font-medium text-aura-graphite">{v.nome}</td>
+                          <td className="px-2 py-2 text-aura-graphite-soft">{v.loja}</td>
+                          <td className="px-2 py-2 text-right text-aura-graphite">{v.leads}</td>
+                          <td className="px-2 py-2 text-right text-aura-success">{v.fechadas}</td>
+                          <td className="px-2 py-2 text-right text-aura-danger">{v.perdidas}</td>
+                          <td className="px-2 py-2 text-right text-aura-graphite">
+                            {conv === null ? "—" : `${conv}%`}
+                          </td>
+                          <td className="px-2 py-2 text-right font-medium text-aura-graphite">{moeda(v.vendido)}</td>
+                          <td className="px-2 py-2 text-right text-aura-graphite-soft">{moeda(v.pipeline)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-3 text-xs text-aura-graphite-soft">
+                Conversão é sobre o que já foi decidido (fechou + perdeu). Quem
+                tem muita coisa em aberto não aparece pior por isso. Pipeline
+                conta de Proposta em diante.
+              </p>
             </Cartao>
           )}
 

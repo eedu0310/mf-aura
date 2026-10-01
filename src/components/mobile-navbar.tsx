@@ -52,7 +52,7 @@ export function MobileNavbar() {
   return (
     <>
       {/* Navbar */}
-      <div className="fixed left-0 right-0 top-0 z-[70] bg-aura-navy-950 border-b border-aura-mist lg:hidden">
+      <div className="area-segura-topo fixed left-0 right-0 top-0 z-[70] bg-aura-navy-950 border-b border-aura-mist lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold text-white">AURA</h1>
           <div className="relative flex items-center gap-1">
@@ -82,7 +82,7 @@ export function MobileNavbar() {
 
         {/* Menu Drawer */}
         {aberto && (
-          <div className="max-h-[calc(100vh-3.5rem)] overflow-y-auto bg-aura-navy-900 border-t border-aura-mist">
+          <div className="menu-mobile-rolagem overflow-y-auto bg-aura-navy-900 border-t border-aura-mist">
             <nav aria-label="Menu principal mobile" className="flex flex-col divide-y divide-aura-mist">
               <div className="border-b border-aura-mist px-4 py-3">
                 <button type="button" onClick={() => setPerfilAberto((v) => !v)} aria-expanded={perfilAberto} className="flex w-full items-center gap-3 text-left text-white">
@@ -119,7 +119,7 @@ export function MobileNavbar() {
       </div>
 
       {/* Spacer para conteúdo não ficar sob navbar */}
-      <div className="h-14 lg:h-0" />
+      <div className="altura-barra-mobile lg:h-0" />
     </>
   );
 }

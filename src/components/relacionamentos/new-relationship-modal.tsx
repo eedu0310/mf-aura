@@ -7,6 +7,8 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
+import { SeletorOrigem } from "@/components/origem/selo-origem";
+import { INFO_ORIGEM, type OrigemLead } from "@/lib/origem-lead";
 
 const CATEGORIAS: CategoriaRelacionamento[] = [
   "Cliente Final",
@@ -22,7 +24,6 @@ const CATEGORIAS: CategoriaRelacionamento[] = [
 ];
 
 const TEMPERATURAS: TemperaturaRelacionamento[] = ["quente", "ativo", "esfriando", "frio"];
-const ORIGENS = ["Marketing", "Loja", "Prospecção", "Indicação", "Site", "WhatsApp", "Outro"];
 export function NewRelationshipModal({
   onClose,
   onCriado,
@@ -38,7 +39,12 @@ export function NewRelationshipModal({
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [cidade, setCidade] = useState("");
-  const [origem, setOrigem] = useState("");
+  // Uma pergunta para o vendedor, duas colunas gravadas: origem_lead (enum,
+  // usado nos relatórios) e origem (texto livre histórico, que outras telas
+  // ainda leem). Guardar só o enum deixaria o campo antigo vazio.
+  const [origemLead, setOrigemLead] = useState<OrigemLead | null>(null);
+  const [campanhaId, setCampanhaId] = useState<string | null>(null);
+  const [campanhas, setCampanhas] = useState<{ id: string; nome: string }[]>([]);
   const [temperatura, setTemperatura] = useState<TemperaturaRelacionamento>("ativo");  const [proximoContato, setProximoContato] = useState("a definir");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -57,14 +63,35 @@ export function NewRelationshipModal({
       }
     }
 
+    // Campanhas ativas da loja, para quem marcar origem "marketing" poder dizer
+    // qual. É esse vínculo que permite medir depois quanto cada campanha custou
+    // e quanto voltou; sem ele o marketing fica só com o total do balaio.
+    async function obterCampanhas() {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) return;
+      const { data } = await supabase
+        .from("campanhas_marketing")
+        .select("id, nome, status")
+        .order("data_inicio", { ascending: false })
+        .limit(50);
+      if (data) {
+        setCampanhas(
+          data
+            .filter((c) => (c.status ?? "").toLowerCase() !== "encerrada")
+            .map((c) => ({ id: c.id as string, nome: c.nome as string })),
+        );
+      }
+    }
+
     obterUserId();
+    void obterCampanhas();
   }, []);
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
 
-    if (!nome.trim() || !telefone.trim() || !cidade.trim() || !origem) {
+    if (!nome.trim() || !telefone.trim() || !cidade.trim() || !origemLead) {
       setErro("Nome, telefone, cidade e origem são obrigatórios.");
       return;
     }
@@ -84,7 +111,9 @@ export function NewRelationshipModal({
         telefone: telefone.trim(),
         email: email.trim() || undefined,
         cidade: cidade.trim(),
-        origem,
+        origem: origemLead ? INFO_ORIGEM[origemLead].label : undefined,
+        origemLead,
+        campanhaId,
         temperatura,
         proximoContato,
       });
@@ -204,18 +233,13 @@ export function NewRelationshipModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
-              De onde veio este contato? *
-            </label>
-            <select
-              value={origem}
-              onChange={(e) => setOrigem(e.target.value)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
-              disabled={salvando}
-            >
-              <option value="">Selecione a origem</option>
-              {ORIGENS.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
+            <SeletorOrigem
+              valor={origemLead}
+              onChange={setOrigemLead}
+              campanhas={campanhas}
+              campanhaId={campanhaId}
+              onCampanhaChange={setCampanhaId}
+            />
           </div>
 
           <div>
@@ -252,7 +276,7 @@ export function NewRelationshipModal({
 
           <button
             type="submit"
-            disabled={salvando || !nome.trim() || !telefone.trim() || !cidade.trim() || !origem}
+            disabled={salvando || !nome.trim() || !telefone.trim() || !cidade.trim() || !origemLead}
             className="mt-2 rounded-xl bg-aura-petrol-700 py-2.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {salvando ? (

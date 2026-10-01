@@ -22,6 +22,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
+import { ETAPAS_QUE_VALEM } from "@/lib/aura/metricas";
 
 interface PipelineBoardProps {}
 
@@ -199,11 +200,18 @@ export function PipelineBoard({}: PipelineBoardProps) {
     }),
   );
 
+  // Contagem de "em jogo": segue tudo que não foi fechado nem perdido, porque
+  // é um número de cabeças, não de dinheiro.
   const oportunidadesAtivas = oportunidades.filter(
     (o) => o.etapa !== "Perdidos" && o.etapa !== "Fechados",
   );
-  const valorTotal = oportunidadesAtivas.reduce((soma, o) => soma + o.valor, 0);
-  const previsaoPonderada = oportunidadesAtivas.reduce(
+  // Dinheiro só conta de Proposta em diante: lead em Prospecção/Apresentação é
+  // intenção, não negócio na mesa, e somar tudo inflava o total.
+  const oportunidadesQueContam = oportunidades.filter((o) =>
+    ETAPAS_QUE_VALEM.includes(o.etapa),
+  );
+  const valorTotal = oportunidadesQueContam.reduce((soma, o) => soma + o.valor, 0);
+  const previsaoPonderada = oportunidadesQueContam.reduce(
     (soma, o) => soma + o.valor * PESO_PROBABILIDADE[o.probabilidade],
     0,
   );
@@ -309,7 +317,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
             <div className="flex items-center gap-2">
               <Layers size={16} className="text-aura-petrol-600" />
               <p className="text-sm text-aura-graphite-soft">
-                Valor total em aberto
+                Valor em aberto (Proposta+)
               </p>
             </div>
             <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
@@ -320,7 +328,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
             <div className="flex items-center gap-2">
               <TrendingUp size={16} className="text-aura-petrol-600" />
               <p className="text-sm text-aura-graphite-soft">
-                Previsão ponderada
+                Previsão ponderada (Proposta+)
               </p>
             </div>
             <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">

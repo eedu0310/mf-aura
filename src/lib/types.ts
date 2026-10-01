@@ -1,3 +1,4 @@
+import type { OrigemLead } from "./origem-lead";
 export type Cargo =
   | "Vendedor"
   | "Vendedor Interno"
@@ -149,7 +150,14 @@ export interface Relacionamento {
   email?: string;
   telefone?: string;
   categoria: CategoriaRelacionamento;
+  /** Texto livre histórico ("Marketing", "Site", "WhatsApp"...). Mantido porque
+   *  há dado antigo nele; para relatório use origemLead. */
   origem?: string;
+  /** Origem comercial no vocabulário fechado da casa (enum origem_lead no
+   *  banco). É esta que o trigger estampa na oportunidade, na atividade e na
+   *  venda, e que o relatório do marketing soma. */
+  origemLead?: OrigemLead | null;
+  campanhaId?: string | null;
   cidade?: string;
   estado?: string;
   temperatura: TemperaturaRelacionamento;

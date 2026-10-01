@@ -68,3 +68,28 @@
 @media (prefers-reduced-motion: reduce) {
   .aura-glow { animation: none !important; }
 }
+
+/* ---------------------------------------------------------------------------
+   PWA instalado na tela de início: a webview desenha por baixo da barra de
+   status do celular, porque o layout usa viewportFit "cover" junto com
+   statusBarStyle "black-translucent". Sem reservar essa faixa, o cabeçalho
+   mobile fica atrás do relógio e da bateria — e o botão dos três riscos some,
+   sem jeito de abrir o menu. O env() devolve 0px no navegador comum e no
+   Android sem recorte, então isto não muda nada fora do PWA.
+   --------------------------------------------------------------------------- */
+.area-segura-topo {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Espaçador: tem de crescer junto com a barra, senão o conteúdo da página
+   passa a correr por baixo do cabeçalho. 3.5rem = a linha do título/botões. */
+.altura-barra-mobile {
+  height: calc(3.5rem + env(safe-area-inset-top, 0px));
+}
+
+/* Gaveta do menu: desconta a faixa de cima e respeita a barrinha de gestos
+   embaixo, para o último item da lista não ficar inalcançável. */
+.menu-mobile-rolagem {
+  max-height: calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

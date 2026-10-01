@@ -6,6 +6,7 @@ import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR } from "@/lib/aura-coach-promp
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { registrarFalhaIA } from "@/lib/aura/custo-ia";
 import { textoDosMateriais } from "@/lib/aura/materiais";
+import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import {
   ferramentasParaResponsesAPI,
   executarFerramenta,
@@ -30,6 +31,7 @@ function montarSystemPrompt(
   permiteAcoes?: boolean,
   cargo?: string,
   materiais?: string,
+  aprendizado?: string,
 ) {
   let prompt = AURA_COACH_SYSTEM_PROMPT;
 
@@ -51,6 +53,8 @@ function montarSystemPrompt(
   if (materiais && materiais.trim()) {
     prompt += `\n\nMATERIAIS DA EMPRESA (regras da casa, produtos, scripts — responda com base nisto quando a pergunta for sobre política interna, prazo, desconto ou produto):\n"""\n${materiais.trim()}\n"""`;
   }
+  // O que a casa aprendeu nas conversas reais, já revisado pelo gestor.
+  prompt += blocoDeAprendizado(aprendizado ?? "");
 
   if (contextoDados) {
     prompt += `\n\nDados reais e atuais deste vendedor (use-os para responder de forma específica, não genérica):\n${contextoDados}`;
@@ -163,11 +167,17 @@ export async function POST(request: Request) {
 
   // Biblioteca de materiais da empresa (o gestor envia na Visão do Gestor).
   let materiais = "";
+  let aprendizado = "";
   if (auth) {
     try {
       materiais = await textoDosMateriais(auth.supabase, auth.empresa);
     } catch (e) {
       console.error("[coach] materiais da empresa:", e);
+    }
+    try {
+      aprendizado = await textoDoAprendizado(auth.supabase, auth.empresa);
+    } catch (e) {
+      console.error("[coach] aprendizado da empresa:", e);
     }
   }
 
@@ -193,7 +203,7 @@ export async function POST(request: Request) {
 
       const resposta = await perguntarIA({
         openai,
-        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais),
+        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais, aprendizado),
         mensagens: [
           {
             role: "user",
@@ -219,7 +229,7 @@ export async function POST(request: Request) {
     try {
       const resposta = await perguntarIA({
         openai,
-        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais),
+        systemPrompt: montarSystemPrompt(body.playbook, undefined, false, auth?.cargo, materiais, aprendizado),
         mensagens: [
           {
             role: "user",

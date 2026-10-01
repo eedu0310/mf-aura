@@ -8,6 +8,18 @@ import type { Ativ, Comp, DadosCrm, Op, Rel, Venda } from "./dados";
 export const ETAPAS = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"] as const;
 export const ETAPAS_ABERTAS = ["Prospecção", "Apresentação", "Proposta", "Negociação"];
 
+/**
+ * Etapas que entram nos VALORES de pipeline.
+ * Lead em Prospecção ou Apresentação não engorda o número: só conta de Proposta
+ * em diante, quando já existe orçamento na mesa. Antes disso é intenção, não
+ * negócio, e somar tudo inflava o pipeline com qualquer contato novo.
+ *
+ * Isto vale só para dinheiro. As listas de risco e de oportunidade parada
+ * continuam usando ETAPAS_ABERTAS, porque um lead travado em Prospecção
+ * também precisa aparecer para o vendedor cobrar.
+ */
+export const ETAPAS_QUE_VALEM = ["Proposta", "Negociação"];
+
 const DIA = 86400e3;
 const TZ = "America/Sao_Paulo";
 
@@ -373,7 +385,7 @@ export interface Relatorio {
   atividadesPorDia: { dia: string; qtd: number }[];
   atividadesPorTipo: { tipo: string; qtd: number }[];
   funil: { etapa: string; qtd: number; valor: number }[];
-  porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number }[];
+  porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; leads: number; fechadas: number; perdidas: number }[];
   porLoja: { loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; clientes: number }[];
   topClientes: { cliente: string; valor: number }[];
 }
@@ -418,7 +430,13 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       vendido: vendas.filter((v) => v.owner_id === p.id).reduce((s, v) => s + valorVenda(v), 0),
       vendas: vendas.filter((v) => v.owner_id === p.id).length,
       atividades: ativs.filter((a) => a.owner_id === p.id).length,
-      pipeline: ops.filter((o) => o.owner_id === p.id && ETAPAS_ABERTAS.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipeline: ops.filter((o) => o.owner_id === p.id && ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      // Leads que entraram para esta pessoa no periodo. O gestor pedia para
+      // ver "os leads e as vendas de cada vendedor": sem este numero a tabela
+      // mostrava o resultado sem mostrar a materia-prima que a pessoa recebeu.
+      leads: rels.filter((r) => r.owner_id === p.id && noPeriodo(r.created_at)).length,
+      fechadas: opsPeriodo.filter((o) => o.owner_id === p.id && o.etapa === "Fechados").length,
+      perdidas: opsPeriodo.filter((o) => o.owner_id === p.id && o.etapa === "Perdidos").length,
     }))
     .sort((a, b) => b.vendido - a.vendido || b.atividades - a.atividades);
 
@@ -431,7 +449,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       vendido: vendas.filter((v) => v.empresa === loja).reduce((s, v) => s + valorVenda(v), 0),
       vendas: vendas.filter((v) => v.empresa === loja).length,
       atividades: ativs.filter((a) => a.empresa === loja).length,
-      pipeline: ops.filter((o) => o.empresa === loja && ETAPAS_ABERTAS.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipeline: ops.filter((o) => o.empresa === loja && ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
       clientes: rels.filter((r) => r.empresa === loja).length,
     }))
     .sort((a, b) => b.vendido - a.vendido);
@@ -448,7 +466,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       atividades: ativs.length,
       novosClientes: rels.filter((r) => noPeriodo(r.created_at)).length,
       conversao: fech + perd ? Math.round((fech / (fech + perd)) * 100) : null,
-      pipelineAberto: ops.filter((o) => ETAPAS_ABERTAS.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipelineAberto: ops.filter((o) => ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
     },
     vendasPorDia: dias.map((dia) => ({ dia, valor: vendasDia.get(dia) ?? 0 })),
     atividadesPorDia: dias.map((dia) => ({ dia, qtd: ativDia.get(dia) ?? 0 })),

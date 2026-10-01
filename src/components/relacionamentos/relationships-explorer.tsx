@@ -5,12 +5,18 @@ import { useSearchParams } from "next/navigation";
 import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
+import { useUserProfile } from "@/lib/user-profile-context";
+import { SeloOrigem } from "@/components/origem/selo-origem";
 import { RelacionamentoDetailsModal } from "./relacionamento-details-modal";
 import { NewRelationshipModal } from "./new-relationship-modal";
 import type { Relacionamento } from "@/lib/types";
 
 export function RelationshipsExplorer() {
-  const { relacionamentos, deleteRelacionamento } = useAppData();
+  const { relacionamentos, deleteRelacionamento, nomesPorOwnerId } = useAppData();
+  const { profile } = useUserProfile();
+  // O vendedor só tem a própria carteira, então para ele estes filtros não
+  // significam nada. Quem precisa separar é quem vê mais de uma carteira.
+  const vejoMaisDeUmaCarteira = profile.cargo === "Gestor";
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRelacionamento, setSelectedRelacionamento] = useState<Relacionamento | null>(null);
 
@@ -23,6 +29,8 @@ export function RelationshipsExplorer() {
     }
   }
   const [filtroTemperatura, setFiltroTemperatura] = useState<string>("todos");
+  const [filtroLoja, setFiltroLoja] = useState<string>("todos");
+  const [filtroVendedor, setFiltroVendedor] = useState<string>("todos");
   const [showNovaModal, setShowNovaModal] = useState(false);
 
   /**
@@ -68,8 +76,39 @@ export function RelationshipsExplorer() {
       resultado = resultado.filter((r) => r.temperatura === filtroTemperatura);
     }
 
+    // Loja e vendedor: o gestor vê a carteira das quatro lojas de uma vez, e
+    // sem isto não dava para saber de quem era cada contato — vinha tudo junto.
+    if (filtroLoja !== "todos") {
+      resultado = resultado.filter((r) => r.empresa === filtroLoja);
+    }
+    if (filtroVendedor !== "todos") {
+      resultado = resultado.filter(
+        (r) => (r.ownerId ?? r.vendedorId) === filtroVendedor,
+      );
+    }
+
     return resultado;
-  }, [relacionamentos, searchQuery, filtroTemperatura]);
+  }, [relacionamentos, searchQuery, filtroTemperatura, filtroLoja, filtroVendedor]);
+
+  /** Lojas e vendedores que realmente aparecem na carteira carregada. */
+  const lojas = useMemo(
+    () =>
+      [...new Set(relacionamentos.map((r) => r.empresa).filter(Boolean))].sort() as string[],
+    [relacionamentos],
+  );
+
+  /** Só os vendedores da loja escolhida, para a lista não virar um paiol. */
+  const vendedores = useMemo(() => {
+    const ids = new Set(
+      relacionamentos
+        .filter((r) => filtroLoja === "todos" || r.empresa === filtroLoja)
+        .map((r) => r.ownerId ?? r.vendedorId)
+        .filter(Boolean) as string[],
+    );
+    return [...ids]
+      .map((id) => ({ id, nome: nomesPorOwnerId[id] ?? "Sem nome" }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [relacionamentos, filtroLoja, nomesPorOwnerId]);
 
   const temperaturaColors: Record<string, { bg: string; text: string; badge: string }> = {
     quente: {
@@ -159,6 +198,53 @@ export function RelationshipsExplorer() {
               </button>
             ))}
           </div>
+
+          {/* Loja e vendedor — só para quem vê mais de uma carteira. */}
+          {vejoMaisDeUmaCarteira && (
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+                Loja
+                <select
+                  value={filtroLoja}
+                  onChange={(e) => {
+                    setFiltroLoja(e.target.value);
+                    // Trocar de loja invalida o vendedor escolhido: ele pode
+                    // nem trabalhar na loja nova, e o filtro ficaria vazio.
+                    setFiltroVendedor("todos");
+                  }}
+                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                >
+                  <option value="todos">Todas ({relacionamentos.length})</option>
+                  {lojas.map((loja) => (
+                    <option key={loja} value={loja}>
+                      {loja}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+                Vendedor
+                <select
+                  value={filtroVendedor}
+                  onChange={(e) => setFiltroVendedor(e.target.value)}
+                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                >
+                  <option value="todos">Todos</option>
+                  {vendedores.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <span className="text-sm text-aura-graphite-soft">
+                {relacionamentosFiltrados.length}{" "}
+                {relacionamentosFiltrados.length === 1 ? "contato" : "contatos"}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -192,7 +278,20 @@ export function RelationshipsExplorer() {
                     <h3 className={`font-semibold ${temperaturaColors[rel.temperatura].text}`}>
                       {rel.nome}
                     </h3>
-                    <p className="text-xs text-aura-graphite-soft mt-1">{rel.categoria}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <p className="text-xs text-aura-graphite-soft">{rel.categoria}</p>
+                      {/* O ícone da origem: o vendedor bate o olho e sabe se o
+                          card veio da loja, da MF ou de campanha. */}
+                      <SeloOrigem origem={rel.origemLead} tamanho={11} />
+                    </div>
+                    {/* De quem é o contato. Sem isto o gestor via a carteira das
+                        quatro lojas num bolo só, sem saber de quem era cada um. */}
+                    {vejoMaisDeUmaCarteira && (
+                      <p className="mt-1 text-xs text-aura-petrol-600">
+                        {nomesPorOwnerId[rel.ownerId ?? rel.vendedorId] ?? "Sem vendedor"}
+                        {rel.empresa ? ` · ${rel.empresa}` : ""}
+                      </p>
+                    )}
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-medium ${
