@@ -11,6 +11,9 @@ import {
   Loader2,
   LogOut,
   MessageSquarePlus,
+  Check,
+  Forward,
+  MessageSquareDot,
   MoreVertical,
   QrCode,
   Search,
@@ -115,6 +118,12 @@ export default function WhatsAppPage() {
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
   const [erroAntigas, setErroAntigas] = useState<string | null>(null);
   const [respondendo, setRespondendo] = useState<WaMessage | null>(null);
+  /** Mensagem escolhida para encaminhar, e para quais conversas. */
+  const [encaminhando, setEncaminhando] = useState<WaMessage | null>(null);
+  const [destinos, setDestinos] = useState<string[]>([]);
+  const [buscaDestino, setBuscaDestino] = useState("");
+  const [enviandoEncaminhar, setEnviandoEncaminhar] = useState(false);
+  const [avisoAcao, setAvisoAcao] = useState<string | null>(null);
   const [abaVisivel, setAbaVisivel] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const colarNoFim = useRef(true);
@@ -286,6 +295,64 @@ export default function WhatsAppPage() {
    * pessoa ao ponto onde ela estava lendo. Sem isso, as mensagens antigas
    * entram por cima e a conversa salta debaixo do dedo.
    */
+  /** Reage a uma mensagem. Emoji vazio desfaz. */
+  async function reagirMensagem(msg: WaMessage, emoji: string) {
+    setAvisoAcao(null);
+    try {
+      await postJson({ action: "react", chat: msg.chatId, msgId: msg.id, emoji });
+      // Nao espera o ciclo de 2s: a reacao tem de responder ao toque.
+      if (selectedChatId) loadMessages(selectedChatId);
+    } catch (e: any) {
+      setAvisoAcao(e?.message ?? "Não consegui reagir.");
+    }
+  }
+
+  /**
+   * Marca a conversa como nao lida e volta para a lista.
+   *
+   * Fechar faz parte: abrir uma conversa dispara o "marcar como lida", entao
+   * se continuasse aberta o aviso se apagaria no ciclo seguinte.
+   */
+  async function deixarNaoLida() {
+    if (!selectedChatId) return;
+    setAvisoAcao(null);
+    try {
+      await postJson({ action: "unread", chat: selectedChatId });
+      setSelectedChatId(null);
+      loadState();
+    } catch (e: any) {
+      setAvisoAcao(e?.message ?? "Não consegui marcar como não lida.");
+    }
+  }
+
+  async function confirmarEncaminhar() {
+    if (!encaminhando || destinos.length === 0) return;
+    setEnviandoEncaminhar(true);
+    setAvisoAcao(null);
+    try {
+      const r = await postJson({
+        action: "forward",
+        chat: encaminhando.chatId,
+        msgId: encaminhando.id,
+        para: destinos,
+      });
+      setEncaminhando(null);
+      setDestinos([]);
+      setBuscaDestino("");
+      // Falha parcial nao pode passar calada: encaminhou para tres de cinco e
+      // o vendedor precisa saber quais dois nao foram.
+      const falhas = Array.isArray(r?.falhas) ? r.falhas.length : 0;
+      if (falhas > 0) {
+        setAvisoAcao(`Encaminhei para ${r.enviados.length}, mas ${falhas} não deu.`);
+      }
+      loadState();
+    } catch (e: any) {
+      setAvisoAcao(e?.message ?? "Não consegui encaminhar.");
+    } finally {
+      setEnviandoEncaminhar(false);
+    }
+  }
+
   async function carregarAntigas() {
     if (!selectedChatId || buscandoAntigas) return;
     setBuscandoAntigas(true);
@@ -663,6 +730,15 @@ export default function WhatsAppPage() {
             <SeletorEtapa etapa={etapaAtual} onEscolher={mudarEtapa} ocupado={mudandoEtapa} />
             <button
               type="button"
+              onClick={deixarNaoLida}
+              className="rounded-full p-2 text-[#aebac1] transition hover:bg-white/10"
+              title="Marcar como não lida e voltar para a lista"
+              aria-label="Marcar como não lida"
+            >
+              <MessageSquareDot className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
               onClick={() => setPainelIa((v) => !v)}
               className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${painelIa ? "bg-[#0a332c] text-[#00a884]" : "text-[#aebac1] hover:bg-white/10"}`}
               title="Supervisor AURA"
@@ -728,6 +804,12 @@ export default function WhatsAppPage() {
                   avatarJid={item.msg.fromMe ? state.myJid : chatAvatarJid}
                   avatarNome={item.msg.fromMe ? state.name ?? "Eu" : selectedChat.name}
                   onResponder={setRespondendo}
+                  onReagir={reagirMensagem}
+                  onEncaminhar={(m) => {
+                    setEncaminhando(m);
+                    setDestinos([]);
+                    setBuscaDestino("");
+                  }}
                   onIrPara={irParaMensagem}
                   onAbrirNumero={abrirNumero}
                   nomeDoOutro={selectedChat.name}
@@ -845,6 +927,129 @@ export default function WhatsAppPage() {
                   {novoEnviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aviso curto destas acoes (reagir, nao lida, encaminhar). */}
+      {avisoAcao && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#233138] px-4 py-2 text-sm text-[#ffd279] shadow-lg">
+          {avisoAcao}
+          <button
+            type="button"
+            onClick={() => setAvisoAcao(null)}
+            className="ml-3 text-[#8696a0] hover:text-[#e9edef]"
+            aria-label="Fechar aviso"
+          >
+            <X className="inline h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ===================== Encaminhar ===================== */}
+      {encaminhando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-[#111b21] shadow-xl">
+            <div className="flex items-center gap-3 bg-[#202c33] px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setEncaminhando(null)}
+                className="text-[#aebac1]"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="text-[16px] text-[#e9edef]">Encaminhar para…</p>
+                <p className="truncate text-xs text-[#8696a0]">
+                  {encaminhando.hasMedia
+                    ? encaminhando.type === "image"
+                      ? "Foto"
+                      : encaminhando.type === "video"
+                      ? "Vídeo"
+                      : encaminhando.type === "audio"
+                      ? "Áudio"
+                      : "Documento"
+                    : encaminhando.text.slice(0, 60) || "Mensagem"}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-4 py-2">
+              <div className="flex items-center gap-2 rounded-lg bg-[#202c33] px-3 py-1.5">
+                <Search className="h-4 w-4 text-[#8696a0]" />
+                <input
+                  value={buscaDestino}
+                  onChange={(e) => setBuscaDestino(e.target.value)}
+                  placeholder="Buscar conversa"
+                  className="w-full bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]"
+                />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {(state?.chats ?? [])
+                // Nao oferece a propria conversa de origem: encaminhar para si
+                // mesmo e sempre engano.
+                .filter((c) => c.id !== encaminhando.chatId)
+                .filter((c) =>
+                  buscaDestino.trim()
+                    ? c.name.toLowerCase().includes(buscaDestino.trim().toLowerCase())
+                    : true,
+                )
+                .slice(0, 80)
+                .map((c) => {
+                  const marcado = destinos.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() =>
+                        setDestinos((d) =>
+                          marcado ? d.filter((x) => x !== c.id) : d.length >= 10 ? d : [...d, c.id],
+                        )
+                      }
+                      // O teto de 10 e o mesmo do WhatsApp; acima disso vira
+                      // disparo em massa e derruba o numero.
+                      disabled={!marcado && destinos.length >= 10}
+                      className={`flex w-full items-center gap-3 px-4 py-2 text-left transition disabled:opacity-40 ${
+                        marcado ? "bg-[#2a3942]" : "hover:bg-[#202c33]"
+                      }`}
+                    >
+                      <Avatar jid={c.pnJid ?? c.id} name={c.name} size={36} />
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-[#e9edef]">{c.name}</span>
+                      <span
+                        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                          marcado ? "border-[#00a884] bg-[#00a884] text-[#111b21]" : "border-[#3b4a54]"
+                        }`}
+                      >
+                        {marcado ? <Check className="h-3.5 w-3.5" /> : null}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 bg-[#202c33] px-4 py-3">
+              <span className="text-xs text-[#8696a0]">
+                {destinos.length === 0
+                  ? "Escolha as conversas"
+                  : `${destinos.length} de 10 selecionadas`}
+              </span>
+              <button
+                type="button"
+                onClick={confirmarEncaminhar}
+                disabled={destinos.length === 0 || enviandoEncaminhar}
+                className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#06cf9c] disabled:opacity-60"
+              >
+                {enviandoEncaminhar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Forward className="h-4 w-4" />
+                )}
+                Encaminhar
+              </button>
             </div>
           </div>
         </div>

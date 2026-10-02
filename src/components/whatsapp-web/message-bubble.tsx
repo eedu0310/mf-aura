@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Check, CheckCheck, Clock, Download, FileText, ImageOff, MapPin, Mic, Pause, Play, Reply } from "lucide-react";
+import { Check, CheckCheck, Clock, Download, FileText, Forward, ImageOff, MapPin, Mic, Pause, Play, Reply, SmilePlus } from "lucide-react";
 import { Avatar } from "./avatar";
 import { API, formatHour, type WaMessage, type WaQuote } from "./types";
 
@@ -242,6 +242,46 @@ function Citacao({ quote, nomeDoOutro, onIr }: { quote: WaQuote; nomeDoOutro: st
   );
 }
 
+/**
+ * Os seis emojis da barra rapida, como no WhatsApp.
+ *
+ * A palminha e a curtida vem primeiro porque sao as que o pessoal usa para
+ * responder "recebido, obrigado" sem escrever.
+ */
+const EMOJIS_RAPIDOS = ["\u{1F44D}", "\u{1F44F}", "\u{2764}\u{FE0F}", "\u{1F602}", "\u{1F62E}", "\u{1F64F}"];
+
+/** As reacoes que a mensagem ja tem, no rodape da bolha. */
+function Reacoes({
+  msg,
+  onReagir,
+}: {
+  msg: WaMessage;
+  onReagir?: (msg: WaMessage, emoji: string) => void;
+}) {
+  if (!msg.reacoes?.length) return null;
+  return (
+    <div className={`-mt-1 mb-0.5 flex flex-wrap gap-1 px-1 ${msg.fromMe ? "justify-end" : "justify-start"}`}>
+      {msg.reacoes.map((r) => (
+        <button
+          key={r.emoji}
+          type="button"
+          // Clicar na propria reacao desfaz: emoji vazio e como o WhatsApp
+          // avisa que a pessoa tirou.
+          onClick={onReagir ? () => onReagir(msg, r.minha ? "" : r.emoji) : undefined}
+          disabled={!onReagir}
+          title={r.minha ? "Tirar a sua reação" : `Reagir com ${r.emoji}`}
+          className={`flex items-center gap-0.5 rounded-full border px-1.5 py-[1px] text-[11px] leading-[16px] transition ${
+            r.minha ? "border-[#00a884] bg-[#0a332c]" : "border-[#2a3942] bg-[#202c33]"
+          } ${onReagir ? "hover:brightness-125" : ""}`}
+        >
+          <span>{r.emoji}</span>
+          {r.total > 1 && <span className="text-[#aebac1]">{r.total}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   msg: WaMessage;
   primeiraDoGrupo: boolean;
@@ -249,6 +289,8 @@ interface Props {
   avatarJid: string | null;
   avatarNome: string;
   onResponder?: (msg: WaMessage) => void;
+  onReagir?: (msg: WaMessage, emoji: string) => void;
+  onEncaminhar?: (msg: WaMessage) => void;
   onIrPara?: (id: string) => void;
   onAbrirNumero?: (numero: string) => void;
   nomeDoOutro?: string;
@@ -261,25 +303,80 @@ export function MessageBubble({
   avatarJid,
   avatarNome,
   onResponder,
+  onReagir,
+  onEncaminhar,
   onIrPara,
   onAbrirNumero,
   nomeDoOutro,
 }: Props) {
+  const [abrindoEmoji, setAbrindoEmoji] = useState(false);
   const sticker = msg.type === "sticker";
   const cor = msg.fromMe ? "bg-[#005c4b]" : "bg-[#202c33]";
   const corCauda = msg.fromMe ? "#005c4b" : "#202c33";
   return (
     <div id={`msg-${msg.id}`} className={`group flex items-center gap-1 ${msg.fromMe ? "justify-end" : "justify-start"} ${primeiraDoGrupo ? "mt-3" : "mt-0.5"} px-[4%] md:px-[6%]`}>
-      {msg.fromMe && onResponder && (
-        <button
-          type="button"
-          onClick={() => onResponder(msg)}
-          aria-label="Responder esta mensagem"
-          title="Responder"
-          className="order-2 ml-1 rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Reply className="h-4 w-4" />
-        </button>
+      {msg.fromMe && (onResponder || onReagir || onEncaminhar) && (
+        <div className={`relative flex shrink-0 items-center gap-0.5 order-2 ml-1`}>
+          {onResponder && (
+            <button
+              type="button"
+              onClick={() => onResponder(msg)}
+              aria-label="Responder esta mensagem"
+              title="Responder"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Reply className="h-4 w-4" />
+            </button>
+          )}
+          {onReagir && (
+            <button
+              type="button"
+              onClick={() => setAbrindoEmoji((v) => !v)}
+              aria-label="Reagir a esta mensagem"
+              title="Reagir"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <SmilePlus className="h-4 w-4" />
+            </button>
+          )}
+          {onEncaminhar && (
+            <button
+              type="button"
+              onClick={() => onEncaminhar(msg)}
+              aria-label="Encaminhar esta mensagem"
+              title="Encaminhar"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Forward className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Barra rapida de emoji, como no WhatsApp. */}
+          {abrindoEmoji && onReagir && (
+            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-[#2a3942] bg-[#233138] px-1.5 py-1 shadow-lg right-0">
+              {EMOJIS_RAPIDOS.map((e) => {
+                const minha = msg.reacoes?.some((r) => r.emoji === e && r.minha);
+                return (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => {
+                      // Tocar na que ja e minha desfaz.
+                      onReagir(msg, minha ? "" : e);
+                      setAbrindoEmoji(false);
+                    }}
+                    title={minha ? "Tirar a sua reação" : `Reagir com ${e}`}
+                    className={`rounded-full px-1 text-[20px] leading-7 transition hover:scale-125 ${
+                      minha ? "bg-[#0a332c]" : ""
+                    }`}
+                  >
+                    {e}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
       <div
         className={`relative max-w-[85%] md:max-w-[65%] ${sticker ? "" : `${cor} rounded-lg px-1.5 pb-1 pt-1.5 shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]`} ${
@@ -316,17 +413,71 @@ export function MessageBubble({
           <span className="text-[11px] text-[#ffffff99]">{formatHour(msg.timestamp)}</span>
           {msg.fromMe && <Ticks status={msg.status} />}
         </div>
+        {/* As reacoes ficam no pe da bolha, como no WhatsApp. */}
+        <Reacoes msg={msg} onReagir={onReagir} />
       </div>
-      {!msg.fromMe && onResponder && (
-        <button
-          type="button"
-          onClick={() => onResponder(msg)}
-          aria-label="Responder esta mensagem"
-          title="Responder"
-          className="ml-1 rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Reply className="h-4 w-4" />
-        </button>
+      {!msg.fromMe && (onResponder || onReagir || onEncaminhar) && (
+        <div className={`relative flex shrink-0 items-center gap-0.5 ml-1`}>
+          {onResponder && (
+            <button
+              type="button"
+              onClick={() => onResponder(msg)}
+              aria-label="Responder esta mensagem"
+              title="Responder"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Reply className="h-4 w-4" />
+            </button>
+          )}
+          {onReagir && (
+            <button
+              type="button"
+              onClick={() => setAbrindoEmoji((v) => !v)}
+              aria-label="Reagir a esta mensagem"
+              title="Reagir"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <SmilePlus className="h-4 w-4" />
+            </button>
+          )}
+          {onEncaminhar && (
+            <button
+              type="button"
+              onClick={() => onEncaminhar(msg)}
+              aria-label="Encaminhar esta mensagem"
+              title="Encaminhar"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Forward className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Barra rapida de emoji, como no WhatsApp. */}
+          {abrindoEmoji && onReagir && (
+            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-[#2a3942] bg-[#233138] px-1.5 py-1 shadow-lg left-0">
+              {EMOJIS_RAPIDOS.map((e) => {
+                const minha = msg.reacoes?.some((r) => r.emoji === e && r.minha);
+                return (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => {
+                      // Tocar na que ja e minha desfaz.
+                      onReagir(msg, minha ? "" : e);
+                      setAbrindoEmoji(false);
+                    }}
+                    title={minha ? "Tirar a sua reação" : `Reagir com ${e}`}
+                    className={`rounded-full px-1 text-[20px] leading-7 transition hover:scale-125 ${
+                      minha ? "bg-[#0a332c]" : ""
+                    }`}
+                  >
+                    {e}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

@@ -37,6 +37,8 @@ export interface WaMessage {
   mimetype?: string;
   fileName?: string;
   status?: number;
+  /** Reações nesta mensagem, por emoji. `minha` deixa o botão marcado. */
+  reacoes?: { emoji: string; total: number; minha: boolean }[];
 }
 
 export interface Alerta {

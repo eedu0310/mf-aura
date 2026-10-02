@@ -12,6 +12,9 @@ import {
   sendFile,
   sendText,
   startSession,
+  marcarNaoLida,
+  reagir,
+  encaminhar,
 } from "@/lib/whatsapp/live-manager";
 import {
   agendarAnalise,
@@ -215,6 +218,49 @@ export async function POST(request: NextRequest) {
         if (body.chat) markRead(userId, String(body.chat));
         return NextResponse.json({ ok: true });
       }
+      /** Marcar como nao lida, como no WhatsApp Business. */
+      case "unread": {
+        if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
+        const r = await marcarNaoLida(userId, String(body.chat));
+        return NextResponse.json({ ok: true, ...r });
+      }
+
+      /**
+       * Reagir com emoji. Emoji vazio desfaz, que e como o proprio WhatsApp
+       * trata: tirar a reacao e reagir com nada.
+       */
+      case "react": {
+        const chat = String(body.chat ?? "").trim();
+        const msgId = String(body.msgId ?? "").trim();
+        if (!chat || !msgId) {
+          return NextResponse.json({ error: "Informe a conversa e a mensagem." }, { status: 400 });
+        }
+        // Limite curto de proposito: reacao e um emoji, nao um recado.
+        const emoji = String(body.emoji ?? "").slice(0, 8);
+        await reagir(userId, chat, msgId, emoji);
+        return NextResponse.json({ ok: true });
+      }
+
+      /** Encaminhar mensagem, foto ou documento para outras conversas. */
+      case "forward": {
+        const de = String(body.chat ?? "").trim();
+        const msgId = String(body.msgId ?? "").trim();
+        const para = Array.isArray(body.para) ? body.para.map((p: unknown) => String(p)).filter(Boolean) : [];
+        if (!de || !msgId || para.length === 0) {
+          return NextResponse.json(
+            { error: "Informe a conversa, a mensagem e para quem encaminhar." },
+            { status: 400 },
+          );
+        }
+        if (para.length > 10) {
+          // O mesmo teto do WhatsApp: acima disso vira disparo em massa, que
+          // derruba o numero.
+          return NextResponse.json({ error: "No máximo 10 conversas por vez." }, { status: 400 });
+        }
+        const r = await encaminhar(userId, de, msgId, para);
+        return NextResponse.json({ ok: true, ...r });
+      }
+
       case "older": {
         if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
         await loadOlder(userId, String(body.chat));

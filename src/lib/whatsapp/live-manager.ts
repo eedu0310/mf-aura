@@ -35,6 +35,15 @@ export interface WaMessage {
   fileName?: string;
   /** 0 erro · 1 pendente · 2 enviado (✓) · 3 entregue (✓✓) · 4 lido (✓✓ azul) */
   status?: number;
+  /**
+   * Reacoes nesta mensagem, por emoji. `minha` diz se a nossa esta entre elas,
+   * para o botao aparecer marcado.
+   *
+   * O WhatsApp manda reacao como uma MENSAGEM propria, apontando para a
+   * mensagem alvo. Antes elas eram descartadas (o parser devolvia nulo), ou
+   * seja: o cliente reagia e o vendedor nunca via.
+   */
+  reacoes?: { emoji: string; total: number; minha: boolean }[];
 }
 
 export interface WaChat {
@@ -523,6 +532,43 @@ async function resolvePn(s: WaSession, chat: WaChat) {
   }
 }
 
+/**
+ * Carimba (ou retira) uma reacao na mensagem alvo.
+ *
+ * Emoji vazio significa que a pessoa DESFEZ a reacao - e assim que o WhatsApp
+ * avisa. Sem tratar esse caso, a reacao removida ficava na tela para sempre.
+ */
+function aplicarReacao(s: WaSession, jid: string, reacao: any, minha: boolean) {
+  const alvo: string | undefined = reacao?.key?.id;
+  if (!alvo) return;
+  const msg = s.messages.get(jid)?.find((m) => m.id === alvo);
+  if (!msg) return;
+
+  const emoji = String(reacao.text ?? "").trim();
+  const atuais = msg.reacoes ?? [];
+
+  // Cada pessoa tem uma reacao por mensagem: a nova substitui a anterior dela.
+  const semAMinha = atuais
+    .map((r) => (minha && r.minha ? { ...r, total: r.total - 1, minha: false } : r))
+    .filter((r) => r.total > 0);
+
+  if (!emoji) {
+    msg.reacoes = semAMinha.length ? semAMinha : undefined;
+    markDirty(s);
+    return;
+  }
+
+  const achada = semAMinha.find((r) => r.emoji === emoji);
+  if (achada) {
+    achada.total += 1;
+    achada.minha = achada.minha || minha;
+  } else {
+    semAMinha.push({ emoji, total: 1, minha });
+  }
+  msg.reacoes = semAMinha;
+  markDirty(s);
+}
+
 function toMillis(ts: any): number {
   if (!ts) return Date.now();
   const n = typeof ts === "number" ? ts : Number(ts?.toString?.() ?? ts);
@@ -532,6 +578,14 @@ function toMillis(ts: any): number {
 function addMessage(s: WaSession, msg: any, live: boolean) {
   const jidBruto: string | undefined = msg?.key?.remoteJid;
   if (!jidBruto || isIgnoredJid(jidBruto)) return;
+
+  // Reacao nao e mensagem: e um carimbo numa mensagem que ja existe.
+  const reacao = unwrap(msg.message)?.reactionMessage;
+  if (reacao) {
+    aplicarReacao(s, jidCanonico(s, jidBruto), reacao, !!msg.key.fromMe);
+    return;
+  }
+
   const parsed = parseMessage(msg.message);
   if (!parsed) return;
 
@@ -1009,6 +1063,117 @@ export function markRead(userId: string, chatId: string) {
   } catch {
     /* ignora */
   }
+}
+
+/**
+ * Marca a conversa como NAO lida, como no WhatsApp Business.
+ *
+ * Serve de recado para si mesmo: "volto aqui". Por isso o aviso tambem sobe
+ * para o celular (chatModify), senao o vendedor marcaria no CRM e o aparelho
+ * continuaria dizendo que esta lida - duas verdades para a mesma conversa.
+ *
+ * Se o celular recusar, a marca local continua valendo: e melhor a marca
+ * funcionar so aqui do que nao funcionar.
+ */
+export async function marcarNaoLida(userId: string, chatId: string) {
+  const s = sessions.get(userId);
+  if (!s) throw new Error("Sessão do WhatsApp não encontrada.");
+  const chat = s.chats.get(chatId);
+  if (chat && chat.unread < 1) chat.unread = 1;
+  markDirty(s);
+
+  try {
+    const ultima = s.messages.get(chatId)?.slice(-1)[0];
+    if (s.sock && ultima) {
+      await s.sock.chatModify(
+        {
+          markRead: false,
+          lastMessages: [
+            {
+              key: { remoteJid: chatId, id: ultima.id, fromMe: ultima.fromMe },
+              messageTimestamp: Math.floor(ultima.timestamp / 1000),
+            },
+          ],
+        },
+        chatId,
+      );
+    }
+  } catch (e: any) {
+    console.error("[whatsapp] marcar nao lida no aparelho:", e?.message ?? e);
+  }
+  return { chatId, unread: s.chats.get(chatId)?.unread ?? 1 };
+}
+
+/**
+ * Reage a uma mensagem com emoji, como no WhatsApp Business.
+ *
+ * Emoji vazio desfaz a reacao - e o mesmo protocolo que o aparelho usa, entao
+ * tirar e so reagir com "".
+ */
+export async function reagir(userId: string, chatId: string, msgId: string, emoji: string) {
+  const s = requireConnected(userId);
+  const msg = s.messages.get(chatId)?.find((m) => m.id === msgId);
+  if (!msg) throw new Error("Mensagem não encontrada nesta conversa.");
+
+  await s.sock.sendMessage(chatId, {
+    react: { text: emoji, key: { remoteJid: chatId, id: msgId, fromMe: msg.fromMe } },
+  });
+
+  // O aparelho nao devolve a nossa propria reacao, entao carimbamos aqui para
+  // a tela responder na hora em vez de esperar um eco que nao vem.
+  aplicarReacao(s, chatId, { key: { id: msgId }, text: emoji }, true);
+  return { ok: true };
+}
+
+/**
+ * Encaminha uma mensagem para outras conversas, como no WhatsApp Business.
+ *
+ * Midia (foto, video, documento) fica guardada inteira em `s.raw` e e
+ * encaminhada de verdade, com o selo "Encaminhada" e sem reenviar o arquivo.
+ * Texto NAO fica guardado inteiro: para ele remontamos o minimo que o
+ * WhatsApp aceita, do mesmo jeito que a citacao faz.
+ *
+ * Devolve o que deu certo e o que falhou por destino, em vez de parar no
+ * primeiro erro: encaminhar para cinco e falhar em um nao pode perder os
+ * outros quatro.
+ */
+export async function encaminhar(
+  userId: string,
+  deChatId: string,
+  msgId: string,
+  paraChatIds: string[],
+) {
+  const s = requireConnected(userId);
+  const guardada = s.messages.get(deChatId)?.find((m) => m.id === msgId);
+  if (!guardada) throw new Error("Mensagem não encontrada nesta conversa.");
+
+  const raw = s.raw.get(msgId);
+  const original =
+    raw?.key && raw?.message
+      ? raw
+      : {
+          key: { remoteJid: deChatId, fromMe: guardada.fromMe, id: msgId },
+          message: { conversation: guardada.text || previewOf(guardada) },
+        };
+
+  const enviados: string[] = [];
+  const falhas: { chatId: string; motivo: string }[] = [];
+
+  for (const destino of paraChatIds) {
+    try {
+      const jid = await resolveJid(s, destino);
+      const sent = await s.sock.sendMessage(jid, { forward: original });
+      await afterSend(s, jid, sent);
+      enviados.push(jid);
+    } catch (e: any) {
+      falhas.push({ chatId: destino, motivo: e?.message ?? "falha ao encaminhar" });
+    }
+  }
+
+  if (!enviados.length) {
+    throw new Error(falhas[0]?.motivo ?? "Não consegui encaminhar para nenhuma conversa.");
+  }
+  return { enviados, falhas };
 }
 
 /** Pede ao celular mensagens mais antigas da conversa (chegam via messaging-history.set). */
