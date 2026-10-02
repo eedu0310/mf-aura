@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extrairTexto } from "@/lib/aura/extrair-texto";
 import { limparCacheMateriais } from "@/lib/aura/materiais";
 import { regravarTrechos } from "@/lib/aura/trechos";
+import { NOMES_EMPRESAS } from "@/lib/companies";
 import { limparCache } from "@/lib/aura/ia";
 
 export const runtime = "nodejs";
@@ -16,9 +17,19 @@ async function sessao() {
   if (!sb) return { erro: "Supabase não configurado.", status: 500 as const };
   const { data } = await sb.auth.getUser();
   if (!data.user) return { erro: "Faça login novamente.", status: 401 as const };
-  const { data: perfil } = await sb.from("profiles").select("empresa, cargo").eq("id", data.user.id).maybeSingle();
+  const { data: perfil } = await sb
+    .from("profiles")
+    .select("empresa, cargo, gestor_mestre")
+    .eq("id", data.user.id)
+    .maybeSingle();
   if (!perfil) return { erro: "Perfil não encontrado.", status: 404 as const };
-  return { sb, userId: data.user.id, empresa: perfil.empresa as string, cargo: perfil.cargo as string };
+  return {
+    sb,
+    userId: data.user.id,
+    empresa: perfil.empresa as string,
+    cargo: perfil.cargo as string,
+    gestorMestre: !!perfil.gestor_mestre,
+  };
 }
 
 const podeEditar = (cargo: string) => ["Gestor"].includes(cargo);
@@ -88,39 +99,76 @@ export async function POST(req: NextRequest) {
     }
     if (texto.length > MAX_CARACTERES) texto = texto.slice(0, MAX_CARACTERES);
 
-    const { data, error } = await s.sb
-      .from("aura_materiais")
-      .insert({ empresa, titulo, descricao, arquivo_nome: arquivoNome, tipo, bytes, texto, criado_por: s.userId })
-      .select("id, titulo, caracteres")
-      .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
     /**
-     * Parte o material em trechos buscáveis agora, no envio.
+     * "todas" manda o mesmo material para as quatro lojas, de uma vez.
      *
-     * Sem este passo o material entra no banco e fica FORA da busca: a AURA
-     * nunca acharia o que acabou de receber, e o gestor não teria como saber —
-     * o envio diria "ok" do mesmo jeito.
-     *
-     * Falha aqui não perde o material: ele já está salvo e o gestor recebe o
-     * aviso de que a busca não foi montada, em vez de um sucesso que mente.
+     * O material de treinamento da casa é do grupo, não de uma operação: sem
+     * isto, cada documento precisa ser enviado quatro vezes, e quem esquece
+     * uma loja deixa a equipe dela atendendo com manual a menos — e não há
+     * tela que mostre essa falta. Só gestor mestre, que é quem responde pelas
+     * quatro.
      */
-    let trechos = 0;
-    let avisoTrechos: string | undefined;
-    try {
-      trechos = await regravarTrechos(s.sb, { id: data.id, empresa, titulo, texto });
-    } catch (e: any) {
-      console.error("[aura/materiais] trechos:", e?.message ?? e);
-      avisoTrechos = "Material salvo, mas não consegui preparar a busca por trechos. Reenvie para tentar de novo.";
+    const lojas =
+      empresa === "todas" && s.gestorMestre ? NOMES_EMPRESAS : [empresa === "todas" ? s.empresa : empresa];
+
+    const criados: { empresa: string; id: string; trechos: number }[] = [];
+    const avisos: string[] = [];
+
+    for (const loja of lojas) {
+      const { data, error } = await s.sb
+        .from("aura_materiais")
+        .insert({
+          empresa: loja,
+          titulo,
+          descricao,
+          arquivo_nome: arquivoNome,
+          tipo,
+          bytes,
+          texto,
+          criado_por: s.userId,
+        })
+        .select("id, titulo, caracteres")
+        .single();
+      if (error) {
+        avisos.push(`${loja}: ${error.message}`);
+        continue;
+      }
+
+      /**
+       * Parte o material em trechos buscáveis agora, no envio.
+       *
+       * Sem este passo o material entra no banco e fica FORA da busca: a AURA
+       * nunca acharia o que acabou de receber, e o gestor não teria como
+       * saber — o envio diria "ok" do mesmo jeito.
+       *
+       * Falha ao partir não perde o material: ele já está salvo, e o aviso
+       * sobe para a tela em vez de um sucesso que mente.
+       */
+      let trechos = 0;
+      try {
+        trechos = await regravarTrechos(s.sb, { id: data.id, empresa: loja, titulo, texto });
+      } catch (e: any) {
+        console.error("[aura/materiais] trechos:", e?.message ?? e);
+        avisos.push(`${loja}: material salvo, mas a busca por trechos não foi montada. Reenvie.`);
+      }
+      criados.push({ empresa: loja, id: data.id, trechos });
+      limparCacheMateriais(loja);
     }
 
-    limparCacheMateriais(empresa);
+    if (!criados.length) {
+      return NextResponse.json(
+        { error: avisos.join(" | ") || "Não consegui salvar o material." },
+        { status: 500 },
+      );
+    }
+
     limparCache();
     return NextResponse.json({
       ok: true,
-      material: data,
-      trechos,
-      aviso: aviso ?? avisoTrechos,
+      material: criados[0],
+      lojas: criados,
+      trechos: criados.reduce((t, c) => t + c.trechos, 0),
+      aviso: [aviso, ...avisos].filter(Boolean).join(" | ") || undefined,
     });
   } catch (e: any) {
     console.error("[aura/materiais]", e);

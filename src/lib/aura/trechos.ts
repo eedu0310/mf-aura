@@ -86,15 +86,20 @@ function ehNucleo(origem: string): boolean {
  *    regra que salve; sobra a junção de fragmentos para o resultado não ficar
  *    picado em pedaços de quarenta caracteres.
  *
- * A ordem das verificações importa. Medi nos dois materiais da casa: no SCMF,
- * 36 linhas são numeradas-em-maiúscula e 41 são "sem minúscula" — porque as
- * numeradas também não têm minúscula. Se eu testasse maiúscula antes, o
- * documento cairia na regra errada e perderia a numeração que organiza ele.
+ * ESCOLHER entre os estilos foi meu erro, e ele apareceria num documento de
+ * verdade: o Manual de Vendas tem só 4 linhas numeradas (as do sumário) e 44
+ * em maiúscula no corpo. Uma regra que testasse numeração primeiro escolheria
+ * o estilo numerado e partiria 96 mil caracteres em QUATRO seções gigantes.
+ *
+ * Então os dois estilos SOMAM em vez de competir: título é a linha numerada em
+ * maiúscula OU a linha em maiúscula. Quem tem os dois ganha os dois, e nenhum
+ * documento é penalizado por usar uma convenção que o outro não usa. A
+ * numeração solta (sem maiúscula) só vale quando não há nada melhor.
  */
-function estiloDeTitulo(linhas: string[]): "markdown" | "numeroMaiusculo" | "maiuscula" | "numero" {
+function estiloDeTitulo(linhas: string[]): "markdown" | "cabecalhos" | "numero" {
   if (linhas.some((l) => /^\s{0,3}#{1,6}\s+\S/.test(l))) return "markdown";
-  if (linhas.filter(ehTituloNumerado).length >= 3) return "numeroMaiusculo";
-  if (linhas.filter(ehLinhaMaiuscula).length >= 3) return "maiuscula";
+  const cabecalhos = linhas.filter((l) => ehTituloNumerado(l) || ehLinhaMaiuscula(l)).length;
+  if (cabecalhos >= 3) return "cabecalhos";
   return "numero";
 }
 
@@ -149,8 +154,7 @@ export function partirEmTrechos(
 
   const ehTitulo = (l: string) => {
     if (estilo === "markdown") return /^\s{0,3}#{1,6}\s+\S/.test(l);
-    if (estilo === "numeroMaiusculo") return ehTituloNumerado(l);
-    if (estilo === "maiuscula") return ehLinhaMaiuscula(l);
+    if (estilo === "cabecalhos") return ehTituloNumerado(l) || ehLinhaMaiuscula(l);
     return /^\s{0,3}\d{1,3}\.\s+\S/.test(l);
   };
 

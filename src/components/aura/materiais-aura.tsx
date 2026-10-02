@@ -33,6 +33,8 @@ const tamanho = (b: number | null) => (!b ? "" : b >= 1024 * 1024 ? `${(b / 1024
 export function MateriaisAura({ loja }: { loja?: string }) {
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [podeEditar, setPodeEditar] = useState(false);
+  /** Mandar o mesmo material para as quatro lojas de uma vez. */
+  const [todasAsLojas, setTodasAsLojas] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -70,6 +72,7 @@ export function MateriaisAura({ loja }: { loja?: string }) {
     setDescricao("");
     setTexto("");
     setArquivo(null);
+    setTodasAsLojas(false);
   }
 
   async function enviar() {
@@ -85,18 +88,22 @@ export function MateriaisAura({ loja }: { loja?: string }) {
         form.append("file", arquivo);
         form.append("titulo", titulo);
         form.append("descricao", descricao);
-        if (loja) form.append("loja", loja);
+        if (todasAsLojas) form.append("loja", "todas");
+        else if (loja) form.append("loja", loja);
         res = await fetch("/api/aura/materiais", { method: "POST", body: form });
       } else {
         res = await fetch("/api/aura/materiais", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ titulo, descricao, texto, loja }),
+          body: JSON.stringify({ titulo, descricao, texto, loja: todasAsLojas ? "todas" : loja }),
         });
       }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Erro ao enviar");
       if (json.aviso) setAviso(json.aviso);
+      else if (Array.isArray(json.lojas) && json.lojas.length > 1) {
+        setAviso(`Enviado para ${json.lojas.length} lojas, em ${json.trechos} trechos buscáveis.`);
+      }
       limpar();
       carregar();
     } catch (e: any) {
@@ -231,6 +238,22 @@ export function MateriaisAura({ loja }: { loja?: string }) {
             <button type="button" onClick={limpar} className="rounded-full px-4 py-2 text-sm text-aura-graphite-soft hover:text-aura-graphite">
               Cancelar
             </button>
+
+            {/*
+              O material de treinamento é do grupo, não de uma operação. Sem
+              esta caixa, cada documento tem de ser enviado quatro vezes, e
+              quem esquece uma loja deixa a equipe dela com manual a menos —
+              sem nenhuma tela que mostre a falta.
+            */}
+            <label className="ml-auto flex items-center gap-2 text-sm text-aura-graphite">
+              <input
+                type="checkbox"
+                checked={todasAsLojas}
+                onChange={(e) => setTodasAsLojas(e.target.checked)}
+                className="h-4 w-4 rounded border-aura-mist"
+              />
+              Enviar para todas as lojas
+            </label>
           </div>
         </div>
       )}
