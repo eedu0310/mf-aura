@@ -198,41 +198,19 @@ async function processarFluxoDeLead(
     return;
   }
 
-  const { data: existente } = await supabase
-    .from("relacionamentos")
-    .select("id")
-    .eq("empresa", empresa)
-    .eq("telefone", telefone)
-    .maybeSingle();
-
-  let relacionamentoId = existente?.id as string | undefined;
-
-  if (!relacionamentoId) {
-    const { data: criado, error: erroRelacionamento } = await supabase
-      .from("relacionamentos")
-      .insert({
-        empresa,
-        nome: nome?.trim() || `Lead WhatsApp ${telefone}`,
-        categoria: "Cliente Final",
-        cidade: "Não informado",
-        telefone,
-        temperatura: "quente",
-        ultimo_contato: "hoje",
-        proximo_contato: "hoje",
-        observacao: "Lead recebido automaticamente via WhatsApp.",
-        obras_indicadas: 0,
-        valor_gerado: 0,
-      })
-      .select("id")
-      .single();
-
-    if (erroRelacionamento) {
-      console.error("Erro ao criar relacionamento do lead:", erroRelacionamento);
-    } else {
-      relacionamentoId = criado?.id;
-    }
-  }
-
+  /**
+   * O relacionamento NÃO é criado aqui.
+   *
+   * Aqui ainda não se sabe de quem o lead vai ser. Este código criava o
+   * registro antes da distribuição e por isso o criava SEM dono — e, pior,
+   * antes de criar procurava um relacionamento por loja + telefone, sem olhar
+   * dono: um lead novo se prendia ao contato de OUTRO vendedor que já tivesse
+   * aquele número na carteira. Mistura de lead pela porta de trás.
+   *
+   * Quem cria é distribuir_lead_novo, o único ponto que sabe de quem o lead
+   * passou a ser — e faz as duas coisas na mesma transação, sem janela em que
+   * o lead tem dono e a carteira não.
+   */
   const classificacao = await classificarLead(mensagem);
   const temPerguntas = perguntas.length > 0;
 
@@ -244,7 +222,7 @@ async function processarFluxoDeLead(
       telefone,
       mensagem_inicial: mensagem,
       origem: "WhatsApp",
-      relacionamento_id: relacionamentoId ?? null,
+      relacionamento_id: null,
       classificacao: classificacao.classificacao,
       urgencia: classificacao.urgencia,
       resumo_ia: classificacao.resumo,
