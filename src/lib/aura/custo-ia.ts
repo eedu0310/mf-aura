@@ -93,25 +93,55 @@ export async function podeChamarIA(): Promise<boolean> {
   }
 }
 
+/**
+ * Multiplicadores do cache de prompt, conforme a tabela da Anthropic.
+ * Escrita com TTL de 1 hora custa 2x o token de entrada; toda leitura do cache
+ * custa 0,1x. É isso que torna o manual barato de repetir.
+ */
+const MULT_ESCRITA_CACHE = 2;    // usamos ttl de 1h no supervisor e no fechamento
+const MULT_LEITURA_CACHE = 0.1;
+
 /** Anota o consumo de uma chamada. Recebe o `usage` que o Claude devolve. */
 export async function registrarUsoIA(dados: {
   funcao: string;
   modelo: string;
-  uso?: { input_tokens?: number; output_tokens?: number } | null;
+  uso?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    // O SDK devolve null (não undefined) quando a chamada não usou cache.
+    cache_creation_input_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
+  } | null;
   empresa?: string | null;
   usuarioId?: string | null;
 }): Promise<void> {
   try {
-    const entrada = Number(dados.uso?.input_tokens ?? 0);
+    // ATENÇÃO: com cache de prompt ligado, input_tokens traz APENAS a parte que
+    // não veio do cache. O que foi lido do cache vem em cache_read_input_tokens
+    // e o que foi gravado em cache_creation_input_tokens. Somar só o primeiro
+    // faria o manual cacheado sumir da conta, e o painel mostraria um custo
+    // menor que a fatura real — justamente o número que o gestor usa para
+    // decidir se a IA está cara.
+    const entradaCrua = Number(dados.uso?.input_tokens ?? 0);
+    const escritaCache = Number(dados.uso?.cache_creation_input_tokens ?? 0);
+    const leituraCache = Number(dados.uso?.cache_read_input_tokens ?? 0);
     const saida = Number(dados.uso?.output_tokens ?? 0);
+
+    // Guardamos o total lido pelo modelo, para o painel mostrar volume real.
+    const entrada = entradaCrua + escritaCache + leituraCache;
     if (!entrada && !saida) return;
 
     const sb = getSupabaseServiceClient();
     if (!sb) return;
 
     const config = await lerConfig();
+    // Cada fatia tem o seu preço: entrada normal 1x, escrita no cache 2x,
+    // leitura do cache 0,1x.
     const custo =
-      (entrada / 1_000_000) * config.preco_entrada_usd + (saida / 1_000_000) * config.preco_saida_usd;
+      (entradaCrua / 1_000_000) * config.preco_entrada_usd +
+      (escritaCache / 1_000_000) * config.preco_entrada_usd * MULT_ESCRITA_CACHE +
+      (leituraCache / 1_000_000) * config.preco_entrada_usd * MULT_LEITURA_CACHE +
+      (saida / 1_000_000) * config.preco_saida_usd;
 
     await sb.from("ia_uso").insert({
       empresa: dados.empresa ?? null,
