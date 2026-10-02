@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extrairTexto } from "@/lib/aura/extrair-texto";
 import { limparCacheMateriais } from "@/lib/aura/materiais";
+import { regravarTrechos } from "@/lib/aura/trechos";
 import { limparCache } from "@/lib/aura/ia";
 
 export const runtime = "nodejs";
@@ -94,9 +95,33 @@ export async function POST(req: NextRequest) {
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    /**
+     * Parte o material em trechos buscáveis agora, no envio.
+     *
+     * Sem este passo o material entra no banco e fica FORA da busca: a AURA
+     * nunca acharia o que acabou de receber, e o gestor não teria como saber —
+     * o envio diria "ok" do mesmo jeito.
+     *
+     * Falha aqui não perde o material: ele já está salvo e o gestor recebe o
+     * aviso de que a busca não foi montada, em vez de um sucesso que mente.
+     */
+    let trechos = 0;
+    let avisoTrechos: string | undefined;
+    try {
+      trechos = await regravarTrechos(s.sb, { id: data.id, empresa, titulo, texto });
+    } catch (e: any) {
+      console.error("[aura/materiais] trechos:", e?.message ?? e);
+      avisoTrechos = "Material salvo, mas não consegui preparar a busca por trechos. Reenvie para tentar de novo.";
+    }
+
     limparCacheMateriais(empresa);
     limparCache();
-    return NextResponse.json({ ok: true, material: data, aviso });
+    return NextResponse.json({
+      ok: true,
+      material: data,
+      trechos,
+      aviso: aviso ?? avisoTrechos,
+    });
   } catch (e: any) {
     console.error("[aura/materiais]", e);
     return NextResponse.json({ error: e?.message ?? "Erro ao enviar material." }, { status: 500 });

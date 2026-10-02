@@ -15,6 +15,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { modeloDeVolume } from "@/lib/aura/modelos";
 import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
+import { nucleoDoManual, textoDosTrechos, trechosRelevantes } from "@/lib/aura/trechos";
 import {
   ehCategoria,
   ehNatureza,
@@ -281,6 +282,12 @@ async function analisarComIa(
   alertas: Alerta[],
   materiais?: string,
   aprendizado?: string,
+  /**
+   * Trechos do manual escolhidos POR ESTA conversa. Viajam depois do ponto de
+   * corte do cache, porque mudam a cada análise - o que vem antes é idêntico
+   * e por isso é relido a 10% do preço.
+   */
+  trechos?: string,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -349,8 +356,21 @@ Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
   "alertas": ["riscos de perder este lead, se houver"]
 }
 
-MANUAL DE TREINAMENTO:
+REGRAS DA CASA (valem em toda conversa):
 ${manual || "(nenhum manual cadastrado — use boas práticas de venda consultiva)"}${blocoDeAprendizado(aprendizado ?? "")}`;
+
+  /**
+   * A parte do prompt que muda a cada conversa: o pedaço do manual que tem a
+   * ver com o que está sendo falado agora.
+   *
+   * Fica DEPOIS do bloco cacheado de propósito. O cache da Anthropic funciona
+   * por prefixo: tudo até o ponto de corte é relido a 10% do preço, e o que
+   * vem depois é cobrado cheio. Com o manual inteiro no prefixo e só o trecho
+   * variável no fim, a conta cai sem a IA perder contexto.
+   */
+  const variavel = trechos
+    ? `TRECHOS DO MANUAL PARA ESTE CASO (use-os nas dicas, citando o que o cliente disse):\n${trechos}`
+    : "";
 
   const user = `Agora: ${agora}
 Etapa atual no pipeline: ${etapaAtual ?? "sem oportunidade ainda"}
@@ -374,8 +394,13 @@ ${transcricao(msgs, nomeCliente)}`;
     system: [
       {
         type: "text" as const,
-        text: system + "\n\nEntregue a análise chamando a ferramenta \"analise\".",
+        text: system,
         cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+      },
+      // Depois do corte do cache: muda a cada conversa, então não é cacheável.
+      {
+        type: "text" as const,
+        text: `${variavel}${variavel ? "\n\n" : ""}Entregue a análise chamando a ferramenta "analise".`,
       },
     ],
     messages: [{ role: "user", content: user }],
@@ -863,13 +888,37 @@ export async function analisarConversa(
     let aviso: string | null = null;
     try {
       const sb0 = db();
+
+      /**
+       * O manual não viaja inteiro. Vão só as REGRAS DA CASA (o núcleo, que
+       * vale em qualquer conversa) e os TRECHOS que a busca achou pelo assunto
+       * desta conversa.
+       *
+       * Com os sete documentos da casa carregados, mandar tudo bateria no
+       * corte de 40 mil caracteres e o manual chegaria partido no meio -
+       * sempre na mesma parte, para toda conversa.
+       *
+       * QUEDA SEGURA: se ainda não há trechos gravados para a loja, o núcleo
+       * vem vazio e voltamos ao jeito antigo, mandando o material inteiro. É
+       * melhor pagar mais caro do que atender sem manual.
+       */
+      let fixo = sb0 ? await nucleoDoManual(sb0, empresa).catch(() => "") : "";
+      let trechos = "";
+      if (sb0 && fixo) {
+        trechos = textoDosTrechos(
+          await trechosRelevantes(sb0, empresa, transcricao(msgs, chat.name), 6),
+        );
+      }
+      if (!fixo) fixo = await materiaisDaEmpresa(empresa);
+
       analise = await analisarComIa(
         msgs,
         chat.name,
         etapaPipelineAtual,
         alertas,
-        await materiaisDaEmpresa(empresa),
+        fixo,
         sb0 ? await textoDoAprendizado(sb0, empresa) : "",
+        trechos,
       );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);
