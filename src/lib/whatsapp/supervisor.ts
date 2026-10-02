@@ -16,6 +16,12 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { modeloDeVolume } from "@/lib/aura/modelos";
 import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import {
+  ehCategoria,
+  ehNatureza,
+  type CategoriaContato,
+  type NaturezaContato,
+} from "@/lib/categoria-contato";
+import {
   connectedUserIds,
   getChat,
   getChats,
@@ -38,6 +44,19 @@ export interface LeadInfo {
   chatJid: string;
   ehLead: boolean;
   ignorado: boolean;
+  /**
+   * O que o contato e para o negocio, decidido pelo vendedor:
+   * 'lead' entra no pipeline, 'nao_lead' e instalador/colega/amigo e a AURA
+   * nao acompanha, 'cliente' ja comprou e pertence ao pos-venda.
+   * null = ninguem decidiu ainda.
+   */
+  natureza: NaturezaContato | null;
+  /** Cliente Final, Arquiteto, Construtora... o mesmo vocabulario da carteira. */
+  categoria: CategoriaContato | null;
+  /** Por que nao e lead, quando for o caso. */
+  motivoNatureza: string | null;
+  /** O que a AURA achou que o contato e, para o vendedor so confirmar. */
+  categoriaSugerida: CategoriaContato | null;
   /** A AURA achou que pode ser lead, mas não teve certeza: espera confirmação. */
   leadSugerido: boolean;
   motivoSugestao: string | null;
@@ -163,6 +182,10 @@ function formatarTelefone(phone: string) {
 
 interface AnaliseIa {
   e_lead: boolean;
+  /** O que a IA achou que o contato e. O vendedor confirma; ela nao decide. */
+  categoria_sugerida: CategoriaContato | null;
+  /** Quando nao e lead: instalador, fornecedor, colega... serve de etiqueta. */
+  tipo_nao_lead: string | null;
   etapa: Etapa | null;
   confianca: number;
   evidencia: string;
@@ -193,6 +216,23 @@ const FERRAMENTA_ANALISE = {
     type: "object" as const,
     properties: {
       e_lead: { type: "boolean" },
+      categoria_sugerida: {
+        type: ["string", "null"],
+        enum: [
+          "Cliente Final",
+          "Arquiteto",
+          "Construtora",
+          "Revendedor",
+          "Engenheiro",
+          "Designer de Interiores",
+          "Consultor",
+          "Obra",
+          "Distribuidor",
+          "Outro",
+          null,
+        ],
+      },
+      tipo_nao_lead: { type: ["string", "null"] },
       etapa: { type: ["string", "null"], enum: ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos", null] },
       confianca: { type: "number" },
       evidencia: { type: "string" },
@@ -256,6 +296,32 @@ a carteira da pessoa e faz ela perder confiança no sistema — é pior do que
 perguntar. Use confiança alta só quando a conversa fala claramente de
 produto, preço, medida, prazo, instalação ou orçamento do nosso ramo.
 
+QUEM NÃO É LEAD, mesmo falando do nosso produto o tempo todo. Estes são os
+erros que mais aparecem na prática, e todos devem ter "e_lead": false:
+- INSTALADOR e equipe de instalação: combina data, endereço, medida, peça que
+  faltou, foto da obra pronta. Fala de produto porque é o trabalho dele —
+  não está comprando. Sinais: "tô na obra", "o cliente pediu", "vou passar lá
+  amanhã", "faltou a peça", manda foto de serviço executado.
+- COLEGA DE EQUIPE, GESTOR ou CHEFE: fala de meta, cliente de terceiro,
+  escala, preço de custo, comissão. Trata o vendedor como colega, não como
+  fornecedor.
+- FORNECEDOR e transportadora: nota fiscal, prazo de entrega PARA NÓS, frete,
+  pedido de compra nosso.
+- AMIGO e FAMÍLIA, mesmo que puxem assunto de lareira.
+- SUPORTE a quem já comprou: a peça não acende, veio torta, quer manutenção.
+  É pós-venda, não venda nova. Use "tipo_nao_lead": "Suporte técnico".
+Quando "e_lead" for false, preencha "tipo_nao_lead" com o que o contato é
+(Instalador, Fornecedor, Colega de equipe, Gestor ou chefe, Amigo ou família,
+Suporte técnico, Outro assunto). É isso que o vendedor vê na etiqueta.
+
+CATEGORIA: quando for lead, diga em "categoria_sugerida" o que o contato é no
+mercado, pela forma de falar. Arquiteto, designer e consultor falam de
+projeto, cliente dele, especificação, planta, acabamento, RT. Construtora e
+obra falam de várias unidades, cronograma, engenheiro, medição. Revendedor e
+distribuidor pedem tabela, margem, condição para revenda. Quem fala da casa
+dele, da lareira dele, é "Cliente Final". Sem sinal claro, devolva null — o
+vendedor escolhe.
+
 Use o MANUAL DE TREINAMENTO abaixo como a regra da casa. Suas dicas devem aplicar o manual ao caso concreto, citando o que o cliente disse.
 
 ETAPAS DO PIPELINE (em ordem):
@@ -268,7 +334,9 @@ ETAPAS DO PIPELINE (em ordem):
 
 Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 {
-  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para família, amigos, fornecedores, spam, suporte técnico, ou qualquer assunto fora de lareira/churrasqueira/aquecimento)
+  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, suporte de quem já comprou, ou qualquer assunto fora de lareira/churrasqueira/aquecimento)
+  "categoria_sugerida": "Cliente Final"|"Arquiteto"|"Construtora"|"Revendedor"|"Engenheiro"|"Designer de Interiores"|"Consultor"|"Obra"|"Distribuidor"|"Outro"|null,
+  "tipo_nao_lead": "o que o contato é, quando e_lead for false, ou null",
   "etapa": "Prospecção"|"Apresentação"|"Proposta"|"Negociação"|"Fechados"|"Perdidos"|null,
   "confianca": número de 0 a 1,
   "evidencia": "trecho curto da conversa que justifica a etapa",
@@ -328,6 +396,8 @@ ${transcricao(msgs, nomeCliente)}`;
   }
   return {
     e_lead: !!r.e_lead,
+    categoria_sugerida: ehCategoria(r.categoria_sugerida) ? r.categoria_sugerida : null,
+    tipo_nao_lead: r.tipo_nao_lead ? String(r.tipo_nao_lead).slice(0, 60) : null,
     etapa: ETAPAS.includes(r.etapa) ? r.etapa : null,
     confianca: Number(r.confianca) || 0,
     evidencia: String(r.evidencia ?? ""),
@@ -424,6 +494,12 @@ async function garantirRelacionamento(
   empresa: string,
   nome: string,
   phone: string,
+  /**
+   * A categoria que o vendedor marcou na etiqueta do WhatsApp. Vai junto para
+   * a carteira em vez de todo contato nascer "Cliente Final" e alguem ter de
+   * corrigir depois, um por um.
+   */
+  categoria: CategoriaContato | null = null,
 ): Promise<{ id: string | null; aviso: string | null }> {
   const variantes = variantesTelefone(phone);
   if (variantes.length) {
@@ -445,7 +521,7 @@ async function garantirRelacionamento(
       owner_id: userId,
       empresa,
       nome: nome || formatarTelefone(phone),
-      categoria: "Cliente Final",
+      categoria: categoria ?? "Cliente Final",
       telefone: variantes.length ? formatarTelefone(phone) : null,
       temperatura: "quente",
       origem: "WhatsApp",
@@ -657,6 +733,10 @@ function linhaParaLead(row: any, extra: Partial<LeadInfo> = {}): LeadInfo {
     leadSugerido: !!row?.lead_sugerido,
     motivoSugestao: (row?.motivo_sugestao as string | null) ?? null,
     ignorado: !!row?.ignorado,
+    natureza: ehNatureza(row?.natureza) ? row.natureza : null,
+    categoria: ehCategoria(row?.categoria) ? row.categoria : null,
+    motivoNatureza: (row?.motivo_natureza as string | null) ?? null,
+    categoriaSugerida: ehCategoria(row?.categoria_sugerida) ? row.categoria_sugerida : null,
     etapa: row?.etapa ?? null,
     etapaPipeline: null,
     oportunidadeId: row?.oportunidade_id ?? null,
@@ -697,14 +777,40 @@ export async function obterLead(userId: string, chatJid: string): Promise<LeadIn
 /** Resumo leve de todos os leads (para a lista de conversas). */
 export async function listarLeads(userId: string) {
   const sb = db();
-  if (!sb) return {} as Record<string, { etapa: Etapa | null; ignorado: boolean; lead: boolean }>;
+  if (!sb)
+    return {} as Record<
+      string,
+      {
+        etapa: Etapa | null;
+        ignorado: boolean;
+        lead: boolean;
+        natureza: NaturezaContato | null;
+        categoria: CategoriaContato | null;
+      }
+    >;
   const { data } = await sb
     .from("whatsapp_ia_leads")
-    .select("chat_jid, etapa, ignorado, oportunidade_id, relacionamento_id")
+    .select("chat_jid, etapa, ignorado, natureza, categoria, oportunidade_id, relacionamento_id")
     .eq("owner_id", userId);
-  const out: Record<string, { etapa: Etapa | null; ignorado: boolean; lead: boolean }> = {};
+  const out: Record<
+    string,
+    {
+      etapa: Etapa | null;
+      ignorado: boolean;
+      lead: boolean;
+      natureza: NaturezaContato | null;
+      categoria: CategoriaContato | null;
+    }
+  > = {};
   for (const r of data ?? []) {
-    out[r.chat_jid] = { etapa: r.etapa, ignorado: r.ignorado, lead: !!(r.oportunidade_id || r.relacionamento_id) };
+    out[r.chat_jid] = {
+      etapa: r.etapa,
+      ignorado: r.ignorado,
+      lead: !!(r.oportunidade_id || r.relacionamento_id),
+      // Vao para a etiqueta ao lado do nome na lista de conversas.
+      natureza: ehNatureza(r.natureza) ? r.natureza : null,
+      categoria: ehCategoria(r.categoria) ? r.categoria : null,
+    };
   }
   return out;
 }
@@ -729,7 +835,17 @@ export async function analisarConversa(
       .eq("owner_id", userId)
       .eq("chat_jid", chatJid)
       .maybeSingle();
-    if (row?.ignorado && !opts.comoLead) return;
+    /**
+     * Decisao do vendedor manda. Marcou "nao e lead" (instalador, colega,
+     * chefe, amigo) ou "ja e nosso cliente"? A AURA nao reabre o assunto nem
+     * volta a sugerir - era essa insistencia que enchia o pipeline de quem
+     * nunca foi comprar nada.
+     *
+     * A unica porta de volta e o proprio vendedor tocar em "Tratar como lead",
+     * que chega aqui como opts.comoLead.
+     */
+    const decidido = row?.natureza === "nao_lead" || row?.natureza === "cliente";
+    if ((row?.ignorado || decidido) && !opts.comoLead) return;
     const ultimo = msgs[msgs.length - 1];
     if (!opts.forcar && row?.ultimo_msg_id === ultimo.id) return;
 
@@ -839,6 +955,18 @@ export async function analisarConversa(
       interesse: analise?.interesse ?? row?.interesse ?? null,
       valor_estimado: analise?.valor_estimado ?? row?.valor_estimado ?? null,
     };
+    /**
+     * O palpite da IA fica guardado, nao aplicado: a categoria so entra no
+     * campo "categoria" quando o vendedor confirma. Se a IA escrevesse direto,
+     * a etiqueta erraria sozinha e ninguem saberia de onde veio.
+     */
+    if (!row?.categoria && analise?.categoria_sugerida) {
+      patch.categoria_sugerida = analise.categoria_sugerida;
+    }
+    // Instalador, colega, fornecedor: vira o motivo oferecido no painel.
+    if (!analise?.e_lead && analise?.tipo_nao_lead && !row?.natureza) {
+      patch.motivo_natureza = analise.tipo_nao_lead;
+    }
     patch.lead_sugerido = sugerirLead;
     patch.confianca_lead = analise ? confiancaLead : null;
     patch.motivo_sugestao = sugerirLead
@@ -858,7 +986,14 @@ export async function analisarConversa(
     if (ehLead) {
       let relacionamentoId: string | null = row?.relacionamento_id ?? null;
       if (!relacionamentoId) {
-        const r = await garantirRelacionamento(sb, userId, empresa, chat.name, chat.phone);
+        const r = await garantirRelacionamento(
+          sb,
+          userId,
+          empresa,
+          chat.name,
+          chat.phone,
+          ehCategoria(row?.categoria) ? row.categoria : analise?.categoria_sugerida ?? null,
+        );
         relacionamentoId = r.id;
         if (r.aviso) aviso = r.aviso;
       }
@@ -913,6 +1048,112 @@ export async function analisarConversa(
     console.error("[supervisor] analisarConversa:", e?.message ?? e);
   } finally {
     running.delete(key);
+  }
+}
+
+/**
+ * O vendedor diz o que o contato e. Tres respostas possiveis:
+ *
+ *   'lead'     - prospecto. Dispara a analise e entra no pipeline.
+ *   'nao_lead' - instalador, colega, chefe, amigo, fornecedor. A AURA para de
+ *                acompanhar e nao sugere mais.
+ *   'cliente'  - ja comprou da casa. E pos-venda do vendedor, nao prospeccao:
+ *                fica na carteira dele, fora do funil de prospeccao.
+ *
+ * A categoria (Arquiteto, Construtora, Cliente Final...) e independente da
+ * natureza e pode ser gravada sozinha, so para a etiqueta.
+ *
+ * Mantem o campo antigo "ignorado" coerente, porque ha codigo vivo que decide
+ * por ele - inclusive a propria analise automatica.
+ */
+export async function classificarContato(
+  userId: string,
+  chatJid: string,
+  entrada: {
+    natureza?: NaturezaContato | null;
+    categoria?: CategoriaContato | null;
+    motivo?: string | null;
+  },
+) {
+  const sb = db();
+  if (!sb) throw new Error("Supabase não configurado.");
+  const chat = getChat(userId, chatJid);
+
+  const linha: Record<string, unknown> = {
+    owner_id: userId,
+    empresa: await empresaDo(userId),
+    chat_jid: chatJid,
+    telefone: chat?.phone ?? null,
+    nome: chat?.name ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (entrada.natureza !== undefined) {
+    linha.natureza = entrada.natureza;
+    linha.classificado_em = new Date().toISOString();
+    linha.classificado_por = userId;
+    // 'nao_lead' e 'cliente' nao devem ser reabertos pela analise automatica.
+    linha.ignorado = entrada.natureza === "nao_lead" || entrada.natureza === "cliente";
+    if (entrada.natureza !== "nao_lead") linha.motivo_natureza = null;
+    if (entrada.natureza === "lead") {
+      // Deixou de ser palpite: virou decisao.
+      linha.lead_sugerido = false;
+      linha.motivo_sugestao = null;
+    }
+  }
+  if (entrada.categoria !== undefined) {
+    linha.categoria = entrada.categoria;
+    linha.categoria_sugerida = null;
+  }
+  if (entrada.motivo !== undefined) linha.motivo_natureza = entrada.motivo;
+
+  /**
+   * "Ja e nosso cliente" tem de valer na carteira, nao so na conversa.
+   *
+   * Sem isto, o vendedor marcava o cliente antigo e nada acontecia: o contato
+   * ficava de fora do funil (certo) e de fora da carteira (errado), ou seja,
+   * sumia. Quem comprou da casa pertence a carteira de quem vendeu — e dali
+   * que sai o pos-venda.
+   *
+   * Nao criamos pos_vendas aqui: aquela tabela exige uma venda registrada, e
+   * cliente antigo de antes do CRM nao tem. Inventar venda para preencher a
+   * tabela seria faturamento que ninguem vendeu.
+   */
+  if (entrada.natureza === "cliente" && chat?.phone) {
+    const r = await garantirRelacionamento(
+      sb,
+      userId,
+      String(linha.empresa ?? ""),
+      chat.name ?? "",
+      chat.phone,
+      entrada.categoria ?? null,
+    );
+    if (r.id) {
+      linha.relacionamento_id = r.id;
+      await sb
+        .from("relacionamentos")
+        .update({
+          status_relacionamento: "cliente",
+          // 'ativo' e nao 'quente': cliente da casa e relacionamento para
+          // manter, nao prospecto para perseguir. A tela da carteira mostra a
+          // temperatura, entao esta e a parte que o vendedor realmente ve.
+          temperatura: "ativo",
+          ultimo_contato_em: new Date().toISOString(),
+          ...(entrada.categoria ? { categoria: entrada.categoria } : {}),
+        })
+        .eq("id", r.id)
+        .eq("owner_id", userId);
+    }
+  }
+
+  const { error } = await sb
+    .from("whatsapp_ia_leads")
+    .upsert(linha, { onConflict: "owner_id,chat_jid" });
+  if (error) throw new Error(error.message);
+
+  // Marcou como lead: analisa agora, para o vendedor nao esperar o proximo ciclo.
+  if (entrada.natureza === "lead") {
+    agendarAnalise(userId, chatJid, 0, { forcar: true, comoLead: true });
   }
 }
 

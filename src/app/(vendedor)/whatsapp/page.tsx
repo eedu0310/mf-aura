@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { INFO_CATEGORIA, INFO_NATUREZA } from "@/lib/categoria-contato";
 import {
   AlertCircle,
   AlertTriangle,
@@ -568,6 +569,22 @@ export default function WhatsAppPage() {
             const alerta = alertasPorChat[chat.id]?.[0];
             const ativo = chat.id === selectedChatId;
             const etapa = info?.lead && !info.ignorado ? info.etapa : null;
+
+            /**
+             * Etiquetas do contato, como as do WhatsApp Business: o vendedor
+             * reconhece pela cor antes de ler. Duas no maximo — o estado
+             * (quando nao e lead ou ja e cliente) e a categoria de mercado.
+             * Cliente Final nao ganha etiqueta: e a maioria, e marcar todo
+             * mundo e o mesmo que nao marcar ninguem.
+             */
+            const etiquetas: { curto: string; cor: string; fundo: string }[] = [];
+            if (info?.natureza === "nao_lead" || info?.natureza === "cliente") {
+              const i = INFO_NATUREZA[info.natureza];
+              etiquetas.push({ curto: i.curto, cor: i.cor, fundo: i.fundo });
+            }
+            if (info?.categoria && info.categoria !== "Cliente Final") {
+              etiquetas.push(INFO_CATEGORIA[info.categoria]);
+            }
             return (
               <button
                 key={chat.id}
@@ -581,6 +598,15 @@ export default function WhatsAppPage() {
                     <p className="flex min-w-0 items-center gap-1.5 truncate text-[17px] text-[#e9edef]">
                       <span className="truncate">{chat.name}</span>
                       {etapa && <span title={etapa} className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PONTO_ETAPA[etapa] }} />}
+                      {etiquetas.map((e) => (
+                        <span
+                          key={e.curto}
+                          className="shrink-0 rounded px-1.5 py-[1px] text-[10px] font-medium leading-[14px]"
+                          style={{ background: e.fundo, color: e.cor }}
+                        >
+                          {e.curto}
+                        </span>
+                      ))}
                     </p>
                     <span className={`shrink-0 text-xs ${chat.unread ? "text-[#00a884]" : "text-[#8696a0]"}`}>{formatListTime(chat.timestamp)}</span>
                   </div>

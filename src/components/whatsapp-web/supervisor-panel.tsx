@@ -11,12 +11,19 @@ import {
   Lightbulb,
   Loader2,
   RefreshCw,
+  Tags,
   Target,
-  UserMinus,
   UserPlus,
   X,
 } from "lucide-react";
 import { COR_ETAPA, ETAPAS_FUNIL, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
+import {
+  CATEGORIAS_CONTATO,
+  INFO_CATEGORIA,
+  INFO_NATUREZA,
+  MOTIVOS_NAO_LEAD,
+  NATUREZAS,
+} from "@/lib/categoria-contato";
 
 interface Props {
   chatId: string;
@@ -126,6 +133,117 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
           </Secao>
         )}
 
+        {/*
+          O QUE E ESTE CONTATO — sempre visivel.
+
+          Antes, a unica forma de dizer "nao e lead" era um botao que so
+          aparecia quando a propria AURA tinha chutado que era. Quem sabia de
+          saida que o numero era o instalador, o colega ou o chefe nao tinha
+          onde dizer isso, e a IA seguia tratando como venda nova.
+
+          Sao dois eixos independentes: a natureza decide se entra no pipeline,
+          a categoria e so a etiqueta de como se fala com ele.
+        */}
+        <Secao icone={<Tags className="h-4 w-4" />} titulo="O que é este contato">
+          <div className="flex flex-wrap gap-2">
+            {NATUREZAS.map((n) => {
+              const info = INFO_NATUREZA[n];
+              const marcada = lead?.natureza === n;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  title={info.descricao}
+                  disabled={!!ocupado}
+                  onClick={() => acao(`nat-${n}`, { action: "classify", natureza: n })}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:opacity-60"
+                  style={
+                    marcada
+                      ? { background: info.fundo, borderColor: info.cor, color: info.cor }
+                      : { background: "transparent", borderColor: "#2a3942", color: "#8696a0" }
+                  }
+                >
+                  {ocupado === `nat-${n}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                  {info.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <p className="mt-2 text-xs text-[#8696a0]">
+            {lead?.natureza
+              ? INFO_NATUREZA[lead.natureza].descricao
+              : "Ninguém decidiu ainda. Enquanto isso a AURA pergunta em vez de criar lead."}
+          </p>
+
+          {/* Por que nao e lead: a AURA usa isto para aprender o padrao. */}
+          {lead?.natureza === "nao_lead" && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs text-[#8696a0]">
+                O que ele é? {lead.motivoNatureza ? "" : "(a AURA aprende com isso)"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {MOTIVOS_NAO_LEAD.map((m) => {
+                  const marcado = lead.motivoNatureza === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={!!ocupado}
+                      onClick={() => acao(`mot-${m}`, { action: "classify", motivo: m })}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition disabled:opacity-60 ${
+                        marcado
+                          ? "border-[#8696a0] bg-[#202c33] text-[#e9edef]"
+                          : "border-[#2a3942] text-[#8696a0] hover:bg-[#202c33]"
+                      }`}
+                    >
+                      {m}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Categoria: a etiqueta que aparece ao lado do nome na lista. */}
+          {lead?.natureza !== "nao_lead" && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs text-[#8696a0]">
+                Categoria
+                {!lead?.categoria && lead?.categoriaSugerida
+                  ? ` — a AURA achou que é ${lead.categoriaSugerida}, confirme`
+                  : " — vira a etiqueta na lista de conversas"}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIAS_CONTATO.map((c) => {
+                  const info = INFO_CATEGORIA[c];
+                  const marcada = lead?.categoria === c;
+                  const sugerida = !lead?.categoria && lead?.categoriaSugerida === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      disabled={!!ocupado}
+                      onClick={() => acao(`cat-${c}`, { action: "classify", categoria: marcada ? null : c })}
+                      title={marcada ? "Clique para tirar a etiqueta" : `Marcar como ${c}`}
+                      className="rounded-full border px-2.5 py-1 text-xs transition disabled:opacity-60"
+                      style={
+                        marcada
+                          ? { background: info.fundo, borderColor: info.cor, color: info.cor }
+                          : sugerida
+                          ? { background: "transparent", borderColor: info.cor, color: info.cor, borderStyle: "dashed" }
+                          : { background: "transparent", borderColor: "#2a3942", color: "#8696a0" }
+                      }
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Secao>
+
         {!ehLead ? (
           <Secao
             icone={<UserPlus className="h-4 w-4" />}
@@ -138,8 +256,10 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
               decidir — quem conhece o contato é o vendedor.
             */}
             <p className="text-sm text-[#8696a0]">
-              {lead?.ignorado
-                ? "Você marcou esta conversa como não sendo lead. A IA não acompanha ela."
+              {lead?.natureza === "cliente"
+                ? "Cliente da casa. Está no seu pós-venda, fora do funil de prospecção."
+                : lead?.natureza === "nao_lead" || lead?.ignorado
+                ? `Marcado como não sendo lead${lead?.motivoNatureza ? ` (${lead.motivoNatureza})` : ""}. A AURA não acompanha e não sugere mais.`
                 : lead?.analisando
                 ? "Verificando se é uma conversa comercial…"
                 : lead?.leadSugerido
@@ -148,28 +268,21 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
                 : "A IA não identificou esta conversa como um lead."}
             </p>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            {/*
+              O "nao e" e os tres estados moram na secao "O que e este contato",
+              logo acima, que aparece sempre. Aqui fica so a confirmacao do que
+              a AURA sugeriu, que e o atalho do dia a dia.
+            */}
+            <div className="mt-3">
               <button
                 type="button"
-                onClick={() => acao("lead", { action: "ignore", ignorado: false })}
+                onClick={() => acao("lead", { action: "classify", natureza: "lead" })}
                 disabled={!!ocupado}
                 className="inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#06cf9c] disabled:opacity-60"
               >
                 {ocupado === "lead" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                 {lead?.leadSugerido ? "Sim, é um lead" : "Tratar como lead"}
               </button>
-
-              {lead?.leadSugerido && (
-                <button
-                  type="button"
-                  onClick={() => acao("ignorar", { action: "ignore", ignorado: true })}
-                  disabled={!!ocupado}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#2a3942] px-4 py-2 text-sm font-medium text-[#8696a0] hover:bg-[#202c33] disabled:opacity-60"
-                >
-                  {ocupado === "ignorar" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Não é
-                </button>
-              )}
             </div>
           </Secao>
         ) : (
@@ -269,16 +382,6 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
               </Secao>
             )}
 
-            <div className="px-5 pt-2">
-              <button
-                type="button"
-                onClick={() => acao("ignorar", { action: "ignore", ignorado: true })}
-                disabled={!!ocupado}
-                className="flex items-center gap-2 text-sm text-[#f15c6d] hover:underline disabled:opacity-60"
-              >
-                <UserMinus className="h-4 w-4" /> Não é lead (parar de acompanhar)
-              </button>
-            </div>
           </>
         )}
       </div>

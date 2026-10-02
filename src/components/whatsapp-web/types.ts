@@ -1,3 +1,5 @@
+import type { CategoriaContato, NaturezaContato } from "@/lib/categoria-contato";
+
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected";
 export type WaMsgType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact";
 export type Etapa = "Prospecção" | "Apresentação" | "Proposta" | "Negociação" | "Fechados" | "Perdidos";
@@ -48,6 +50,10 @@ export interface LeadResumo {
   etapa: Etapa | null;
   ignorado: boolean;
   lead: boolean;
+  /** O que o contato é: lead, não-lead ou cliente da casa. */
+  natureza?: NaturezaContato | null;
+  /** Vira a etiqueta ao lado do nome na lista de conversas. */
+  categoria?: CategoriaContato | null;
 }
 
 export interface WaState {
@@ -71,6 +77,11 @@ export interface LeadInfo {
   chatJid: string;
   ehLead: boolean;
   ignorado: boolean;
+  natureza?: NaturezaContato | null;
+  categoria?: CategoriaContato | null;
+  motivoNatureza?: string | null;
+  /** Palpite da AURA, para o vendedor só confirmar. Não vale como decisão. */
+  categoriaSugerida?: CategoriaContato | null;
   etapa: Etapa | null;
   etapaPipeline: Etapa | null;
   oportunidadeId: string | null;

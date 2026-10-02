@@ -19,11 +19,18 @@ import {
   definirEtapaManual,
   iaDisponivel,
   listarLeads,
+  classificarContato,
   marcarIgnorado,
   marcarLeadRespondidoPorTelefone,
   obterLead,
 } from "@/lib/whatsapp/supervisor";
 import { calcularAlertas, ETAPAS, type Etapa } from "@/lib/whatsapp/stage-rules";
+import {
+  ehCategoria,
+  ehNatureza,
+  type CategoriaContato,
+  type NaturezaContato,
+} from "@/lib/categoria-contato";
 import { paraVozOpus } from "@/lib/whatsapp/voz";
 
 export const runtime = "nodejs";
@@ -225,6 +232,46 @@ export async function POST(request: NextRequest) {
       case "ignore": {
         if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
         await marcarIgnorado(userId, String(body.chat), body.ignorado !== false);
+        return NextResponse.json({ ok: true });
+      }
+      /**
+       * O vendedor diz o que o contato e: lead, nao-lead ou cliente da casa,
+       * e de que categoria (Arquiteto, Construtora, Cliente Final...).
+       *
+       * Os dois eixos sao independentes e podem vir juntos ou separados: dar
+       * categoria a quem ainda nao foi classificado nao deve classificar, e
+       * marcar natureza nao deve apagar a categoria. Por isso cada campo so
+       * viaja quando esta presente no corpo.
+       */
+      case "classify": {
+        if (!body.chat) return NextResponse.json({ error: "Conversa ausente." }, { status: 400 });
+
+        const entrada: {
+          natureza?: NaturezaContato | null;
+          categoria?: CategoriaContato | null;
+          motivo?: string | null;
+        } = {};
+
+        if ("natureza" in body) {
+          if (body.natureza !== null && !ehNatureza(body.natureza)) {
+            return NextResponse.json({ error: "Natureza inválida." }, { status: 400 });
+          }
+          entrada.natureza = body.natureza;
+        }
+        if ("categoria" in body) {
+          if (body.categoria !== null && !ehCategoria(body.categoria)) {
+            return NextResponse.json({ error: "Categoria inválida." }, { status: 400 });
+          }
+          entrada.categoria = body.categoria;
+        }
+        if ("motivo" in body) {
+          entrada.motivo = body.motivo ? String(body.motivo).slice(0, 80) : null;
+        }
+        if (Object.keys(entrada).length === 0) {
+          return NextResponse.json({ error: "Nada para classificar." }, { status: 400 });
+        }
+
+        await classificarContato(userId, String(body.chat), entrada);
         return NextResponse.json({ ok: true });
       }
       case "stage": {
