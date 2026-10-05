@@ -16,7 +16,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { modeloDeVolume } from "@/lib/aura/modelos";
 import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import { nucleoDoManual, textoDosTrechos, trechosRelevantes } from "@/lib/aura/trechos";
-import { origemDoTelefone } from "@/lib/ddd-estado";
+import { estadoComPreposicao, origemDoTelefone } from "@/lib/ddd-estado";
 import {
   ehCategoria,
   ehNatureza,
@@ -30,6 +30,7 @@ import {
   getMessages,
   onMessage,
   previewOf,
+  sendText,
   type WaMessage,
 } from "./live-manager";
 import {
@@ -258,19 +259,41 @@ const cacheMateriais = ((globalThis as any).__auraSupMateriais ??= new Map<strin
  * O gestor escreve os dois textos; é o texto dele que entra no prompt. Sem
  * isto a AURA convidava cliente de São Paulo para conhecer o showroom.
  */
+interface ConfigAtendimento {
+  estados: string[];
+  presencial: string | null;
+  remoto: string | null;
+  /** Mandar a primeira resposta sozinha para quem está fora dos estados atendidos. */
+  automatico: boolean;
+  /** A mensagem que o CLIENTE lê. Aceita {nome}, {estado} e {loja}. */
+  textoAutomatico: string | null;
+  horaInicio: number | null;
+  horaFim: number | null;
+}
+
 const cacheAtendimento = ((globalThis as any).__auraAtendimento ??= new Map<
   string,
-  { at: number; cfg: { estados: string[]; presencial: string | null; remoto: string | null } }
->()) as Map<string, { at: number; cfg: { estados: string[]; presencial: string | null; remoto: string | null } }>;
+  { at: number; cfg: ConfigAtendimento }
+>()) as Map<string, { at: number; cfg: ConfigAtendimento }>;
 
 async function configDeAtendimento(empresa: string) {
   const hit = cacheAtendimento.get(empresa);
   if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.cfg;
-  let cfg = { estados: ["RS"], presencial: null as string | null, remoto: null as string | null };
+  let cfg: ConfigAtendimento = {
+    estados: ["RS"],
+    presencial: null as string | null,
+    remoto: null as string | null,
+    automatico: false,
+    textoAutomatico: null as string | null,
+    horaInicio: null as number | null,
+    horaFim: null as number | null,
+  };
   try {
     const { data } = (await db()
       ?.from("config_atendimento")
-      .select("estados_presenciais, texto_presencial, texto_remoto")
+      .select(
+        "estados_presenciais, texto_presencial, texto_remoto, envio_automatico, texto_automatico, auto_hora_inicio, auto_hora_fim",
+      )
       .eq("empresa", empresa)
       .maybeSingle()) ?? { data: null };
     if (data) {
@@ -280,6 +303,10 @@ async function configDeAtendimento(empresa: string) {
           : ["RS"],
         presencial: (data.texto_presencial as string | null) ?? null,
         remoto: (data.texto_remoto as string | null) ?? null,
+        automatico: data.envio_automatico === true,
+        textoAutomatico: (data.texto_automatico as string | null) ?? null,
+        horaInicio: data.auto_hora_inicio === null ? null : Number(data.auto_hora_inicio),
+        horaFim: data.auto_hora_fim === null ? null : Number(data.auto_hora_fim),
       };
     }
   } catch {
@@ -915,6 +942,176 @@ export async function listarLeads(userId: string) {
   return out;
 }
 
+/**
+ * Quantas respostas automáticas uma loja pode disparar por hora.
+ *
+ * Não é economia: é o freio para o caso de algo dar errado em laço — um
+ * número da própria casa conversando com o sistema, uma reconexão que
+ * reprocessa mensagens antigas. Trinta cobre com folga um dia movimentado de
+ * lead de fora do estado; passar disso é sinal de defeito, não de movimento.
+ */
+const TETO_AUTO_HORA = 30;
+const autoEnviados = ((globalThis as any).__auraAutoEnviados ??= [] as {
+  empresa: string;
+  em: number;
+}[]) as { empresa: string; em: number }[];
+
+function passouDoTeto(empresa: string): boolean {
+  const limite = Date.now() - 60 * 60 * 1000;
+  while (autoEnviados.length && autoEnviados[0].em < limite) autoEnviados.shift();
+  return autoEnviados.filter((x) => x.empresa === empresa).length >= TETO_AUTO_HORA;
+}
+
+/**
+ * A primeira resposta para quem está longe, enviada pela AURA.
+ *
+ * O PEDIDO: lead de outro estado recebe sozinho a oferta de atendimento a
+ * distância, sem esperar o vendedor abrir a conversa. Um lead de São Paulo
+ * que escreve às 22h e é respondido na hora vale mais do que o mesmo lead
+ * respondido na manhã seguinte.
+ *
+ * AS TRAVAS, E POR QUE CADA UMA EXISTE:
+ *
+ *  1. Desligado por padrão, loja por loja. Mandar mensagem em nome do
+ *     vendedor é coisa séria; quem liga é o gestor, não o programa.
+ *
+ *  2. SÓ NO PRIMEIRO CONTATO — nenhuma mensagem nossa naquela conversa,
+ *     nunca. Se o vendedor já falou com a pessoa alguma vez, a conversa é
+ *     dele; um texto automático caindo no meio seria constrangedor.
+ *
+ *  3. Uma vez por contato, para sempre, garantida no banco e não na memória:
+ *     a marca é gravada ANTES do envio, com a condição de ainda estar vazia.
+ *     Duas análises simultâneas da mesma conversa — que acontecem — mandariam
+ *     a mesma mensagem duas vezes.
+ *
+ *  4. Só para quem a IA reconheceu como venda, com a mesma confiança mínima
+ *     que o resto do sistema usa. Instalador, colega, fornecedor e amigo de
+ *     São Paulo NÃO recebem oferta de showroom por videochamada. Quando a
+ *     IA não respondeu, ninguém recebe: no escuro não se manda nada.
+ *
+ *  5. Só quem está fora dos estados atendidos presencialmente. DDD que o
+ *     sistema não reconhece não recebe — errar aqui é mandar "você está
+ *     longe" para quem mora a dois quarteirões.
+ *
+ *  6. Conversa de grupo e status não recebem.
+ *
+ * O vendedor é avisado do que saiu, e o texto fica guardado na conversa.
+ */
+async function talvezResponderSozinha(
+  sb: SupabaseClient,
+  userId: string,
+  chatJid: string,
+  nome: string,
+  telefone: string | null,
+  msgs: WaMessage[],
+  empresa: string,
+  analise: AnaliseIa | null,
+  jaEraLead: boolean,
+) {
+  if (chatJid.endsWith("@g.us") || chatJid.includes("broadcast")) return;
+
+  // Alguém da casa já escreveu nesta conversa: ela tem dono humano.
+  if (msgs.some((m) => m.fromMe)) return;
+
+  /**
+   * A conversa tem de ser NOVA, e não só "sem resposta nossa".
+   *
+   * O WhatsApp entrega as mensagens recentes de cada conversa, não o
+   * histórico inteiro. Numa conversa de meses atrás, a janela carregada pode
+   * não conter a resposta que o vendedor deu lá no começo — e aí a conversa
+   * parece primeiro contato sem ser. Exigir que ela tenha começado nas
+   * últimas 48 horas fecha esse buraco: pior que não mandar nada é mandar
+   * "olá, tudo bem?" para quem já é cliente há meio ano.
+   */
+  const marcas = msgs.map((m) => m.timestamp).filter((t) => Number.isFinite(t) && t > 0);
+  if (!marcas.length) return;
+  // O live-manager guarda em milissegundos; a divisão protege de um registro
+  // antigo que tenha ficado em segundos.
+  const maisAntiga = Math.min(...marcas);
+  const emSegundos = maisAntiga > 1e12 ? maisAntiga / 1000 : maisAntiga;
+  if (Date.now() / 1000 - emSegundos > 48 * 3600) return;
+
+  const cfg = await configDeAtendimento(empresa);
+  if (!cfg.automatico) return;
+  const modelo = (cfg.textoAutomatico ?? "").trim();
+  if (!modelo) return;
+
+  const o = origemDoTelefone(telefone);
+  if (!o.uf && !o.exterior) return;
+  if (o.uf && cfg.estados.map((e) => e.toUpperCase()).includes(o.uf)) return;
+
+  // É venda? A régua é a mesma do resto do sistema.
+  const ehVenda = jaEraLead || (analise?.e_lead === true && Number(analise.confianca ?? 0) >= 0.75);
+  if (!ehVenda) return;
+
+  // Janela de horário, quando o gestor definiu uma. Fora dela a AURA não
+  // manda e o vendedor responde pela sugestão, como antes.
+  if (cfg.horaInicio !== null && cfg.horaFim !== null && cfg.horaInicio !== cfg.horaFim) {
+    // O "% 24" nao e enfeite: com hour12 falso, parte das versoes devolve "24"
+    // para a meia-noite em vez de "00", e uma janela que comeca a zero hora
+    // deixaria de valer justamente na primeira hora dela.
+    const agora =
+      Number(
+        new Date().toLocaleString("en-GB", {
+          timeZone: "America/Sao_Paulo",
+          hour: "2-digit",
+          hour12: false,
+        }),
+      ) % 24;
+    if (!Number.isFinite(agora)) return;
+    const dentro =
+      cfg.horaInicio < cfg.horaFim
+        ? agora >= cfg.horaInicio && agora < cfg.horaFim
+        : agora >= cfg.horaInicio || agora < cfg.horaFim;
+    if (!dentro) return;
+  }
+
+  if (passouDoTeto(empresa)) {
+    console.error(`[supervisor] teto de respostas automáticas atingido em ${empresa}`);
+    return;
+  }
+
+  const primeiroNome = (nome ?? "").trim().split(/\s+/)[0] ?? "";
+  const texto = modelo
+    .replace(/\{nome\}/g, /^[\p{L}'-]{2,}$/u.test(primeiroNome) ? ` ${primeiroNome}` : "")
+    .replace(/\{estado\}/g, estadoComPreposicao(o))
+    .replace(/\{uf\}/g, o.uf ?? "")
+    .replace(/\{loja\}/g, empresa)
+    .trim();
+
+  // A marca vem ANTES do envio e só vale se ainda estava vazia: é isto que
+  // impede duas análises simultâneas de mandarem a mesma mensagem duas vezes.
+  const { data: reservou } = await sb
+    .from("whatsapp_ia_leads")
+    .update({ auto_enviado_em: new Date().toISOString(), auto_texto: texto })
+    .eq("owner_id", userId)
+    .eq("chat_jid", chatJid)
+    .is("auto_enviado_em", null)
+    .select("id");
+  if (!reservou?.length) return;
+
+  try {
+    await sendText(userId, chatJid, texto);
+    autoEnviados.push({ empresa, em: Date.now() });
+  } catch (e: any) {
+    // Não saiu: devolve a vaga, senão este contato nunca mais receberia.
+    await sb
+      .from("whatsapp_ia_leads")
+      .update({ auto_enviado_em: null, auto_texto: null })
+      .eq("owner_id", userId)
+      .eq("chat_jid", chatJid);
+    console.error("[supervisor] resposta automática não saiu:", e?.message ?? e);
+    return;
+  }
+
+  await notificar(
+    sb,
+    userId,
+    "A AURA respondeu por você",
+    `${nome} é de ${o.exterior ? "fora do Brasil" : o.estado} e recebeu a oferta de atendimento a distância. Entre na conversa para continuar.`,
+  );
+}
+
 export async function analisarConversa(
   userId: string,
   chatJid: string,
@@ -1169,6 +1366,14 @@ export async function analisarConversa(
 
     const { error } = await sb.from("whatsapp_ia_leads").upsert(patch, { onConflict: "owner_id,chat_jid" });
     if (error) console.error("[supervisor] salvar análise:", error.message);
+
+    // Depois de gravar, nunca antes: a reserva da resposta automática precisa
+    // da linha existindo para poder ser condicional.
+    if (!error) {
+      await talvezResponderSozinha(
+        sb, userId, chatJid, chat.name, chat.phone, msgs, empresa, analise, ehLead,
+      ).catch((e) => console.error("[supervisor] resposta automática:", e?.message ?? e));
+    }
   } catch (e: any) {
     console.error("[supervisor] analisarConversa:", e?.message ?? e);
   } finally {

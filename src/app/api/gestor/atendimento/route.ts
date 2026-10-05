@@ -53,7 +53,9 @@ export async function GET(req: NextRequest) {
 
   const { data } = await sb!
     .from("config_atendimento")
-    .select("estados_presenciais, texto_presencial, texto_remoto, atualizado_em")
+    .select(
+      "estados_presenciais, texto_presencial, texto_remoto, envio_automatico, texto_automatico, auto_hora_inicio, auto_hora_fim, atualizado_em",
+    )
     .eq("empresa", loja)
     .maybeSingle();
 
@@ -62,6 +64,10 @@ export async function GET(req: NextRequest) {
     estadosPresenciais: data?.estados_presenciais ?? ["RS"],
     textoPresencial: data?.texto_presencial ?? "",
     textoRemoto: data?.texto_remoto ?? "",
+    envioAutomatico: data?.envio_automatico === true,
+    textoAutomatico: data?.texto_automatico ?? "",
+    horaInicio: data?.auto_hora_inicio ?? null,
+    horaFim: data?.auto_hora_fim ?? null,
     atualizadoEm: data?.atualizado_em ?? null,
     ufs: UFS,
   });
@@ -76,6 +82,10 @@ export async function PUT(req: NextRequest) {
     estadosPresenciais?: string[];
     textoPresencial?: string;
     textoRemoto?: string;
+    envioAutomatico?: boolean;
+    textoAutomatico?: string;
+    horaInicio?: number | null;
+    horaFim?: number | null;
   };
   try {
     c = await req.json();
@@ -101,12 +111,45 @@ export async function PUT(req: NextRequest) {
     );
   }
 
+  const textoAutomatico = (c.textoAutomatico ?? "").trim();
+
+  /**
+   * Ligar o envio sem ter o que enviar deixaria a AURA abrindo conversa com
+   * uma mensagem em branco em nome do vendedor.
+   */
+  if (c.envioAutomatico && !textoAutomatico) {
+    return NextResponse.json(
+      { erro: "Escreva a mensagem antes de ligar o envio automático." },
+      { status: 400 },
+    );
+  }
+
+  const hora = (v: number | null | undefined): number | null => {
+    if (v === null || v === undefined || v === ("" as unknown)) return null;
+    const n = Math.trunc(Number(v));
+    return Number.isFinite(n) && n >= 0 && n <= 24 ? n : null;
+  };
+  const inicio = hora(c.horaInicio);
+  const fim = hora(c.horaFim);
+
+  // Uma hora sozinha não define janela nenhuma; as duas ou nenhuma.
+  if ((inicio === null) !== (fim === null)) {
+    return NextResponse.json(
+      { erro: "Preencha as duas horas da janela, ou deixe as duas em branco para responder a qualquer hora." },
+      { status: 400 },
+    );
+  }
+
   const { error } = await sb!.from("config_atendimento").upsert(
     {
       empresa: loja,
       estados_presenciais: estados,
       texto_presencial: (c.textoPresencial ?? "").trim() || null,
       texto_remoto: (c.textoRemoto ?? "").trim() || null,
+      envio_automatico: c.envioAutomatico === true,
+      texto_automatico: textoAutomatico || null,
+      auto_hora_inicio: inicio,
+      auto_hora_fim: fim,
       atualizado_em: new Date().toISOString(),
       atualizado_por: auth!.userId,
     },
@@ -114,5 +157,5 @@ export async function PUT(req: NextRequest) {
   );
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, estadosPresenciais: estados });
+  return NextResponse.json({ ok: true, estadosPresenciais: estados, envioAutomatico: c.envioAutomatico === true });
 }

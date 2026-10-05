@@ -120,3 +120,28 @@ export function atendePresencial(
   if (!o.uf) return true;
   return estadosPresenciais.map((e) => e.toUpperCase()).includes(o.uf);
 }
+
+/**
+ * Estados que pedem "do" ou "da" em vez de "de".
+ *
+ * Mensagem automática com português torto é pior do que mensagem nenhuma:
+ * "vi que você é de Rio de Janeiro" entrega na primeira linha que ninguém
+ * escreveu aquilo. Os que não estão nesta lista usam "de" (de São Paulo, de
+ * Minas Gerais, de Santa Catarina).
+ */
+const ARTIGO_UF: Record<string, "do" | "da"> = {
+  AC: "do", AM: "do", AP: "do", CE: "do", DF: "do", ES: "do", MA: "do",
+  MS: "do", MT: "do", PA: "do", PI: "do", PR: "do", RJ: "do", RN: "do",
+  RS: "do", TO: "do",
+  BA: "da", PB: "da",
+};
+
+/**
+ * O estado com a preposição certa, pronto para entrar numa frase:
+ * "de São Paulo", "do Paraná", "da Bahia", "de fora do Brasil".
+ */
+export function estadoComPreposicao(o: Origem): string {
+  if (o.exterior) return "de fora do Brasil";
+  if (!o.uf) return "de outro estado";
+  return `${ARTIGO_UF[o.uf] ?? "de"} ${o.estado ?? o.uf}`;
+}
