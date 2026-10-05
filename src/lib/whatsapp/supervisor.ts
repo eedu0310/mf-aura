@@ -16,6 +16,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { modeloDeVolume } from "@/lib/aura/modelos";
 import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import { nucleoDoManual, textoDosTrechos, trechosRelevantes } from "@/lib/aura/trechos";
+import { origemDoTelefone } from "@/lib/ddd-estado";
 import {
   ehCategoria,
   ehNatureza,
@@ -251,6 +252,73 @@ const FERRAMENTA_ANALISE = {
 
 const cacheMateriais = ((globalThis as any).__auraSupMateriais ??= new Map<string, { at: number; texto: string }>()) as Map<string, { at: number; texto: string }>;
 
+/**
+ * Onde a loja atende presencialmente e o que oferecer a quem está longe.
+ *
+ * O gestor escreve os dois textos; é o texto dele que entra no prompt. Sem
+ * isto a AURA convidava cliente de São Paulo para conhecer o showroom.
+ */
+const cacheAtendimento = ((globalThis as any).__auraAtendimento ??= new Map<
+  string,
+  { at: number; cfg: { estados: string[]; presencial: string | null; remoto: string | null } }
+>()) as Map<string, { at: number; cfg: { estados: string[]; presencial: string | null; remoto: string | null } }>;
+
+async function configDeAtendimento(empresa: string) {
+  const hit = cacheAtendimento.get(empresa);
+  if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.cfg;
+  let cfg = { estados: ["RS"], presencial: null as string | null, remoto: null as string | null };
+  try {
+    const { data } = (await db()
+      ?.from("config_atendimento")
+      .select("estados_presenciais, texto_presencial, texto_remoto")
+      .eq("empresa", empresa)
+      .maybeSingle()) ?? { data: null };
+    if (data) {
+      cfg = {
+        estados: Array.isArray(data.estados_presenciais) && data.estados_presenciais.length
+          ? data.estados_presenciais
+          : ["RS"],
+        presencial: (data.texto_presencial as string | null) ?? null,
+        remoto: (data.texto_remoto as string | null) ?? null,
+      };
+    }
+  } catch {
+    /* sem config, segue com o padrão */
+  }
+  cacheAtendimento.set(empresa, { at: Date.now(), cfg });
+  return cfg;
+}
+
+/**
+ * O bloco que diz à IA de onde o contato é e o que ela pode oferecer.
+ *
+ * Vai na parte VARIÁVEL do prompt, depois do corte do cache: muda a cada
+ * contato, então cacheá-lo invalidaria o cache a cada conversa.
+ */
+async function blocoDeAtendimento(empresa: string, telefone: string | null): Promise<string> {
+  const cfg = await configDeAtendimento(empresa);
+  const o = origemDoTelefone(telefone);
+
+  // Sem saber de onde é, não se tira a opção do vendedor: ele pergunta.
+  if (!o.uf && !o.exterior) return "";
+
+  const perto = !!o.uf && cfg.estados.map((e) => e.toUpperCase()).includes(o.uf);
+  const onde = o.exterior ? "fora do Brasil" : `${o.estado} (DDD ${o.ddd})`;
+
+  if (perto) {
+    return cfg.presencial
+      ? `ONDE ESTE CLIENTE ESTÁ: ${onde}, dentro da região que a loja atende pessoalmente.\n${cfg.presencial}`
+      : "";
+  }
+
+  return (
+    `ONDE ESTE CLIENTE ESTÁ: ${onde}. A loja atende pessoalmente em: ${cfg.estados.join(", ")}.\n` +
+    `Ele está LONGE. Não convide para o showroom, não marque visita e não fale em "passar na loja" — ` +
+    `é um convite impossível, e o cliente percebe que do outro lado ninguém leu o que ele escreveu.\n` +
+    (cfg.remoto ?? "Ofereça atendimento a distância: videochamada, fotos e vídeos dos produtos, e envio.")
+  );
+}
+
 /** Manuais e playbooks que o gestor enviou pelo painel (+ pasta manual-treinamento). */
 async function materiaisDaEmpresa(empresa: string): Promise<string> {
   const hit = cacheMateriais.get(empresa);
@@ -288,6 +356,8 @@ async function analisarComIa(
    * e por isso é relido a 10% do preço.
    */
   trechos?: string,
+  /** De onde o cliente é e o que pode ser oferecido a ele. Também variável. */
+  atendimento?: string,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -351,7 +421,7 @@ Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
   "interesse": "produto/necessidade em poucas palavras ou null",
   "valor_estimado": número em reais ou null,
   "proxima_acao": "a ação mais importante que o vendedor deve fazer AGORA, específica",
-  "sugestao_resposta": "mensagem pronta, curta e natural, que o vendedor pode enviar agora ao cliente (ou \\"\\" se não for o caso)",
+  "sugestao_resposta": "mensagem pronta, curta e natural, que o vendedor pode enviar agora ao cliente (ou \\"\\" se não for o caso). Se houver um bloco ONDE ESTE CLIENTE ESTÁ, obedeça-o: não convide para o showroom quem está longe.",
   "dicas": ["até 3 dicas práticas baseadas no manual"],
   "alertas": ["riscos de perder este lead, se houver"]
 }
@@ -368,9 +438,14 @@ ${manual || "(nenhum manual cadastrado — use boas práticas de venda consultiv
    * vem depois é cobrado cheio. Com o manual inteiro no prefixo e só o trecho
    * variável no fim, a conta cai sem a IA perder contexto.
    */
-  const variavel = trechos
-    ? `TRECHOS DO MANUAL PARA ESTE CASO (use-os nas dicas, citando o que o cliente disse):\n${trechos}`
-    : "";
+  const partes: string[] = [];
+  if (atendimento) partes.push(atendimento);
+  if (trechos) {
+    partes.push(
+      `TRECHOS DO MANUAL PARA ESTE CASO (use-os nas dicas, citando o que o cliente disse):\n${trechos}`,
+    );
+  }
+  const variavel = partes.join("\n\n");
 
   const user = `Agora: ${agora}
 Etapa atual no pipeline: ${etapaAtual ?? "sem oportunidade ainda"}
@@ -919,6 +994,7 @@ export async function analisarConversa(
         fixo,
         sb0 ? await textoDoAprendizado(sb0, empresa) : "",
         trechos,
+        await blocoDeAtendimento(empresa, chat.phone).catch(() => ""),
       );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);

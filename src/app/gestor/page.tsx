@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
+import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -16,6 +16,7 @@ import { InstagramTab } from "@/components/gestor/instagram-tab";
 import { AprendizadoCard } from "@/components/gestor/aprendizado-card";
 import { RelatorioSemanalTab } from "@/components/gestor/relatorio-semanal-tab";
 import { MovimentacaoTab } from "@/components/gestor/movimentacao-tab";
+import { AtendimentoTab } from "@/components/gestor/atendimento-tab";
 import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 
  type AbaGestor =
@@ -33,6 +34,7 @@ import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
   | "aprendizado"
   | "semanal"
   | "movimentacao"
+  | "atendimento"
   | "pontuacao";
 
 const ABAS: Array<{
@@ -58,6 +60,12 @@ const ABAS: Array<{
     label: "Relatório do período",
     descricao: "Fechou, perdeu e onde cada um erra",
     icon: CalendarRange,
+  },
+  {
+    id: "atendimento",
+    label: "Atendimento por distância",
+    descricao: "O que oferecer a quem está longe do showroom",
+    icon: Video,
   },
   {
     id: "pontuacao",
@@ -184,6 +192,7 @@ export default function GestorPage() {
 
       {aba === "aura" && <GestorPainelAura />}
       {aba === "movimentacao" && <MovimentacaoTab />}
+      {aba === "atendimento" && <AtendimentoTab />}
       {aba === "semanal" && <RelatorioSemanalTab />}
       {aba === "pontuacao" && <PontuacaoTab />}
       {aba === "aprendizado" && <AprendizadoCard />}
