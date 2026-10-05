@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { clienteDeAudio } from "@/lib/openai-client";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  // Cada chamada aqui gasta crédito da OpenAI. A rota só era protegida pelo
+  // proxy, que confere a sessão mas não o resto — e uma rota que custa
+  // dinheiro por chamada precisa saber quem chamou.
+  const auth = await getEmpresaAutenticada(request);
+  if (!auth) {
+    return NextResponse.json({ erro: "Faça login novamente." }, { status: 401 });
+  }
+
   // Transcrição é a única coisa que não roda no Claude: ele não recebe áudio.
   // Por isso aqui vai o cliente dedicado da OpenAI, e não a ponte do Claude —
   // que não tem audio.transcriptions e falharia num catch genérico, dizendo

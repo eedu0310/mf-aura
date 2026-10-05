@@ -11,6 +11,8 @@ export interface Perfil {
   empresa: string;
   cargo: string;
   ativo: boolean;
+  /** Gestor só manda depois de aprovado por um gestor mestre. */
+  gestor_aprovado?: boolean | null;
 }
 
 export interface Rel {
@@ -108,8 +110,18 @@ export interface DadosCrm {
 
 const num = (v: unknown) => (v == null ? 0 : Number(v) || 0);
 
-export function podeVerTudo(cargo: string | null | undefined) {
-  return cargo === "Gestor";
+/**
+ * Quem enxerga o grupo inteiro, e não só a própria carteira.
+ *
+ * Conferia só o cargo. Como qualquer pessoa escolhe "Gestor" na tela de
+ * cadastro e a conta nasce esperando aprovação, um gestor NÃO aprovado
+ * recebia por estas rotas o relatório de todas as lojas, os insights do grupo
+ * e a visão de gestor da AURA — justamente o que a aprovação existe para
+ * impedir. É o mesmo furo que as rotas do painel tinham; elas passaram a usar
+ * mandaNaLoja(), e esta é a régua equivalente do lado da AURA.
+ */
+export function podeVerTudo(perfil: Perfil | null | undefined) {
+  return perfil?.cargo === "Gestor" && perfil.gestor_aprovado === true;
 }
 
 export async function carregarDados(
@@ -117,7 +129,11 @@ export async function carregarDados(
   userId: string,
   opts: { diasAtividades?: number; diasVendas?: number } = {},
 ): Promise<DadosCrm | null> {
-  const { data: perfilRow } = await sb.from("profiles").select("id, nome, empresa, cargo, ativo").eq("id", userId).maybeSingle();
+  const { data: perfilRow } = await sb
+    .from("profiles")
+    .select("id, nome, empresa, cargo, ativo, gestor_aprovado")
+    .eq("id", userId)
+    .maybeSingle();
   if (!perfilRow) return null;
   const perfil = perfilRow as Perfil;
 
