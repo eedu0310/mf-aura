@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 
@@ -10,7 +10,7 @@ export async function POST() {
   if (!auth) {
     return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
   }
-  if (!["Gestor"].includes(auth.cargo)) {
+  if (!mandaNaLoja(auth)) {
     return NextResponse.json({ erro: "Só o Gestor pode gerar esse resumo." }, { status: 403 });
   }
 

@@ -29,6 +29,7 @@ export async function listarUsuariosPorEmpresa(empresa: string): Promise<Usuario
       .from("profiles")
       .select("id, nome, cargo, empresa, ativo, created_at")
       .eq("empresa", empresa)
+      .is("excluido_em", null)
       .order("created_at", { ascending: false });
 
     if (error) {

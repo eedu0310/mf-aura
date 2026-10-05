@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { gerarRelatorioVendedor, gerarRelatorioLoja } from "@/lib/gerar-relatorio";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     if (tipo === "semanal_gestor" || tipo === "mensal_diretor") {
-      if (!["Gestor"].includes(auth.cargo)) {
+      if (!mandaNaLoja(auth)) {
         return NextResponse.json({ erro: "Só o Gestor pode gerar esse relatório." }, { status: 403 });
       }
       const periodoInicio = tipo === "mensal_diretor" ? inicioDoMes() : inicioDaSemana();

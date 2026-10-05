@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { saldoIA } from "@/lib/aura/custo-ia";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 async function somenteGestor() {
   const auth = await getEmpresaAutenticada();
   if (!auth) return { erro: NextResponse.json({ erro: "Não autenticado." }, { status: 401 }) };
-  if (auth.cargo !== "Gestor") {
+  if (!mandaNaLoja(auth)) {
     return { erro: NextResponse.json({ erro: "Somente o gestor pode ver isso." }, { status: 403 }) };
   }
   return { auth };

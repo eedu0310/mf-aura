@@ -126,7 +126,7 @@ export async function carregarDados(
   const desdeComp = new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10);
 
   const [perfis, rels, ops, ativs, vendas, comps, metas, metasAtiv, leads] = await Promise.all([
-    sb.from("profiles").select("id, nome, empresa, cargo, ativo"),
+    sb.from("profiles").select("id, nome, empresa, cargo, ativo").is("excluido_em", null),
     sb
       .from("relacionamentos")
       .select("id, owner_id, empresa, nome, temperatura, ultimo_contato_em, proximo_contato_em, created_at")

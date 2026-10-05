@@ -14,7 +14,17 @@ const CABECALHO_USUARIO = "x-aura-usuario";
  */
 const TTL_PERFIL_MS = 60_000;
 const g = globalThis as unknown as {
-  __auraPerfis?: Map<string, { empresa: string; cargo: string; ativo: boolean; em: number }>;
+  __auraPerfis?: Map<
+    string,
+    {
+      empresa: string;
+      cargo: string;
+      ativo: boolean;
+      gestorMestre: boolean;
+      gestorAprovado: boolean;
+      em: number;
+    }
+  >;
 };
 const perfis = (g.__auraPerfis ??= new Map());
 
@@ -56,12 +66,23 @@ export async function getEmpresaAutenticada(request?: Request) {
   const lembrado = perfis.get(userId);
   if (lembrado && Date.now() - lembrado.em < TTL_PERFIL_MS) {
     if (!lembrado.ativo) return null;
-    return { supabase, empresa: lembrado.empresa, cargo: lembrado.cargo, userId };
+    return {
+      supabase,
+      empresa: lembrado.empresa,
+      cargo: lembrado.cargo,
+      gestorMestre: lembrado.gestorMestre,
+      gestorAprovado: lembrado.gestorAprovado,
+      userId,
+    };
   }
 
+  // gestor_mestre e gestor_aprovado vêm junto porque quase toda rota do painel
+  // precisa dos dois: um gestor não aprovado não manda em nada, e só o mestre
+  // atravessa as quatro lojas. Buscá-los depois, numa segunda consulta, era o
+  // que fazia cada rota inventar a sua própria regra.
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("empresa, cargo, ativo")
+    .select("empresa, cargo, ativo, gestor_mestre, gestor_aprovado, excluido_em")
     .eq("id", userId)
     .single();
 
@@ -71,15 +92,42 @@ export async function getEmpresaAutenticada(request?: Request) {
     const maisAntigo = perfis.keys().next().value;
     if (maisAntigo) perfis.delete(maisAntigo);
   }
+  const ativo = perfil.ativo !== false && !perfil.excluido_em;
   perfis.set(userId, {
     empresa: perfil.empresa as string,
     cargo: perfil.cargo as string,
-    ativo: perfil.ativo !== false,
+    ativo,
+    gestorMestre: perfil.gestor_mestre === true,
+    gestorAprovado: perfil.gestor_aprovado === true,
     em: Date.now(),
   });
 
-  // Conta desativada pelo gestor não responde mais por nenhuma rota.
-  if (perfil.ativo === false) return null;
+  // Conta desativada ou excluída pelo gestor não responde mais por nenhuma rota.
+  if (!ativo) return null;
 
-  return { supabase, empresa: perfil.empresa as string, cargo: perfil.cargo as string, userId };
+  return {
+    supabase,
+    empresa: perfil.empresa as string,
+    cargo: perfil.cargo as string,
+    gestorMestre: perfil.gestor_mestre === true,
+    gestorAprovado: perfil.gestor_aprovado === true,
+    userId,
+  };
+}
+
+/**
+ * Gestor que de fato manda.
+ *
+ * Cargo "Gestor" sozinho não quer dizer nada desde que qualquer pessoa pode
+ * escolher esse cargo na tela de cadastro: a conta nasce como gestor e espera
+ * aprovação de um gestor mestre. Nove rotas conferiam só o cargo — um gestor
+ * não aprovado conseguia criar contas novas (inclusive outro gestor, o que
+ * contornava a aprovação inteira), mandar mensagem em qualquer conversa da
+ * loja, ver o custo da IA e ler o resumo do grupo. Esta função é a régua
+ * única; usar o cargo cru é o erro.
+ */
+export function mandaNaLoja(
+  auth: { cargo: string; gestorAprovado: boolean } | null | undefined,
+): boolean {
+  return auth?.cargo === "Gestor" && auth.gestorAprovado === true;
 }

@@ -54,6 +54,10 @@ export async function GET() {
   const { data: pessoas } = await sb!
     .from("profiles")
     .select("id, nome, cargo, empresa, ativo, gestor_mestre, gestor_aprovado, permissoes, aprovado_em")
+    // Quem foi excluido sai daqui tambem: a linha dele sobrevive no banco por
+    // causa do historico de vendas, mas ele nao e mais da equipe e nao ha
+    // permissao para dar a quem nao entra mais no sistema.
+    .is("excluido_em", null)
     .order("cargo")
     .order("nome");
 

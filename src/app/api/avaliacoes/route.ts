@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     .limit(100);
 
   if (sp.get("pendentes") === "1") q = q.is("enviado_em", null);
-  if (auth.cargo !== "Gestor") q = q.eq("vendedor_id", auth.userId);
+  if (!mandaNaLoja(auth)) q = q.eq("vendedor_id", auth.userId);
 
   const [{ data: pedidos, error }, { data: config }] = await Promise.all([
     q,
@@ -48,7 +48,7 @@ export async function PATCH(request: Request) {
   if (corpo.confirmado !== undefined) {
     // Confirmar que o cliente avaliou de fato é decisão de gente: o Google
     // não avisa ninguém. Por isso fica com o gestor.
-    if (auth.cargo !== "Gestor") {
+    if (!mandaNaLoja(auth)) {
       return NextResponse.json({ erro: "Só o gestor confirma a avaliação." }, { status: 403 });
     }
     patch.confirmado_em = corpo.confirmado ? agora : null;

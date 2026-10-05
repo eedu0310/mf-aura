@@ -54,7 +54,8 @@ export async function GET(request: Request) {
       .from("profiles")
       .select("id,nome,empresa")
       .in("cargo", ["Vendedor", "Vendedor Interno"])
-      .eq("ativo", true),
+      .eq("ativo", true)
+      .is("excluido_em", null),
     supabase
       .from("vendas")
       .select("owner_id,valor_fechado,valor,relacionamento_id")

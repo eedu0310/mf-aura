@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { enviarMensagemWhatsApp } from "@/lib/whatsapp";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (erroConversa || !conversa) {
     return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
   }
-  if (conversa.atendente_id !== auth.userId && !["Gestor"].includes(auth.cargo)) {
+  if (conversa.atendente_id !== auth.userId && !mandaNaLoja(auth)) {
     return NextResponse.json({ erro: "Você precisa aceitar essa conversa antes de responder." }, { status: 403 });
   }
 

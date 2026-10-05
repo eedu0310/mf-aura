@@ -15,8 +15,11 @@ export async function POST(request: Request) {
   if (!auth) {
     return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
   }
-  if (!["Gestor"].includes(auth.cargo)) {
-    return NextResponse.json({ erro: "Só o Gestor pode fazer isso." }, { status: 403 });
+  if (auth.cargo !== "Gestor" || !auth.gestorAprovado) {
+    return NextResponse.json(
+      { erro: "Só um gestor aprovado pode fazer isso." },
+      { status: 403 },
+    );
   }
 
   const { usuarioId, ativo } = await request.json();
@@ -26,12 +29,25 @@ export async function POST(request: Request) {
 
   const { data: alvo } = await auth.supabase
     .from("profiles")
-    .select("empresa")
+    .select("empresa, nome, excluido_em")
     .eq("id", usuarioId)
     .single();
 
   if (!alvo) {
     return NextResponse.json({ erro: "Usuário não encontrado." }, { status: 404 });
+  }
+
+  // Reativar quem foi excluído traria de volta alguém que já teve a carteira
+  // repassada: os clientes agora são de outra pessoa, e a conta voltaria a
+  // receber lead novo sem ninguém ter decidido isso. Quem precisa voltar
+  // entra como cadastro novo.
+  if (alvo.excluido_em) {
+    return NextResponse.json(
+      {
+        erro: `${alvo.nome} foi excluído da equipe e não volta por aqui. A carteira dele já foi repassada; cadastre a pessoa de novo se ela retornou.`,
+      },
+      { status: 400 },
+    );
   }
   // O Gestor agora têm acesso total às 4 lojas — sem
   // restrição adicional aqui além de já ser um dos dois papéis

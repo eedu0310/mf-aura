@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -18,7 +18,7 @@ const CARGOS = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing"
 export async function POST(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
-  if (!["Gestor"].includes(auth.cargo)) {
+  if (!mandaNaLoja(auth)) {
     return NextResponse.json({ erro: "Só o Gestor pode criar usuários." }, { status: 403 });
   }
 

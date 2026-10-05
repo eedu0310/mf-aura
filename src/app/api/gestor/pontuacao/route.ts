@@ -74,7 +74,12 @@ export async function GET(req: NextRequest) {
     // Só gente ativa: conta desativada continua no banco e, sem este filtro,
     // aparecia na lista de metas e na disputa do prêmio depois de a pessoa já
     // ter saído da empresa.
-    sb!.from("profiles").select("id, nome, cargo, ativo").eq("empresa", loja).neq("ativo", false),
+    sb!
+      .from("profiles")
+      .select("id, nome, cargo, ativo")
+      .eq("empresa", loja)
+      .neq("ativo", false)
+      .is("excluido_em", null),
   ]);
 
   const nome = new Map((pessoas.data ?? []).map((p) => [p.id as string, p.nome as string]));

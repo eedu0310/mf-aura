@@ -20,11 +20,17 @@ export async function calcularPontuacaoVendedores(empresa?: string): Promise<Ven
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
 
-  // Buscar vendedores
+  // Buscar vendedores.
+  //
+  // Faltava aqui o filtro de conta ativa que as outras telas tinham: este
+  // ranking somava conta de teste e gente que ja saiu da empresa, e o
+  // vendedor via a si mesmo em "7o de 11" disputando com fantasmas.
   let queryVendedores = supabase
     .from("profiles")
     .select("id, nome, empresa")
-    .in("cargo", ["Vendedor", "Vendedor Interno"]);
+    .in("cargo", ["Vendedor", "Vendedor Interno"])
+    .neq("ativo", false)
+    .is("excluido_em", null);
 
   if (empresa) {
     queryVendedores = queryVendedores.eq("empresa", empresa);
