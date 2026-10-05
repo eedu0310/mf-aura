@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
+import { Activity, BarChart3, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -15,6 +15,7 @@ import { PermissoesTab } from "@/components/gestor/permissoes-tab";
 import { InstagramTab } from "@/components/gestor/instagram-tab";
 import { AprendizadoCard } from "@/components/gestor/aprendizado-card";
 import { RelatorioSemanalTab } from "@/components/gestor/relatorio-semanal-tab";
+import { MovimentacaoTab } from "@/components/gestor/movimentacao-tab";
 import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 
  type AbaGestor =
@@ -31,6 +32,7 @@ import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
   | "marketing"
   | "aprendizado"
   | "semanal"
+  | "movimentacao"
   | "pontuacao";
 
 const ABAS: Array<{
@@ -44,6 +46,12 @@ const ABAS: Array<{
     label: "Supervisora AURA",
     descricao: "Equipe, riscos e o que fazer agora",
     icon: Sparkles,
+  },
+  {
+    id: "movimentacao",
+    label: "Movimentação do dia",
+    descricao: "O que cada um fez hoje, e quem não apareceu",
+    icon: Activity,
   },
   {
     id: "semanal",
@@ -175,6 +183,7 @@ export default function GestorPage() {
       </nav>
 
       {aba === "aura" && <GestorPainelAura />}
+      {aba === "movimentacao" && <MovimentacaoTab />}
       {aba === "semanal" && <RelatorioSemanalTab />}
       {aba === "pontuacao" && <PontuacaoTab />}
       {aba === "aprendizado" && <AprendizadoCard />}
