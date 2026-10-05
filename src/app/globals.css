@@ -93,3 +93,127 @@
   max-height: calc(100dvh - 3.5rem - env(safe-area-inset-top, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ---------------------------------------------------------------------------
+   IMPRESSÃO
+   ---------------------------------------------------------------------------
+   O relatório impresso saía com o cartão partido ao meio da página, o botão
+   flutuante "REGISTRAR ATIVIDADE" carimbado por cima do conteúdo e o menu
+   lateral ocupando espaço. Um relatório que o gestor leva para a reunião não
+   pode sair assim.
+
+   A regra geral aqui é: só o conteúdo vai para o papel. Tudo que serve para
+   NAVEGAR (menu, barra de cima, botão flutuante, filtros, painel do Coach)
+   existe para quem está na tela e não para quem está lendo a folha.
+   --------------------------------------------------------------------------- */
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}
+
+@media print {
+  /* Sem isto o navegador "economiza tinta" e apaga justamente o que dá sentido
+     ao relatório: a cor das barras do funil e dos gráficos. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    font-size: 11pt;
+  }
+
+  /* Qualquer coisa presa na tela vira carimbo no papel: o botão flutuante
+     apareceu em cima do "Comparativo por loja". */
+  .fixed,
+  [data-imprimir="esconder"],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* O menu lateral reserva a coluna da esquerda; no papel ela vira margem
+     branca de 16rem e o conteúdo sai espremido num terço da folha. */
+  main {
+    overflow: visible !important;
+  }
+  body * {
+    overflow: visible !important;
+  }
+
+  /* Cartão não se parte. É a correção do print que o gestor mandou: o
+     "Comparativo por loja" terminava numa página e recomeçava na outra. */
+  [data-cartao],
+  table,
+  figure,
+  li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Título órfão no pé da página, com a tabela na página seguinte, é pior do
+     que uma página um pouco mais curta. */
+  h1, h2, h3, h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Sombra no papel vira borrão cinza. A borda faz o trabalho. */
+  [data-cartao] {
+    box-shadow: none !important;
+    border: 1px solid #c9d2d4 !important;
+  }
+
+  /* Caixa escura de página inteira gasta tinta e sai ilegível em impressora
+     a laser comum. Mesma informação, em tinta. */
+  [data-imprimir="clarear"] {
+    background: #fff !important;
+    color: #17282b !important;
+    border: 1px solid #c9d2d4 !important;
+    border-left: 4px solid #d4a441 !important;
+  }
+  [data-imprimir="clarear"] * {
+    color: #17282b !important;
+  }
+  [data-imprimir="clarear"] [data-chip] {
+    background: #f2f5f5 !important;
+    border: 1px solid #c9d2d4 !important;
+  }
+
+  /* O SVG do gráfico é desenhado no tamanho da tela; sem este limite ele
+     atravessa a margem direita da folha. */
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* A tabela de vendedores rola de lado na tela. No papel não há para onde
+     rolar: tem de caber. */
+  table {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 9.5pt;
+  }
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  a[href]::after {
+    content: "" !important;
+  }
+}
+
+/* Largura de folha A4 aplicada ANTES de mandar imprimir, para os gráficos se
+   redesenharem no tamanho certo. O Recharts mede o container no momento em que
+   desenha: se ele foi desenhado com 1100px de tela e a folha tem 186mm, o
+   gráfico sai cortado. Por isso o botão encolhe a área, espera o redesenho e
+   só então abre a janela de impressão. */
+.modo-impressao {
+  width: 700px !important;
+  max-width: 700px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}

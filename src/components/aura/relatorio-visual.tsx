@@ -52,7 +52,7 @@ const diaCurto = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 function Numero({ icone, label, valor, sub }: { icone: React.ReactNode; label: string; valor: string; sub?: string }) {
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
+    <div data-cartao className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
         {icone}
         {label}
@@ -65,10 +65,69 @@ function Numero({ icone, label, valor, sub }: { icone: React.ReactNode; label: s
 
 function Cartao({ titulo, children, className = "" }: { titulo: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-aura-mist bg-white p-4 shadow-sm sm:p-5 ${className}`}>
+    <div
+      data-cartao
+      className={`rounded-2xl border border-aura-mist bg-white p-4 shadow-sm sm:p-5 ${className}`}
+    >
       <h3 className="mb-3 text-sm font-semibold text-aura-graphite">{titulo}</h3>
       {children}
     </div>
+  );
+}
+
+/**
+ * O cabeçalho que só existe no papel.
+ *
+ * Na tela, o período e os filtros estão nos botões no alto — e esses botões
+ * não vão para a impressão. O resultado era uma folha cheia de números sem
+ * dizer de QUE período eram, de qual loja, nem quem tirou. Um relatório
+ * assim não serve para levar a uma reunião: ninguém consegue conferir depois.
+ */
+function CabecalhoImpressao({
+  dias,
+  loja,
+  vendedor,
+}: {
+  dias: number;
+  loja: string;
+  vendedor: string;
+}) {
+  const fim = new Date();
+  const inicio = new Date(fim.getTime() - (dias - 1) * 86400000);
+  const data = (d: Date) =>
+    d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  return (
+    <header className="hidden print:block" data-cabecalho-impressao>
+      <div className="flex items-end justify-between border-b-2 border-aura-navy-950 pb-2">
+        <div>
+          <p className="font-display text-xl font-bold text-aura-graphite">
+            Relatório comercial
+          </p>
+          <p className="text-[11px] text-aura-graphite-soft">AURA · Grupo MF</p>
+        </div>
+        <div className="text-right text-[11px] text-aura-graphite-soft">
+          <p>
+            <strong className="text-aura-graphite">Período:</strong> {data(inicio)} a {data(fim)}{" "}
+            ({dias} dias)
+          </p>
+          <p>
+            <strong className="text-aura-graphite">Loja:</strong> {loja || "todas"} ·{" "}
+            <strong className="text-aura-graphite">Vendedor:</strong> {vendedor ? "filtrado" : "todos"}
+          </p>
+          <p>
+            Emitido em{" "}
+            {new Date().toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -94,6 +153,7 @@ export function RelatorioVisual() {
   const [dados, setDados] = useState<Resposta | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [preparandoImpressao, setPreparandoImpressao] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -126,8 +186,31 @@ export function RelatorioVisual() {
   const maxFunil = Math.max(1, ...funilAberto.map((f) => f.qtd));
   const passo = r ? Math.max(1, Math.ceil(r.vendasPorDia.length / 10)) : 1;
 
+
+  /**
+   * Imprimir, esperando os gráficos se redesenharem.
+   *
+   * O Recharts desenha o SVG no tamanho que o container tinha NA HORA. Numa
+   * tela de 1400px ele desenha 1100px de largura; a folha A4 tem 186mm úteis,
+   * e o gráfico saía cortado na margem direita. Então a área encolhe para a
+   * largura da folha, esperamos o redesenho, e só aí a janela de impressão
+   * abre. Sem a espera, imprime o desenho antigo.
+   */
+  async function imprimir() {
+    setPreparandoImpressao(true);
+    // Dois quadros para o React aplicar a classe, mais a folga que o Recharts
+    // usa para remedir o container e refazer o SVG.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    await new Promise((r) => setTimeout(r, 400));
+    try {
+      window.print();
+    } finally {
+      setPreparandoImpressao(false);
+    }
+  }
+
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 ${preparandoImpressao ? "modo-impressao" : ""}`}>
       {/* Filtros numa linha só */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <div className="flex rounded-full border border-aura-mist bg-white p-1">
@@ -171,10 +254,16 @@ export function RelatorioVisual() {
         )}
         <button
           type="button"
-          onClick={() => window.print()}
-          className="ml-auto flex items-center gap-2 rounded-full border border-aura-mist bg-white px-4 py-2 text-sm text-aura-graphite hover:bg-aura-bg"
+          onClick={imprimir}
+          disabled={preparandoImpressao || !r}
+          className="ml-auto flex items-center gap-2 rounded-full border border-aura-mist bg-white px-4 py-2 text-sm text-aura-graphite hover:bg-aura-bg disabled:opacity-60"
         >
-          <Printer className="h-4 w-4" /> Imprimir / PDF
+          {preparandoImpressao ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Printer className="h-4 w-4" />
+          )}
+          Imprimir / PDF
         </button>
       </div>
 
@@ -187,16 +276,21 @@ export function RelatorioVisual() {
 
       {r && (
         <div className={`space-y-5 transition ${carregando ? "opacity-60" : ""}`}>
+          <CabecalhoImpressao dias={dias} loja={loja} vendedor={vendedor} />
           {/* Recado da AURA — curto */}
           {dados?.aura && (
-            <div className="flex items-start gap-3 rounded-2xl bg-aura-navy-950 px-5 py-4 text-white">
+            <div
+              data-cartao
+              data-imprimir="clarear"
+              className="flex items-start gap-3 rounded-2xl bg-aura-navy-950 px-5 py-4 text-white"
+            >
               <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-aura-gold" />
               <div className="min-w-0">
                 <p className="text-lg font-semibold">{dados.aura.manchete}</p>
                 <p className="text-sm text-white/75">{dados.aura.foco}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {dados.aura.insights.slice(0, 3).map((i, k) => (
-                    <span key={k} className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/90">
+                    <span key={k} data-chip className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/90">
                       {i.titulo}
                     </span>
                   ))}
@@ -206,7 +300,7 @@ export function RelatorioVisual() {
           )}
 
           {/* Números grandes */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 print:grid-cols-4 print:gap-2">
             <Numero icone={<DollarSign className="h-4 w-4" />} label="Vendido" valor={moedaCurta(r.kpis.vendido)} sub={`${r.kpis.qtdVendas} venda(s)`} />
             <Numero icone={<Receipt className="h-4 w-4" />} label="Ticket médio" valor={moedaCurta(r.kpis.ticket)} />
             <Numero icone={<Activity className="h-4 w-4" />} label="Atividades" valor={String(r.kpis.atividades)} sub={`${(r.kpis.atividades / r.periodoDias).toFixed(1).replace(".", ",")} por dia`} />
@@ -322,7 +416,12 @@ export function RelatorioVisual() {
           )}
 
           {dados?.gestor && r.porVendedor.length > 1 && !vendedor && (
-            <Cartao titulo="Vendedores (vendido no período)">
+            /* Na tela o gráfico responde "quem vendeu mais" de relance. No
+               papel ele vira uma página quase em branco — basta um vendedor
+               ter faturado para os outros virarem linhas vazias — e a tabela
+               logo abaixo traz os mesmos números com leads, conversão e
+               pipeline junto. */
+            <Cartao titulo="Vendedores (vendido no período)" className="print:hidden">
               <div style={{ height: Math.max(180, r.porVendedor.length * 38) }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={r.porVendedor} layout="vertical" margin={{ top: 0, right: 80, left: 0, bottom: 0 }}>

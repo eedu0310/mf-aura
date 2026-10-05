@@ -52,7 +52,10 @@ export function MobileNavbar() {
   return (
     <>
       {/* Navbar */}
-      <div className="area-segura-topo fixed left-0 right-0 top-0 z-[70] bg-aura-navy-950 border-b border-aura-mist lg:hidden">
+      <div
+        data-imprimir="esconder"
+        className="area-segura-topo fixed left-0 right-0 top-0 z-[70] bg-aura-navy-950 border-b border-aura-mist lg:hidden"
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-lg font-bold text-white">AURA</h1>
           <div className="relative flex items-center gap-1">

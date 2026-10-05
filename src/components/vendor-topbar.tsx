@@ -85,7 +85,10 @@ export function VendorTopbar() {
   }
 
   return (
-    <header className="relative z-50 flex flex-col gap-4 border-b border-aura-mist bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5">
+    <header
+      data-imprimir="esconder"
+      className="relative z-50 flex flex-col gap-4 border-b border-aura-mist bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-5"
+    >
       <div>
         <h1 className="font-display text-2xl font-bold text-aura-graphite">
           {saudacaoDoDia()}, {nome}! 👋

@@ -15,7 +15,10 @@ export function FloatingActionButton() {
   if (ROTAS_SEM_BOTAO.includes(pathname)) return null;
 
   return (
-    <div className="fixed bottom-5 right-4 z-30 flex flex-col items-end gap-2 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+    <div
+      data-imprimir="esconder"
+      className="fixed bottom-5 right-4 z-30 flex flex-col items-end gap-2 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
+    >
       {/* Celular: o "+" abre o atalho */}
       {aberto && (
         <Link

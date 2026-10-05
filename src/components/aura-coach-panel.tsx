@@ -77,7 +77,10 @@ export function AuraCoachPanel() {
   }
 
   return (
-    <aside className="order-first flex w-full flex-col gap-5 xl:order-none xl:w-80 xl:shrink-0">
+    <aside
+      data-imprimir="esconder"
+      className="order-first flex w-full flex-col gap-5 xl:order-none xl:w-80 xl:shrink-0"
+    >
       {/* AURA Coach */}
       <div className="rounded-2xl bg-aura-navy-950 p-5">
         <div className="flex items-center gap-2">
