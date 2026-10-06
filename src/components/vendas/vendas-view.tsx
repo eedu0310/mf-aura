@@ -8,6 +8,7 @@ import { EditVendaModal } from "./edit-venda-modal";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
 import { ehGanho } from "@/lib/funil";
+import { NOMES_EMPRESAS } from "@/lib/companies";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -59,12 +60,34 @@ export function VendasView() {
   // EMPRESAS DISPONÍVEIS PARA FILTRO
   // ============================================
 
-  const empresasDisponiveis = Array.from(
+  /**
+   * As lojas do seletor são AS LOJAS DO GRUPO, não as lojas que por acaso
+   * têm venda.
+   *
+   * A lista era montada a partir dos próprios dados: `new Set` das empresas
+   * que aparecem nas vendas e nos negócios ganhos. Com uma venda registrada e
+   * os negócios fechados concentrados em duas lojas, o seletor do gestor
+   * mostrava SÓ ESSAS DUAS — a LF Lareiras e a Sole sumiam da tela, como se
+   * não existissem. O gestor não conseguia nem selecionar a loja para
+   * confirmar que ela está zerada, que é exatamente a informação que ele
+   * precisa ver.
+   *
+   * Pior: some em silêncio. Nada na tela diz "esta loja não aparece porque
+   * ainda não vendeu"; a loja simplesmente não está lá.
+   *
+   * O "Sem empresa" continua entrando quando existir registro sem loja — é
+   * dado torto, e o gestor precisa enxergar para consertar.
+   */
+  const lojasComDadoTorto = Array.from(
     new Set([
       ...vendasVisiveis.map((v) => v.empresa || "Sem empresa"),
       ...oportunidadesVisíveis.map((o) => o.empresa || "Sem empresa"),
     ])
-  ).sort();
+  ).filter((nome) => !NOMES_EMPRESAS.includes(nome));
+
+  const empresasDisponiveis = (
+    isGestor ? [...NOMES_EMPRESAS, ...lojasComDadoTorto] : [empresaUsuario]
+  ).filter(Boolean);
 
   // ============================================
   // APLICAR FILTRO DE EMPRESA

@@ -27,11 +27,18 @@ async function somenteGestor() {
 
   const { data: eu } = await sb
     .from("profiles")
-    .select("cargo, empresa, gestor_mestre")
+    .select("cargo, empresa, gestor_mestre, gestor_aprovado")
     .eq("id", auth.userId)
     .maybeSingle();
 
-  if (!eu || !(/gestor/i.test(eu.cargo ?? "") || eu.gestor_mestre)) {
+  /**
+   * Gestor aprovado, não só quem escolheu o cargo "Gestor" na tela de cadastro.
+   *
+   * A conta nasce com o cargo e espera aprovação de um gestor mestre; conferir
+   * só o cargo deixava quem acabou de se cadastrar entrar aqui antes de alguém
+   * aprovar. O mestre passa por cima, como em todo lugar.
+   */
+  if (!eu || !((/gestor/i.test(eu.cargo ?? "") && eu.gestor_aprovado === true) || eu.gestor_mestre)) {
     return {
       erro: NextResponse.json(
         { erro: "Só o gestor revisa o aprendizado da AURA." },

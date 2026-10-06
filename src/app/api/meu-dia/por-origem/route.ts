@@ -30,11 +30,20 @@ export async function GET(req: NextRequest) {
 
   const { data: eu } = await sb
     .from("profiles")
-    .select("cargo, empresa, gestor_mestre")
+    .select("cargo, empresa, gestor_mestre, gestor_aprovado")
     .eq("id", auth.userId)
     .maybeSingle();
 
-  const gestor = !!eu && (/gestor/i.test(eu.cargo ?? "") || !!eu.gestor_mestre);
+  /**
+   * Gestor aprovado, não só quem escolheu o cargo "Gestor" na tela de cadastro.
+   *
+   * A conta nasce com o cargo e espera aprovação de um gestor mestre; conferir
+   * só o cargo deixava quem acabou de se cadastrar entrar aqui antes de alguém
+   * aprovar. O mestre passa por cima, como em todo lugar.
+   */
+  const gestor =
+    !!eu &&
+    ((/gestor/i.test(eu.cargo ?? "") && eu.gestor_aprovado === true) || !!eu.gestor_mestre);
 
   const mes = req.nextUrl.searchParams.get("mes") || new Date().toISOString().slice(0, 7);
 
