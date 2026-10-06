@@ -186,11 +186,31 @@ export function lerManual(): string {
   }
 }
 
+/**
+ * A loja de quem está atendendo.
+ *
+ * O padrão era "LF Lareiras" escrito à mão. Perfil sem empresa — conta recém
+ * criada, cadastro incompleto — fazia TODO lead e TODO negócio daquela pessoa
+ * nascer na LF: na loja errada, fora da vista de quem devia atender, e
+ * somando no faturamento de outra operação. Um erro silencioso que só
+ * apareceria na reunião de fechamento do mês.
+ *
+ * Agora, sem empresa, devolve vazio e quem chama decide o que fazer. É pior
+ * falhar visível do que gravar certo-por-acaso na loja de alguém.
+ *
+ * O cache só guarda loja de verdade: cachear o vazio prenderia a pessoa no
+ * limbo até o servidor reiniciar, mesmo depois de o gestor completar o
+ * cadastro dela.
+ */
 async function empresaDo(userId: string): Promise<string> {
   const cached = empresaCache.get(userId);
   if (cached) return cached;
   const { data } = (await db()?.from("profiles").select("empresa").eq("id", userId).maybeSingle()) ?? {};
-  const empresa = (data?.empresa as string) || "LF Lareiras";
+  const empresa = ((data?.empresa as string) ?? "").trim();
+  if (!empresa) {
+    console.error(`[supervisor] usuário ${userId} está sem loja no perfil; não vou adivinhar.`);
+    return "";
+  }
   empresaCache.set(userId, empresa);
   return empresa;
 }
@@ -1257,6 +1277,10 @@ export async function analisarConversa(
     if (!opts.forcar && row?.ultimo_msg_id === ultimo.id) return;
 
     const empresa = await empresaDo(userId);
+    // Sem loja no perfil, nada daqui para baixo tem onde ser gravado: o lead,
+    // o negócio e a conversa nasceriam órfãos ou na loja de outra pessoa. É
+    // melhor não analisar e deixar o gestor completar o cadastro.
+    if (!empresa) return;
     // O funil é desta loja: o gestor edita as etapas por loja, e tudo daqui
     // para baixo pergunta o PAPEL da etapa em vez de comparar o nome.
     const funil = await carregarFunil(sb, empresa);

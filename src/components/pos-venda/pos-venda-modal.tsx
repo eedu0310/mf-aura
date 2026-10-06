@@ -8,20 +8,18 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const STATUS_LABEL: Record<StatusPosVenda, string> = {
   aguardando_instalacao: "Aguardando Instalação",
-  instalacao_agendada: "Instalação Agendada",
-  instalacao_realizada: "Instalação Realizada",
+  agendamento_realizado: "Instalação Agendada",
   instalacao_pendente: "Instalação Pendente",
   reclamacao: "Reclamação",
-  concluido: "Pós-venda Concluído",
+  pos_venda_realizado: "Pós-venda Concluído",
 };
 
 const STATUS_ORDEM: StatusPosVenda[] = [
   "aguardando_instalacao",
-  "instalacao_agendada",
-  "instalacao_realizada",
+  "agendamento_realizado",
   "instalacao_pendente",
   "reclamacao",
-  "concluido",
+  "pos_venda_realizado",
 ];
 
 function formatarMoeda(valor: number) {

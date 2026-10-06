@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { mandaNaLoja } from "@/lib/auth-empresa";
 import { extrairTexto } from "@/lib/aura/extrair-texto";
 import { limparCacheMateriais } from "@/lib/aura/materiais";
 import { regravarTrechos } from "@/lib/aura/trechos";
@@ -27,7 +28,7 @@ async function sessao() {
   if (!data.user) return { erro: "Faça login novamente.", status: 401 as const };
   const { data: perfil } = await sb
     .from("profiles")
-    .select("empresa, cargo, gestor_mestre")
+    .select("empresa, cargo, gestor_mestre, gestor_aprovado")
     .eq("id", data.user.id)
     .maybeSingle();
   if (!perfil) return { erro: "Perfil não encontrado.", status: 404 as const };
@@ -37,10 +38,25 @@ async function sessao() {
     empresa: perfil.empresa as string,
     cargo: perfil.cargo as string,
     gestorMestre: !!perfil.gestor_mestre,
+    gestorAprovado: perfil.gestor_aprovado === true,
   };
 }
 
-const podeEditar = (cargo: string) => ["Gestor"].includes(cargo);
+/**
+ * Quem pode mexer no manual da loja.
+ *
+ * Era `["Gestor"].includes(cargo)` — o cargo cru, sem conferir a aprovação.
+ * E qualquer pessoa escolhe "Gestor" na tela de cadastro: a conta nasce com
+ * esse cargo e espera a aprovação de um gestor mestre. Ou seja, bastava se
+ * cadastrar como gestor para poder ENVIAR, EDITAR E APAGAR o manual de vendas
+ * da loja antes de qualquer um aprovar — o manual que a AURA usa como regra
+ * da casa em toda conversa com cliente.
+ *
+ * `mandaNaLoja` é a régua única do sistema para isso, e exige as duas coisas:
+ * cargo Gestor E gestor_aprovado. Era exatamente para fechar este tipo de
+ * buraco que ela foi criada.
+ */
+const podeEditar = (s: { cargo: string; gestorAprovado: boolean }) => mandaNaLoja(s);
 
 /** GET — lista os materiais da loja (sem o texto inteiro). */
 export async function GET(req: NextRequest) {
@@ -53,14 +69,14 @@ export async function GET(req: NextRequest) {
     .eq("empresa", empresa)
     .order("criado_em", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ materiais: data ?? [], podeEditar: podeEditar(s.cargo), empresa });
+  return NextResponse.json({ materiais: data ?? [], podeEditar: podeEditar(s), empresa });
 }
 
 /** POST — envia um arquivo (PDF, Word, txt, md) ou um texto colado. */
 export async function POST(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
+  if (!podeEditar(s)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
 
   try {
     let titulo = "";
@@ -188,7 +204,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
+  if (!podeEditar(s)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (!body.id) return NextResponse.json({ error: "Material não informado." }, { status: 400 });
   const { error } = await s.sb
@@ -204,7 +220,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const s = await sessao();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
-  if (!podeEditar(s.cargo)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
+  if (!podeEditar(s)) return NextResponse.json({ error: "Somente o gestor pode ver isso." }, { status: 403 });
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Material não informado." }, { status: 400 });
   const { error } = await s.sb.from("aura_materiais").delete().eq("id", id);

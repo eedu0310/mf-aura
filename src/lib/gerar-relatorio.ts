@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chamarClaude } from "@/lib/aura/texto-ia";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { ehGanho } from "@/lib/funil";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 interface MetaCompromisso {
   metaFaturamento: number;
@@ -271,7 +272,7 @@ export async function gerarRelatorioLoja(
     .from("profiles")
     .select("id, nome")
     .eq("empresa", empresa)
-    .in("cargo", ["Vendedor", "Vendedor Interno"])
+    .in("cargo", CARGOS_QUE_VENDEM)
     .eq("ativo", true);
 
   if (erroVendedores) {

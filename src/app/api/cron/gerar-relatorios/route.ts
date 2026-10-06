@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { gerarRelatorioVendedor, gerarRelatorioLoja } from "@/lib/gerar-relatorio";
 import { NOMES_EMPRESAS } from "@/lib/companies";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
         .from("profiles")
         .select("id, nome")
         .eq("empresa", empresa)
-        .eq("cargo", "Vendedor")
+        .in("cargo", CARGOS_QUE_VENDEM)
         .eq("ativo", true);
 
       for (const v of vendedores ?? []) {

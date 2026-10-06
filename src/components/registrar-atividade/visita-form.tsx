@@ -15,9 +15,10 @@ import {
 import { agoraIso, moedaParaNumero, prazoParaIso } from "./activity-date";
 import type { Probabilidade, Relacionamento } from "@/lib/types";
 import { useAppData } from "@/lib/app-data-context";
+import { primeiraEtapa } from "@/lib/funil";
 
 export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
-  const { addAtividade, addOportunidade } = useAppData();
+  const { addAtividade, addOportunidade, funil } = useAppData();
   const [quem, setQuem] = useState<Relacionamento | null>(null);
   const [tipoVisita, setTipoVisita] = useState<string | null>(null);
   const [objetivo, setObjetivo] = useState<string | null>(null);
@@ -111,7 +112,10 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
             `Oportunidade identificada em visita (${objetivo})`,
           descricao: `Visita ${tipoVisita}. Resultado: ${resultado}.`,
           valor: valorNumerico,
-          etapa: "Prospecção",
+          // A primeira etapa é a do funil DESTA loja. Estava escrita à mão:
+          // numa loja que renomeasse a etapa inicial, a oportunidade nascida
+          // de uma visita caía numa coluna que não existe.
+          etapa: primeiraEtapa(funil),
           probabilidade: probabilidade || "Média",
           relacionamentoId: quem.id,
           empresa: quem.empresa,

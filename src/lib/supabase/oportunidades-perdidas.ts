@@ -1,6 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { MotivoPerda } from "@/lib/types";
-import { FUNIL_PADRAO, nomeDaChave, type EtapaFunil } from "@/lib/funil";
+import { FUNIL_PADRAO, nomeDaChave, primeiraEtapa, type EtapaFunil } from "@/lib/funil";
 
 export async function marcarOportunidadeComoPerdida(
   oportunidadeId: string,
@@ -34,7 +34,22 @@ export async function marcarOportunidadeComoPerdida(
   }
 }
 
-export async function recuperarOportunidade(oportunidadeId: string): Promise<boolean> {
+/**
+ * Tira o negócio de Perdidos e devolve ele ao começo do funil.
+ *
+ * A etapa era "Prospecção" escrita à mão — e sem sequer receber o funil, o que
+ * escondia o problema: numa loja que renomeasse a primeira etapa, o negócio
+ * recuperado ia para uma coluna que não existe. Ele sumia do quadro E saía de
+ * Perdidos, então também não voltava para a lista de perdidos. Desaparecia
+ * dos dois lugares ao mesmo tempo.
+ *
+ * Volta para a PRIMEIRA etapa aberta do funil da loja, que é o mesmo lugar
+ * onde um negócio novo nasce — recuperar é recomeçar.
+ */
+export async function recuperarOportunidade(
+  oportunidadeId: string,
+  funil: EtapaFunil[] = FUNIL_PADRAO,
+): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return false;
 
@@ -42,7 +57,7 @@ export async function recuperarOportunidade(oportunidadeId: string): Promise<boo
     const { error } = await supabase
       .from("oportunidades")
       .update({
-        etapa: "Prospecção",
+        etapa: primeiraEtapa(funil),
         motivo_perda: null,
         descricao_perda: null,
         data_perda: null,

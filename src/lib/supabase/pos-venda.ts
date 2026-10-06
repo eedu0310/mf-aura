@@ -1,12 +1,33 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export type StatusPosVenda =
-  | "aguardando_instalacao"
-  | "instalacao_agendada"
-  | "instalacao_realizada"
-  | "instalacao_pendente"
-  | "reclamacao"
-  | "concluido";
+/**
+ * O status do pós-venda, vindo de src/lib/types.ts — que é o que o banco
+ * aceita.
+ *
+ * AQUI HAVIA UMA SEGUNDA LISTA, escrita à mão, com TRÊS nomes que o banco
+ * recusa: "instalacao_agendada", "instalacao_realizada" e "concluido". A
+ * tabela pos_vendas tem um CHECK com os cinco nomes válidos, então qualquer
+ * tentativa de mover um card para essas três colunas era rejeitada pelo banco.
+ *
+ * Na prática a tela de pós-venda inteira estava morta: metade das colunas não
+ * podia receber nada, e o alerta de "instalação atrasada" nunca disparava
+ * porque nada jamais ficava em "instalacao_agendada". Passou despercebido
+ * porque só existe um registro de pós-venda no sistema — e ele está parado em
+ * "aguardando_instalacao", o único nome que as duas listas tinham em comum.
+ *
+ * Os cinco nomes do banco são o vocabulário, e são estes:
+ *
+ *   aguardando_instalacao   a venda fechou, ninguém agendou ainda
+ *   agendamento_realizado   tem data marcada com o cliente
+ *   instalacao_pendente     a data passou e a instalação não aconteceu
+ *   reclamacao              o cliente reclamou
+ *   pos_venda_realizado     acabou
+ *
+ * "Instalação realizada" e "Pós-venda concluído" eram dois nomes para o mesmo
+ * fim de linha; viraram pos_venda_realizado.
+ */
+export type { StatusPosVenda } from "@/lib/types";
+import type { StatusPosVenda } from "@/lib/types";
 
 export interface PosVenda {
   id: string;
@@ -177,7 +198,7 @@ export async function listarMinhasPendenciasPosVenda(): Promise<PosVenda[]> {
   return todas.filter((pv) => {
     const reclamacaoAberta = Boolean(pv.reclamacao?.trim()) && !pv.reclamacaoResolvida;
     const atrasada =
-      pv.status === "instalacao_agendada" && Boolean(pv.dataAgendamento) && pv.dataAgendamento! < hojeISO;
+      pv.status === "agendamento_realizado" && Boolean(pv.dataAgendamento) && pv.dataAgendamento! < hojeISO;
     return reclamacaoAberta || atrasada;
   });
 }

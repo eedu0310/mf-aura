@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { ehGanho, nomeDaChave } from "@/lib/funil";
+import { ehFechada, ehGanho, nomesDasEtapas } from "@/lib/funil";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -77,6 +78,20 @@ async function resumoComIA(nome: string, riscos: Risco[], atividades: number, op
 async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
   const inicio = inicioDaJanela();
   const agora = new Date().toISOString();
+  /**
+   * "Negócio ainda em aberto" = toda etapa que não é de ganho nem de perda,
+   * segundo o funil DESTA loja.
+   *
+   * Antes era `.neq("etapa", <nome do ganho> ?? "Fechados")` — um nome só. Isso
+   * deixava os PERDIDOS entrarem na lista de negócios a cobrar (a AURA ficava
+   * pedindo follow-up de quem já tinha dito não) e, para o negócio gravado com
+   * o nome antigo, deixava passar também o que já estava fechado.
+   */
+  const funilDaLoja = await carregarFunil(supabase, vendedor.empresa);
+  const etapasDecididas = nomesDasEtapas(funilDaLoja).filter((n) =>
+    ehFechada(n, funilDaLoja),
+  );
+
   const [relacionamentos, oportunidades, atividades] = await Promise.all([
     supabase
       .from("relacionamentos")
@@ -88,7 +103,7 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
       .select("id,cliente,etapa,dias_parado,valor")
       .eq("owner_id", vendedor.id)
       .eq("empresa", vendedor.empresa)
-      .neq("etapa", nomeDaChave("fechamento", await carregarFunil(supabase, vendedor.empresa)) ?? "Fechados")
+      .not("etapa", "in", `(${etapasDecididas.map((n) => `"${n}"`).join(",")})`)
       .order("dias_parado", { ascending: false }),
     supabase
       .from("atividades")
@@ -172,7 +187,7 @@ export async function executarSupervisaoAura(supabase: SupabaseClient) {
   const { data: vendedores, error } = await supabase
     .from("profiles")
     .select("id,nome,empresa")
-    .eq("cargo", "Vendedor");
+    .in("cargo", CARGOS_QUE_VENDEM);
   if (error) throw error;
 
   const resultados = [];

@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 export interface VendedorStats {
   vendedorId: string;
@@ -28,7 +29,7 @@ export async function calcularPontuacaoVendedores(empresa?: string): Promise<Ven
   let queryVendedores = supabase
     .from("profiles")
     .select("id, nome, empresa")
-    .in("cargo", ["Vendedor", "Vendedor Interno"])
+    .in("cargo", CARGOS_QUE_VENDEM)
     .neq("ativo", false)
     .is("excluido_em", null);
 

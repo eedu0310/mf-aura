@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
     supabase
       .from("profiles")
       .select("id,nome,empresa")
-      .in("cargo", ["Vendedor", "Vendedor Interno"])
+      .in("cargo", CARGOS_QUE_VENDEM)
       .eq("ativo", true)
       .is("excluido_em", null),
     supabase

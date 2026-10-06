@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Search, Check, AlertCircle } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
-import { ehPerda, nomesDasEtapas } from "@/lib/funil";
+import { ehPerda, nomesDasEtapas, primeiraEtapa } from "@/lib/funil";
 import type { Etapa, Probabilidade } from "@/lib/types";
 
 const PROBABILIDADES: Probabilidade[] = ["Baixa", "Média", "Alta"];
@@ -21,7 +21,11 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
   const [relacionamentoNome, setRelacionamentoNome] = useState<string | null>(null);
   const [produto, setProduto] = useState("");
   const [valor, setValor] = useState("");
-  const [etapa, setEtapa] = useState<Etapa>("Prospecção");
+  // O valor inicial vem do funil DA LOJA, não escrito à mão. A lista do
+  // <select> já vinha do funil, mas quem não mexia no campo salvava
+  // "Prospecção" — numa loja que renomeasse a primeira etapa, o negócio
+  // nascia numa coluna inexistente e não aparecia no quadro.
+  const [etapa, setEtapa] = useState<Etapa>(() => primeiraEtapa(funil));
   const [probabilidade, setProbabilidade] = useState<Probabilidade>("Média");
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);

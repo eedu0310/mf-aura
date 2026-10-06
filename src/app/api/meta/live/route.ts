@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   contaDaLoja,
@@ -29,9 +29,18 @@ async function quemPode() {
   const sb = getSupabaseServiceClient();
   if (!sb) return { erro: NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 }) };
 
-  const { data: eu } = await sb.from("profiles").select("permissoes, cargo").eq("id", auth.userId).maybeSingle();
+  const { data: eu } = await sb.from("profiles").select("permissoes").eq("id", auth.userId).maybeSingle();
+  /**
+   * Antes, o cargo cru liberava: `["Gestor","Diretor"].includes(cargo)`. Como
+   * qualquer pessoa escolhe "Gestor" na tela de cadastro e a conta nasce
+   * esperando aprovação, bastava se cadastrar como gestor para ler e responder
+   * a caixa de Instagram da loja inteira antes de alguém aprovar.
+   *
+   * mandaNaLoja exige cargo Gestor E gestor_aprovado — é a régua única do
+   * sistema. O gestor mestre passa por cima, como em todo lugar.
+   */
   const liberado =
-    Boolean((eu?.permissoes ?? {}).usar_instagram) || ["Gestor", "Diretor"].includes(String(eu?.cargo ?? ""));
+    Boolean((eu?.permissoes ?? {}).usar_instagram) || mandaNaLoja(auth) || auth.gestorMestre;
   if (!liberado) {
     return { erro: NextResponse.json({ erro: "Seu gestor ainda não liberou o Instagram para você." }, { status: 403 }) };
   }

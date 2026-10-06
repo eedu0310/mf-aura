@@ -75,7 +75,7 @@ export function OpportunityCard({
 
   async function handleRecuperar() {
     setAtualizando(true);
-    const ok = await recuperarOportunidade(oportunidade.id);
+    const ok = await recuperarOportunidade(oportunidade.id, funil);
     setAtualizando(false);
 
     if (ok) {

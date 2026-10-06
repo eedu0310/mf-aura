@@ -36,7 +36,7 @@ export function PosVendaResumoCard() {
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const atrasadas = itens.filter(
-    (i) => i.status === "instalacao_agendada" && i.dataAgendamento && i.dataAgendamento < hojeISO
+    (i) => i.status === "agendamento_realizado" && i.dataAgendamento && i.dataAgendamento < hojeISO
   ).length;
   const reclamacoesAbertas = itens.filter((i) => i.reclamacao?.trim() && !i.reclamacaoResolvida).length;
   const avaliaram = itens.filter((i) => i.avaliouLoja).length;

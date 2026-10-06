@@ -82,7 +82,22 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
         nome: { type: "string", description: "Nome do contato/empresa." },
         categoria: {
           type: "string",
-          enum: ["Arquiteto", "Construtora", "Cliente", "Obra"],
+          // "Cliente" NÃO existe em CategoriaRelacionamento — o nome certo é
+          // "Cliente Final". A IA gravava a categoria errada e o contato não
+          // casava com nenhum filtro da tela, nem com a tabela de etiquetas,
+          // que ficava sem cor e sem rótulo. A lista agora é a mesma do tipo.
+          enum: [
+            "Cliente Final",
+            "Arquiteto",
+            "Construtora",
+            "Revendedor",
+            "Engenheiro",
+            "Designer de Interiores",
+            "Consultor",
+            "Obra",
+            "Distribuidor",
+            "Outro",
+          ],
           description: "Categoria do relacionamento.",
         },
         cidade: { type: "string", description: "Cidade, opcional." },
@@ -124,11 +139,10 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
           type: "string",
           enum: [
             "aguardando_instalacao",
-            "instalacao_agendada",
-            "instalacao_realizada",
+            "agendamento_realizado",
             "instalacao_pendente",
             "reclamacao",
-            "concluido",
+            "pos_venda_realizado",
           ],
           description: "Novo status do pós-venda.",
         },

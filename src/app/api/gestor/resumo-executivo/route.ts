@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { NOMES_EMPRESAS } from "@/lib/companies";
+import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -68,7 +69,7 @@ export async function POST() {
         : null;
 
     const vendedoresAtivos = (perfis ?? []).filter(
-      (p) => p.empresa === empresa && p.cargo === "Vendedor" && p.ativo
+      (p) => p.empresa === empresa && CARGOS_QUE_VENDEM.includes(p.cargo) && p.ativo
     ).length;
 
     return {

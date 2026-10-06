@@ -8,6 +8,20 @@ export type Cargo =
   | "Gestor";
 
 /**
+ * Quem atende cliente e por isso entra em ranking, relatório e supervisão.
+ *
+ * EXISTE PORQUE A LISTA ESTAVA ESCRITA À MÃO EM SETE LUGARES, e em três deles
+ * faltava "Vendedor Interno" — metade da equipe. Na prática, Jociane, Deise,
+ * Denise, Jucelane e Sabrina ficavam de fora do relatório automático, da
+ * supervisão da AURA e da contagem de vendedores ativos do resumo do gestor.
+ * As pessoas com mais clientes na carteira eram as invisíveis, e nada no
+ * sistema avisava — o relatório simplesmente não era gerado para elas.
+ *
+ * Uma lista só, importada. Cargo novo entra aqui e vale em todo lugar.
+ */
+export const CARGOS_QUE_VENDEM: Cargo[] = ["Vendedor", "Vendedor Interno"];
+
+/**
  * A etapa é texto livre porque o gestor edita o funil.
  *
  * Era uma lista fixa de seis nomes. Enquanto foi fixa, o compilador garantia

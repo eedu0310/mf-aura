@@ -6,13 +6,20 @@ import { listarPosVendas, type PosVenda, type StatusPosVenda } from "@/lib/supab
 import { PosVendaModal } from "@/components/pos-venda/pos-venda-modal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+/**
+ * As colunas do quadro, no vocabulário que o banco aceita.
+ *
+ * Três destas colunas tinham nome que a tabela pos_vendas recusa no CHECK
+ * ("instalacao_agendada", "instalacao_realizada", "concluido"): arrastar um
+ * card para elas dava erro no banco, e o alerta de instalação atrasada nunca
+ * disparava. Ver a explicação inteira em src/lib/supabase/pos-venda.ts.
+ */
 const COLUNAS: { status: StatusPosVenda; titulo: string; cor: string }[] = [
   { status: "aguardando_instalacao", titulo: "Aguardando Instalação", cor: "border-t-aura-graphite-soft" },
-  { status: "instalacao_agendada", titulo: "Instalação Agendada", cor: "border-t-aura-petrol-500" },
-  { status: "instalacao_realizada", titulo: "Instalação Realizada", cor: "border-t-aura-success" },
+  { status: "agendamento_realizado", titulo: "Instalação Agendada", cor: "border-t-aura-petrol-500" },
   { status: "instalacao_pendente", titulo: "Instalação Pendente", cor: "border-t-aura-warning" },
   { status: "reclamacao", titulo: "Reclamação", cor: "border-t-aura-danger" },
-  { status: "concluido", titulo: "Pós-venda Concluído", cor: "border-t-aura-gold" },
+  { status: "pos_venda_realizado", titulo: "Pós-venda Concluído", cor: "border-t-aura-success" },
 ];
 
 type Filtro = "todas" | "atrasadas" | "reclamacoes" | "sem_avaliacao";
@@ -34,7 +41,7 @@ function formatarMoeda(valor: number) {
 
 function estaAtrasada(item: PosVenda) {
   if (!item.dataAgendamento) return false;
-  if (item.status !== "instalacao_agendada") return false;
+  if (item.status !== "agendamento_realizado") return false;
   const hojeISO = new Date().toISOString().slice(0, 10);
   return item.dataAgendamento < hojeISO;
 }

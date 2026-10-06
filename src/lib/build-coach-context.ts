@@ -142,11 +142,11 @@ export function montarContextoDados({
   let secaoPosVenda = "";
   if (posVendas && posVendas.length > 0) {
     const atrasadas = posVendas.filter(
-      (pv) => pv.status === "instalacao_agendada" && pv.dataAgendamento && pv.dataAgendamento < hojeISO
+      (pv) => pv.status === "agendamento_realizado" && pv.dataAgendamento && pv.dataAgendamento < hojeISO
     );
     const reclamacoesAbertas = posVendas.filter((pv) => pv.reclamacao?.trim() && !pv.reclamacaoResolvida);
     const hojeInstalacoes = posVendas.filter(
-      (pv) => pv.status === "instalacao_agendada" && pv.dataAgendamento === hojeISO
+      (pv) => pv.status === "agendamento_realizado" && pv.dataAgendamento === hojeISO
     );
 
     const partes = [
