@@ -7,6 +7,7 @@ import { useAppData } from "@/lib/app-data-context";
 import { EditVendaModal } from "./edit-venda-modal";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
+import { ehGanho } from "@/lib/funil";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -23,7 +24,7 @@ function formatarData(data: string) {
 }
 
 export function VendasView() {
-  const { vendas, oportunidades , deleteVenda } = useAppData();
+  const { vendas, oportunidades, deleteVenda, funil } = useAppData();
   const { profile } = useUserProfile();
   const [filtroEmpresa, setFiltroEmpresa] = useState<string>("todas");
   const [abaSelecionada, setAbaSelecionada] = useState<"realizadas" | "fechadas" | "resumo">("realizadas");
@@ -45,12 +46,12 @@ export function VendasView() {
   if (isGestor) {
     // Gestor vê TUDO
     vendasVisiveis = vendas;
-    oportunidadesVisíveis = oportunidades.filter((o) => o.etapa === "Fechados");
+    oportunidadesVisíveis = oportunidades.filter((o) => ehGanho(o.etapa, funil));
   } else {
     // Vendedor vê apenas sua empresa
     vendasVisiveis = vendas.filter((v) => (v.empresa || "Sem empresa") === empresaUsuario);
     oportunidadesVisíveis = oportunidades.filter(
-      (o) => o.etapa === "Fechados" && (o.empresa || "Sem empresa") === empresaUsuario
+      (o) => ehGanho(o.etapa, funil) && (o.empresa || "Sem empresa") === empresaUsuario
     );
   }
 

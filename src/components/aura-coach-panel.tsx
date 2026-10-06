@@ -31,16 +31,16 @@ function formatarMoeda(valor: number) {
 
 export function AuraCoachPanel() {
   const { profile } = useUserProfile();
-  const { oportunidades, relacionamentos, vendas, atividades } = useAppData();
+  const { oportunidades, relacionamentos, vendas, atividades, funil } = useAppData();
   const [concluidas, setConcluidas] = useState<Set<string>>(new Set());
   const [recomendacoes, setRecomendacoes] = useState<Array<{ id: string; titulo: string; descricao: string; prioridade: string }>>([]);
 
   const tarefas = computePendingTasks(relacionamentos);
   const evolucao = computeSalesEvolution(vendas);
   const totalVendidoMes = evolucao.length > 0 ? evolucao[evolucao.length - 1].valor : 0;
-  const prioridades = calcularPrioridadesComerciais({ relacionamentos, oportunidades, atividades });
+  const prioridades = calcularPrioridadesComerciais({ relacionamentos, oportunidades, atividades, funil });
   const analiseVendas = useMemo(
-    () => analisarPorQueNaoVendo({ relacionamentos, oportunidades, vendas, atividades }),
+    () => analisarPorQueNaoVendo({ relacionamentos, oportunidades, vendas, atividades, funil }),
     [relacionamentos, oportunidades, vendas, atividades],
   );
 

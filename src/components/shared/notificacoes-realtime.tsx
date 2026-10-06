@@ -3,10 +3,11 @@
 import { useEffect } from "react";
 import { useAppData } from "@/lib/app-data-context";
 import { useToast, Toast } from "./toast-notificacao";
+import { ehGanho } from "@/lib/funil";
 
 export function NotificacoesRealtime() {
   const { toasts, adicionar } = useToast();
-  const { vendas, oportunidades, atividades } = useAppData();
+  const { vendas, oportunidades, atividades, funil } = useAppData();
 
   // Notificar quando uma venda é criada
   useEffect(() => {
@@ -27,7 +28,7 @@ export function NotificacoesRealtime() {
   useEffect(() => {
     if (oportunidades && oportunidades.length > 0) {
       const ultimaOpp = oportunidades[oportunidades.length - 1];
-      if (ultimaOpp?.etapa === "Fechados") {
+      if (ehGanho(ultimaOpp?.etapa, funil)) {
         adicionar({
           tipo: "sucesso",
           titulo: "✅ Oportunidade Fechada!",

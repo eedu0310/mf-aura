@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { X, Search, Check, AlertCircle } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { ehPerda, nomesDasEtapas } from "@/lib/funil";
 import type { Etapa, Probabilidade } from "@/lib/types";
 
-const ETAPAS: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"];
 const PROBABILIDADES: Probabilidade[] = ["Baixa", "Média", "Alta"];
 
 function formatarValor(valor: string) {
@@ -15,7 +15,7 @@ function formatarValor(valor: string) {
 }
 
 export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
-  const { addOportunidade, relacionamentos, addRelacionamento } = useAppData();
+  const { addOportunidade, relacionamentos, addRelacionamento, funil } = useAppData();
   const [busca, setBusca] = useState("");
   const [relacionamentoId, setRelacionamentoId] = useState<string | null>(null);
   const [relacionamentoNome, setRelacionamentoNome] = useState<string | null>(null);
@@ -240,7 +240,9 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setEtapa(e.target.value as Etapa)}
                 className="w-full rounded-xl border border-aura-mist bg-white py-2.5 px-3.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
               >
-                {ETAPAS.map((e) => (
+                {nomesDasEtapas(funil)
+                  .filter((e) => !ehPerda(e, funil))
+                  .map((e) => (
                   <option key={e} value={e}>
                     {e}
                   </option>

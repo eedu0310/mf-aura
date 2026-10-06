@@ -1,4 +1,5 @@
 import type { Atividade, Relacionamento, Oportunidade } from "@/lib/types";
+import { ehFechada, ehGanho, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
 
 export interface DnaScoreDetalhe {
   label: string;
@@ -32,10 +33,12 @@ export function computeDnaScore({
   relacionamentos,
   oportunidades,
   atividades,
+  funil = FUNIL_PADRAO,
 }: {
   relacionamentos: Relacionamento[];
   oportunidades: Oportunidade[];
   atividades: Atividade[];
+  funil?: EtapaFunil[];
 }): DnaScoreResultado {
   const atividadesRecentes = atividades.filter((atividade) => diasDesde(atividade.ocorridaEm || atividade.criadoEm) <= 30);
   const followupsEmDia = relacionamentos.filter((relacionamento) => {
@@ -43,9 +46,9 @@ export function computeDnaScore({
     return new Date(relacionamento.proximoContatoEm).getTime() >= Date.now();
   }).length;
   const followupsComData = relacionamentos.filter((relacionamento) => relacionamento.proximoContatoEm).length;
-  const oportunidadesAbertas = oportunidades.filter((oportunidade) => oportunidade.etapa !== "Fechados" && oportunidade.etapa !== "Perdidos");
+  const oportunidadesAbertas = oportunidades.filter((oportunidade) => !ehFechada(oportunidade.etapa, funil));
   const oportunidadesSaudaveis = oportunidadesAbertas.filter((oportunidade) => (oportunidade.diasParado ?? 0) < 7).length;
-  const vendasRelacionadas = oportunidades.filter((oportunidade) => oportunidade.etapa === "Fechados").length;
+  const vendasRelacionadas = oportunidades.filter((oportunidade) => ehGanho(oportunidade.etapa, funil)).length;
   const relacionamentosAtivos = relacionamentos.filter((relacionamento) => relacionamento.temperatura === "quente" || relacionamento.temperatura === "ativo").length;
   const registrosComProximoPasso = atividades.filter((atividade) => Boolean(atividade.proximoPasso?.trim())).length;
 

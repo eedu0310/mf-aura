@@ -16,7 +16,14 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { COR_ETAPA, ETAPAS_FUNIL, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
+import { estiloDaEtapa, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
+import {
+  ehPerda,
+  etapasVisiveis,
+  FUNIL_PADRAO,
+  nomeDaChave,
+  type EtapaFunil,
+} from "@/lib/funil";
 import {
   CATEGORIAS_CONTATO,
   INFO_CATEGORIA,
@@ -29,6 +36,8 @@ interface Props {
   chatId: string;
   lead: LeadInfo | null;
   alertas: Alerta[];
+  /** O funil da loja, como veio da API. Sem ele, o padrão. */
+  funil?: EtapaFunil[];
   onClose: () => void;
   onChanged: () => void;
 }
@@ -45,7 +54,14 @@ function Secao({ icone, titulo, children }: { icone: React.ReactNode; titulo: st
   );
 }
 
-export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: Props) {
+export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, onClose, onChanged }: Props) {
+  // As etapas do caminho normal: as abertas mais a de ganho. Perdidos fica
+  // fora da lista numerada porque perder não é um passo do caminho — tem
+  // botão próprio embaixo.
+  const etapasDoCaminho = etapasVisiveis(funil).filter(
+    (e) => e.tipo === "aberta" || e.tipo === "ganho",
+  );
+  const nomeDePerda = nomeDaChave("perda", funil) ?? "Perdidos";
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -63,7 +79,7 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
   }
 
   const etapaAtual = (lead?.etapaPipeline ?? lead?.etapa) as Etapa | null;
-  const idxAtual = etapaAtual ? ETAPAS_FUNIL.indexOf(etapaAtual) : -1;
+  const idxAtual = etapaAtual ? etapasDoCaminho.findIndex((e) => e.nome === etapaAtual) : -1;
   const ehLead = !!lead && !lead.ignorado && (lead.ehLead || !!lead.oportunidadeId);
 
   return (
@@ -290,7 +306,7 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
             {/* Funil */}
             <Secao icone={<Target className="h-4 w-4" />} titulo="Etapa no pipeline">
               <ol className="space-y-1">
-                {ETAPAS_FUNIL.map((e, i) => {
+                {etapasDoCaminho.map(({ nome: e }, i) => {
                   const feito = idxAtual >= 0 && i < idxAtual;
                   const atual = i === idxAtual;
                   return (
@@ -321,10 +337,11 @@ export function SupervisorPanel({ chatId, lead, alertas, onClose, onChanged }: P
                 <button
                   type="button"
                   disabled={!!ocupado}
-                  onClick={() => acao("etapa-Perdidos", { action: "stage", etapa: "Perdidos" })}
-                  className={`rounded-full px-2 py-1 ${etapaAtual === "Perdidos" ? COR_ETAPA.Perdidos : "text-[#f15c6d] hover:bg-[#3d1d22]"}`}
+                  onClick={() => acao(`etapa-${nomeDePerda}`, { action: "stage", etapa: nomeDePerda })}
+                  style={ehPerda(etapaAtual, funil) ? estiloDaEtapa("#f15c6d") : undefined}
+                  className="rounded-full px-2 py-1 text-[#f15c6d] hover:bg-[#3d1d22]"
                 >
-                  {etapaAtual === "Perdidos" ? "Marcado como perdido" : "Marcar como perdido"}
+                  {ehPerda(etapaAtual, funil) ? "Marcado como perdido" : "Marcar como perdido"}
                 </button>
                 <Link href="/pipeline" className="flex items-center gap-1 text-[#00a884] hover:underline">
                   Abrir pipeline <ExternalLink className="h-3 w-3" />

@@ -18,6 +18,7 @@ import { useAppData } from "@/lib/app-data-context";
 import { exportarExcel } from "@/lib/export-excel";
 import { parseDataLocal } from "@/lib/date-local";
 import { buscarMetaDoMes } from "@/lib/supabase/metas";
+import { ehFechada } from "@/lib/funil";
 
 interface DadosVenda {
   mes: string;
@@ -34,7 +35,7 @@ interface ComparativoMeses {
 }
 
 export function RelatóriosAvançados() {
-  const { vendas, oportunidades } = useAppData();
+  const { vendas, oportunidades, funil } = useAppData();
   const [periodoSelecionado, setPeriodoSelecionado] = useState("6m");
   const [metaAtual, setMetaAtual] = useState<number | null>(null);
 
@@ -127,10 +128,10 @@ export function RelatóriosAvançados() {
   // porque não existe previsão cadastrada em lugar nenhum do sistema.
   const PESO: Record<string, number> = { Alta: 0.8, Média: 0.5, Baixa: 0.2 };
   const pipelinePonderado = (oportunidades ?? [])
-    .filter((o) => o.etapa !== "Fechados" && o.etapa !== "Perdidos")
+    .filter((o) => !ehFechada(o.etapa, funil))
     .reduce((soma, o) => soma + o.valor * (PESO[o.probabilidade] ?? 0.5), 0);
   const negociosAbertos = (oportunidades ?? []).filter(
-    (o) => o.etapa !== "Fechados" && o.etapa !== "Perdidos",
+    (o) => !ehFechada(o.etapa, funil),
   ).length;
   const totalMeta = dadosVendas.reduce((s, d) => s + d.meta, 0);
   const percentualMeta = totalMeta > 0 ? ((totalVendido / totalMeta) * 100).toFixed(1) : "0";

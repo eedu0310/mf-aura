@@ -1,4 +1,11 @@
 import type { Atividade, Oportunidade, Relacionamento } from "@/lib/types";
+import {
+  contaNoPipeline,
+  ehGanho,
+  ehPerda,
+  FUNIL_PADRAO,
+  type EtapaFunil,
+} from "@/lib/funil";
 
 export type PrioridadeNivel = "urgente" | "alta" | "media" | "baixa";
 
@@ -36,13 +43,16 @@ function prioridadePorDias(dias: number): PrioridadeNivel {
   return "baixa";
 }
 
-export function calcularProximaMelhorAcao(oportunidade: Oportunidade): ProximaMelhorAcao {
+export function calcularProximaMelhorAcao(
+  oportunidade: Oportunidade,
+  funil: EtapaFunil[] = FUNIL_PADRAO,
+): ProximaMelhorAcao {
   const hrefRelacionamento = oportunidade.relacionamentoId
     ? `/relacionamentos?buscar=${encodeURIComponent(oportunidade.cliente)}`
     : "/registrar-atividade";
   const diasParado = oportunidade.diasParado ?? 0;
 
-  if (oportunidade.etapa === "Fechados") {
+  if (ehGanho(oportunidade.etapa, funil)) {
     return {
       label: "Iniciar pós-venda",
       descricao: "Confirmar a jornada de instalação e o próximo contato com o cliente.",
@@ -50,7 +60,7 @@ export function calcularProximaMelhorAcao(oportunidade: Oportunidade): ProximaMe
       nivel: "media",
     };
   }
-  if (oportunidade.etapa === "Perdidos") {
+  if (ehPerda(oportunidade.etapa, funil)) {
     return {
       label: "Revisar oportunidade",
       descricao: "Avaliar se existe motivo para recuperar este negócio.",
@@ -58,7 +68,12 @@ export function calcularProximaMelhorAcao(oportunidade: Oportunidade): ProximaMe
       nivel: "baixa",
     };
   }
-  if (oportunidade.etapa === "Proposta" || oportunidade.etapa === "Negociação") {
+  /*
+   * "Já tem proposta na mesa" deixou de ser uma lista de dois nomes: é a
+   * etapa que o gestor marcou como contando no pipeline. É a mesma régua que
+   * decide o valor em aberto, então as duas coisas não podem discordar.
+   */
+  if (contaNoPipeline(oportunidade.etapa, funil)) {
     return {
       label: diasParado >= 3 ? "Fazer follow-up hoje" : "Agendar próximo contato",
       descricao: diasParado >= 3
@@ -80,19 +95,21 @@ export function calcularPrioridadesComerciais({
   relacionamentos,
   oportunidades,
   atividades,
+  funil = FUNIL_PADRAO,
 }: {
   relacionamentos: Relacionamento[];
   oportunidades: Oportunidade[];
   atividades: Atividade[];
+  funil?: EtapaFunil[];
 }): PrioridadeComercial[] {
   const prioridades: PrioridadeComercial[] = [];
   const hoje = new Date();
 
   for (const oportunidade of oportunidades) {
-    if (oportunidade.etapa === "Fechados" || oportunidade.etapa === "Perdidos") continue;
-    const acao = calcularProximaMelhorAcao(oportunidade);
+    if (ehGanho(oportunidade.etapa, funil) || ehPerda(oportunidade.etapa, funil)) continue;
+    const acao = calcularProximaMelhorAcao(oportunidade, funil);
     const diasParado = oportunidade.diasParado ?? 0;
-    if (diasParado < 3 && oportunidade.etapa !== "Proposta" && oportunidade.etapa !== "Negociação") continue;
+    if (diasParado < 3 && !contaNoPipeline(oportunidade.etapa, funil)) continue;
     prioridades.push({
       id: `oportunidade-${oportunidade.id}`,
       nivel: acao.nivel,

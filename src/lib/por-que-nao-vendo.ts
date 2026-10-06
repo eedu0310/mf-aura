@@ -1,4 +1,5 @@
 import type { Atividade, Oportunidade, Relacionamento, Venda } from "@/lib/types";
+import { contaNoPipeline, ehFechada, ehGanho, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
 
 export interface MetricasPeriodo {
   inicio: string;
@@ -71,6 +72,7 @@ function coletarMetricas(
   oportunidades: Oportunidade[],
   vendas: Venda[],
   relacionamentos: Relacionamento[],
+  funil: EtapaFunil[],
 ): MetricasPeriodo {
   const atividadesPeriodo = atividades.filter((a) => noIntervalo(a.ocorridaEm || a.quando || a.criadoEm, inicio, fim));
   const vendasPeriodo = vendas.filter((v) => noIntervalo(v.data || v.criadoEm, inicio, fim));
@@ -85,7 +87,7 @@ function coletarMetricas(
     prospeccoes: atividadesPeriodo.filter((a) => a.tipo === "Prospecção").length,
     followUps: atividadesPeriodo.filter((a) => a.tipo === "Follow-up").length,
     novosRelacionamentos: relacionamentosPeriodo.length,
-    propostas: oportunidadesPeriodo.filter((o) => ["Proposta", "Negociação", "Fechados"].includes(o.etapa)).length,
+    propostas: oportunidadesPeriodo.filter((o) => contaNoPipeline(o.etapa, funil) || ehGanho(o.etapa, funil)).length,
     fechamentos: vendasPeriodo.length,
     valorVendido: vendasPeriodo.reduce((soma, venda) => soma + (venda.valorFechado ?? venda.valor), 0),
     retornosVencidos: relacionamentos.filter((r) => {
@@ -93,7 +95,7 @@ function coletarMetricas(
       const data = new Date(r.proximoContatoEm);
       return data < fimHoje && data >= inicio;
     }).length,
-    oportunidadesParadas: oportunidades.filter((o) => (o.diasParado ?? 0) >= 7 && o.etapa !== "Fechados" && o.etapa !== "Perdidos").length,
+    oportunidadesParadas: oportunidades.filter((o) => (o.diasParado ?? 0) >= 7 && !ehFechada(o.etapa, funil)).length,
   };
 }
 
@@ -103,12 +105,14 @@ export function analisarPorQueNaoVendo({
   vendas,
   relacionamentos,
   dias = 30,
+  funil = FUNIL_PADRAO,
 }: {
   atividades: Atividade[];
   oportunidades: Oportunidade[];
   vendas: Venda[];
   relacionamentos: Relacionamento[];
   dias?: number;
+  funil?: EtapaFunil[];
 }): AnalisePorQueNaoVendo {
   const fimAtual = new Date();
   const inicioAtual = new Date(fimAtual);
@@ -117,8 +121,8 @@ export function analisarPorQueNaoVendo({
   const inicioAnterior = new Date(inicioAtual);
   inicioAnterior.setDate(inicioAnterior.getDate() - dias);
 
-  const atual = coletarMetricas(inicioAtual, fimAtual, atividades, oportunidades, vendas, relacionamentos);
-  const anterior = coletarMetricas(inicioAnterior, fimAnterior, atividades, oportunidades, vendas, relacionamentos);
+  const atual = coletarMetricas(inicioAtual, fimAtual, atividades, oportunidades, vendas, relacionamentos, funil);
+  const anterior = coletarMetricas(inicioAnterior, fimAnterior, atividades, oportunidades, vendas, relacionamentos, funil);
   const moeda = (valor: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(valor);
   const inteiro = (valor: number) => String(valor);
 

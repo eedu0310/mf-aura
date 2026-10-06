@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Filter, DollarSign, Users, Loader2, ShoppingBag, ArrowRight } from "lucide-react";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useAppData } from "@/lib/app-data-context";
+import { colunaDoNegocio, etapasVisiveis } from "@/lib/funil";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { carregarEquipe, type MembroEquipe } from "@/lib/supabase/team";
 import { TeamRoster } from "@/components/gestor/team-roster";
@@ -29,7 +30,7 @@ function formatarMoeda(valor: number) {
 
 export function DashboardTab() {
   const { profile } = useUserProfile();
-  const { oportunidadesTodasLojas, vendasTodasLojas, atividades, relacionamentos } = useAppData();
+  const { oportunidadesTodasLojas, vendasTodasLojas, atividades, relacionamentos, funil } = useAppData();
   const [equipe, setEquipe] = useState<MembroEquipe[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -77,12 +78,18 @@ export function DashboardTab() {
   }, [vendasTodasLojas]);
 
   const dadosPipeline = useMemo(() => {
-    const etapas = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"];
-    return etapas.map((nome) => ({
-      nome,
-      valor: oportunidadesTodasLojas.filter((o) => o.etapa === nome).reduce((total, o) => total + Number(o.valor ?? 0), 0),
-    })).filter((item) => item.valor > 0);
-  }, [oportunidadesTodasLojas]);
+    // As etapas do funil da loja, sem a de perda: num gráfico de valor em
+    // aberto, negócio perdido não é dinheiro em jogo.
+    return etapasVisiveis(funil)
+      .filter((e) => e.tipo !== "perda")
+      .map((e) => ({
+        nome: e.nome,
+        valor: oportunidadesTodasLojas
+          .filter((o) => colunaDoNegocio(o.etapa, funil) === e.nome)
+          .reduce((total, o) => total + Number(o.valor ?? 0), 0),
+      }))
+      .filter((item) => item.valor > 0);
+  }, [oportunidadesTodasLojas, funil]);
 
   const dadosAtividades = useMemo(() => {
     const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];

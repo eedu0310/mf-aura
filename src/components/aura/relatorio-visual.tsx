@@ -17,14 +17,10 @@ import { Activity, DollarSign, Loader2, Percent, Printer, Receipt, Sparkles, Tar
 
 // Paleta validada (dataviz): uma cor por gráfico, texto sempre em tinta neutra.
 const COR = { serie: "#2a78d6", serie2: "#1baf7a", grade: "#e7e5e4", texto: "#52514e", tinta: "#0b0b0b" };
-const COR_ETAPA: Record<string, string> = {
-  Prospecção: "#94a3b8",
-  Apresentação: "#2a78d6",
-  Proposta: "#eda100",
-  Negociação: "#eb6834",
-  Fechados: "#1baf7a",
-  Perdidos: "#e34948",
-};
+/*
+ * As cores das etapas vêm do funil da loja, junto com os números: era um mapa
+ * fixo por nome, e uma etapa renomeada ficava sem cor nenhuma na barra.
+ */
 
 interface Relatorio {
   periodoDias: number;
@@ -32,7 +28,7 @@ interface Relatorio {
   vendasPorDia: { dia: string; valor: number }[];
   atividadesPorDia: { dia: string; qtd: number }[];
   atividadesPorTipo: { tipo: string; qtd: number }[];
-  funil: { etapa: string; qtd: number; valor: number }[];
+  funil: { etapa: string; qtd: number; valor: number; tipo: string; cor: string }[];
   porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; leads: number; fechadas: number; perdidas: number }[];
   porLoja: { loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; clientes: number }[];
   topClientes: { cliente: string; valor: number }[];
@@ -182,7 +178,7 @@ export function RelatorioVisual() {
     () => (dados?.filtros?.vendedores ?? []).filter((v) => !loja || v.loja === loja),
     [dados, loja],
   );
-  const funilAberto = r?.funil.filter((f) => f.etapa !== "Perdidos") ?? [];
+  const funilAberto = r?.funil.filter((f) => f.tipo !== "perda") ?? [];
   const maxFunil = Math.max(1, ...funilAberto.map((f) => f.qtd));
   const passo = r ? Math.max(1, Math.ceil(r.vendasPorDia.length / 10)) : 1;
 
@@ -348,14 +344,16 @@ export function RelatorioVisual() {
                     <div className="h-3 rounded-full bg-slate-100">
                       <div
                         className="h-3 rounded-full"
-                        style={{ width: `${Math.max(3, (f.qtd / maxFunil) * 100)}%`, backgroundColor: COR_ETAPA[f.etapa] }}
+                        style={{ width: `${Math.max(3, (f.qtd / maxFunil) * 100)}%`, backgroundColor: f.cor }}
                       />
                     </div>
                   </div>
                 ))}
                 <p className="pt-1 text-xs text-aura-graphite-soft">
                   Em aberto: <strong className="text-aura-graphite">{moeda(r.kpis.pipelineAberto)}</strong>
-                  {r.funil.find((f) => f.etapa === "Perdidos")?.qtd ? ` · ${r.funil.find((f) => f.etapa === "Perdidos")!.qtd} perdido(s)` : ""}
+                  {r.funil.find((f) => f.tipo === "perda")?.qtd
+                    ? ` · ${r.funil.find((f) => f.tipo === "perda")!.qtd} perdido(s)`
+                    : ""}
                 </p>
               </div>
             </Cartao>
@@ -498,7 +496,7 @@ export function RelatorioVisual() {
               <p className="mt-3 text-xs text-aura-graphite-soft">
                 Conversão é sobre o que já foi decidido (fechou + perdeu). Quem
                 tem muita coisa em aberto não aparece pior por isso. Pipeline
-                conta de Proposta em diante.
+                conta as etapas que o gestor marcou como “conta no pipeline”.
               </p>
             </Cartao>
           )}

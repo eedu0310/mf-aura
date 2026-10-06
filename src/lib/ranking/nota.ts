@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { ehGanho, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
 
 /**
  * A nota do mês, de 0 a 10.
@@ -64,6 +65,11 @@ export interface Insumos {
   atividades: { owner_id: string | null }[];
   avaliacoes: { vendedor_id: string | null; aberto_em: string | null; confirmado_em: string | null }[];
   oportunidades: { owner_id: string | null; relacionamento_id: string | null; etapa: string }[];
+  /**
+   * O funil da loja. Sem ele a nota não saberia qual etapa significa venda
+   * fechada — e é essa conta que decide o bônus de cliente novo.
+   */
+  funil?: EtapaFunil[];
 }
 
 /** Quanto do CRM está preenchido, de 0 a 100. É o portão do bônus. */
@@ -114,7 +120,7 @@ function quantoFez(
       return d.oportunidades.filter(
         (o) =>
           o.owner_id === pessoaId &&
-          o.etapa === "Fechados" &&
+          ehGanho(o.etapa, d.funil ?? FUNIL_PADRAO) &&
           o.relacionamento_id &&
           nasceramNoPeriodo.has(o.relacionamento_id),
       ).length;

@@ -34,6 +34,7 @@ import { listarMinhasPendenciasPosVenda, type PosVenda } from "@/lib/supabase/po
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Etapa } from "@/lib/types";
 import { calcularPrioridadesComerciais, rotuloPrioridade } from "@/lib/aura-prioridades";
+import { colunaDoNegocio, etapasVisiveis } from "@/lib/funil";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -42,14 +43,6 @@ function formatarMoeda(valor: number) {
     maximumFractionDigits: 0,
   }).format(valor);
 }
-
-const ETAPAS: Etapa[] = [
-  "Prospecção",
-  "Apresentação",
-  "Proposta",
-  "Negociação",
-  "Fechados",
-];
 
 const CORES_PIPELINE = [
   "bg-aura-petrol-700",
@@ -68,7 +61,7 @@ const CORES_TIPO: Record<string, string> = {
 };
 
 export default function MeuDiaPage() {
-  const { oportunidades, atividades, vendas, relacionamentos } = useAppData();
+  const { oportunidades, atividades, vendas, relacionamentos, funil } = useAppData();
 
   const [compromissosHoje, setCompromissosHoje] = useState<Compromisso[]>([]);
   const [posicaoRanking, setPosicaoRanking] = useState<number | null>(null);
@@ -151,8 +144,12 @@ export default function MeuDiaPage() {
   const vendasDoMes = vendas.filter((venda) => venda.data.startsWith(mesAtual));
   const totalVendasMes = vendasDoMes.reduce((soma, venda) => soma + venda.valor, 0);
 
-  const pipelinePorEtapa = ETAPAS.map((etapa) => {
-    const itens = oportunidades.filter((oportunidade) => oportunidade.etapa === etapa);
+  // O resumo do funil segue as etapas da loja, menos a de perda: aqui é
+  // "onde está o meu dinheiro", e negócio perdido não está em lugar nenhum.
+  const pipelinePorEtapa = etapasVisiveis(funil)
+    .filter((e) => e.tipo !== "perda")
+    .map(({ nome: etapa }) => {
+    const itens = oportunidades.filter((o) => colunaDoNegocio(o.etapa, funil) === etapa);
     return {
       etapa,
       valor: itens.reduce((soma, oportunidade) => soma + oportunidade.valor, 0),
@@ -183,7 +180,7 @@ export default function MeuDiaPage() {
     })
     .slice(0, 6);
 
-  const dnaResultado = computeDnaScore({ relacionamentos, oportunidades, atividades });
+  const dnaResultado = computeDnaScore({ relacionamentos, oportunidades, atividades, funil });
   // "Recentes" só é recente se estiver ordenado: a lista vinha na ordem que o
   // banco devolveu, então uma atividade de semanas atrás podia encabeçar.
   const atividadesRecentes = useMemo(() => {
@@ -205,7 +202,7 @@ export default function MeuDiaPage() {
     posicaoRanking,
   });
   const prioridades = useMemo(
-    () => calcularPrioridadesComerciais({ relacionamentos, oportunidades, atividades }),
+    () => calcularPrioridadesComerciais({ relacionamentos, oportunidades, atividades, funil }),
     [relacionamentos, oportunidades, atividades],
   );
 

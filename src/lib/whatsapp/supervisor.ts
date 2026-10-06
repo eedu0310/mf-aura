@@ -33,15 +33,22 @@ import {
   sendText,
   type WaMessage,
 } from "./live-manager";
+import { calcularAlertas, detectarEtapa, type Alerta } from "./stage-rules";
 import {
-  calcularAlertas,
-  detectarEtapa,
-  ETAPAS,
-  ORDEM_ETAPA,
-  PROBABILIDADE_POR_ETAPA,
-  type Alerta,
+  ehFechada,
+  ehGanho,
+  ehPerda,
+  etapasVisiveis,
+  nomeDaChave,
+  nomesDasEtapas,
+  primeiraEtapa,
+  ordemDe,
+  probabilidadeDe,
+  type ChaveEtapa,
   type Etapa,
-} from "./stage-rules";
+  type EtapaFunil,
+} from "@/lib/funil";
+import { carregarFunil } from "@/lib/funil-servidor";
 
 export interface LeadInfo {
   chatJid: string;
@@ -236,7 +243,12 @@ const FERRAMENTA_ANALISE = {
         ],
       },
       tipo_nao_lead: { type: ["string", "null"] },
-      etapa: { type: ["string", "null"], enum: ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos", null] },
+      /*
+       * Sem lista fixa aqui: as etapas são as da loja, e vão escritas no
+       * prompt. O que a IA devolver é conferido contra o funil depois, em
+       * nomesDasEtapas() — uma etapa inventada vira null em vez de entrar.
+       */
+      etapa: { type: ["string", "null"] },
       confianca: { type: "number" },
       evidencia: { type: "string" },
       resumo: { type: "string" },
@@ -370,11 +382,38 @@ async function materiaisDaEmpresa(empresa: string): Promise<string> {
   return texto;
 }
 
+/**
+ * As etapas da loja, descritas para a IA.
+ *
+ * O texto de cada uma vem do PAPEL (a chave), não do nome: assim o gestor
+ * renomeia "Proposta" para "Follow-up" e a IA continua sabendo que ali é
+ * "o vendedor já enviou o orçamento". Etapa criada pelo gestor, que não tem
+ * papel conhecido, entra na lista só pelo nome — a IA passa a conhecê-la, mas
+ * sem instrução do que ela significa, o que é melhor do que inventar uma.
+ */
+const EXPLICACAO_DA_CHAVE: Record<ChaveEtapa, string> = {
+  prospeccao: "cliente demonstrou interesse, vendedor ainda qualificando.",
+  qualificacao: "vendedor está levantando a necessidade, o ambiente, o prazo e quem decide.",
+  apresentacao: "vendedor mostrou produtos (fotos, vídeos, catálogo) ou agendou visita/showroom/medição.",
+  followup: "vendedor ENVIOU orçamento/proposta/valor (não basta o cliente pedir) e está acompanhando.",
+  negociacao: "depois da proposta, discutem desconto, parcelamento, condições, concorrência.",
+  fechamento: "cliente confirmou a compra, pagou, mandou comprovante ou pedido confirmado.",
+  posvenda: "já comprou: entrega, instalação, acompanhamento.",
+  perda: "cliente desistiu claramente ou comprou em outro lugar.",
+};
+
+function descricaoDasEtapas(funil: EtapaFunil[]): string {
+  return etapasVisiveis(funil)
+    .map((e) => `- ${e.nome}${e.chave ? `: ${EXPLICACAO_DA_CHAVE[e.chave]}` : ""}`)
+    .join("\n");
+}
+
 async function analisarComIa(
   msgs: WaMessage[],
   nomeCliente: string,
   etapaAtual: Etapa | null,
   alertas: Alerta[],
+  funil: EtapaFunil[],
   materiais?: string,
   aprendizado?: string,
   /**
@@ -428,20 +467,15 @@ vendedor escolhe.
 
 Use o MANUAL DE TREINAMENTO abaixo como a regra da casa. Suas dicas devem aplicar o manual ao caso concreto, citando o que o cliente disse.
 
-ETAPAS DO PIPELINE (em ordem):
-- Prospecção: cliente demonstrou interesse, vendedor ainda qualificando.
-- Apresentação: vendedor mostrou produtos (fotos, vídeos, catálogo) ou agendou visita/showroom/medição.
-- Proposta: vendedor ENVIOU orçamento/proposta/valor (não basta o cliente pedir).
-- Negociação: depois da proposta, discutem desconto, parcelamento, condições, concorrência.
-- Fechados: cliente confirmou a compra, pagou, mandou comprovante ou pedido confirmado.
-- Perdidos: cliente desistiu claramente ou comprou em outro lugar.
+ETAPAS DO PIPELINE DESTA LOJA (em ordem):
+${descricaoDasEtapas(funil)}
 
 Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 {
   "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, suporte de quem já comprou, ou qualquer assunto fora de lareira/churrasqueira/aquecimento)
   "categoria_sugerida": "Cliente Final"|"Arquiteto"|"Construtora"|"Revendedor"|"Engenheiro"|"Designer de Interiores"|"Consultor"|"Obra"|"Distribuidor"|"Outro"|null,
   "tipo_nao_lead": "o que o contato é, quando e_lead for false, ou null",
-  "etapa": "Prospecção"|"Apresentação"|"Proposta"|"Negociação"|"Fechados"|"Perdidos"|null,
+  "etapa": ${nomesDasEtapas(funil).map((n) => JSON.stringify(n)).join("|")}|null,
   "confianca": número de 0 a 1,
   "evidencia": "trecho curto da conversa que justifica a etapa",
   "resumo": "2 a 3 frases: quem é o cliente, o que quer, em que pé está",
@@ -525,7 +559,9 @@ ${transcricao(msgs, nomeCliente)}`;
     e_lead: !!r.e_lead,
     categoria_sugerida: ehCategoria(r.categoria_sugerida) ? r.categoria_sugerida : null,
     tipo_nao_lead: r.tipo_nao_lead ? String(r.tipo_nao_lead).slice(0, 60) : null,
-    etapa: ETAPAS.includes(r.etapa) ? r.etapa : null,
+    // A IA só pode devolver etapa que existe NESTA loja. Antes ela era
+    // conferida contra a lista fixa do código, que agora pode nem ser a da loja.
+    etapa: nomesDasEtapas(funil).includes(r.etapa) ? r.etapa : null,
     confianca: Number(r.confianca) || 0,
     evidencia: String(r.evidencia ?? ""),
     resumo: String(r.resumo ?? ""),
@@ -684,7 +720,12 @@ async function garantirOportunidade(
   interesse: string | null,
   valor: number | null,
   oportunidadeId: string | null,
+  funil: EtapaFunil[],
 ) {
+  // "Negócio ainda em aberto" = toda etapa que não é de ganho nem de perda,
+  // segundo o funil DESTA loja. Era uma lista fixa escrita na consulta.
+  const fechadas = nomesDasEtapas(funil).filter((n) => ehFechada(n, funil));
+  const listaFechadas = `(${fechadas.map((n) => `"${n}"`).join(",")})`;
   if (oportunidadeId) {
     const { data } = await sb.from("oportunidades").select("id, etapa, valor, cliente").eq("id", oportunidadeId).maybeSingle();
     if (data) return data as { id: string; etapa: Etapa; valor: number; cliente: string };
@@ -693,7 +734,7 @@ async function garantirOportunidade(
     .from("oportunidades")
     .select("id, etapa, valor, cliente")
     .eq("relacionamento_id", relacionamentoId)
-    .not("etapa", "in", '("Fechados","Perdidos")')
+    .not("etapa", "in", listaFechadas)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -786,10 +827,11 @@ async function moverOportunidade(
   evidencia: string,
   relacionamentoId: string | null,
   valorEstimado: number | null,
+  funil: EtapaFunil[],
 ) {
   const patch: Record<string, unknown> = {
     etapa: para,
-    probabilidade: PROBABILIDADE_POR_ETAPA[para],
+    probabilidade: probabilidadeDe(para, funil),
     dias_parado: 0,
     updated_at: new Date().toISOString(),
   };
@@ -811,7 +853,7 @@ async function moverOportunidade(
     { oportunidade_id: op.id, de: op.etapa, para },
   );
 
-  if (para === "Fechados") {
+  if (ehGanho(para, funil)) {
     const { data: jaTem } = await sb.from("vendas").select("id").eq("oportunidade_id", op.id).limit(1);
     if (!jaTem?.length) {
       const valor = Number(patch.valor ?? op.valor) || 0;
@@ -1147,6 +1189,9 @@ export async function analisarConversa(
     if (!opts.forcar && row?.ultimo_msg_id === ultimo.id) return;
 
     const empresa = await empresaDo(userId);
+    // O funil é desta loja: o gestor edita as etapas por loja, e tudo daqui
+    // para baixo pergunta o PAPEL da etapa em vez de comparar o nome.
+    const funil = await carregarFunil(sb, empresa);
     const regras = detectarEtapa(msgs);
     const alertas = calcularAlertas(msgs);
 
@@ -1188,6 +1233,7 @@ export async function analisarConversa(
         chat.name,
         etapaPipelineAtual,
         alertas,
+        funil,
         fixo,
         sb0 ? await textoDoAprendizado(sb0, empresa) : "",
         trechos,
@@ -1225,18 +1271,27 @@ export async function analisarConversa(
     const ehLead = !!opts.comoLead || jaEhNegocio;
     const sugerirLead = !ehLead && (!!analise?.e_lead || soRegrasAchou);
 
-    // Etapa detectada: a mais avançada entre regras e IA (IA só com confiança ≥ 0,7).
-    let detectada: Etapa | null = regras.etapa;
-    let evidencia = regras.evidencias.filter((e) => e.etapa === regras.etapa).slice(-1)[0]?.texto ?? "";
+    /**
+     * Etapa detectada: a mais avançada entre regras e IA (IA só com confiança
+     * ≥ 0,7).
+     *
+     * As regras devolvem a CHAVE do que viram ("isto é orçamento enviado") e
+     * aqui ela vira o nome da etapa DESTA loja. Se o gestor desligou a etapa
+     * que faria aquele papel, não há para onde mover e a detecção fica nula —
+     * o vendedor move à mão, que é melhor do que o card ir para uma etapa que
+     * a loja decidiu não usar.
+     */
+    let detectada: Etapa | null = regras.chave ? nomeDaChave(regras.chave, funil) : null;
+    let evidencia = regras.evidencias.filter((e) => e.chave === regras.chave).slice(-1)[0]?.texto ?? "";
     let fonte = "regras";
-    if (analise?.etapa && analise.etapa !== "Perdidos" && analise.confianca >= 0.7) {
-      if (!detectada || ORDEM_ETAPA[analise.etapa] > ORDEM_ETAPA[detectada]) {
+    if (analise?.etapa && !ehFechada(analise.etapa, funil) && analise.confianca >= 0.7) {
+      if (!detectada || ordemDe(analise.etapa, funil) > ordemDe(detectada, funil)) {
         detectada = analise.etapa;
         evidencia = analise.evidencia || evidencia;
         fonte = "ia";
       }
     }
-    if (ehLead && !detectada) detectada = "Prospecção";
+    if (ehLead && !detectada) detectada = primeiraEtapa(funil);
 
     /**
      * Fechar e perder são do vendedor, nunca da AURA.
@@ -1250,12 +1305,12 @@ export async function analisarConversa(
      * A AURA continua reconhecendo os dois e dizendo o que viu. Quem
      * arrasta o card é gente.
      */
-    const soDoVendedor = (e: Etapa | null): boolean => e === "Fechados" || e === "Perdidos";
+    const soDoVendedor = (e: Etapa | null): boolean => ehFechada(e, funil);
 
     const alertasIa = [...(analise?.alertas ?? [])];
     if (regras.sinalPerda) alertasIa.unshift(`Risco de perda: cliente disse "${regras.sinalPerda.slice(0, 120)}"`);
-    if (analise?.etapa === "Perdidos" && analise.confianca >= 0.7) alertasIa.unshift(`A IA acha que este lead está sendo perdido: ${analise.evidencia}`);
-    if (ehLead && detectada === "Fechados") {
+    if (ehPerda(analise?.etapa, funil) && (analise?.confianca ?? 0) >= 0.7) alertasIa.unshift(`A IA acha que este lead está sendo perdido: ${analise?.evidencia ?? ""}`);
+    if (ehLead && ehGanho(detectada, funil)) {
       alertasIa.unshift(
         `A AURA achou que este negócio fechou${evidencia ? `: "${evidencia.slice(0, 120)}"` : ""}. Se fechou mesmo, arraste o card para Fechados — a venda do mês só entra quando você confirma.`,
       );
@@ -1331,6 +1386,7 @@ export async function analisarConversa(
           patch.interesse as string | null,
           patch.valor_estimado as number | null,
           row?.oportunidade_id ?? null,
+          funil,
         );
         if (op) {
           patch.oportunidade_id = op.id;
@@ -1341,12 +1397,11 @@ export async function analisarConversa(
           if (
             detectada &&
             !soDoVendedor(detectada) &&
-            op.etapa !== "Fechados" &&
-            op.etapa !== "Perdidos" &&
-            ORDEM_ETAPA[detectada] > ORDEM_ETAPA[op.etapa as Etapa] &&
-            (!ultimaDetectada || ORDEM_ETAPA[detectada] > ORDEM_ETAPA[ultimaDetectada])
+            !ehFechada(op.etapa, funil) &&
+            ordemDe(detectada, funil) > ordemDe(op.etapa, funil) &&
+            (!ultimaDetectada || ordemDe(detectada, funil) > ordemDe(ultimaDetectada, funil))
           ) {
-            const moved = await moverOportunidade(sb, userId, empresa, op, detectada, evidencia, relacionamentoId, patch.valor_estimado as number | null);
+            const moved = await moverOportunidade(sb, userId, empresa, op, detectada, evidencia, relacionamentoId, patch.valor_estimado as number | null, funil);
             if (moved) historico.push({ em: new Date().toISOString(), de: op.etapa, para: detectada, evidencia, fonte });
           } else if (!row?.oportunidade_id) {
             historico.push({ em: new Date().toISOString(), de: null, para: op.etapa, evidencia: "Lead cadastrado no CRM", fonte });
@@ -1516,7 +1571,7 @@ export async function definirEtapaManual(userId: string, chatJid: string, etapa:
   if (!op) throw new Error("Oportunidade não encontrada.");
   await sb
     .from("oportunidades")
-    .update({ etapa, probabilidade: PROBABILIDADE_POR_ETAPA[etapa], updated_at: new Date().toISOString(), dias_parado: 0 })
+    .update({ etapa, probabilidade: probabilidadeDe(etapa, await carregarFunil(sb, await empresaDo(userId))), updated_at: new Date().toISOString(), dias_parado: 0 })
     .eq("id", op.id);
   const empresa = await empresaDo(userId);
   await registrarAtividade(sb, userId, empresa, row.relacionamento_id, op.cliente, `Etapa alterada no WhatsApp: ${op.etapa} → ${etapa}`, "Alteração manual pelo vendedor", { oportunidade_id: op.id, de: op.etapa, para: etapa });

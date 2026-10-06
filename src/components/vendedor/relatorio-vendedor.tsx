@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { ehFechada } from "@/lib/funil";
 import {
   LineChart,
   Line,
@@ -32,7 +33,7 @@ interface AtividadeData {
 }
 
 export function RelatorioVendedor() {
-  const { vendas, oportunidades, atividades } = useAppData();
+  const { vendas, oportunidades, atividades, funil } = useAppData();
   const [carregando, setCarregando] = useState(false);
 
   const todasVendas = Array.isArray(vendas) ? vendas : [];
@@ -121,7 +122,7 @@ export function RelatorioVendedor() {
   const ticketMedio =
     todasVendas.length > 0 ? totalVendido / todasVendas.length : 0;
   const oportunidadesAbertas = todasOportunidades.filter(
-    (o) => o.etapa !== "Fechados" && o.etapa !== "Perdidos",
+    (o) => !ehFechada(o.etapa, funil),
   ).length;
 
   const exportarPDF = async () => {

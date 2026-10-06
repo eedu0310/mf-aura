@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chamarClaude } from "@/lib/aura/texto-ia";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { ehGanho } from "@/lib/funil";
 
 interface MetaCompromisso {
   metaFaturamento: number;
@@ -65,7 +67,8 @@ async function coletarDadosVendedor(
   nome: string,
   inicioISO: string,
   fimISO: string,
-  inicioAnteriorISO: string
+  inicioAnteriorISO: string,
+  empresa?: string,
 ): Promise<DadosVendedor> {
   const mesDoRelatorio = fimISO.slice(0, 7);
 
@@ -120,9 +123,12 @@ async function coletarDadosVendedor(
     .slice(0, 8)
     .map((r) => ({ nome: r.nome as string, dias: 0 }));
 
-  const fechadasAtual = (oportunidades ?? []).filter((o) => o.etapa === "Fechados").length;
+  // Qual etapa significa "fechou" é do funil da loja; comparar com o nome
+  // antigo deixaria a taxa de conversão em zero depois de uma renomeação.
+  const funilDaLoja = await carregarFunil(supabase, empresa);
+  const fechadasAtual = (oportunidades ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length;
   const totalAtual = (oportunidades ?? []).length;
-  const fechadasAnterior = (oportunidadesAnterior ?? []).filter((o) => o.etapa === "Fechados").length;
+  const fechadasAnterior = (oportunidadesAnterior ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length;
   const totalAnterior = (oportunidadesAnterior ?? []).length;
 
   return {
@@ -197,7 +203,8 @@ export async function gerarRelatorioVendedor(
     nome,
     periodoInicio.toISOString(),
     periodoFim.toISOString(),
-    periodoAnteriorInicio.toISOString()
+    periodoAnteriorInicio.toISOString(),
+    empresa,
   );
 
   let texto: string;
@@ -285,7 +292,8 @@ export async function gerarRelatorioLoja(
         v.nome as string,
         periodoInicio.toISOString(),
         periodoFim.toISOString(),
-        periodoInicio.toISOString()
+        periodoInicio.toISOString(),
+        empresa,
       )
     )
   );

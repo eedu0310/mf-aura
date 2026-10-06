@@ -95,6 +95,14 @@ export async function GET(request: Request) {
     atividades: (atividades ?? []) as Insumos["atividades"],
     avaliacoes: (avaliacoes ?? []) as Insumos["avaliacoes"],
     oportunidades: (oportunidades ?? []) as Insumos["oportunidades"],
+    /*
+     * Sem funil específico aqui de propósito: este ranking é do GRUPO, com as
+     * quatro lojas juntas, e cada uma pode ter o seu. O único uso do funil na
+     * nota é saber qual etapa significa venda fechada, e para isso o desenho
+     * padrão responde certo tanto para o nome novo quanto para o antigo. Se um
+     * dia uma loja chamar a etapa de ganho de outra coisa, é aqui que se passa
+     * o funil dela.
+     */
   };
 
   const notas = time

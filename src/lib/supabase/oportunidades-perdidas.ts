@@ -1,10 +1,12 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { MotivoPerda } from "@/lib/types";
+import { FUNIL_PADRAO, nomeDaChave, type EtapaFunil } from "@/lib/funil";
 
 export async function marcarOportunidadeComoPerdida(
   oportunidadeId: string,
   motivo: MotivoPerda,
-  descricao: string = ""
+  descricao: string = "",
+  funil: EtapaFunil[] = FUNIL_PADRAO,
 ): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return false;
@@ -13,7 +15,7 @@ export async function marcarOportunidadeComoPerdida(
     const { error } = await supabase
       .from("oportunidades")
       .update({
-        etapa: "Perdidos",
+        etapa: nomeDaChave("perda", funil) ?? "Perdidos",
         motivo_perda: motivo,
         descricao_perda: descricao || null,
         data_perda: new Date().toISOString(),
@@ -59,7 +61,9 @@ export async function recuperarOportunidade(oportunidadeId: string): Promise<boo
   }
 }
 
-export async function listarOportunidadesPerdidas(): Promise<any[]> {
+export async function listarOportunidadesPerdidas(
+  funil: EtapaFunil[] = FUNIL_PADRAO,
+): Promise<any[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
 
@@ -67,7 +71,7 @@ export async function listarOportunidadesPerdidas(): Promise<any[]> {
     const { data, error } = await supabase
       .from("oportunidades")
       .select("*")
-      .eq("etapa", "Perdidos")
+      .eq("etapa", nomeDaChave("perda", funil) ?? "Perdidos")
       .order("data_perda", { ascending: false });
 
     if (error) {

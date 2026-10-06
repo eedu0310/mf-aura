@@ -22,27 +22,25 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import { ETAPAS_QUE_VALEM } from "@/lib/aura/metricas";
+import {
+  colunaDoNegocio,
+  contaNoPipeline,
+  nomeDaChave,
+  corDe,
+  ehGanho,
+  ehPerda,
+  etapasVisiveis,
+  type EtapaFunil,
+} from "@/lib/funil";
 
 interface PipelineBoardProps {}
 
-const ETAPAS: Etapa[] = [
-  "Prospecção",
-  "Apresentação",
-  "Proposta",
-  "Negociação",
-  "Fechados",
-  "Perdidos",
-];
-
-const COR_ETAPA: Record<Etapa, string> = {
-  Prospecção: "bg-aura-petrol-700",
-  Apresentação: "bg-aura-petrol-500",
-  Proposta: "bg-aura-gold",
-  Negociação: "bg-aura-warning",
-  Fechados: "bg-aura-success",
-  Perdidos: "bg-aura-danger",
-};
+/*
+ * As colunas e as cores vinham escritas aqui. Agora vêm do funil da loja, que
+ * o gestor edita: renomear uma etapa mudava o nome no banco e deixava o card
+ * sem coluna nenhuma onde aparecer, porque a tela continuava desenhando as
+ * seis colunas antigas.
+ */
 
 const PESO_PROBABILIDADE: Record<string, number> = {
   Alta: 0.8,
@@ -127,10 +125,12 @@ function OportunidadeCard({
 // Componente da Coluna
 function EtapaColuna({
   etapa,
+  definicao,
   oportunidades,
   onDetailsClick,
 }: {
   etapa: Etapa;
+  definicao: EtapaFunil;
   oportunidades: Oportunidade[];
   onDetailsClick: (opp: Oportunidade) => void;
 }) {
@@ -140,7 +140,7 @@ function EtapaColuna({
   });
 
   const valorEtapa = oportunidades.reduce((soma, o) => soma + o.valor, 0);
-  const ehPerdidos = etapa === "Perdidos";
+  const ehPerdidos = definicao.tipo === "perda";
 
   return (
     <div
@@ -149,7 +149,7 @@ function EtapaColuna({
         ehPerdidos ? "border-aura-danger/20" : "border-aura-mist"
       }`}
     >
-      <div className={`h-1 w-full ${COR_ETAPA[etapa]}`} />
+      <div className="h-1 w-full" style={{ backgroundColor: definicao.cor }} />
 
       <div className="border-b border-aura-mist bg-white px-3 py-2.5">
         <p className="text-sm font-medium text-aura-graphite">{etapa}</p>
@@ -184,7 +184,8 @@ function EtapaColuna({
 export function PipelineBoard({}: PipelineBoardProps) {
   const appData = useAppData();
   const oportunidades = appData.oportunidades || [];
-  const { moveOportunidade, vendas } = appData;
+  const { moveOportunidade, vendas, funil } = appData;
+  const colunas = etapasVisiveis(funil);
 
   const [modalAberto, setModalAberto] = useState(false);
   const [oportunidadeSelecionada, setOportunidadeSelecionada] =
@@ -203,12 +204,13 @@ export function PipelineBoard({}: PipelineBoardProps) {
   // Contagem de "em jogo": segue tudo que não foi fechado nem perdido, porque
   // é um número de cabeças, não de dinheiro.
   const oportunidadesAtivas = oportunidades.filter(
-    (o) => o.etapa !== "Perdidos" && o.etapa !== "Fechados",
+    (o) => !ehPerda(o.etapa, funil) && !ehGanho(o.etapa, funil),
   );
-  // Dinheiro só conta de Proposta em diante: lead em Prospecção/Apresentação é
-  // intenção, não negócio na mesa, e somar tudo inflava o total.
+  // Dinheiro só conta nas etapas que o gestor marcou como "conta no pipeline":
+  // lead no começo do funil é intenção, não negócio na mesa, e somar tudo
+  // inflava o total com qualquer contato novo.
   const oportunidadesQueContam = oportunidades.filter((o) =>
-    ETAPAS_QUE_VALEM.includes(o.etapa),
+    contaNoPipeline(o.etapa, funil),
   );
   const valorTotal = oportunidadesQueContam.reduce((soma, o) => soma + o.valor, 0);
   const previsaoPonderada = oportunidadesQueContam.reduce(
@@ -236,7 +238,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
       const novaEtapa = over.id as Etapa;
 
       // ⭐ SE FOR "PERDIDOS", ABRE MODAL
-      if (novaEtapa === "Perdidos") {
+      if (ehPerda(novaEtapa, funil)) {
         const opp = oportunidades.find((o) => o.id === oportunidadeId);
         if (opp) {
           setOportunidadePerdendo(opp);
@@ -245,7 +247,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
       }
 
       if (
-        novaEtapa === "Fechados" &&
+        ehGanho(novaEtapa, funil) &&
         !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
       ) return;
       moveOportunidade(oportunidadeId, novaEtapa);
@@ -258,7 +260,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
       if (oportunidadeOver) {
 
         // ⭐ SE FOR "PERDIDOS", ABRE MODAL
-        if (oportunidadeOver.etapa === "Perdidos") {
+        if (ehPerda(oportunidadeOver.etapa, funil)) {
           const opp = oportunidades.find((o) => o.id === oportunidadeId);
           if (opp) {
             setOportunidadePerdendo(opp);
@@ -267,7 +269,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
         }
 
         if (
-          oportunidadeOver.etapa === "Fechados" &&
+          ehGanho(oportunidadeOver.etapa, funil) &&
           !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
         ) return;
         moveOportunidade(oportunidadeId, oportunidadeOver.etapa);
@@ -357,13 +359,23 @@ export function PipelineBoard({}: PipelineBoardProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-6">
-          {ETAPAS.map((etapa) => {
-            const itens = oportunidades.filter((o) => o.etapa === etapa);
+        {/* As colunas são as etapas que o gestor deixou ativas, na ordem dele.
+            O número de colunas deixa de ser fixo em seis, senão um funil com
+            sete etapas espremeria tudo ou deixaria a última de fora. */}
+        <div
+          className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2"
+          style={{ gridTemplateColumns: `repeat(${Math.max(1, colunas.length)}, minmax(0, 1fr))` }}
+        >
+          {colunas.map((def) => {
+            // Pelo nome RESOLVIDO, não pelo texto cru: um negócio gravado
+            // como "Proposta" aparece na coluna "Follow-up" depois da
+            // renomeação, em vez de sumir do quadro.
+            const itens = oportunidades.filter((o) => colunaDoNegocio(o.etapa, funil) === def.nome);
             return (
               <EtapaColuna
-                key={etapa}
-                etapa={etapa}
+                key={def.nome}
+                etapa={def.nome}
+                definicao={def}
                 oportunidades={itens}
                 onDetailsClick={setOportunidadeSelecionada}
               />
@@ -389,7 +401,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
             oportunidade={oportunidadePerdendo}
             onClose={() => setOportunidadePerdendo(null)}
             onConfirm={async () => {
-              moveOportunidade(oportunidadePerdendo.id, "Perdidos");
+              moveOportunidade(oportunidadePerdendo.id, nomeDaChave("perda", funil) ?? "Perdidos");
               setOportunidadePerdendo(null);
             }}
           />

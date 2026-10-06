@@ -9,7 +9,15 @@ import { limparCache } from "@/lib/aura/ia";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 25 * 1024 * 1024;
+/**
+ * O teto de 25 MB barrava o material principal da casa.
+ *
+ * O "Manual de Vendas LF/AEG 2026" tem 42,8 MB e era recusado na porta — foi
+ * o "não deixa botar material". Medido com o arquivo de verdade: 42,8 MB são
+ * lidos em 2 segundos e rendem 90 mil caracteres de texto limpo. O limite não
+ * protegia de nada; só impedia o trabalho.
+ */
+const MAX_BYTES = 60 * 1024 * 1024;
 const MAX_CARACTERES = 300_000;
 
 async function sessao() {
@@ -71,7 +79,7 @@ export async function POST(req: NextRequest) {
       descricao = (String(form.get("descricao") ?? "").trim() || null) as string | null;
       empresa = String(form.get("loja") ?? "").trim() || s.empresa;
       if (!(file instanceof File)) return NextResponse.json({ error: "Envie um arquivo." }, { status: 400 });
-      if (file.size > MAX_BYTES) return NextResponse.json({ error: "Arquivo muito grande (máx. 25 MB)." }, { status: 413 });
+      if (file.size > MAX_BYTES) return NextResponse.json({ error: "Arquivo muito grande (máx. 60 MB)." }, { status: 413 });
       const buffer = Buffer.from(await file.arrayBuffer());
       const extraido = await extrairTexto(file.name, file.type || "", buffer);
       texto = extraido.texto;

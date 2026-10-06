@@ -2,20 +2,32 @@
  * Regras determinísticas do Supervisor AURA — funcionam na hora, sem IA.
  * Detectam a etapa do funil pela conversa e calculam alertas de atendimento.
  * A IA (supervisor.ts) complementa isso com leitura de contexto e o manual.
+ *
+ * AS REGRAS NÃO CONHECEM NOME DE ETAPA. Elas devolvem a CHAVE do que
+ * reconheceram — "isto é conversa de negociação", "isto é orçamento enviado" —
+ * e quem chamou converte para o nome da etapa daquela loja. É o que permite o
+ * gestor renomear "Proposta" para "Follow-up" sem que uma única regra aqui
+ * precise mudar: o texto do cliente continua querendo dizer a mesma coisa.
  */
 
-export type Etapa = "Prospecção" | "Apresentação" | "Proposta" | "Negociação" | "Fechados" | "Perdidos";
+import type { ChaveEtapa } from "@/lib/funil";
 
-export const ORDEM_ETAPA: Record<Etapa, number> = {
-  Prospecção: 0,
-  Apresentação: 1,
-  Proposta: 2,
-  Negociação: 3,
-  Fechados: 4,
-  Perdidos: -1,
+/**
+ * A ordem dos SIGNIFICADOS, que não muda quando o gestor renomeia etapas.
+ *
+ * Serve para a regra "só avança": entre duas evidências na mesma conversa,
+ * vale a mais adiantada. Perda fica fora porque perder não é avançar.
+ */
+const AVANCO: Record<ChaveEtapa, number> = {
+  prospeccao: 0,
+  qualificacao: 1,
+  apresentacao: 2,
+  followup: 3,
+  negociacao: 4,
+  fechamento: 5,
+  posvenda: 6,
+  perda: -1,
 };
-
-export const ETAPAS: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"];
 
 export interface MsgLike {
   id: string;
@@ -27,14 +39,15 @@ export interface MsgLike {
 }
 
 export interface Evidencia {
-  etapa: Etapa;
+  chave: ChaveEtapa;
   texto: string;
   msgId: string;
 }
 
 export interface Deteccao {
   comercial: boolean;
-  etapa: Etapa | null;
+  /** O que a conversa mostrou, em significado. O nome da etapa é de quem chama. */
+  chave: ChaveEtapa | null;
   evidencias: Evidencia[];
   sinalPerda: string | null;
 }
@@ -55,51 +68,51 @@ export function normalizar(texto: string) {
 
 type Quem = "vendedor" | "cliente" | "qualquer";
 interface Regra {
-  etapa: Etapa;
+  chave: ChaveEtapa;
   quem: Quem;
   re: RegExp;
 }
 
 const REGRAS: Regra[] = [
   // ---------- Fechamento ----------
-  { etapa: "Fechados", quem: "qualquer", re: /\bfechamos\b/ },
-  { etapa: "Fechados", quem: "qualquer", re: /\bpedido (foi )?(confirmado|realizado|fechado|efetivado)\b/ },
-  { etapa: "Fechados", quem: "qualquer", re: /\bcontrato (foi )?assinado\b/ },
-  { etapa: "Fechados", quem: "qualquer", re: /\bpagamento (foi )?(confirmado|realizado|efetuado|aprovado|recebido)\b/ },
-  { etapa: "Fechados", quem: "cliente", re: /\b(fiz|fizemos|mandei|enviei|segue|seguem?|ta ai|esta ai) (o |a )?(pix|comprovante|pagamento|transferencia|deposito|sinal)\b/ },
-  { etapa: "Fechados", quem: "cliente", re: /\bcomprovante\b/ },
-  { etapa: "Fechados", quem: "cliente", re: /\b(quero|vamos|vou|pode|podemos) fechar\b/ },
-  { etapa: "Fechados", quem: "cliente", re: /\bpode (fazer|tirar|emitir|mandar fazer) o pedido\b/ },
-  { etapa: "Fechados", quem: "cliente", re: /^(ok,? )?fechado[!. ]*$/ },
-  { etapa: "Fechados", quem: "vendedor", re: /\b(recebemos|recebi|confirmo|confirmado|confirmamos) (o |a )?(seu |sua )?(pagamento|pix|comprovante|sinal|transferencia)\b/ },
-  { etapa: "Fechados", quem: "vendedor", re: /\b(parabens|obrigad[oa]) pela (compra|aquisicao)\b/ },
-  { etapa: "Fechados", quem: "vendedor", re: /\bseu pedido (ja )?(esta |foi )?(confirmado|registrado|feito|lancado)\b/ },
+  { chave: "fechamento", quem: "qualquer", re: /\bfechamos\b/ },
+  { chave: "fechamento", quem: "qualquer", re: /\bpedido (foi )?(confirmado|realizado|fechado|efetivado)\b/ },
+  { chave: "fechamento", quem: "qualquer", re: /\bcontrato (foi )?assinado\b/ },
+  { chave: "fechamento", quem: "qualquer", re: /\bpagamento (foi )?(confirmado|realizado|efetuado|aprovado|recebido)\b/ },
+  { chave: "fechamento", quem: "cliente", re: /\b(fiz|fizemos|mandei|enviei|segue|seguem?|ta ai|esta ai) (o |a )?(pix|comprovante|pagamento|transferencia|deposito|sinal)\b/ },
+  { chave: "fechamento", quem: "cliente", re: /\bcomprovante\b/ },
+  { chave: "fechamento", quem: "cliente", re: /\b(quero|vamos|vou|pode|podemos) fechar\b/ },
+  { chave: "fechamento", quem: "cliente", re: /\bpode (fazer|tirar|emitir|mandar fazer) o pedido\b/ },
+  { chave: "fechamento", quem: "cliente", re: /^(ok,? )?fechado[!. ]*$/ },
+  { chave: "fechamento", quem: "vendedor", re: /\b(recebemos|recebi|confirmo|confirmado|confirmamos) (o |a )?(seu |sua )?(pagamento|pix|comprovante|sinal|transferencia)\b/ },
+  { chave: "fechamento", quem: "vendedor", re: /\b(parabens|obrigad[oa]) pela (compra|aquisicao)\b/ },
+  { chave: "fechamento", quem: "vendedor", re: /\bseu pedido (ja )?(esta |foi )?(confirmado|registrado|feito|lancado)\b/ },
 
   // ---------- Negociação ----------
-  { etapa: "Negociação", quem: "qualquer", re: /\bdesconto\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bparcel(a|as|ar|amento|ado|ada)\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bem \d{1,2} ?x\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\ba vista\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bcondic(ao|oes) de pagamento\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bmelhor (preco|valor|condicao)\b/ },
-  { etapa: "Negociação", quem: "cliente", re: /\bconsegue (fazer|deixar|chegar|baixar|melhorar)\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bnegocia(r|cao|vel|mos)\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\bcontraproposta\b/ },
-  { etapa: "Negociação", quem: "qualquer", re: /\b(baixar|reduzir|abaixar) o (preco|valor)\b/ },
-  { etapa: "Negociação", quem: "cliente", re: /\b(mais barato|outro orcamento|concorrente|outra loja)\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bdesconto\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bparcel(a|as|ar|amento|ado|ada)\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bem \d{1,2} ?x\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\ba vista\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bcondic(ao|oes) de pagamento\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bmelhor (preco|valor|condicao)\b/ },
+  { chave: "negociacao", quem: "cliente", re: /\bconsegue (fazer|deixar|chegar|baixar|melhorar)\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bnegocia(r|cao|vel|mos)\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\bcontraproposta\b/ },
+  { chave: "negociacao", quem: "qualquer", re: /\b(baixar|reduzir|abaixar) o (preco|valor)\b/ },
+  { chave: "negociacao", quem: "cliente", re: /\b(mais barato|outro orcamento|concorrente|outra loja)\b/ },
 
-  // ---------- Proposta / orçamento enviado ----------
-  { etapa: "Proposta", quem: "vendedor", re: /\b(segue|seguem|envio|enviei|enviando|mandei|mando|te passo|passei|anexo|em anexo|encaminho|encaminhei)\b.{0,40}\b(orcamento|proposta|cotacao|valores?|precos?)\b/ },
-  { etapa: "Proposta", quem: "vendedor", re: /\b(orcamento|proposta|cotacao)\b.{0,40}\b(segue|anexo|enviad[oa]|pront[oa]|ficou|fica|finalizad[oa])\b/ },
-  { etapa: "Proposta", quem: "vendedor", re: /\bo valor (total )?(fica|ficaria|ficou|e de|sai|seria)\b/ },
-  { etapa: "Proposta", quem: "vendedor", re: /\b(fica|ficaria|sai|total)( em| por| de)? r\$ ?\d/ },
-  { etapa: "Proposta", quem: "vendedor", re: /r\$ ?\d{2,}/ },
-  { etapa: "Proposta", quem: "cliente", re: /\b(recebi|vi|analisei|olhei|chegou) (o |a )?(seu |sua )?(orcamento|proposta|cotacao)\b/ },
+  // ---------- Orçamento enviado (a etapa de follow-up) ----------
+  { chave: "followup", quem: "vendedor", re: /\b(segue|seguem|envio|enviei|enviando|mandei|mando|te passo|passei|anexo|em anexo|encaminho|encaminhei)\b.{0,40}\b(orcamento|proposta|cotacao|valores?|precos?)\b/ },
+  { chave: "followup", quem: "vendedor", re: /\b(orcamento|proposta|cotacao)\b.{0,40}\b(segue|anexo|enviad[oa]|pront[oa]|ficou|fica|finalizad[oa])\b/ },
+  { chave: "followup", quem: "vendedor", re: /\bo valor (total )?(fica|ficaria|ficou|e de|sai|seria)\b/ },
+  { chave: "followup", quem: "vendedor", re: /\b(fica|ficaria|sai|total)( em| por| de)? r\$ ?\d/ },
+  { chave: "followup", quem: "vendedor", re: /r\$ ?\d{2,}/ },
+  { chave: "followup", quem: "cliente", re: /\b(recebi|vi|analisei|olhei|chegou) (o |a )?(seu |sua )?(orcamento|proposta|cotacao)\b/ },
 
   // ---------- Apresentação ----------
-  { etapa: "Apresentação", quem: "vendedor", re: /\b(catalogo|portfolio|modelos disponiveis|linha de produtos|showroom|apresentacao|ficha tecnica|video do produto)\b/ },
-  { etapa: "Apresentação", quem: "qualquer", re: /\b(agendar|agendamos|agendado|marcar|marcamos|marcado) (uma |a )?(visita|reuniao|medicao|apresentacao)\b/ },
-  { etapa: "Apresentação", quem: "qualquer", re: /\b(visita tecnica|medicao no local)\b/ },
+  { chave: "apresentacao", quem: "vendedor", re: /\b(catalogo|portfolio|modelos disponiveis|linha de produtos|showroom|apresentacao|ficha tecnica|video do produto)\b/ },
+  { chave: "apresentacao", quem: "qualquer", re: /\b(agendar|agendamos|agendado|marcar|marcamos|marcado) (uma |a )?(visita|reuniao|medicao|apresentacao)\b/ },
+  { chave: "apresentacao", quem: "qualquer", re: /\b(visita tecnica|medicao no local)\b/ },
 ];
 
 const RE_COMERCIAL =
@@ -128,35 +141,35 @@ export function detectarEtapa(msgs: MsgLike[]): Deteccao {
     if (m.fromMe && m.type === "document") {
       const nome = normalizar(m.fileName ?? "");
       if (/catalogo|portfolio|apresentacao/.test(nome)) {
-        evidencias.push({ etapa: "Apresentação", texto: `Enviou ${m.fileName}`, msgId: m.id });
+        evidencias.push({ chave: "apresentacao", texto: `Enviou ${m.fileName}`, msgId: m.id });
       } else {
-        evidencias.push({ etapa: "Proposta", texto: `Enviou o documento ${m.fileName ?? ""}`.trim(), msgId: m.id });
+        evidencias.push({ chave: "followup", texto: `Enviou o documento ${m.fileName ?? ""}`.trim(), msgId: m.id });
         temProposta = true;
       }
     }
     if (m.fromMe && (m.type === "image" || m.type === "video")) {
-      evidencias.push({ etapa: "Apresentação", texto: m.type === "image" ? "Enviou fotos de produto" : "Enviou vídeo de produto", msgId: m.id });
+      evidencias.push({ chave: "apresentacao", texto: m.type === "image" ? "Enviou fotos de produto" : "Enviou vídeo de produto", msgId: m.id });
     }
 
     if (!t) continue;
     for (const regra of REGRAS) {
       if (!quemBate(regra, m.fromMe) || !regra.re.test(t)) continue;
       // Negociação só vale depois que já houve proposta/valor na conversa.
-      if (regra.etapa === "Negociação" && !temProposta) continue;
-      if (regra.etapa === "Proposta") temProposta = true;
-      evidencias.push({ etapa: regra.etapa, texto: m.text.slice(0, 160), msgId: m.id });
+      if (regra.chave === "negociacao" && !temProposta) continue;
+      if (regra.chave === "followup") temProposta = true;
+      evidencias.push({ chave: regra.chave, texto: m.text.slice(0, 160), msgId: m.id });
       break;
     }
   }
 
-  let etapa: Etapa | null = null;
+  let chave: ChaveEtapa | null = null;
   for (const e of evidencias) {
-    if (!etapa || ORDEM_ETAPA[e.etapa] > ORDEM_ETAPA[etapa]) etapa = e.etapa;
+    if (!chave || AVANCO[e.chave] > AVANCO[chave]) chave = e.chave;
   }
-  if (etapa) comercial = true;
-  if (!etapa && comercial) etapa = "Prospecção";
+  if (chave) comercial = true;
+  if (!chave && comercial) chave = "prospeccao";
 
-  return { comercial, etapa, evidencias, sinalPerda };
+  return { comercial, chave, evidencias, sinalPerda };
 }
 
 export function formatarDuracao(ms: number) {
@@ -200,11 +213,7 @@ export function calcularAlertas(msgs: MsgLike[], agora = Date.now()): Alerta[] {
   return alertas;
 }
 
-export const PROBABILIDADE_POR_ETAPA: Record<Etapa, "Baixa" | "Média" | "Alta"> = {
-  Prospecção: "Baixa",
-  Apresentação: "Baixa",
-  Proposta: "Média",
-  Negociação: "Alta",
-  Fechados: "Alta",
-  Perdidos: "Baixa",
-};
+/*
+ * A probabilidade saiu daqui de propósito: agora ela é coluna do funil, que o
+ * gestor edita por loja. Use probabilidadeDe(nome, funil) em @/lib/funil.
+ */

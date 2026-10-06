@@ -33,7 +33,7 @@ function formatarMoeda(valor: number) {
 }
 
 export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
-  const { relacionamentos, oportunidades, atividades } = useAppData();
+  const { relacionamentos, oportunidades, atividades, funil } = useAppData();
   const [processando, setProcessando] = useState<string | null>(null);
   const [statusLocal, setStatusLocal] = useState<Record<string, boolean>>({});
   const [membroMetas, setMembroMetas] = useState<MembroEquipe | null>(null);
@@ -50,6 +50,7 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
       relacionamentos: relDoMembro,
       oportunidades: opsDoMembro,
       atividades: ativDoMembro,
+      funil,
     }).score;
   }
 

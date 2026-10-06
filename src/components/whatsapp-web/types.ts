@@ -2,7 +2,10 @@ import type { CategoriaContato, NaturezaContato } from "@/lib/categoria-contato"
 
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected";
 export type WaMsgType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact";
-export type Etapa = "Prospecção" | "Apresentação" | "Proposta" | "Negociação" | "Fechados" | "Perdidos";
+// A etapa é texto livre: o funil é editável pelo gestor. Quem diz o que cada
+// etapa significa é @/lib/funil, pelo papel dela.
+export type { Etapa } from "@/lib/funil";
+import type { Etapa } from "@/lib/funil";
 
 export interface WaChat {
   id: string;
@@ -104,26 +107,14 @@ export interface LeadInfo {
 
 export const API = "/api/whatsapp/live";
 
-export const ETAPAS_FUNIL: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"];
-
-export const COR_ETAPA: Record<Etapa, string> = {
-  Prospecção: "bg-[#2a3942] text-[#aebac1]",
-  Apresentação: "bg-[#0d3b52] text-[#53bdeb]",
-  Proposta: "bg-[#4a3a0b] text-[#ffd279]",
-  Negociação: "bg-[#4d2a12] text-[#ffa65c]",
-  Fechados: "bg-[#0a332c] text-[#25d366]",
-  Perdidos: "bg-[#4a1d1d] text-[#f15c6d]",
-};
-
-/** Cor do "pontinho" da etapa (como as etiquetas do WhatsApp Business). */
-export const PONTO_ETAPA: Record<Etapa, string> = {
-  Prospecção: "#8696a0",
-  Apresentação: "#53bdeb",
-  Proposta: "#ffd279",
-  Negociação: "#ffa65c",
-  Fechados: "#25d366",
-  Perdidos: "#f15c6d",
-};
+/**
+ * As cores das etiquetas de etapa vêm do funil da loja (coluna "cor"), que o
+ * gestor escolhe. Aqui fica só o fundo escuro que combina com a tela do
+ * WhatsApp, calculado a partir da cor dela.
+ */
+export function estiloDaEtapa(cor: string): { backgroundColor: string; color: string } {
+  return { backgroundColor: `${cor}26`, color: cor };
+}
 
 export function formatPhone(phone: string) {
   const d = (phone || "").replace(/\D/g, "");

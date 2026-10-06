@@ -7,8 +7,9 @@ import { MotivoPerdaModal } from "./motivo-perda-modal";
 import { marcarOportunidadeComoPerdida, recuperarOportunidade } from "@/lib/supabase/oportunidades-perdidas";
 import type { Oportunidade, Etapa } from "@/lib/types";
 import { calcularProximaMelhorAcao } from "@/lib/aura-prioridades";
+import { useAppData } from "@/lib/app-data-context";
+import { ehPerda, etapasVisiveis } from "@/lib/funil";
 
-const ETAPAS: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"];
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -44,17 +45,24 @@ export function OpportunityCard({
   onDeletar: (id: string) => void;
   onAtualizar?: () => void;
 }) {
+  const { funil } = useAppData();
   const [marcandoPerdido, setMarcandoPerdido] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
 
-  const indiceEtapa = ETAPAS.indexOf(oportunidade.etapa);
-  const percentualProgresso = ((indiceEtapa + 1) / ETAPAS.length) * 100;
-  const ehPerdido = oportunidade.etapa === "Perdidos";
-  const proximaAcao = calcularProximaMelhorAcao(oportunidade);
+  // A barrinha de progresso mede a posição no funil DA LOJA. Com a lista
+  // fixa, um funil de oito etapas mostrava o card no fim da barra quando
+  // ainda estava no meio do caminho.
+  const colunas = etapasVisiveis(funil);
+  const indiceEtapa = colunas.findIndex((e) => e.nome === oportunidade.etapa);
+  const percentualProgresso = colunas.length
+    ? ((indiceEtapa + 1) / colunas.length) * 100
+    : 0;
+  const ehPerdido = ehPerda(oportunidade.etapa, funil);
+  const proximaAcao = calcularProximaMelhorAcao(oportunidade, funil);
 
   async function handleMarcarComoPerdido(motivo: string, descricao: string) {
     setAtualizando(true);
-    const ok = await marcarOportunidadeComoPerdida(oportunidade.id, motivo as any, descricao);
+    const ok = await marcarOportunidadeComoPerdida(oportunidade.id, motivo as any, descricao, funil);
     setAtualizando(false);
 
     if (ok) {

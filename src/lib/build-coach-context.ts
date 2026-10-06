@@ -4,6 +4,7 @@ import type { PosVenda } from "@/lib/supabase/pos-venda";
 import type { MembroEquipe } from "@/lib/supabase/team";
 import type { Lead } from "@/lib/supabase/leads";
 import type { CompromissoMensal } from "@/lib/supabase/compromisso-mensal";
+import { colunaDoNegocio, etapasVisiveis, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -28,6 +29,7 @@ export function montarContextoDados({
   vendas,
   atividades,
   compromissos = [],
+  funil = FUNIL_PADRAO,
   posVendas,
   equipe,
   meuId,
@@ -41,6 +43,8 @@ export function montarContextoDados({
   vendas: Venda[];
   atividades: any[];
   compromissos?: Compromisso[];
+  /** O funil da loja: as etapas do resumo saem dele, não de uma lista fixa. */
+  funil?: EtapaFunil[];
   posVendas?: PosVenda[];
   equipe?: MembroEquipe[];
   meuId?: string;
@@ -106,9 +110,10 @@ export function montarContextoDados({
     .filter(Boolean)
     .join("\n\n");
 
-  const porEtapa = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"]
-    .map((etapa) => {
-      const itens = oportunidades.filter((o) => o.etapa === etapa);
+  const porEtapa = etapasVisiveis(funil)
+    .filter((e) => e.tipo !== "perda")
+    .map(({ nome: etapa }) => {
+      const itens = oportunidades.filter((o) => colunaDoNegocio(o.etapa, funil) === etapa);
       return `${etapa}: ${itens.length} oportunidade(s), ${formatarMoeda(itens.reduce((s, o) => s + o.valor, 0))}`;
     })
     .join("\n");

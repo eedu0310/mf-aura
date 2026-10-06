@@ -23,6 +23,13 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
+  daLinha,
+  ehGanho,
+  ehPerda,
+  FUNIL_PADRAO,
+  type EtapaFunil,
+} from "@/lib/funil";
+import {
   relacionamentoDoBanco,
   relacionamentoParaBanco,
   oportunidadeDoBanco,
@@ -45,6 +52,16 @@ type NovaAtividade = Omit<Atividade, "id" | "criadoEm"> & {
 };
 
 interface AppDataContextValue {
+  /**
+   * O funil desta loja, como o gestor deixou.
+   *
+   * Vive aqui porque quase toda tela precisa dele — o quadro do pipeline, a
+   * ficha do cliente, o relatório — e porque as regras que decidem se uma
+   * venda entra no mês precisam perguntar o PAPEL da etapa, não comparar o
+   * nome dela. Com o funil editável, comparar nome é o que quebra.
+   */
+  funil: EtapaFunil[];
+
   carregando: boolean;
   usandoSupabase: boolean;
 
@@ -115,6 +132,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const usandoSupabase = Boolean(supabase);
 
+  const [funil, setFunil] = useState<EtapaFunil[]>(FUNIL_PADRAO);
   const [todosRelacionamentos, setTodosRelacionamentos] = useState<any[]>(
     [],
   );
@@ -182,6 +200,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (relRes.data) {
         const mapeados = relRes.data.map(relacionamentoDoBanco);
         setTodosRelacionamentos(mapeados);
+      }
+
+      // O funil da loja vem junto: sem ele a tela desenharia as colunas do
+      // desenho antigo e os cards de uma etapa renomeada não teriam coluna
+      // nenhuma onde aparecer.
+      if (empresaAtual) {
+        const { data: etapas } = await supabase!
+          .from("etapas_funil")
+          .select("nome, ordem, tipo, conta_no_pipeline, probabilidade, cor, ativa, chave")
+          .eq("empresa", empresaAtual)
+          .order("ordem");
+        if (ativo && etapas?.length) setFunil(etapas.map(daLinha));
       }
 
       if (opRes.data)
@@ -610,7 +640,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     }
     setTodosRelacionamentos((prev) => prev.filter((r) => r.id !== id));
-    setTodasOportunidades((prev) => prev.filter((o) => o.relacionamentoId !== id || o.etapa === "Fechados"));
+    setTodasOportunidades((prev) => prev.filter((o) => o.relacionamentoId !== id || ehGanho(o.etapa, funil)));
   }
 
   async function addOportunidade(
@@ -705,7 +735,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // Uma venda criada pelo fechamento do pipeline deixa de ser válida quando
     // o negócio sai de Fechados. Isso impede que o ranking conte movimentações
     // temporárias como faturamento real.
-    if (etapaAnterior === "Fechados" && novaEtapa !== "Fechados") {
+    if (ehGanho(etapaAnterior, funil) && !ehGanho(novaEtapa, funil)) {
       const vendasDerivadas = todasVendas.filter((venda) => venda.oportunidadeId === id);
       setTodasVendas((prev) => prev.filter((venda) => venda.oportunidadeId !== id));
       if (supabase && vendasDerivadas.length > 0) {
@@ -1145,7 +1175,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
 
     const vendaJaRegistrada = todasVendas.some((venda) => venda.oportunidadeId === oportunidade.id);
-    if (novaEtapa === "Fechados" && etapaAnterior !== "Fechados" && !vendaJaRegistrada) {
+    if (ehGanho(novaEtapa, funil) && !ehGanho(etapaAnterior, funil) && !vendaJaRegistrada) {
       await addVenda({
         vendedorId: "",
         cliente: oportunidade.cliente,
@@ -1170,15 +1200,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // já está registrada; o laudo chega como notificação em seguida e uma
     // falha aqui não pode desfazer nem travar o fechamento.
     if (
-      (novaEtapa === "Fechados" && etapaAnterior !== "Fechados") ||
-      (novaEtapa === "Perdidos" && etapaAnterior !== "Perdidos")
+      (ehGanho(novaEtapa, funil) && !ehGanho(etapaAnterior, funil)) ||
+      (ehPerda(novaEtapa, funil) && !ehPerda(etapaAnterior, funil))
     ) {
       void fetch("/api/aura/fechamento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           oportunidadeId: oportunidade.id,
-          resultado: novaEtapa === "Fechados" ? "fechado" : "perdido",
+          resultado: ehGanho(novaEtapa, funil) ? "fechado" : "perdido",
           // O motivo da perda vem do próprio card, já gravado pelo modal que
           // o vendedor preenche ao arrastar para Perdidos.
           motivo: oportunidade.motivoPerda ?? null,
@@ -1200,6 +1230,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   return (
     <AppDataContext.Provider
       value={{
+        funil,
         carregando: carregandoDados,
         usandoSupabase,
         relacionamentos,

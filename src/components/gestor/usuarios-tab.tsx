@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   UserX,
   KeyRound,
+  RotateCcw,
 } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import {
@@ -56,6 +57,7 @@ export function UsuariosTab() {
   const [credencial, setCredencial] = useState<{ email: string; senha: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<Usuario | null>(null);
+  const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string } | null>(null);
   const [novoUsuario, setNovoUsuario] = useState({
     nome: "",
     email: "",
@@ -146,6 +148,65 @@ export function UsuariosTab() {
     }
   }
 
+
+  /**
+   * Senha nova para quem esqueceu a dela.
+   *
+   * Confirmação na mão porque a senha antiga para de valer no mesmo instante:
+   * se a pessoa estiver trabalhando, ela cai.
+   */
+  async function redefinirSenha(usuario: Usuario) {
+    if (
+      !confirm(
+        `Gerar uma senha nova para ${usuario.nome}?\n\nA senha atual para de funcionar na hora, e a nova aparece aqui uma vez só.`,
+      )
+    )
+      return;
+    setErroForm(null);
+    setAviso(null);
+    setSenhaNova(null);
+    try {
+      const resposta = await fetch("/api/admin/senha-provisoria", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: usuario.id }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui gerar a senha.");
+      setSenhaNova({ nome: dados.nome ?? usuario.nome, senha: dados.senhaProvisoria });
+    } catch (erro) {
+      setErroForm(erro instanceof Error ? erro.message : "Não consegui gerar a senha.");
+    }
+  }
+
+  async function restaurar(usuario: Usuario) {
+    if (!confirm(`Trazer ${usuario.nome} de volta para a equipe?`)) return;
+    setErroForm(null);
+    setSenhaNova(null);
+    try {
+      const resposta = await fetch("/api/admin/restaurar-usuario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuarioId: usuario.id }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui trazer de volta.");
+      setAviso(
+        `${dados.nome ?? usuario.nome} voltou para a equipe e já consegue entrar.` +
+          (dados.era_mestre
+            ? " Ele era gestor mestre: devolva esse poder na aba Permissões, se for o caso."
+            : usuario.cargo === "Gestor"
+              ? " Como gestor, ele volta esperando aprovação na aba Permissões."
+              : "") +
+          " A carteira dele não volta sozinha — use Transferir carteira se precisar devolver." +
+          (dados.aviso ? ` ${dados.aviso}` : ""),
+      );
+      await carregar();
+    } catch (erro) {
+      setErroForm(erro instanceof Error ? erro.message : "Não consegui trazer de volta.");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <TransferirCarteiraCard aoTransferir={carregar} />
@@ -190,6 +251,25 @@ export function UsuariosTab() {
       )}
       {aviso && (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{aviso}</p>
+      )}
+      {senhaNova && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">Senha nova de {senhaNova.nome}</p>
+          <p className="mt-1 text-xs">
+            Entregue agora: ela aparece uma vez só e não fica guardada em lugar nenhum. Peça para a
+            pessoa trocar depois de entrar.
+          </p>
+          <p className="mt-2 select-all rounded-lg bg-white px-3 py-2 font-mono text-base">
+            {senhaNova.senha}
+          </p>
+          <button
+            type="button"
+            onClick={() => setSenhaNova(null)}
+            className="mt-2 text-xs underline"
+          >
+            Já anotei, pode esconder
+          </button>
+        </div>
       )}
 
       {/* Contas que criaram acesso e não terminaram o cadastro. Sem esta
@@ -403,8 +483,25 @@ export function UsuariosTab() {
                   )}
                 </div>
 
-                {!user.excluido && (
+                {user.excluido ? (
+                  souMestre && (
+                    <button
+                      onClick={() => restaurar(user)}
+                      className="shrink-0 rounded-lg bg-aura-petrol-100 p-2 text-aura-petrol-700 transition hover:bg-aura-petrol-200"
+                      title="Trazer de volta para a equipe"
+                    >
+                      <RotateCcw size={16} />
+                    </button>
+                  )
+                ) : (
                   <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => redefinirSenha(user)}
+                      className="rounded-lg bg-aura-mist p-2 text-aura-graphite transition hover:bg-aura-bg"
+                      title="Gerar uma senha nova para entregar a esta pessoa"
+                    >
+                      <KeyRound size={16} />
+                    </button>
                     <button
                       onClick={() => toggleAtivar(user)}
                       title={

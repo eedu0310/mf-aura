@@ -7,13 +7,16 @@ export type Cargo =
   | "Marketing"
   | "Gestor";
 
-export type Etapa =
-  | "Prospecção"
-  | "Apresentação"
-  | "Proposta"
-  | "Negociação"
-  | "Fechados"
-  | "Perdidos";
+/**
+ * A etapa é texto livre porque o gestor edita o funil.
+ *
+ * Era uma lista fixa de seis nomes. Enquanto foi fixa, o compilador garantia
+ * que ninguém escrevesse uma etapa inexistente — e também impedia o gestor de
+ * criar a dele. Quem garante agora é o funil da loja: toda pergunta sobre
+ * etapa passa pelos ajudantes de @/lib/funil, que respondem pelo PAPEL dela
+ * (é a de ganho? conta no pipeline?) em vez de comparar o nome.
+ */
+export type Etapa = string;
 
 export type Probabilidade = "Baixa" | "Média" | "Alta";
 

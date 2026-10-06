@@ -4,6 +4,8 @@
  * o gestor enxerga todas. Nunca usa a chave de serviço aqui.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { carregarFunil } from "@/lib/funil-servidor";
+import type { EtapaFunil } from "@/lib/funil";
 
 export interface Perfil {
   id: string;
@@ -106,6 +108,15 @@ export interface DadosCrm {
   metas: Meta[];
   metasAtividade: MetaAtiv[];
   leadsWhats: LeadWa[];
+  /**
+   * O funil da loja de quem está olhando.
+   *
+   * Viaja junto com os dados porque todo cálculo que pergunta "este negócio
+   * está fechado?" ou "isto conta no pipeline?" precisa dele, e buscá-lo
+   * separado em cada função abriria espaço para uma delas usar o desenho
+   * antigo enquanto as outras usam o novo.
+   */
+  funil: EtapaFunil[];
 }
 
 const num = (v: unknown) => (v == null ? 0 : Number(v) || 0);
@@ -190,5 +201,6 @@ export async function carregarDados(
     metas: ((metas.data ?? []) as Meta[]).map((m) => ({ ...m, valor_meta: num(m.valor_meta) })),
     metasAtividade: ((metasAtiv.data ?? []) as MetaAtiv[]).map((m) => ({ ...m, quantidade: num(m.quantidade) })),
     leadsWhats: ((leads.data ?? []) as LeadWa[]).map((l) => ({ ...l, alertas: Array.isArray(l.alertas) ? l.alertas : [] })),
+    funil: await carregarFunil(sb, perfil.empresa),
   };
 }

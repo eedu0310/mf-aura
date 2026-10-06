@@ -4,11 +4,12 @@ import { useState, useMemo } from "react";
 import { Trophy, TrendingUp, Target, Zap, Award } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { ehPerda } from "@/lib/funil";
 
 type AbaRanking = "vendedores" | "relacionamentos" | "oportunidades" | "atividades" | "performance";
 
 export function RankingView() {
-  const { vendas, oportunidades, relacionamentos, atividades, nomesPorOwnerId } = useAppData();
+  const { vendas, oportunidades, relacionamentos, atividades, nomesPorOwnerId, funil } = useAppData();
   const { profile } = useUserProfile();
   const [abaAtiva, setAbaAtiva] = useState<AbaRanking>("vendedores");
 
@@ -60,7 +61,7 @@ export function RankingView() {
   // ========== ABA 3: OPORTUNIDADES MAIOR VALOR ==========
   const oportunidadesMaiorValor = useMemo(() => {
     return todasOportunidades
-      .filter((o) => o.etapa !== "Perdidos")
+      .filter((o) => !ehPerda(o.etapa, funil))
       .sort((a, b) => (b.valor || 0) - (a.valor || 0))
       .slice(0, 10);
   }, [todasOportunidades]);

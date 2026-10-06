@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target} from "lucide-react";
+import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target, GitBranch} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -17,6 +17,7 @@ import { AprendizadoCard } from "@/components/gestor/aprendizado-card";
 import { RelatorioSemanalTab } from "@/components/gestor/relatorio-semanal-tab";
 import { MovimentacaoTab } from "@/components/gestor/movimentacao-tab";
 import { AtendimentoTab } from "@/components/gestor/atendimento-tab";
+import { FunilTab } from "@/components/gestor/funil-tab";
 import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 
  type AbaGestor =
@@ -35,6 +36,7 @@ import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
   | "semanal"
   | "movimentacao"
   | "atendimento"
+  | "funil"
   | "pontuacao";
 
 const ABAS: Array<{
@@ -66,6 +68,12 @@ const ABAS: Array<{
     label: "Atendimento por distância",
     descricao: "O que oferecer a quem está longe do showroom",
     icon: Video,
+  },
+  {
+    id: "funil",
+    label: "Etapas do funil",
+    descricao: "Renomeie, reordene e escolha o que conta no pipeline",
+    icon: GitBranch,
   },
   {
     id: "pontuacao",
@@ -193,6 +201,7 @@ export default function GestorPage() {
       {aba === "aura" && <GestorPainelAura />}
       {aba === "movimentacao" && <MovimentacaoTab />}
       {aba === "atendimento" && <AtendimentoTab />}
+      {aba === "funil" && <FunilTab />}
       {aba === "semanal" && <RelatorioSemanalTab />}
       {aba === "pontuacao" && <PontuacaoTab />}
       {aba === "aprendizado" && <AprendizadoCard />}

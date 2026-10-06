@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { nomesDasEtapas } from "@/lib/funil";
 
 export type AuraTaskAction =
   | "registrar_atividade"
@@ -38,7 +40,6 @@ type ExecutorContext = {
   userId: string;
 };
 
-const ETAPAS = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"] as const;
 const PROBABILIDADES = ["Baixa", "Média", "Alta"] as const;
 
 function resposta(input: AuraTaskInput, result: Omit<AuraTaskResult, "action">): AuraTaskResult {
@@ -197,8 +198,10 @@ export async function executarTarefaAura(
           message: "A alteração da oportunidade foi preparada, mas precisa da confirmação do vendedor.",
         });
       }
-      if (input.etapa && !ETAPAS.includes(input.etapa as (typeof ETAPAS)[number])) {
-        throw new Error("Etapa de oportunidade inválida.");
+      // As etapas válidas são as da loja de quem está pedindo.
+      const etapasDaLoja = nomesDasEtapas(await carregarFunil(ctx.supabase, ctx.empresa));
+      if (input.etapa && !etapasDaLoja.includes(input.etapa)) {
+        throw new Error(`Etapa inválida. As desta loja são: ${etapasDaLoja.join(", ")}.`);
       }
       if (input.probabilidade && !PROBABILIDADES.includes(input.probabilidade as (typeof PROBABILIDADES)[number])) {
         throw new Error("Probabilidade de oportunidade inválida.");
@@ -308,7 +311,8 @@ export const AURA_TASK_ACTIONS = [
       type: "object",
       properties: {
         oportunidadeId: { type: "string" },
-        etapa: { type: "string", enum: [...ETAPAS] },
+        // Texto livre: as etapas são as da loja, conferidas na execução.
+        etapa: { type: "string" },
         probabilidade: { type: "string", enum: [...PROBABILIDADES] },
         confirmado: { type: "boolean" },
       },

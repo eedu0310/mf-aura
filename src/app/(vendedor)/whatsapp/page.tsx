@@ -27,10 +27,9 @@ import { Composer } from "@/components/whatsapp-web/composer";
 import { MediaViewer } from "@/components/whatsapp-web/media-viewer";
 import { MessageBubble } from "@/components/whatsapp-web/message-bubble";
 import { SupervisorPanel } from "@/components/whatsapp-web/supervisor-panel";
+import { corDe, etapasVisiveis, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
 import {
   API,
-  ETAPAS_FUNIL,
-  PONTO_ETAPA,
   formatDayLabel,
   formatListTime,
   formatPhone,
@@ -54,7 +53,17 @@ const FUNDO_CHAT: React.CSSProperties = {
   backgroundPosition: "0 0, 13px 19px",
 };
 
-function SeletorEtapa({ etapa, onEscolher, ocupado }: { etapa: Etapa | null; onEscolher: (e: Etapa) => void; ocupado: boolean }) {
+function SeletorEtapa({
+  etapa,
+  onEscolher,
+  ocupado,
+  funil,
+}: {
+  etapa: Etapa | null;
+  onEscolher: (e: Etapa) => void;
+  ocupado: boolean;
+  funil: EtapaFunil[];
+}) {
   const [aberto, setAberto] = useState(false);
   return (
     <div className="relative hidden sm:block">
@@ -67,14 +76,14 @@ function SeletorEtapa({ etapa, onEscolher, ocupado }: { etapa: Etapa | null; onE
         {ocupado ? (
           <Loader2 className="h-3 w-3 animate-spin" />
         ) : (
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: etapa ? PONTO_ETAPA[etapa] : "#8696a0" }} />
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: etapa ? corDe(etapa, funil) : "#8696a0" }} />
         )}
         {etapa ?? "Sem etapa"}
         <ChevronDown className="h-4 w-4 text-[#8696a0]" />
       </button>
       {aberto && (
         <div className="absolute right-0 top-10 z-40 w-52 rounded-lg bg-[#233138] py-2 shadow-2xl" onMouseLeave={() => setAberto(false)}>
-          {[...ETAPAS_FUNIL, "Perdidos" as Etapa].map((e) => (
+          {etapasVisiveis(funil).map(({ nome: e }) => (
             <button
               key={e}
               type="button"
@@ -84,7 +93,7 @@ function SeletorEtapa({ etapa, onEscolher, ocupado }: { etapa: Etapa | null; onE
               }}
               className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-[#182229] ${e === etapa ? "text-[#00a884]" : "text-[#e9edef]"}`}
             >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PONTO_ETAPA[e] }} />
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: corDe(e, funil) }} />
               {e}
             </button>
           ))}
@@ -96,6 +105,9 @@ function SeletorEtapa({ etapa, onEscolher, ocupado }: { etapa: Etapa | null; onE
 
 export default function WhatsAppPage() {
   const [state, setState] = useState<WaState | null>(null);
+  // O funil vem da API junto com o estado da conexão: é o da loja de quem
+  // está logado, não a lista fixa que havia no código.
+  const funilDaLoja: EtapaFunil[] = (state as unknown as { funil?: EtapaFunil[] })?.funil ?? FUNIL_PADRAO;
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -664,7 +676,7 @@ export default function WhatsAppPage() {
                   <div className="flex items-baseline justify-between gap-2">
                     <p className="flex min-w-0 items-center gap-1.5 truncate text-[17px] text-[#e9edef]">
                       <span className="truncate">{chat.name}</span>
-                      {etapa && <span title={etapa} className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PONTO_ETAPA[etapa] }} />}
+                      {etapa && <span title={etapa} className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: corDe(etapa, funilDaLoja) }} />}
                       {etiquetas.map((e) => (
                         <span
                           key={e.curto}
@@ -727,7 +739,7 @@ export default function WhatsAppPage() {
               <p className="truncate text-[16px] text-[#e9edef]">{selectedChat.name}</p>
               <p className="truncate text-xs text-[#8696a0]">{selectedChat.hasName ? formatPhone(selectedChat.phone) : "Contato do WhatsApp"}</p>
             </div>
-            <SeletorEtapa etapa={etapaAtual} onEscolher={mudarEtapa} ocupado={mudandoEtapa} />
+            <SeletorEtapa etapa={etapaAtual} onEscolher={mudarEtapa} ocupado={mudandoEtapa} funil={funilDaLoja} />
             <button
               type="button"
               onClick={deixarNaoLida}
@@ -858,6 +870,7 @@ export default function WhatsAppPage() {
               chatId={selectedChat.id}
               lead={lead}
               alertas={alertasChat}
+              funil={funilDaLoja}
               onClose={() => setPainelIa(false)}
               onChanged={() => {
                 loadLead(selectedChat.id);

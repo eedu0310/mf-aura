@@ -27,7 +27,9 @@ import {
   marcarLeadRespondidoPorTelefone,
   obterLead,
 } from "@/lib/whatsapp/supervisor";
-import { calcularAlertas, ETAPAS, type Etapa } from "@/lib/whatsapp/stage-rules";
+import { calcularAlertas } from "@/lib/whatsapp/stage-rules";
+import { nomesDasEtapas, type Etapa } from "@/lib/funil";
+import { carregarFunil } from "@/lib/funil-servidor";
 import {
   ehCategoria,
   ehNatureza,
@@ -121,7 +123,18 @@ export async function GET(request: NextRequest) {
       if (a.length) alertas[c.id] = a;
     }
   }
-  return NextResponse.json({ userId, ...state, leads, alertas, iaDisponivel: iaDisponivel() });
+  /**
+   * O funil vai junto com o estado: a tela do WhatsApp desenha os botões de
+   * etapa, e com a lista fixa no código ela mostraria etapas que a loja
+   * renomeou ou desligou — e o botão não teria para onde mover o card.
+   */
+  const sbFunil = await getSupabaseServerClient();
+  const { data: meuPerfil } = sbFunil
+    ? await sbFunil.from("profiles").select("empresa").eq("id", userId).maybeSingle()
+    : { data: null };
+  const funil = await carregarFunil(sbFunil, meuPerfil?.empresa);
+
+  return NextResponse.json({ userId, ...state, leads, alertas, funil, iaDisponivel: iaDisponivel() });
 }
 
 /**
@@ -322,7 +335,14 @@ export async function POST(request: NextRequest) {
       }
       case "stage": {
         const etapa = String(body.etapa ?? "") as Etapa;
-        if (!body.chat || !ETAPAS.includes(etapa)) {
+        // A etapa válida é a do funil DESTA loja, não mais uma lista fixa no
+        // código: o gestor edita as etapas e o que vale é o que ele gravou.
+        const sbEtapa = await getSupabaseServerClient();
+        const { data: meu } = sbEtapa
+          ? await sbEtapa.from("profiles").select("empresa").eq("id", userId).maybeSingle()
+          : { data: null };
+        const funilDaLoja = await carregarFunil(sbEtapa, meu?.empresa);
+        if (!body.chat || !nomesDasEtapas(funilDaLoja).includes(etapa)) {
           return NextResponse.json({ error: "Etapa inválida." }, { status: 400 });
         }
         await definirEtapaManual(userId, String(body.chat), etapa);

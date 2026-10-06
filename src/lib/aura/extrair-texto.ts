@@ -3,11 +3,11 @@
  * de produtos) para a AURA estudar. Sem dependências novas:
  *  - .txt / .md / .csv / .json → texto direto
  *  - .docx                     → descompacta com jszip e lê word/document.xml
- *  - .pdf                      → descomprime os fluxos e lê os operadores de
- *                                texto (funciona em PDF de texto; PDF que é
- *                                foto/digitalização não tem texto para ler)
+ *  - .pptx                     → o mesmo, lendo o texto de cada slide
+ *  - .pdf                      → pdf.js, a mesma biblioteca do navegador, que
+ *                                lê o mapa de caracteres das fontes embutidas
+ *                                (PDF que é foto/digitalização não tem texto)
  */
-import zlib from "zlib";
 
 export interface TextoExtraido {
   texto: string;
@@ -48,146 +48,118 @@ async function doDocx(buffer: Buffer): Promise<string> {
   return limpar(partes.join("\n"));
 }
 
+// ---------------------------------------------------------------- pptx
+
+/**
+ * Texto de uma apresentação do PowerPoint.
+ *
+ * Um .pptx é um zip de XML, igual ao .docx: cada slide é um arquivo e o texto
+ * fica nas marcas <a:t>. Entrou aqui porque o material de treinamento da casa
+ * é feito em slides, e até agora a única saída era exportar para PDF — que é
+ * justamente onde a leitura quebrava.
+ *
+ * Os slides vão em ordem numérica, e não na ordem em que o zip os guarda:
+ * "slide10" vem depois de "slide9", não entre "slide1" e "slide2".
+ */
+async function doPptx(buffer: Buffer): Promise<string> {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buffer);
+
+  const slides = Object.keys(zip.files)
+    .filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+    .sort((a, b) => {
+      const na = Number(a.match(/slide(\d+)/)?.[1] ?? 0);
+      const nb = Number(b.match(/slide(\d+)/)?.[1] ?? 0);
+      return na - nb;
+    });
+
+  const partes: string[] = [];
+  for (const [i, nome] of slides.entries()) {
+    const xml = await zip.file(nome)!.async("string");
+    const textos = [...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((m) =>
+      m[1]
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'"),
+    );
+    const texto = textos.join(" ").trim();
+    if (texto) partes.push(`[Slide ${i + 1}] ${texto}`);
+  }
+
+  // As anotações do apresentador costumam ter o roteiro da fala — para
+  // treinamento, muitas vezes valem mais do que o que está escrito no slide.
+  const notas = Object.keys(zip.files)
+    .filter((n) => /^ppt\/notesSlides\/notesSlide\d+\.xml$/.test(n))
+    .sort();
+  for (const nome of notas) {
+    const xml = await zip.file(nome)!.async("string");
+    const texto = [...xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)]
+      .map((m) => m[1])
+      .join(" ")
+      .trim();
+    if (texto.length > 20) partes.push(`[Anotações] ${texto}`);
+  }
+
+  return limpar(partes.join("\n\n"));
+}
+
 // ---------------------------------------------------------------- pdf
 
-/** Converte uma string literal de PDF — (texto com \( escapes e \303\251) — em texto. */
-function stringDePdf(bruto: string): string {
-  const bytes: number[] = [];
-  for (let i = 0; i < bruto.length; i++) {
-    const c = bruto[i];
-    if (c !== "\\") {
-      bytes.push(bruto.charCodeAt(i));
-      continue;
-    }
-    const prox = bruto[++i];
-    if (prox === undefined) break;
-    if (prox >= "0" && prox <= "7") {
-      let oct = prox;
-      while (oct.length < 3 && bruto[i + 1] >= "0" && bruto[i + 1] <= "7") oct += bruto[++i];
-      bytes.push(parseInt(oct, 8));
-    } else if (prox === "n") bytes.push(10);
-    else if (prox === "r") bytes.push(13);
-    else if (prox === "t") bytes.push(9);
-    else if (prox === "\n") continue;
-    else bytes.push(prox.charCodeAt(0));
-  }
-  const buf = Buffer.from(bytes);
-  // PDFs costumam usar UTF-16BE (com BOM) ou Latin-1/WinAnsi.
-  if (buf[0] === 0xfe && buf[1] === 0xff) return buf.subarray(2).swap16().toString("utf16le");
-  const utf8 = buf.toString("utf8");
-  return utf8.includes("�") ? buf.toString("latin1") : utf8;
-}
+/**
+ * Lê o PDF com a pdf.js, a mesma biblioteca que o navegador usa.
+ *
+ * POR QUE TROCAMOS O LEITOR CASEIRO. O anterior lia os operadores de texto na
+ * mão e funcionava em PDF de fonte padrão. Em PDF feito a partir de slides —
+ * Canva, Google Apresentações, InDesign — a fonte vai embutida e com
+ * codificação própria: cada letra é um número que só o mapa ToUnicode daquele
+ * arquivo sabe traduzir. Sem ler esse mapa, o que sai parece texto mas é
+ * ruído.
+ *
+ * NÃO É TEORIA: o "Manual de Vendas LF/AEG 2026", 7,1 MB, entrou no sistema
+ * como 14 mil caracteres de "GÁ­¹Ý~ ­O-F-¥ fTfxfÓIþfTJ±ûàÓfÓ..." — e, pior,
+ * entrou ATIVO nas quatro lojas. Era isso que a AURA recebia como "a regra da
+ * casa" em toda conversa: ocupando espaço do prompt e ensinando ruído.
+ */
+async function doPdf(buffer: Buffer): Promise<TextoExtraido> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-/** Lê os operadores de texto (Tj, TJ, ', ") de um fluxo de conteúdo. */
-function textoDoFluxo(conteudo: string): string {
-  const linhas: string[] = [];
-  let atual = "";
-  const re = /\((?:\\.|[^\\()])*\)\s*(Tj|TJ|'|")|\[((?:\\.|[^\\\]])*)\]\s*TJ|\bT\*|\bTd\b|\bTD\b|\bTL\b|\bET\b/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(conteudo))) {
-    const trecho = m[0];
-    if (trecho.startsWith("[")) {
-      const interno = m[2] ?? "";
-      let texto = "";
-      const reStr = /\((?:\\.|[^\\()])*\)|(-?\d+(?:\.\d+)?)/g;
-      let s: RegExpExecArray | null;
-      while ((s = reStr.exec(interno))) {
-        if (s[0].startsWith("(")) texto += stringDePdf(s[0].slice(1, -1));
-        else if (Number(s[1]) < -120) texto += " "; // espaçamento grande = espaço
+  const doc = await pdfjs.getDocument({
+    data: new Uint8Array(buffer),
+    // Sem worker: isto roda no servidor, não no navegador.
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
+
+  const paginas: string[] = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const pagina = await doc.getPage(n);
+    const conteudo = await pagina.getTextContent();
+
+    /**
+     * A pdf.js devolve pedaços soltos com a posição de cada um. Juntar sem
+     * olhar a posição cola palavras de colunas diferentes; por isso a quebra
+     * de linha vem do "hasEOL" que ela marca, e o espaço só entra quando o
+     * pedaço anterior não terminou em espaço.
+     */
+    let texto = "";
+    for (const item of conteudo.items as { str?: string; hasEOL?: boolean }[]) {
+      const pedaco = item.str ?? "";
+      if (pedaco) {
+        if (texto && !/\s$/.test(texto) && !/^\s/.test(pedaco)) texto += " ";
+        texto += pedaco;
       }
-      atual += texto;
-    } else if (trecho.startsWith("(")) {
-      atual += stringDePdf(trecho.slice(1, trecho.lastIndexOf(")")));
-    } else {
-      // T*, Td, TD, ET → quebra de linha
-      if (atual.trim()) linhas.push(atual.trim());
-      atual = "";
+      if (item.hasEOL) texto += "\n";
     }
+    const limpo = texto.trim();
+    if (limpo) paginas.push(limpo);
   }
-  if (atual.trim()) linhas.push(atual.trim());
-  return linhas.join("\n");
-}
+  await doc.destroy();
 
-/** ASCII85 (usado por várias ferramentas antes do Flate). */
-function deAscii85(dados: Buffer): Buffer | null {
-  let txt = dados.toString("latin1").replace(/\s/g, "");
-  if (txt.startsWith("<~")) txt = txt.slice(2);
-  const fim = txt.indexOf("~>");
-  if (fim !== -1) txt = txt.slice(0, fim);
-  if (!/^[!-u z]*$/.test(txt)) return null;
-  const out: number[] = [];
-  let grupo: number[] = [];
-  for (const c of txt) {
-    if (c === "z" && grupo.length === 0) {
-      out.push(0, 0, 0, 0);
-      continue;
-    }
-    const v = c.charCodeAt(0) - 33;
-    if (v < 0 || v > 84) return null;
-    grupo.push(v);
-    if (grupo.length === 5) {
-      let n = 0;
-      for (const g of grupo) n = n * 85 + g;
-      out.push((n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255);
-      grupo = [];
-    }
-  }
-  if (grupo.length) {
-    const faltam = 5 - grupo.length;
-    for (let k = 0; k < faltam; k++) grupo.push(84);
-    let n = 0;
-    for (const g of grupo) n = n * 85 + g;
-    const bytes = [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
-    out.push(...bytes.slice(0, 4 - faltam));
-  }
-  return Buffer.from(out);
-}
+  const texto = limpar(paginas.join("\n\n"));
 
-/** Tenta as combinações de filtro mais comuns até achar texto legível. */
-function descomprimir(dados: Buffer): string {
-  const tentativas: (() => Buffer)[] = [
-    () => zlib.inflateSync(dados),
-    () => zlib.inflateRawSync(dados),
-    () => {
-      const a85 = deAscii85(dados);
-      if (!a85) throw new Error("não é ascii85");
-      try {
-        return zlib.inflateSync(a85);
-      } catch {
-        return a85;
-      }
-    },
-    () => dados,
-  ];
-  for (const tentar of tentativas) {
-    try {
-      const saida = tentar().toString("latin1");
-      if (/\)\s*Tj|\]\s*TJ/.test(saida)) return saida;
-    } catch {
-      /* próxima tentativa */
-    }
-  }
-  return "";
-}
-
-function doPdf(buffer: Buffer): TextoExtraido {
-  const partes: string[] = [];
-  const marcador = Buffer.from("stream");
-  let i = 0;
-  while (true) {
-    const ini = buffer.indexOf(marcador, i);
-    if (ini === -1) break;
-    let inicioDados = ini + marcador.length;
-    if (buffer[inicioDados] === 0x0d) inicioDados++;
-    if (buffer[inicioDados] === 0x0a) inicioDados++;
-    const fim = buffer.indexOf(Buffer.from("endstream"), inicioDados);
-    if (fim === -1) break;
-    const dados = buffer.subarray(inicioDados, fim);
-    i = fim + 9;
-    const conteudo = descomprimir(dados);
-    if (conteudo) partes.push(textoDoFluxo(conteudo));
-  }
-  const texto = limpar(partes.join("\n"));
   if (texto.length < 200) {
     return {
       texto,
@@ -195,7 +167,40 @@ function doPdf(buffer: Buffer): TextoExtraido {
         "Quase não havia texto neste PDF (pode ser um documento digitalizado, só com imagens). Se possível, envie em Word (.docx) ou texto (.txt).",
     };
   }
+  if (!pareceTextoDeVerdade(texto)) {
+    return {
+      texto: "",
+      aviso:
+        "Consegui abrir o PDF, mas o que saiu não é texto legível — normalmente é PDF com fonte embutida sem mapa de caracteres, ou digitalizado. Envie em Word (.docx) ou texto (.txt) e ele entra perfeito.",
+    };
+  }
   return { texto };
+}
+
+/**
+ * O texto saiu legível, ou saiu ruído?
+ *
+ * Existe porque guardar ruído é pior do que recusar o arquivo: ele vira
+ * "manual da casa" e viaja no prompt da AURA em toda conversa, gastando
+ * espaço e ensinando o que não existe — foi exatamente o que aconteceu com o
+ * manual de vendas. A medida é grosseira de propósito: em português corrido,
+ * a esmagadora maioria dos caracteres é letra, espaço ou pontuação comum, e
+ * as vogais aparecem em quase toda palavra.
+ */
+function pareceTextoDeVerdade(texto: string): boolean {
+  const amostra = texto.slice(0, 4000);
+  if (!amostra) return false;
+
+  const comuns = (amostra.match(/[\p{L}\p{N}\s.,;:!?()%$@/\-–—"'ºª]/gu) ?? []).length;
+  const proporcao = comuns / amostra.length;
+
+  const letras = (amostra.match(/\p{L}/gu) ?? []).length;
+  const vogais = (amostra.match(/[aeiouáàâãéêíóôõúüAEIOUÁÀÂÃÉÊÍÓÔÕÚÜ]/gu) ?? []).length;
+  const proporcaoVogais = letras ? vogais / letras : 0;
+
+  // Texto em português fica perto de 0,97 de caracteres comuns e 0,40 de
+  // vogais; o ruído do manual quebrado ficava em 0,78 e 0,16.
+  return proporcao >= 0.90 && proporcaoVogais >= 0.28;
 }
 
 // ---------------------------------------------------------------- entrada
@@ -208,7 +213,12 @@ export async function extrairTexto(nome: string, tipo: string, buffer: Buffer): 
     if (!texto) throw new Error("Não consegui ler o conteúdo deste Word.");
     return { texto };
   }
-  if (ext === "pdf" || tipo === "application/pdf") return doPdf(buffer);
+  if (ext === "pptx" || tipo.includes("presentationml")) {
+    const texto = await doPptx(buffer);
+    if (!texto) throw new Error("Não achei texto nesta apresentação — os slides podem ser só imagens.");
+    return { texto };
+  }
+  if (ext === "pdf" || tipo === "application/pdf") return await doPdf(buffer);
   if (ext === "doc") {
     throw new Error("Formato .doc antigo não é suportado. Salve como .docx ou PDF e envie de novo.");
   }
@@ -222,5 +232,7 @@ export async function extrairTexto(nome: string, tipo: string, buffer: Buffer): 
     }
     return { texto: limpar(texto) };
   }
-  throw new Error("Tipo de arquivo não suportado. Envie PDF, Word (.docx), texto (.txt) ou markdown (.md).");
+  throw new Error(
+    "Tipo de arquivo não suportado. Envie PDF, Word (.docx), PowerPoint (.pptx), texto (.txt) ou markdown (.md).",
+  );
 }

@@ -4,21 +4,36 @@
  * daqui, nunca "inventados" pelo modelo.
  */
 import type { Ativ, Comp, DadosCrm, Op, Rel, Venda } from "./dados";
-
-export const ETAPAS = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"] as const;
-export const ETAPAS_ABERTAS = ["Prospecção", "Apresentação", "Proposta", "Negociação"];
+import {
+  colunaDoNegocio,
+  contaNoPipeline,
+  etapasVisiveis,
+  ehFechada,
+  ehGanho,
+  ehPerda,
+  nomesDasEtapas,
+  type EtapaFunil,
+} from "@/lib/funil";
 
 /**
- * Etapas que entram nos VALORES de pipeline.
- * Lead em Prospecção ou Apresentação não engorda o número: só conta de Proposta
- * em diante, quando já existe orçamento na mesa. Antes disso é intenção, não
- * negócio, e somar tudo inflava o pipeline com qualquer contato novo.
+ * As três listas de etapas que existiam aqui viraram perguntas ao funil da
+ * loja, porque o gestor agora edita as etapas e uma lista fixa no código
+ * passaria a falar de etapas que não existem mais.
  *
- * Isto vale só para dinheiro. As listas de risco e de oportunidade parada
- * continuam usando ETAPAS_ABERTAS, porque um lead travado em Prospecção
- * também precisa aparecer para o vendedor cobrar.
+ *   ETAPAS           -> nomesDasEtapas(funil)
+ *   ETAPAS_ABERTAS   -> !ehFechada(etapa, funil)
+ *   ETAPAS_QUE_VALEM -> contaNoPipeline(etapa, funil)
+ *
+ * A regra que ETAPAS_QUE_VALEM carregava — "lead em Prospecção não engorda o
+ * pipeline; só conta quando já existe orçamento na mesa" — não se perdeu:
+ * virou a coluna "conta no pipeline" de cada etapa, que o gestor marca na
+ * tela. Continua valendo só para dinheiro; as listas de risco e de negócio
+ * parado seguem olhando toda etapa em aberto, porque um lead travado lá no
+ * começo também precisa aparecer para alguém cobrar.
  */
-export const ETAPAS_QUE_VALEM = ["Proposta", "Negociação"];
+export function etapasAbertas(funil: EtapaFunil[]): string[] {
+  return nomesDasEtapas(funil).filter((n) => !ehFechada(n, funil));
+}
 
 const DIA = 86400e3;
 const TZ = "America/Sao_Paulo";
@@ -130,9 +145,9 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
   const falta = meta != null ? Math.max(0, meta - valorMes) : null;
 
   const ops = noEscopo(d.oportunidades, e);
-  const abertas = ops.filter((o) => ETAPAS_ABERTAS.includes(o.etapa));
-  const pipeline = ETAPAS.map((etapa) => {
-    const l = ops.filter((o) => o.etapa === etapa);
+  const abertas = ops.filter((o) => !ehFechada(o.etapa, d.funil));
+  const pipeline = nomesDasEtapas(d.funil).map((etapa) => {
+    const l = ops.filter((o) => colunaDoNegocio(o.etapa, d.funil) === etapa);
     return { etapa, qtd: l.length, valor: l.reduce((s, o) => s + (o.valor || 0), 0) };
   });
   const paradas = abertas
@@ -172,8 +187,8 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     .map((l) => ({ nome: l.nome ?? "Contato", alerta: l.alertas[0] }));
 
   const noventa = ops.filter((o) => agora - new Date(o.updated_at ?? o.created_at).getTime() <= 90 * DIA);
-  const fech = noventa.filter((o) => o.etapa === "Fechados").length;
-  const perd = noventa.filter((o) => o.etapa === "Perdidos").length;
+  const fech = noventa.filter((o) => ehGanho(o.etapa, d.funil)).length;
+  const perd = noventa.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
   // Ranking na loja do vendedor, pelo valor vendido no mês.
   const perfil = d.perfis.find((p) => p.id === vendedorId);
@@ -384,7 +399,7 @@ export interface Relatorio {
   vendasPorDia: { dia: string; valor: number }[];
   atividadesPorDia: { dia: string; qtd: number }[];
   atividadesPorTipo: { tipo: string; qtd: number }[];
-  funil: { etapa: string; qtd: number; valor: number }[];
+  funil: { etapa: string; qtd: number; valor: number; tipo: string; cor: string }[];
   porVendedor: { id: string; nome: string; loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; leads: number; fechadas: number; perdidas: number }[];
   porLoja: { loja: string; vendido: number; vendas: number; atividades: number; pipeline: number; clientes: number }[];
   topClientes: { cliente: string; valor: number }[];
@@ -414,8 +429,8 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   for (const a of ativs) porTipo.set(a.tipo, (porTipo.get(a.tipo) ?? 0) + 1);
 
   const opsPeriodo = ops.filter((o) => noPeriodo(o.updated_at ?? o.created_at));
-  const fech = opsPeriodo.filter((o) => o.etapa === "Fechados").length;
-  const perd = opsPeriodo.filter((o) => o.etapa === "Perdidos").length;
+  const fech = opsPeriodo.filter((o) => ehGanho(o.etapa, d.funil)).length;
+  const perd = opsPeriodo.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
   const vendido = vendas.reduce((s, v) => s + valorVenda(v), 0);
 
@@ -437,13 +452,13 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       vendido: vendas.filter((v) => v.owner_id === p.id).reduce((s, v) => s + valorVenda(v), 0),
       vendas: vendas.filter((v) => v.owner_id === p.id).length,
       atividades: ativs.filter((a) => a.owner_id === p.id).length,
-      pipeline: ops.filter((o) => o.owner_id === p.id && ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipeline: ops.filter((o) => o.owner_id === p.id && contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
       // Leads que entraram para esta pessoa no periodo. O gestor pedia para
       // ver "os leads e as vendas de cada vendedor": sem este numero a tabela
       // mostrava o resultado sem mostrar a materia-prima que a pessoa recebeu.
       leads: rels.filter((r) => r.owner_id === p.id && noPeriodo(r.created_at)).length,
-      fechadas: opsPeriodo.filter((o) => o.owner_id === p.id && o.etapa === "Fechados").length,
-      perdidas: opsPeriodo.filter((o) => o.owner_id === p.id && o.etapa === "Perdidos").length,
+      fechadas: opsPeriodo.filter((o) => o.owner_id === p.id && ehGanho(o.etapa, d.funil)).length,
+      perdidas: opsPeriodo.filter((o) => o.owner_id === p.id && ehPerda(o.etapa, d.funil)).length,
     }))
     .sort((a, b) => b.vendido - a.vendido || b.atividades - a.atividades);
 
@@ -456,7 +471,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       vendido: vendas.filter((v) => v.empresa === loja).reduce((s, v) => s + valorVenda(v), 0),
       vendas: vendas.filter((v) => v.empresa === loja).length,
       atividades: ativs.filter((a) => a.empresa === loja).length,
-      pipeline: ops.filter((o) => o.empresa === loja && ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipeline: ops.filter((o) => o.empresa === loja && contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
       clientes: rels.filter((r) => r.empresa === loja).length,
     }))
     .sort((a, b) => b.vendido - a.vendido);
@@ -473,14 +488,22 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       atividades: ativs.length,
       novosClientes: rels.filter((r) => noPeriodo(r.created_at)).length,
       conversao: fech + perd ? Math.round((fech / (fech + perd)) * 100) : null,
-      pipelineAberto: ops.filter((o) => ETAPAS_QUE_VALEM.includes(o.etapa)).reduce((s, o) => s + o.valor, 0),
+      pipelineAberto: ops.filter((o) => contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
     },
     vendasPorDia: dias.map((dia) => ({ dia, valor: vendasDia.get(dia) ?? 0 })),
     atividadesPorDia: dias.map((dia) => ({ dia, qtd: ativDia.get(dia) ?? 0 })),
     atividadesPorTipo: [...porTipo.entries()].map(([tipo, qtd]) => ({ tipo, qtd })).sort((a, b) => b.qtd - a.qtd),
-    funil: ETAPAS.map((etapa) => {
-      const l = ops.filter((o) => o.etapa === etapa);
-      return { etapa, qtd: l.length, valor: l.reduce((s, o) => s + o.valor, 0) };
+    funil: etapasVisiveis(d.funil).map((e) => {
+      const l = ops.filter((o) => colunaDoNegocio(o.etapa, d.funil) === e.nome);
+      return {
+        etapa: e.nome,
+        qtd: l.length,
+        valor: l.reduce((s, o) => s + o.valor, 0),
+        // O papel e a cor vão junto: a tela precisa saber qual é a etapa de
+        // perda sem comparar o nome dela, e a cor é a que o gestor escolheu.
+        tipo: e.tipo,
+        cor: e.cor,
+      };
     }),
     porVendedor,
     porLoja,
@@ -542,7 +565,7 @@ export function painelGestor(d: DadosCrm, loja?: string, agora = Date.now()) {
       .filter((l) => l.alertas.length && (!loja || vendedores.some((v) => v.id === l.owner_id)))
       .map((l) => ({ cliente: l.nome ?? "Contato", vendedor: nomeDono.get(l.owner_id) ?? "—", motivo: l.alertas[0], origem: "WhatsApp" })),
     ...d.oportunidades
-      .filter((o) => (!loja || o.empresa === loja) && ETAPAS_ABERTAS.includes(o.etapa))
+      .filter((o) => (!loja || o.empresa === loja) && !ehFechada(o.etapa, d.funil))
       .map((o) => ({ o, dias: diasDesde(o.updated_at ?? o.created_at, agora) ?? 0 }))
       .filter(({ dias }) => dias >= 10)
       .sort((a, b) => b.o.valor - a.o.valor)

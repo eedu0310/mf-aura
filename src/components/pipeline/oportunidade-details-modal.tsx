@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { X, Trash2, Download, Upload, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { nomesDasEtapas } from "@/lib/funil";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Oportunidade, Etapa, Probabilidade } from "@/lib/types";
 
-const ETAPAS: Etapa[] = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados", "Perdidos"];
 const PROBABILIDADES: Probabilidade[] = ["Baixa", "Média", "Alta"];
 
 export function OportunidadeDetailsModal({
@@ -19,7 +19,7 @@ export function OportunidadeDetailsModal({
   onClose: () => void;
   onDelete: (id: string) => void;
 }) {
-  const { updateOportunidade, deleteOportunidade } = useAppData();
+  const { updateOportunidade, deleteOportunidade, funil } = useAppData();
   const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [deletando, setDeletando] = useState(false);
@@ -345,7 +345,7 @@ export function OportunidadeDetailsModal({
                   className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
                   disabled={salvando}
                 >
-                  {ETAPAS.map((e) => (
+                  {nomesDasEtapas(funil).map((e) => (
                     <option key={e} value={e}>
                       {e}
                     </option>

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getOpenAIClient } from "@/lib/openai-client";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { ehGanho, nomeDaChave } from "@/lib/funil";
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -86,7 +88,7 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
       .select("id,cliente,etapa,dias_parado,valor")
       .eq("owner_id", vendedor.id)
       .eq("empresa", vendedor.empresa)
-      .neq("etapa", "Fechados")
+      .neq("etapa", nomeDaChave("fechamento", await carregarFunil(supabase, vendedor.empresa)) ?? "Fechados")
       .order("dias_parado", { ascending: false }),
     supabase
       .from("atividades")

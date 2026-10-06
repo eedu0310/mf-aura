@@ -1,4 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { nomesDasEtapas } from "@/lib/funil";
 
 export interface FerramentaDef {
   name: string;
@@ -147,10 +149,9 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
       type: "object",
       properties: {
         oportunidade_id: { type: "string", description: "ID exato da oportunidade." },
-        etapa: {
-          type: "string",
-          enum: ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"],
-        },
+        // Sem lista fixa: as etapas são as da loja. O nome que vier é
+        // conferido contra o funil dela antes de qualquer alteração.
+        etapa: { type: "string" },
         probabilidade: { type: "string", enum: ["Baixa", "Média", "Alta"] },
         confirmado: { type: "boolean", description: "Deve ser true para efetivar a alteração." },
       },
@@ -247,9 +248,11 @@ export async function executarFerramenta(
       return "A alteração da oportunidade foi preparada, mas precisa de confirmação explícita do vendedor antes de ser executada.";
     }
     if (!args.oportunidade_id) return "Não recebi o ID da oportunidade.";
-    const etapas = ["Prospecção", "Apresentação", "Proposta", "Negociação", "Fechados"];
+    const etapas = nomesDasEtapas(await carregarFunil(ctx.supabase, ctx.empresa));
     const probabilidades = ["Baixa", "Média", "Alta"];
-    if (args.etapa && !etapas.includes(args.etapa)) return "Etapa de oportunidade inválida.";
+    if (args.etapa && !etapas.includes(args.etapa)) {
+      return `Etapa inválida. As etapas desta loja são: ${etapas.join(", ")}.`;
+    }
     if (args.probabilidade && !probabilidades.includes(args.probabilidade)) return "Probabilidade inválida.";
     if (!args.etapa && !args.probabilidade) return "Informe a etapa ou a probabilidade que deve ser atualizada.";
 
