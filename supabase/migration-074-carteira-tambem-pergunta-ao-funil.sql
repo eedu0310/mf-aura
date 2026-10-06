@@ -1,0 +1,44 @@
+-- 074 — A carteira também pergunta ao funil
+--
+-- Último lugar onde ainda havia nome de etapa escrito à mão. Depois de 072,
+-- varri o banco atrás de 'Fechados' e sobraram quatro funções. Duas são
+-- legítimas e ficam como estão:
+--
+--   aura_chave_da_etapa      é o próprio tradutor; precisa conhecer o nome
+--                            antigo para traduzi-lo
+--   aura_transferir_carteira é a função velha e quebrada (usa auth.uid() com
+--                            o cliente de serviço, onde isso é NULL — nunca
+--                            funcionou). Nada no código a chama mais; foi
+--                            substituída por aura_mover_carteira.
+--
+-- As outras duas carregavam a mesma lista remendada:
+-- `etapa not in ('Fechados', 'Perdidos', 'Fechamento')` — os nomes antigos E
+-- o novo, colados um no outro para sobreviver à migração 068.
+--
+-- POR QUE IMPORTA: a lista só está certa porque as quatro lojas, hoje, usam
+-- os nomes padrão. No dia em que um gestor renomear a etapa de ganho para
+-- "Vendido!" — que é o que a aba Etapas do Funil oferece — essas duas funções
+-- param de reconhecer o negócio fechado:
+--
+--   aura_mover_carteira       transferiria negócios JÁ FECHADOS junto com a
+--                             carteira, mexendo em venda feita
+--   aura_excluir_funcionario  contaria negócio fechado como carteira viva e
+--                             exigiria herdeiro de quem não tem mais nada em
+--                             aberto
+--
+-- Agora as duas perguntam ao funil da loja, como todo o resto do sistema.
+-- (Corpo completo das duas funções aplicado no banco; ver a migração
+-- 20261006_074_carteira_tambem_pergunta_ao_funil no histórico do Supabase.)
+
+-- A mudança, em uma linha cada:
+--
+--   aura_mover_carteira:
+--     - and etapa not in ('Fechados', 'Perdidos', 'Fechamento')
+--     + and coalesce(public.aura_chave_da_etapa(empresa, etapa), '')
+--           not in ('fechamento', 'perda')
+--
+--   aura_excluir_funcionario:
+--     - where owner_id = p_alvo and etapa not in ('Fechados','Perdidos','Fechamento')
+--     + where owner_id = p_alvo
+--       and coalesce(public.aura_chave_da_etapa(empresa, etapa), '')
+--           not in ('fechamento', 'perda')
