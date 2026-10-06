@@ -28,11 +28,25 @@ export async function carregarFunil(
   if (!sb || !empresa) return FUNIL_PADRAO;
 
   try {
-    const { data } = await sb
+    const { data, error } = await sb
       .from("etapas_funil")
       .select("nome, ordem, tipo, conta_no_pipeline, probabilidade, cor, ativa, chave")
       .eq("empresa", empresa)
       .order("ordem");
+
+    /**
+     * Erro de leitura NÃO pode virar funil padrão guardado por cinco minutos.
+     * O cliente Supabase não lança exceção: antes o erro caía no `data` nulo,
+     * o código entendia "loja sem funil", gravava o FUNIL_PADRAO no cache e
+     * durante cinco minutos o servidor inteiro trabalhava com as etapas
+     * erradas — etiqueta errada no WhatsApp, card na coluna errada. Agora o
+     * erro devolve o último funil bom (ou o padrão) sem gravar nada, então a
+     * chamada seguinte tenta de novo.
+     */
+    if (error) {
+      console.error("Não consegui ler o funil de", empresa, error.message);
+      return lembrado?.funil ?? FUNIL_PADRAO;
+    }
 
     /**
      * Loja sem funil próprio usa o padrão em vez de ficar sem etapa nenhuma.
@@ -41,7 +55,8 @@ export async function carregarFunil(
     const funil = data?.length ? data.map(daLinha) : FUNIL_PADRAO;
     cache.set(chave, { em: Date.now(), funil });
     return funil;
-  } catch {
+  } catch (e) {
+    console.error("Não consegui ler o funil de", empresa, e);
     return lembrado?.funil ?? FUNIL_PADRAO;
   }
 }

@@ -56,13 +56,27 @@ export async function proxy(request: NextRequest) {
     userId = user?.id ?? null;
 
     if (userId) {
-      const { data: perfil } = await supabase
+      const { data: perfil, error: erroPerfil } = await supabase
         .from("profiles")
         .select("ativo")
         .eq("id", userId)
-        .single();
-      contaAtiva = perfil?.ativo !== false;
-      lembrarSessao(token, userId, contaAtiva);
+        .maybeSingle();
+
+      if (erroPerfil) {
+        /**
+         * A leitura falhou: não sabemos se a conta está ativa. Deixamos passar
+         * esta requisição — um soluço do banco não pode deslogar a empresa
+         * toda — mas NÃO guardamos essa resposta, então a próxima requisição
+         * pergunta de novo. Antes o erro virava "ativo = true" E ficava
+         * memorizado em lembrarSessao: uma conta desativada seguia navegando
+         * até a sessão expirar.
+         */
+        contaAtiva = true;
+        console.error("Proxy: não consegui ler o perfil de", userId, erroPerfil.message);
+      } else {
+        contaAtiva = perfil?.ativo !== false;
+        lembrarSessao(token, userId, contaAtiva);
+      }
     }
   }
 

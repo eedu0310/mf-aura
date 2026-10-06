@@ -22,11 +22,24 @@ export async function GET(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
 
-  const { data: time } = await sb
+  const { data: time, error: erroTime } = await sb
     .from("profiles")
     .select("id")
     .in("cargo", ["Vendedor", "Vendedor Interno", "SDR"])
     .eq("ativo", true);
+
+  /**
+   * Sem essa checagem o erro virava lista vazia: o cron das 7h respondia
+   * {ok: true, enviados: 0} e a equipe inteira ficava sem briefing sem que
+   * nada no log indicasse falha.
+   */
+  if (erroTime) {
+    console.error("Cron do briefing: não consegui listar o time:", erroTime);
+    return NextResponse.json(
+      { ok: false, erro: `Não consegui listar o time: ${erroTime.message}` },
+      { status: 500 },
+    );
+  }
 
   const dia = hojeBR();
   let enviados = 0;

@@ -32,7 +32,6 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
-  const [modoCadastro, setModoCadastro] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
 
   // O proxy manda para cá com ?bloqueado=1 quando a conta foi desativada.
@@ -50,21 +49,6 @@ export function LoginForm() {
     if (!supabase) {
       setError("O banco de dados não está configurado. Configure o Supabase antes de entrar.");
       setIsSubmitting(false);
-      return;
-    }
-
-    if (modoCadastro) {
-      const { data, error: erroCadastro } = await supabase.auth.signUp({ email, password });
-      setIsSubmitting(false);
-
-      if (erroCadastro) {
-        setError(traduzirErro(erroCadastro.message));
-        return;
-      }
-
-      if (data.user) {
-        router.push("/onboarding");
-      }
       return;
     }
 
@@ -136,22 +120,20 @@ export function LoginForm() {
           <label htmlFor="password" className="text-sm font-medium text-aura-graphite">
             Senha
           </label>
-          {!modoCadastro && (
-            <button
-              type="button"
-              onClick={esqueciSenha}
-              className="text-xs font-medium text-aura-petrol-600 hover:text-aura-petrol-700 hover:underline underline-offset-2"
-            >
-              Esqueceu a senha?
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={esqueciSenha}
+            className="text-xs font-medium text-aura-petrol-600 hover:text-aura-petrol-700 hover:underline underline-offset-2"
+          >
+            Esqueceu a senha?
+          </button>
         </div>
         <div className="relative">
           <input
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            autoComplete={modoCadastro ? "new-password" : "current-password"}
+            autoComplete="current-password"
             required
             minLength={supabase ? 6 : undefined}
             value={password}
@@ -198,33 +180,29 @@ export function LoginForm() {
         {isSubmitting ? (
           <>
             <Loader2 size={18} className="animate-spin" />
-            {modoCadastro ? "Criando conta..." : "Entrando..."}
+            Entrando...
           </>
         ) : (
           <>
-            {modoCadastro ? "Criar conta" : "Entrar"}
+            Entrar
             <ArrowRight size={18} />
           </>
         )}
       </button>
 
-      {supabase ? (
-        <button
-          type="button"
-          onClick={() => {
-            setModoCadastro((v) => !v);
-            setError(null);
-            setRecuperacaoEnviada(false);
-          }}
-          className="text-center text-xs font-medium text-aura-petrol-600 hover:underline"
-        >
-          {modoCadastro ? "Já tenho conta — entrar" : "Ainda não tenho conta — criar"}
-        </button>
-      ) : (
-        <p className="text-center text-xs text-aura-graphite-soft">
-          Acesso restrito a colaboradores do Grupo MF.
-        </p>
-      )}
+      {/*
+        O cadastro aberto saiu daqui. Qualquer pessoa com o endereço criava
+        conta, escolhia uma das quatro lojas e até o cargo "Gestor" no
+        onboarding — foi assim que duas contas sem perfil entraram. O RLS
+        segurava os dados (gestor novo nasce com gestor_aprovado = false), mas
+        conta de estranho em CRM da empresa não se cria sozinha. Quem entra
+        agora é cadastrado pelo gestor na aba Usuários, que usa
+        /api/admin/criar-usuario.
+      */}
+      <p className="text-center text-xs text-aura-graphite-soft">
+        Acesso restrito a colaboradores do Grupo MF. Para liberar um acesso novo,
+        fale com o gestor da sua loja.
+      </p>
     </form>
   );
 }

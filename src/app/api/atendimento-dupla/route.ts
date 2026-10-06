@@ -104,7 +104,7 @@ export async function POST(request: Request) {
   // ------------------------------------------------------------ desfazer
   if (!parceiroId) {
     const anterior = cliente.parceiro_id;
-    await service
+    const { error: erroDesfazer } = await service
       .from("relacionamentos")
       .update({
         parceiro_id: null,
@@ -113,13 +113,35 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", relacionamentoId);
+    if (erroDesfazer) {
+      return NextResponse.json({ erro: erroDesfazer.message }, { status: 400 });
+    }
 
-    // Só os negócios em aberto. O fechado guarda a dupla que fechou ele.
-    const { data: etapasFechadas } = await service
+    /**
+     * Só os negócios em aberto. O fechado guarda a dupla que fechou ele.
+     *
+     * Esta leitura PRECISA dar certo. Se ela falhar e o código seguir com a
+     * lista vazia, o filtro `.not("etapa","in",...)` é pulado e o parceiro sai
+     * também dos negócios já fechados — apagando de quem era a venda e a
+     * divisão da comissão. Melhor parar com a parceria desfeita no cliente e o
+     * gestor repetir a ação do que corrigir histórico de comissão depois.
+     */
+    const { data: etapasFechadas, error: erroEtapas } = await service
       .from("etapas_funil")
       .select("nome")
       .eq("empresa", cliente.empresa)
       .in("tipo", ["ganho", "perda"]);
+    if (erroEtapas) {
+      return NextResponse.json(
+        {
+          erro:
+            `Não consegui saber quais etapas são de fechamento em ${cliente.empresa} ` +
+            `(${erroEtapas.message}), então parei antes de mexer nos negócios para ` +
+            `não alterar venda já fechada. Tente de novo.`,
+        },
+        { status: 500 },
+      );
+    }
     const fechadas = (etapasFechadas ?? []).map((e) => e.nome as string);
 
     let q = service
@@ -127,12 +149,25 @@ export async function POST(request: Request) {
       .update({ parceiro_id: null, updated_at: new Date().toISOString() })
       .eq("relacionamento_id", relacionamentoId);
     if (fechadas.length) q = q.not("etapa", "in", `(${fechadas.map((n) => `"${n}"`).join(",")})`);
-    await q;
+    const { error: erroOpsDesfazer } = await q;
+    if (erroOpsDesfazer) {
+      return NextResponse.json(
+        {
+          erro:
+            `A parceria foi encerrada no cliente, mas os negócios em aberto ` +
+            `continuam com o parceiro: ${erroOpsDesfazer.message}. Repita a ação.`,
+        },
+        { status: 500 },
+      );
+    }
 
-    await service
+    const { error: erroLeadsDesfazer } = await service
       .from("whatsapp_ia_leads")
       .update({ parceiro_id: null, updated_at: new Date().toISOString() })
       .eq("relacionamento_id", relacionamentoId);
+    if (erroLeadsDesfazer) {
+      console.error("Conversa do WhatsApp continuou com o parceiro:", erroLeadsDesfazer);
+    }
 
     if (anterior) {
       await service.from("notificacoes").insert({
@@ -203,11 +238,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: erroCliente.message }, { status: 400 });
   }
 
-  const { data: etapasFechadas } = await service
+  /**
+   * Mesma trava do caminho de desfazer: se esta leitura falhar e o código
+   * seguir com a lista vazia, o parceiro entra também nos negócios já
+   * fechados e passa a ter direito a percentual de venda que não atendeu.
+   */
+  const { data: etapasFechadas, error: erroEtapas } = await service
     .from("etapas_funil")
     .select("nome")
     .eq("empresa", cliente.empresa)
     .in("tipo", ["ganho", "perda"]);
+  if (erroEtapas) {
+    return NextResponse.json(
+      {
+        erro:
+          `Não consegui saber quais etapas são de fechamento em ${cliente.empresa} ` +
+          `(${erroEtapas.message}), então parei antes de dar acesso aos negócios para ` +
+          `não incluir venda já fechada. Tente de novo.`,
+      },
+      { status: 500 },
+    );
+  }
   const fechadas = (etapasFechadas ?? []).map((e) => e.nome as string);
 
   let qOp = service
@@ -220,12 +271,26 @@ export async function POST(request: Request) {
   if (fechadas.length) {
     qOp = qOp.not("etapa", "in", `(${fechadas.map((n) => `"${n}"`).join(",")})`);
   }
-  const { count: negocios } = await qOp;
+  const { count: negocios, error: erroOps } = await qOp;
+  if (erroOps) {
+    return NextResponse.json(
+      {
+        erro:
+          `O cliente foi marcado como atendimento em dupla, mas o parceiro não ` +
+          `recebeu os negócios em aberto: ${erroOps.message}. Sem isso ele não vê ` +
+          `o negócio nem recebe o percentual. Repita a ação.`,
+      },
+      { status: 500 },
+    );
+  }
 
-  const { count: conversas } = await service
+  const { count: conversas, error: erroLeads } = await service
     .from("whatsapp_ia_leads")
     .update({ parceiro_id: parceiroId, updated_at: agora }, { count: "exact" })
     .eq("relacionamento_id", relacionamentoId);
+  if (erroLeads) {
+    console.error("Parceiro não recebeu a conversa do WhatsApp:", erroLeads);
+  }
 
   await service.from("notificacoes").insert({
     vendedor_id: parceiroId,

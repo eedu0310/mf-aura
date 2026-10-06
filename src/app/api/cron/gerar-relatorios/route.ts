@@ -38,17 +38,29 @@ export async function GET(request: Request) {
   const ehPrimeiroDiaDoMes = hoje.getDate() === 1;
 
   let gerados = 0;
+  /**
+   * Falhas ficam na resposta, não só no console. Um cron que responde
+   * {ok: true, gerados: 0} é indistinguível de um domingo sem vendedor
+   * ativo: ninguém recebe relatório e ninguém descobre por quê.
+   */
+  const falhas: string[] = [];
 
   if (ehDomingo) {
     const { inicio, fim } = inicioDaSemanaPassada();
 
     for (const empresa of NOMES_EMPRESAS) {
-      const { data: vendedores } = await supabase
+      const { data: vendedores, error: erroVendedores } = await supabase
         .from("profiles")
         .select("id, nome")
         .eq("empresa", empresa)
         .in("cargo", CARGOS_QUE_VENDEM)
         .eq("ativo", true);
+
+      if (erroVendedores) {
+        console.error(`Cron de relatórios: não consegui listar vendedores de ${empresa}:`, erroVendedores);
+        falhas.push(`${empresa}: ${erroVendedores.message}`);
+        continue;
+      }
 
       for (const v of vendedores ?? []) {
         const resultado = await gerarRelatorioVendedor(supabase, v.id, v.nome as string, empresa, inicio, fim);
@@ -68,5 +80,11 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, gerados, ehDomingo, ehPrimeiroDiaDoMes });
+  return NextResponse.json({
+    ok: falhas.length === 0,
+    gerados,
+    ehDomingo,
+    ehPrimeiroDiaDoMes,
+    ...(falhas.length ? { falhas } : {}),
+  });
 }

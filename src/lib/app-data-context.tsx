@@ -765,21 +765,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setTodasVendas((prev) => prev.filter((venda) => venda.oportunidadeId !== id));
       if (supabase && vendasDerivadas.length > 0) {
         const { error } = await supabase.from("vendas").delete().eq("oportunidade_id", id);
-        if (error) console.error("Erro ao desfazer venda derivada do pipeline:", error);
+        if (error) {
+          // Se o banco recusou, a venda continua lá: devolve para a tela em vez
+          // de sumir só aqui e reaparecer no próximo carregamento.
+          console.error("Erro ao desfazer venda derivada do pipeline:", error);
+          setTodasVendas((prev) => [...vendasDerivadas, ...prev]);
+        }
       }
     }
     if (supabase) {
-      supabase
+      /**
+       * Com await e desfazendo em caso de erro. Antes o update era disparado
+       * sem await e o erro só ia para o console: o vendedor arrastava o card,
+       * via ele firme na coluna nova, e no próximo F5 o card estava de volta
+       * no lugar antigo sem nenhum aviso. Quem move e volta sozinho é pior do
+       * que quem não move: agora o card volta na hora, que é a verdade.
+       */
+      const { error } = await supabase
         .from("oportunidades")
         .update({ etapa: novaEtapa })
-        .eq("id", id)
-        .then(({ error }) => {
-          if (!error) {
-            integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa);
-          } else {
-            console.error("Erro ao mover oportunidade:", error);
-          }
-        });
+        .eq("id", id);
+
+      if (error) {
+        console.error("Erro ao mover oportunidade:", error);
+        setTodasOportunidades((prev) =>
+          prev.map((o) => (o.id === id ? { ...o, etapa: etapaAnterior } : o)),
+        );
+        return;
+      }
+
+      integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa);
     }
   }
 

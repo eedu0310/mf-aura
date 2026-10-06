@@ -132,13 +132,27 @@ export async function PUT(req: NextRequest) {
     );
   }
 
-  const { data: atuais } = await sb!
+  /**
+   * Os nomes atuais são o que diz se houve rename — e se houve, são eles que
+   * encontram os negócios para arrastar junto. Sem essa leitura o código
+   * entenderia "nenhum rename", gravaria o nome novo na etapa e deixaria os
+   * negócios apontando para um nome que não existe mais. Então aqui o erro
+   * para tudo antes de qualquer gravação.
+   */
+  const { data: atuais, error: erroAtuais } = await sb!
     .from("etapas_funil")
     .select("id, nome")
     .eq("empresa", loja);
+  if (erroAtuais) {
+    return NextResponse.json(
+      { erro: `Não consegui ler o funil atual de ${loja}: ${erroAtuais.message}` },
+      { status: 500 },
+    );
+  }
   const nomeAtualPorId = new Map((atuais ?? []).map((e) => [e.id as string, e.nome as string]));
 
   const renomeadas: { de: string; para: string; negocios: number }[] = [];
+  const avisos: string[] = [];
 
   for (const [i, e] of etapas.entries()) {
     const nome = e.nome!.trim();
@@ -162,19 +176,58 @@ export async function PUT(req: NextRequest) {
 
       // O rename arrasta os negócios junto, senão eles ficam órfãos de etapa.
       if (antigo && antigo !== nome) {
-        const { count } = await sb!
+        const { count, error: erroNegocios } = await sb!
           .from("oportunidades")
           .update({ etapa: nome, updated_at: new Date().toISOString() }, { count: "exact" })
           .eq("empresa", loja)
           .eq("etapa", antigo);
+
+        /**
+         * Se os negócios não vieram junto, a etapa é devolvida ao nome antigo.
+         * Este erro não podia passar calado: a linha de etapas_funil já tinha
+         * sido renomeada, os negócios continuavam apontando para o nome velho
+         * — que não existe mais no funil — e a resposta dizia "0 negócios
+         * movidos", como se a loja simplesmente não tivesse negócios ali. O
+         * gestor fechava a tela achando que deu certo e os cards estavam
+         * órfãos. Desfazer o rename deixa o funil do jeito que estava, que é
+         * recuperável; meio rename não é.
+         */
+        if (erroNegocios) {
+          await sb!
+            .from("etapas_funil")
+            .update({ nome: antigo, atualizado_em: new Date().toISOString() })
+            .eq("id", e.id)
+            .eq("empresa", loja);
+          esquecerFunil(loja);
+          return NextResponse.json(
+            {
+              erro:
+                `Não consegui mover os negócios de "${antigo}" para "${nome}": ` +
+                `${erroNegocios.message}. O nome da etapa foi devolvido para ` +
+                `"${antigo}" e nada foi alterado.`,
+            },
+            { status: 500 },
+          );
+        }
+
         renomeadas.push({ de: antigo, para: nome, negocios: count ?? 0 });
 
         // A etiqueta que o vendedor vê no WhatsApp também é o nome da etapa.
-        await sb!
+        // Aqui o erro não desfaz o rename: os negócios, que são o que importa,
+        // já estão certos. Mas vai avisado para o gestor saber que a etiqueta
+        // de algumas conversas ficou com o nome antigo.
+        const { error: erroEtiquetas } = await sb!
           .from("whatsapp_ia_leads")
           .update({ etapa: nome, updated_at: new Date().toISOString() })
           .eq("empresa", loja)
           .eq("etapa", antigo);
+        if (erroEtiquetas) {
+          console.error("Etiquetas do WhatsApp não acompanharam o rename:", erroEtiquetas);
+          avisos.push(
+            `Os negócios foram renomeados, mas a etiqueta de "${antigo}" nas ` +
+              `conversas do WhatsApp não mudou: ${erroEtiquetas.message}`,
+          );
+        }
       }
     } else {
       const { error } = await sb!.from("etapas_funil").insert(linha);
@@ -184,5 +237,5 @@ export async function PUT(req: NextRequest) {
 
   esquecerFunil(loja);
 
-  return NextResponse.json({ ok: true, renomeadas });
+  return NextResponse.json({ ok: true, renomeadas, avisos });
 }
