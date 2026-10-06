@@ -22,8 +22,28 @@ import { listarLeads } from "@/lib/supabase/leads";
 import { buscarCompromissoDoMes } from "@/lib/supabase/compromisso-mensal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ConversationSidebar } from "./conversation-sidebar";
+import {
+  montarRaioX,
+  montarRaioXDaEquipe,
+  type RaioX,
+  type RaioXDeUmVendedor,
+} from "@/lib/raio-x/montar";
+import { RaioXDaEquipe, RaioXDoDia } from "@/components/raio-x/raio-x-do-dia";
+import { saudacaoDoDia } from "@/lib/date-local";
 
-type Mensagem = { id: string; autor: "usuario" | "aura"; texto: string };
+/**
+ * Uma mensagem do chat. A primeira da conversa é especial: em vez de texto,
+ * ela carrega o raio-x do dia, que é desenhado em blocos. Por isso `raioX`,
+ * e não mais só `texto`.
+ */
+type Mensagem = {
+  id: string;
+  autor: "usuario" | "aura";
+  texto: string;
+  raioX?: RaioX;
+  /** A visão do gestor: um raio-x por pessoa da loja. */
+  equipe?: RaioXDeUmVendedor[];
+};
 
 /**
  * O que dizer ao vendedor quando a IA nao respondeu.
@@ -46,9 +66,44 @@ function motivoLegivel(erro: unknown): string {
   return `Motivo: ${curto}`;
 }
 
+/**
+ * O raio-x em uma linha de texto, para o histórico e para a IA.
+ *
+ * A tela mostra os blocos; o banco guarda esta frase. Ela existe por dois
+ * motivos: a conversa salva precisa de um texto para listar, e quando o
+ * vendedor responde, a IA lê a primeira fala — sem isto, ela começaria sem
+ * saber o que acabou de ser mostrado na tela.
+ */
+function resumoEmTexto(raioX: RaioX, primeiroNome: string): string {
+  if (raioX.totalDeItens === 0) {
+    return `Oi, ${primeiroNome}! Hoje não há nada esperando por você: sem compromisso marcado, sem follow-up vencido e sem pendência no pós-venda. Bom momento para prospectar.`;
+  }
+  const partes = raioX.blocos.map((b) => {
+    const nomes = b.itens.slice(0, 5).map((i) => i.titulo).join(", ");
+    const resto = b.total > 5 ? ` e mais ${b.total - 5}` : "";
+    return `${b.titulo} (${b.total}): ${nomes}${resto}`;
+  });
+  return `Oi, ${primeiroNome}! Raio-x do dia — ${raioX.totalDeItens} ${
+    raioX.totalDeItens === 1 ? "item" : "itens"
+  }. ${partes.join(". ")}.`;
+}
+
+/** O mesmo, para a visão do gestor. */
+function resumoDaEquipeEmTexto(equipe: RaioXDeUmVendedor[], primeiroNome: string): string {
+  const total = equipe.reduce((s, v) => s + v.raioX.totalDeItens, 0);
+  const porPessoa = equipe
+    .slice(0, 10)
+    .map((v) => `${v.nome}: ${v.raioX.totalDeItens}`)
+    .join(", ");
+  return `Oi, ${primeiroNome}! A equipe hoje — ${total} ${
+    total === 1 ? "pendência" : "pendências"
+  } em ${equipe.length} ${equipe.length === 1 ? "pessoa" : "pessoas"}. ${porPessoa}.`;
+}
+
 export function AuraCoachChat() {
   const { profile } = useUserProfile();
-  const { relacionamentos, oportunidades, vendas, atividades, playbook } = useAppData();
+  const { relacionamentos, oportunidades, vendas, atividades, playbook, funil, nomesPorOwnerId } =
+    useAppData();
   const primeiroNome = profile.nome.split(" ")[0] || "";
   const usandoSupabase = Boolean(getSupabaseBrowserClient());
 
@@ -61,67 +116,112 @@ export function AuraCoachChat() {
   const [mostrarSidebarMobile, setMostrarSidebarMobile] = useState(false);
   const fimRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * A primeira mensagem da conversa: o raio-x do dia.
+   *
+   * ANTES ISTO ERA UMA CHAMADA À IA. Ela recebia ~25 mil tokens de contexto
+   * (a chamada mais cara do sistema, por chamada) e devolvia um parágrafo
+   * corrido com os mesmos dados que já estavam na tela. Três problemas:
+   *
+   *  - saía desorganizado, e o vendedor tinha que ler tudo para achar um nome
+   *  - saía CORTADO quando a lista era grande, porque batia no teto de tokens
+   *    (foi assim que apareceu um "Aguardar retor" no meio da tela)
+   *  - custava caro, todo dia, para cada pessoa que abria o chat
+   *
+   * Contar quantos follow-ups estão atrasados não é trabalho de IA. Agora a
+   * conta é feita aqui, sempre igual, instantânea e de graça — e a IA fica
+   * inteira para o que ela faz bem, que é responder quando o vendedor
+   * pergunta.
+   */
   const gerarSaudacaoInicial = useCallback(async (): Promise<Mensagem[]> => {
     const supabase = getSupabaseBrowserClient();
-    const [compromissos, posVendasRaw, equipe, leads, userRes, compromissoMensal] = await Promise.all([
+    const [compromissos, posVendasRaw, leads, userRes] = await Promise.all([
       listarCompromissos().then((r) => r ?? []),
       ["Pós-venda", "Gestor"].includes(profile.cargo) ? listarPosVendas() : Promise.resolve(null),
-      carregarEquipe(),
       listarLeads(),
       supabase ? supabase.auth.getUser() : Promise.resolve(null),
-      buscarCompromissoDoMes(),
     ]);
-    const meuId = userRes?.data?.user?.id;
-    const contexto = montarContextoDados({
-      nome: profile.nome,
-      empresa: profile.empresa,
-      relacionamentos,
-      oportunidades,
-      vendas,
-      atividades,
-      compromissos,
-      posVendas: posVendasRaw ?? undefined,
-      equipe: equipe ?? undefined,
-      leads: leads ?? undefined,
-      meuId,
-      compromissoMensal,
+    const meuId = userRes?.data?.user?.id ?? null;
+
+    /**
+     * Só o que é meu. O gestor enxerga a loja inteira pela RLS, e sem este
+     * filtro o raio-x DELE viria com o follow-up atrasado de todo mundo —
+     * uma lista que ele não tem como executar e que esconderia a dele.
+     */
+    // O dono do registro vem como ownerId em umas tabelas e vendedorId em
+    // outras — por isso a função olha os dois em vez de escolher um.
+    const meu = <T,>(lista: T[]): T[] =>
+      meuId
+        ? lista.filter((x) => {
+            const r = x as { ownerId?: string; vendedorId?: string; responsavelId?: string };
+            return (r.ownerId ?? r.responsavelId ?? r.vendedorId) === meuId;
+          })
+        : lista;
+
+    const raioX = montarRaioX({
+      compromissos: meu(compromissos ?? []),
+      relacionamentos: meu(relacionamentos),
+      oportunidades: meu(oportunidades),
+      posVendas: posVendasRaw ? meu(posVendasRaw) : undefined,
+      leadsPendentes: (leads ?? [])
+        .filter((l: any) => !meuId || l.vendedorId === meuId || l.atribuidoPara === meuId)
+        .filter((l: any) => !l.status || l.status === "pendente" || l.status === "novo")
+        .map((l: any) => ({ id: l.id, nome: l.nome, telefone: l.telefone })),
+      funil,
     });
 
-    try {
-      const resp = await fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          modo: "chat",
-          contexto,
-          playbook,
-          mensagens: [
-            {
-              autor: "usuario",
-              texto:
-                "Monte meu resumo do dia: o que eu preciso priorizar agora (follow-ups atrasados, contatos marcados para hoje, oportunidades paradas, relacionamentos esfriando). Seja direto, use nomes reais, e feche perguntando se pode ajudar em algo específico.",
-            },
-          ],
-        }),
-      });
-      const dados = await resp.json();
-      if (!resp.ok || !dados.resposta) {
-        throw new Error(dados.erro ?? "AURA IA não está disponível.");
-      }
+    /**
+     * O gestor vê a loja, não a carteira dele.
+     *
+     * Ele enxerga tudo pela RLS, então o raio-x pessoal dele viria quase
+     * vazio enquanto a equipe inteira tem pendência. O que ele precisa é
+     * saber DE QUEM é cada uma, para cobrar a pessoa certa — por isso aqui a
+     * lista é quebrada por vendedor.
+     */
+    const souGestor = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+    const dono = (x: unknown) => {
+      const r = x as { ownerId?: string; responsavelId?: string; vendedorId?: string };
+      return r.ownerId ?? r.responsavelId ?? r.vendedorId ?? null;
+    };
 
-      return [{ id: "boas-vindas", autor: "aura", texto: `Oi, ${primeiroNome}! ${dados.resposta}` }];
-    } catch (error) {
-      console.error("AURA: falha ao carregar saudação com dados reais", error);
-      return [
-        {
-          id: "erro-aura",
-          autor: "aura",
-          texto: `Oi, ${primeiroNome}! Não consegui carregar seus dados reais agora. ${motivoLegivel(error)}`,
-        },
-      ];
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primeiroNome, profile.nome, profile.empresa, playbook]);
+    const equipe = souGestor
+      ? montarRaioXDaEquipe(
+          {
+            compromissos: (compromissos ?? []).map((c) => ({ ...c, dono: dono(c) })),
+            relacionamentos: relacionamentos.map((r) => ({ ...r, dono: dono(r) })),
+            oportunidades: oportunidades.map((o) => ({ ...o, dono: dono(o) })),
+            posVendas: (posVendasRaw ?? []).map((p) => ({ ...p, dono: dono(p) })),
+            leadsPendentes: (leads ?? [])
+              .filter((l: any) => !l.status || l.status === "pendente" || l.status === "novo")
+              .map((l: any) => ({
+                id: l.id,
+                nome: l.nome,
+                telefone: l.telefone,
+                dono: l.vendedorId ?? l.atribuidoPara ?? null,
+              })),
+            funil,
+          },
+          Object.entries(nomesPorOwnerId).map(([id, nome]) => ({ id, nome })),
+        )
+      : null;
+
+    return [
+      {
+        id: "raio-x-do-dia",
+        autor: "aura",
+        // O texto continua existindo: é ele que fica salvo no histórico da
+        // conversa e o que a IA lê como primeira fala quando o vendedor
+        // responde. Sem isto, a conversa começaria sem memória do que foi
+        // mostrado.
+        texto: equipe?.length
+          ? resumoDaEquipeEmTexto(equipe, primeiroNome)
+          : resumoEmTexto(raioX, primeiroNome),
+        raioX: equipe?.length ? undefined : raioX,
+        equipe: equipe?.length ? equipe : undefined,
+      },
+    ];
+     
+  }, [primeiroNome, profile.cargo, relacionamentos, oportunidades, funil, nomesPorOwnerId]);
 
   useEffect(() => {
     async function iniciar() {
@@ -330,22 +430,42 @@ export function AuraCoachChat() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {mensagens.map((m) => (
-                <div
-                  key={m.id}
-                  className={`flex ${m.autor === "usuario" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                      m.autor === "usuario"
-                        ? "bg-aura-petrol-700 text-white"
-                        : "bg-aura-bg text-aura-graphite"
-                    }`}
-                  >
-                    {m.texto}
+              {mensagens.map((m) =>
+                // O raio-x não é um balão de conversa: é um painel. Fica mais
+                // largo e sem fundo de bolha, para os blocos respirarem.
+                m.raioX || m.equipe ? (
+                  <div key={m.id} className="w-full">
+                    {m.equipe ? (
+                      <RaioXDaEquipe
+                        vendedores={m.equipe}
+                        nome={profile.nome}
+                        saudacao={saudacaoDoDia()}
+                      />
+                    ) : (
+                      <RaioXDoDia
+                        raioX={m.raioX!}
+                        nome={profile.nome}
+                        saudacao={saudacaoDoDia()}
+                      />
+                    )}
                   </div>
-                </div>
-              ))}
+                ) : (
+                  <div
+                    key={m.id}
+                    className={`flex ${m.autor === "usuario" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                        m.autor === "usuario"
+                          ? "bg-aura-petrol-700 text-white"
+                          : "bg-aura-bg text-aura-graphite"
+                      }`}
+                    >
+                      {m.texto}
+                    </div>
+                  </div>
+                ),
+              )}
               {digitando && (
                 <div className="flex justify-start">
                   <div className="flex items-center gap-1 rounded-2xl bg-aura-bg px-4 py-3">

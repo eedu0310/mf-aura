@@ -88,7 +88,32 @@ export interface LeadInfo {
   aviso: string | null;
 }
 
-const DEBOUNCE_MS = 20_000;
+/**
+ * Quanto a AURA espera o cliente terminar de falar antes de analisar.
+ *
+ * Era 20 segundos, e 20 segundos é menos do que uma pessoa leva para escrever
+ * três mensagens no WhatsApp. O resultado, medido no consumo real: 80% das
+ * análises aconteciam a menos de 90 segundos da anterior, e metade a menos de
+ * 30. Um "oi" / "tudo bem?" / "queria saber o preço" / "da lareira a gás"
+ * virava QUATRO análises completas de ~6.500 tokens cada, quando é uma
+ * conversa só. A análise do WhatsApp é 84% de toda a conta da IA.
+ *
+ * 90 segundos pega a faixa onde estão as rajadas sem o vendedor sentir: a
+ * mensagem do cliente chega na tela dele na hora de qualquer jeito — o que
+ * espera é só o resumo e a dica da IA. Os alertas de "cliente esperando" e
+ * "follow-up pendente" também não dependem disto: saem da varredura de 5 em
+ * 5 minutos, sem IA.
+ *
+ * E tem um efeito colateral bom: responder no meio da rajada é pior. Com 20
+ * segundos a resposta automática saía em cima do "oi", antes de a pessoa
+ * dizer o que queria. Com 90, ela lê a pergunta inteira.
+ *
+ * Ajustável sem deploy pelo ambiente, para afinar sem mexer em código.
+ */
+const DEBOUNCE_MS = Math.max(
+  Number(process.env.AURA_DEBOUNCE_ANALISE_MS) || 90_000,
+  5_000,
+);
 const MANUAL_DIR = path.join(process.cwd(), "manual-treinamento");
 
 const g = globalThis as unknown as {
@@ -424,6 +449,13 @@ async function analisarComIa(
   trechos?: string,
   /** De onde o cliente é e o que pode ser oferecido a ele. Também variável. */
   atendimento?: string,
+  /**
+   * A loja, só para o registro de consumo. Sem ela, as quase quatro mil
+   * chamadas do supervisor ficavam todas com empresa nula e o painel de custo
+   * não sabia dizer qual operação gasta o quê — e é esta função que faz 84%
+   * da conta.
+   */
+  empresaDoUso?: string,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -547,6 +579,7 @@ ${transcricao(msgs, nomeCliente)}`;
     funcao: "whatsapp",
     modelo: modeloDeVolume(),
     uso: (resp as any).usage,
+    empresa: empresaDoUso ?? null,
   });
 
   const bloco = resp.content.find((b: any) => b.type === "tool_use") as any;
@@ -1273,6 +1306,7 @@ export async function analisarConversa(
         sb0 ? await textoDoAprendizado(sb0, empresa) : "",
         trechos,
         await blocoDeAtendimento(empresa, chat.phone).catch(() => ""),
+        empresa,
       );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);

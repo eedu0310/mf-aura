@@ -101,6 +101,42 @@ export async function podeChamarIA(): Promise<boolean> {
 const MULT_ESCRITA_CACHE = 2;    // usamos ttl de 1h no supervisor e no fechamento
 const MULT_LEITURA_CACHE = 0.1;
 
+/**
+ * Preço por modelo, em dólar por milhão de tokens.
+ *
+ * O preço era UM SÓ para o sistema inteiro — e o sistema usa dois modelos. O
+ * Haiku faz 94% das chamadas (supervisor do WhatsApp e recados) e custa a
+ * metade do que estava configurado. Resultado: o painel mostrava cerca do
+ * DOBRO do gasto real, que é justamente o número que o gestor olha para
+ * decidir se a IA está cara.
+ *
+ * A tabela abaixo é o preço de tabela da Anthropic. O que o gestor configurar
+ * em ia_config continua valendo como PADRÃO para modelo que não esteja aqui —
+ * assim um modelo novo nunca passa a custar zero por engano.
+ */
+const PRECO_POR_MODELO: Record<string, { entrada: number; saida: number }> = {
+  "claude-haiku-4-5": { entrada: 1, saida: 5 },
+  "claude-sonnet-5": { entrada: 3, saida: 15 },
+  "claude-opus-5": { entrada: 15, saida: 75 },
+};
+
+/**
+ * Acha o preço do modelo pelo começo do nome, porque o identificador vem com
+ * data colada no fim ("claude-haiku-4-5-20251001") e amanhã vem com outra.
+ * Sem isto, toda atualização de versão silenciosamente voltaria ao preço
+ * genérico — o erro que esta função existe para consertar.
+ */
+function precoDoModelo(
+  modelo: string,
+  padrao: { entrada: number; saida: number },
+): { entrada: number; saida: number } {
+  const m = (modelo ?? "").toLowerCase();
+  for (const [chave, preco] of Object.entries(PRECO_POR_MODELO)) {
+    if (m.startsWith(chave)) return preco;
+  }
+  return padrao;
+}
+
 /** Anota o consumo de uma chamada. Recebe o `usage` que o Claude devolve. */
 export async function registrarUsoIA(dados: {
   funcao: string;
@@ -135,13 +171,20 @@ export async function registrarUsoIA(dados: {
     if (!sb) return;
 
     const config = await lerConfig();
+    // O preço é DO MODELO que atendeu esta chamada, não um preço só para o
+    // sistema inteiro. O que o gestor configurou vale como padrão para modelo
+    // desconhecido.
+    const preco = precoDoModelo(dados.modelo, {
+      entrada: config.preco_entrada_usd,
+      saida: config.preco_saida_usd,
+    });
     // Cada fatia tem o seu preço: entrada normal 1x, escrita no cache 2x,
     // leitura do cache 0,1x.
     const custo =
-      (entradaCrua / 1_000_000) * config.preco_entrada_usd +
-      (escritaCache / 1_000_000) * config.preco_entrada_usd * MULT_ESCRITA_CACHE +
-      (leituraCache / 1_000_000) * config.preco_entrada_usd * MULT_LEITURA_CACHE +
-      (saida / 1_000_000) * config.preco_saida_usd;
+      (entradaCrua / 1_000_000) * preco.entrada +
+      (escritaCache / 1_000_000) * preco.entrada * MULT_ESCRITA_CACHE +
+      (leituraCache / 1_000_000) * preco.entrada * MULT_LEITURA_CACHE +
+      (saida / 1_000_000) * preco.saida;
 
     await sb.from("ia_uso").insert({
       empresa: dados.empresa ?? null,

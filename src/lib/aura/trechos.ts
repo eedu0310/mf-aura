@@ -270,6 +270,16 @@ export async function regravarTrechos(
   return linhas.length;
 }
 
+/**
+ * Teto do núcleo, em caracteres (~2.000 tokens).
+ *
+ * O núcleo viaja no prompt de TODA análise de conversa, que é 84% da conta da
+ * IA. As lojas que têm as seções certas marcadas ficam em 2.700 caracteres; o
+ * teto existe para a loja que não tem — ver o comentário do começo de fila
+ * abaixo.
+ */
+const TETO_NUCLEO = 8_000;
+
 /** As regras da casa que entram em toda conversa. Vai na parte cacheada. */
 export async function nucleoDoManual(sb: SupabaseClient, empresa: string): Promise<string> {
   const hit = cacheNucleo.get(empresa);
@@ -286,6 +296,40 @@ export async function nucleoDoManual(sb: SupabaseClient, empresa: string): Promi
       .eq("nucleo", true)
       .order("ordem", { ascending: true });
     texto = (data ?? []).map((t) => `### ${t.origem}\n${t.texto}`).join("\n\n");
+
+    /**
+     * COMEÇO DE FILA: a loja cujo material não tem nenhuma das seções de
+     * SECOES_NUCLEO fica sem núcleo — e quem chama cai no plano B antigo, que
+     * manda o MATERIAL INTEIRO em toda análise.
+     *
+     * Medido na MF International: 35 mil caracteres por chamada, contra 2.700
+     * das outras três lojas. Eram as 202 chamadas de 22 mil tokens no painel
+     * de custo, 5% da conta inteira — por uma loja a quem só falta subir um
+     * documento.
+     *
+     * Então, sem núcleo, usa-se o começo do manual até o teto. Não é tão bom
+     * quanto as seções certas (por isso o aviso continua valendo: suba o
+     * material que falta), mas é manual de verdade, na ordem em que foi
+     * escrito, e custa quatro vezes menos.
+     */
+    if (!texto) {
+      const { data: inicio } = await sb
+        .from("aura_trechos_ativos")
+        .select("origem, texto")
+        .eq("empresa", empresa)
+        .order("ordem", { ascending: true })
+        .limit(40);
+
+      const partes: string[] = [];
+      let tamanho = 0;
+      for (const t of inicio ?? []) {
+        const bloco = `### ${t.origem}\n${t.texto}`;
+        if (tamanho + bloco.length > TETO_NUCLEO) break;
+        partes.push(bloco);
+        tamanho += bloco.length;
+      }
+      texto = partes.join("\n\n");
+    }
   } catch {
     texto = "";
   }
