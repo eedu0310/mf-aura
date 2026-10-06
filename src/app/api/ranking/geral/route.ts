@@ -58,7 +58,9 @@ export async function GET(request: Request) {
       .is("excluido_em", null),
     supabase
       .from("vendas")
-      .select("owner_id,valor_fechado,valor,relacionamento_id")
+      .select(
+        "owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro",
+      )
       .gte("data", desdeDia),
     supabase.from("vendas").select("relacionamento_id").lt("data", desdeDia),
     supabase

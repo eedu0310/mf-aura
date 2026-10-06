@@ -75,6 +75,11 @@ export async function proxy(request: NextRequest) {
   const publica =
     caminho === "/" ||
     caminho.startsWith("/login") ||
+    // A tela de redefinir senha PRECISA ser pública. Quem chega nela vem do
+    // link do e-mail e ainda não tem sessão: se o proxy mandasse para o
+    // login, o token da URL morreria no caminho e o link continuaria "não
+    // dando nada" — que é o bug que ela veio consertar.
+    caminho.startsWith("/redefinir-senha") ||
     caminho.startsWith("/avaliar") ||
     // Link curto de avaliação: quem abre é o cliente, que não tem login.
     caminho.startsWith("/av/") ||

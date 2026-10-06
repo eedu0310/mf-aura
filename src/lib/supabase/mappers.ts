@@ -49,6 +49,10 @@ export function relacionamentoDoBanco(
     proximoContatoEm: texto(linha.proximo_contato_em),
     valor: numero(linha.valor),
     valorGerado: numero(linha.valor_gerado),
+    parceiroId: texto(linha.parceiro_id) ?? null,
+    percentualParceiro: numero(linha.percentual_parceiro) ?? null,
+    parceriaEm: texto(linha.parceria_em) ?? null,
+    parceriaMotivo: texto(linha.parceria_motivo) ?? null,
     criadoEm: texto(linha.created_at),
     atualizado: texto(linha.updated_at),
   };
@@ -70,6 +74,12 @@ export function relacionamentoParaBanco(dados: Omit<Relacionamento, "id">) {
     ultimo_contato_em: dados.ultimoContatoEm || null,
     proximo_contato: dados.proximoContato || "a definir",
     proximo_contato_em: dados.proximoContatoEm || null,
+    parceiro_id: dados.parceiroId || null,
+    percentual_parceiro: dados.parceiroId
+      ? Math.min(Math.max(Number(dados.percentualParceiro ?? 50), 0), 100)
+      : 50,
+    parceria_em: dados.parceriaEm || null,
+    parceria_motivo: dados.parceriaMotivo || null,
   };
 }
 
@@ -96,6 +106,8 @@ export function oportunidadeDoBanco(
     diasParado: numero(linha.dias_parado),
     orcamentoPath: texto(linha.orcamento_path) || null,
     orcamentoNome: texto(linha.orcamento_nome) || null,
+    parceiroId: texto(linha.parceiro_id) ?? null,
+    percentualParceiro: numero(linha.percentual_parceiro) ?? null,
   };
 }
 
@@ -114,6 +126,10 @@ export function oportunidadeParaBanco(
     descricao_perda: dados.descricaoPerda ?? null,
     data_perda: dados.dataPerda ?? null,
     relacionamento_id: dados.relacionamentoId || null,
+    parceiro_id: dados.parceiroId || null,
+    percentual_parceiro: dados.parceiroId
+      ? Math.min(Math.max(Number(dados.percentualParceiro ?? 50), 0), 100)
+      : 50,
   };
 }
 
@@ -147,6 +163,8 @@ export function vendaDoBanco(linha: Record<string, unknown>): Venda {
     oportunidadeId: texto(linha.oportunidade_id),
     indicadorId: texto(linha.indicador_id),
     ownerId: linha.owner_id as string,
+    parceiroId: texto(linha.parceiro_id) ?? null,
+    percentualParceiro: numero(linha.percentual_parceiro) ?? null,
     status: texto(linha.status),
     criadoEm: texto(linha.created_at),
     atualizado: texto(linha.updated_at),
@@ -198,6 +216,14 @@ export function vendaParaBanco(dados: Omit<Venda, "id">) {
     relacionamento_id: dados.relacionamentoId || null,
     oportunidade_id: dados.oportunidadeId || null,
     indicador_id: dados.indicadorId || null,
+    // Atendimento em dupla. O percentual só é gravado quando existe parceiro:
+    // percentual sem parceiro seria um desconto fantasma na conta de quem
+    // vendeu, e o parceiro sem percentual é legítimo (entrou no atendimento
+    // mas a dupla combinou que o valor fica com um só).
+    parceiro_id: dados.parceiroId || null,
+    percentual_parceiro: dados.parceiroId
+      ? Math.min(Math.max(Number(dados.percentualParceiro ?? 0), 0), 100)
+      : 0,
     status: dados.status || null,
     descricao: dados.descricao?.trim() || null,
   };

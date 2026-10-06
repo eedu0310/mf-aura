@@ -60,6 +60,10 @@ export interface Venda {
   valor_fechado: number | null;
   data: string;
   status: string | null;
+  /** Atendimento em dupla. A fatia de cada um sai de valorDoVendedor()
+   *  (src/lib/parceria.ts) — nunca de um filtro por owner_id. */
+  parceiro_id: string | null;
+  percentual_parceiro: number | null;
 }
 
 export interface Comp {
@@ -169,7 +173,7 @@ export async function carregarDados(
       .limit(10000),
     sb
       .from("vendas")
-      .select("id, owner_id, empresa, cliente, valor, valor_fechado, data, status")
+      .select("id, owner_id, empresa, cliente, valor, valor_fechado, data, status, parceiro_id, percentual_parceiro")
       .gte("data", desdeVenda)
       .limit(5000),
     sb
@@ -196,6 +200,8 @@ export async function carregarDados(
       ...v,
       valor: num(v.valor),
       valor_fechado: v.valor_fechado == null ? null : num(v.valor_fechado),
+      percentual_parceiro:
+        v.percentual_parceiro == null ? null : num(v.percentual_parceiro),
     })),
     compromissos: (comps.data ?? []) as Comp[],
     metas: ((metas.data ?? []) as Meta[]).map((m) => ({ ...m, valor_meta: num(m.valor_meta) })),

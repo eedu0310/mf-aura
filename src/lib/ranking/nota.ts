@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ehGanho, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
+import { participaDaVenda, somaDoVendedor } from "@/lib/parceria";
 
 /**
  * A nota do mês, de 0 a 10.
@@ -51,6 +52,9 @@ export interface Insumos {
     valor_fechado: number | null;
     valor: number | null;
     relacionamento_id: string | null;
+    /** Atendimento em dupla. Ver src/lib/parceria.ts. */
+    parceiro_id: string | null;
+    percentual_parceiro: number | null;
   }[];
   /** Vendas anteriores ao período, para saber quem já era cliente. */
   vendasAnteriores: { relacionamento_id: string | null }[];
@@ -106,8 +110,13 @@ function quantoFez(
       const jaEramClientes = new Set(
         d.vendasAnteriores.map((v) => v.relacionamento_id).filter(Boolean) as string[],
       );
+      // Recompra conta para os dois da dupla: os dois trabalharam o cliente
+      // que voltou.
       return d.vendas.filter(
-        (v) => v.owner_id === pessoaId && v.relacionamento_id && jaEramClientes.has(v.relacionamento_id),
+        (v) =>
+          participaDaVenda(v, pessoaId) &&
+          v.relacionamento_id &&
+          jaEramClientes.has(v.relacionamento_id),
       ).length;
     }
 
@@ -127,12 +136,15 @@ function quantoFez(
     }
 
     case "venda_nova":
-      return d.vendas.filter((v) => v.owner_id === pessoaId).length;
+      // Quantidade conta inteira para os dois: a venda em dupla é uma venda
+      // fechada por cada um deles. O que se divide é o dinheiro, abaixo.
+      return d.vendas.filter((v) => participaDaVenda(v, pessoaId)).length;
 
     case "faturamento":
-      return d.vendas
-        .filter((v) => v.owner_id === pessoaId)
-        .reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0);
+      // Aqui, sim, a fatia. Dar o valor cheio aos dois faria o faturamento do
+      // ranking somar mais do que a loja vendeu, e quem fecha em dupla
+      // passaria na frente de quem fecha sozinho sem ter vendido mais.
+      return somaDoVendedor(d.vendas, pessoaId);
 
     case "prospeccao": {
       const alvos = categoriaAlvo ? categoriaAlvo.split(",").map((c) => c.trim()) : [];

@@ -106,6 +106,11 @@ export interface Venda {
   oportunidadeId?: string;
   indicadorId?: string;
   ownerId?: string;
+  /** Atendimento em dupla: o colega que entrou junto nesta venda. */
+  parceiroId?: string | null;
+  /** Quanto da venda é do parceiro, de 0 a 100. O dono fica com o resto.
+   *  A conta de quem levou quanto está em src/lib/parceria.ts. */
+  percentualParceiro?: number | null;
   status?: string;
   criadoEm?: string;
   atualizado?: string;
@@ -170,6 +175,14 @@ export interface Relacionamento {
   proximoContatoEm?: string;
   valor?: number;
   valorGerado?: number;
+  /** Atendimento em dupla: o colega que também atende este cliente. Ele vê a
+   *  ficha e a conversa, mas o cliente continua na carteira do dono. */
+  parceiroId?: string | null;
+  /** A divisão combinada com o parceiro, de 0 a 100 para ele. Padrão 50. O
+   *  negócio nasce com ela e a venda herda. */
+  percentualParceiro?: number | null;
+  parceriaEm?: string | null;
+  parceriaMotivo?: string | null;
   criadoEm?: string;
   atualizado?: string;
 }
@@ -350,4 +363,9 @@ export interface Oportunidade {
   /** Orçamento anexado (caminho no armazenamento e nome original). */
   orcamentoPath?: string | null;
   orcamentoNome?: string | null;
+  /** Atendimento em dupla: o colega que trabalha este negócio junto. Quando o
+   *  negócio é ganho, ele vai para a venda e o valor é dividido. */
+  parceiroId?: string | null;
+  /** A divisão combinada, de 0 a 100 para o parceiro. Padrão 50. */
+  percentualParceiro?: number | null;
 }

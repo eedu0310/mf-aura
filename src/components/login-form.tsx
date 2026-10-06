@@ -101,7 +101,13 @@ export function LoginForm() {
     setError(null);
 
     if (supabase) {
-      await supabase.auth.resetPasswordForEmail(email);
+      // O redirectTo é obrigatório na prática: sem ele o Supabase devolve a
+      // pessoa para a Site URL do projeto (a raiz do CRM), onde não há nada
+      // esperando o token — e o link "não dá nada". Com ele, o link cai na
+      // tela que troca a senha de verdade.
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      });
     }
     setRecuperacaoEnviada(true);
   }

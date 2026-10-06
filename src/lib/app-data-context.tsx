@@ -114,6 +114,22 @@ interface AppDataContextValue {
   vendasTodasLojas: Venda[];
 
   nomesPorOwnerId: Record<string, string>;
+
+  /**
+   * Quem está logado. A tela precisa disto para saber o que é seu: no
+   * atendimento em dupla, o cliente aparece para duas pessoas e só uma delas é
+   * a dona — comparar com owner_id é a única forma de a tela acertar de quem é
+   * a carteira sem perguntar ao servidor.
+   */
+  meuId: string | null;
+
+  /**
+   * Relê tudo do banco. Existe para as ações que mexem no dado por fora do
+   * contexto — o atendimento em dupla, por exemplo, é gravado por uma rota de
+   * API (porque precisa do service role para alcançar o colega), e sem isto a
+   * tela só mostraria a dupla no próximo F5.
+   */
+  recarregar: () => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -151,6 +167,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [nomesPorOwnerId, setNomesPorOwnerId] = useState<
     Record<string, string>
   >({});
+  const [meuId, setMeuId] = useState<string | null>(null);
+  const [pedidoDeRecarga, setPedidoDeRecarga] = useState(0);
   const vejoTudoInicial =
     profile.cargo === "Gestor";
 
@@ -163,6 +181,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     async function carregarTudo() {
       setCarregandoDados(true);
+
+      // Quem sou eu. A tela usa isto para distinguir "meu cliente" de "cliente
+      // que eu atendo em dupla com alguém", que na lista aparecem lado a lado.
+      const { data: eu } = await supabase!.auth.getUser();
+      if (ativo) setMeuId(eu.user?.id ?? null);
 
       const limiteAtividades = vejoTudoInicial ? 400 : 50;
       const [relRes, opRes, vendaRes, ativRes, playbookRes, leadsRes] =
@@ -221,15 +244,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (playbookRes.data) setPlaybookState(playbookRes.data.conteudo ?? "");
       if (leadsRes.data) setLeads(leadsRes.data as Lead[]);
 
-      if (vejoTudoInicial) {
-        const { data: perfis } = await supabase!
-          .from("profiles")
-          .select("id, nome");
-        if (perfis && ativo) {
-          setNomesPorOwnerId(
-            Object.fromEntries(perfis.map((p) => [p.id, p.nome as string])),
-          );
-        }
+      // O mapa id → nome deixou de ser só do gestor. No atendimento em dupla o
+      // vendedor precisa ler o nome do colega com quem divide o cliente, e sem
+      // este mapa a tela mostraria um UUID. O gestor continua vendo as quatro
+      // lojas; o vendedor vê a dele, porque a RLS de profiles já recorta isso.
+      const { data: perfis } = await supabase!
+        .from("profiles")
+        .select("id, nome");
+      if (perfis && ativo) {
+        setNomesPorOwnerId(
+          Object.fromEntries(perfis.map((p) => [p.id, p.nome as string])),
+        );
       }
 
       setCarregandoDados(false);
@@ -239,7 +264,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return () => {
       ativo = false;
     };
-  }, [supabase, perfilCarregando, empresaAtual, vejoTudoInicial]);
+  }, [supabase, perfilCarregando, empresaAtual, vejoTudoInicial, pedidoDeRecarga]);
 
   useEffect(() => {
     if (!supabase || !empresaAtual) return;
@@ -1190,6 +1215,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         formaPagamento: "Não informado",
         quantidadeParcelas: 1,
         status: "aguardando_detalhes",
+        // Atendimento em dupla: o parceiro e a divisão combinados no negócio
+        // vão para a venda. Sem isto o fechamento desfaz a dupla — o colega
+        // que trabalhou o cliente junto não receberia nada.
+        parceiroId: oportunidade.parceiroId ?? null,
+        percentualParceiro: oportunidade.parceiroId
+          ? (oportunidade.percentualParceiro ?? 50)
+          : 0,
       });
 
     }
@@ -1257,6 +1289,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         oportunidadesTodasLojas: todasOportunidades,
         vendasTodasLojas: todasVendas,
         nomesPorOwnerId,
+        meuId,
+        recarregar: () => setPedidoDeRecarga((n) => n + 1),
       }}
     >
       {children}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ArrowLeft, Edit2, Trash2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { DuplaPanel } from "@/components/atendimento/dupla-panel";
 import type { Relacionamento } from "@/lib/types";
 
 interface RelationshipDetailProps {
@@ -16,7 +17,7 @@ export function RelationshipDetail({
   onVoltar,
   onEditar,
 }: RelationshipDetailProps) {
-  const { deleteRelacionamento } = useAppData();
+  const { deleteRelacionamento, nomesPorOwnerId, meuId, recarregar } = useAppData();
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   function calcularDiasDesdeContato(): number | null {
@@ -98,6 +99,15 @@ export function RelationshipDetail({
           </div>
         </div>
       )}
+
+      <div className="mb-6">
+        <DuplaPanel
+          relacionamento={r}
+          nomesPorId={nomesPorOwnerId}
+          souODono={!meuId || !r.ownerId || r.ownerId === meuId}
+          onAtualizado={recarregar}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="rounded-lg border border-aura-mist bg-aura-bg p-4">

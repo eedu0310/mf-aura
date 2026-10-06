@@ -5,6 +5,7 @@ import { Sparkles, Send, AlertCircle, Loader2, Menu } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { montarContextoDados } from "@/lib/build-coach-context";
+import { BotaoMicrofone } from "@/components/voz/botao-microfone";
 import {
   listarConversas,
   criarConversa,
@@ -364,8 +365,17 @@ export function AuraCoachChat() {
             type="text"
             value={rascunho}
             onChange={(e) => setRascunho(e.target.value)}
-            placeholder="Pergunte algo à AURA..."
+            placeholder="Pergunte algo à AURA, ou toque no microfone e fale..."
             className="flex-1 rounded-full border border-aura-mist bg-aura-bg px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft focus:border-aura-petrol-500"
+          />
+          {/* Falar em vez de digitar. O texto é ACRESCENTADO ao que já está
+              escrito, nunca substitui: quem começa digitando e termina falando
+              não perde o começo. */}
+          <BotaoMicrofone
+            aoTexto={(trecho) =>
+              setRascunho((atual) => (atual.trim() ? `${atual.trim()} ${trecho}` : trecho))
+            }
+            titulo="Falar a pergunta"
           />
           <button
             type="submit"

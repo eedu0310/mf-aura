@@ -10,6 +10,22 @@ export interface FerramentaDef {
 
 export const FERRAMENTAS_DEF: FerramentaDef[] = [
   {
+    name: "buscar_conversa_whatsapp",
+    description:
+      "Lê a conversa de WhatsApp de um cliente específico: o que a IA entendeu dela, em que etapa o negócio está, os alertas, as dicas que foram dadas e o histórico. Use SEMPRE que o vendedor perguntar sobre uma conversa, sobre o que aconteceu com um cliente, por que perdeu ou onde errou com alguém. É a única forma de você enxergar o WhatsApp — o resumo de dados que você recebe não traz as conversas.",
+    parameters: {
+      type: "object",
+      properties: {
+        cliente: {
+          type: "string",
+          description:
+            "Nome do cliente, ou parte dele. Pode ser também o telefone, com ou sem DDD.",
+        },
+      },
+      required: ["cliente"],
+    },
+  },
+  {
     name: "criar_compromisso",
     description:
       "Cria um novo compromisso real na agenda do vendedor (visita, reunião, follow-up ou ligação). Use sempre que o vendedor pedir para agendar, marcar ou lembrar de algo em uma data.",
@@ -204,6 +220,105 @@ export async function executarFerramenta(
     args = JSON.parse(argumentosJSON);
   } catch {
     return "Erro: não consegui interpretar os parâmetros da ação.";
+  }
+
+  if (nome === "buscar_conversa_whatsapp") {
+    // A ponte que faltava entre as duas AURAs.
+    //
+    // A AURA do Meu Dia monta o contexto dela a partir de relacionamentos,
+    // oportunidades, atividades, compromissos, pós-venda, equipe, leads e
+    // metas — e de nada do WhatsApp. Por isso, quando o vendedor perdeu uma
+    // venda e perguntou "onde eu errei", ela não conseguiu puxar a conversa
+    // daquele lead: ela nunca a teve.
+    //
+    // A saída é uma FERRAMENTA, e não despejar as conversas no contexto: são
+    // quase setecentas, com histórico, e noventa e nove por cento delas são
+    // irrelevantes para a pergunta que está sendo feita agora. Assim ela lê
+    // só a conversa que interessa, no momento em que interessa.
+    //
+    // A busca usa o cliente autenticado: a RLS decide o que esta pessoa pode
+    // ler. Quem não é dono nem parceiro da conversa não a recebe, e o
+    // vendedor não consegue usar a AURA para espiar a carteira do colega.
+    const busca = String(args.cliente ?? "").trim();
+    if (!busca) return "Me diga de qual cliente é a conversa.";
+
+    const soDigitos = busca.replace(/\D/g, "");
+    let consulta = ctx.supabase
+      .from("whatsapp_ia_leads")
+      .select(
+        "id, nome, telefone, etapa, resumo, proxima_acao, dicas, alertas, historico, interesse, valor_estimado, natureza, categoria, ignorado, ultima_analise_em, updated_at",
+      )
+      .order("updated_at", { ascending: false })
+      .limit(4);
+
+    // Telefone digitado: compara pelo fim do número, porque o mesmo contato
+    // aparece com e sem o 9, com e sem o 55 do país.
+    consulta =
+      soDigitos.length >= 8
+        ? consulta.ilike("telefone", `%${soDigitos.slice(-8)}%`)
+        : consulta.ilike("nome", `%${busca}%`);
+
+    const { data, error } = await consulta;
+    if (error) return `Não consegui abrir a conversa: ${error.message}`;
+    if (!data || data.length === 0) {
+      return `Não encontrei conversa de WhatsApp com "${busca}". Pode ser que a conversa seja de outro vendedor (e eu só leio as suas), que o nome esteja escrito diferente no WhatsApp, ou que a IA ainda não tenha analisado essa conversa.`;
+    }
+
+    const lista = (x: unknown): string[] => {
+      if (!Array.isArray(x)) return [];
+      return x.map((i) =>
+        typeof i === "string"
+          ? i
+          : String(
+              (i as Record<string, unknown>)?.texto ??
+                (i as Record<string, unknown>)?.mensagem ??
+                (i as Record<string, unknown>)?.titulo ??
+                JSON.stringify(i),
+            ),
+      );
+    };
+
+    const partes = data.map((c) => {
+      const alertas = lista(c.alertas);
+      const dicas = lista(c.dicas);
+      const hist = Array.isArray(c.historico) ? (c.historico as Record<string, unknown>[]) : [];
+      return [
+        `CONVERSA COM ${c.nome ?? c.telefone ?? "sem nome"}${c.telefone ? ` (${c.telefone})` : ""}`,
+        c.ignorado ? "Marcada como 'não é lead'." : null,
+        c.etapa ? `Etapa do negócio: ${c.etapa}` : null,
+        c.natureza || c.categoria
+          ? `Classificação: ${[c.natureza, c.categoria].filter(Boolean).join(" / ")}`
+          : null,
+        c.interesse ? `Interesse: ${c.interesse}` : null,
+        c.valor_estimado ? `Valor estimado: R$ ${Number(c.valor_estimado).toLocaleString("pt-BR")}` : null,
+        c.resumo ? `O que a IA entendeu: ${c.resumo}` : "A IA ainda não analisou esta conversa.",
+        c.proxima_acao ? `Próximo passo sugerido: ${c.proxima_acao}` : null,
+        alertas.length ? `Alertas: ${alertas.join(" | ")}` : null,
+        dicas.length ? `Dicas que foram dadas: ${dicas.join(" | ")}` : null,
+        hist.length
+          ? `Histórico (${hist.length}):\n` +
+            hist
+              .slice(-12)
+              .map((h) => {
+                const q = h.em ?? h.quando ?? h.created_at;
+                const t = h.resumo ?? h.texto ?? h.evidencia ?? h.mensagem;
+                return `  - ${q ? new Date(String(q)).toLocaleString("pt-BR") : "sem data"}${h.etapa ? ` [${h.etapa}]` : ""}: ${t ?? JSON.stringify(h)}`;
+              })
+              .join("\n")
+          : "Sem histórico guardado desta conversa.",
+        c.ultima_analise_em
+          ? `Analisada pela última vez em ${new Date(String(c.ultima_analise_em)).toLocaleString("pt-BR")}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    });
+
+    const cabecalho =
+      data.length > 1
+        ? `Achei ${data.length} conversas parecidas com "${busca}". Seguem todas:\n\n`
+        : "";
+    return cabecalho + partes.join("\n\n---\n\n");
   }
 
   if (nome === "criar_compromisso") {

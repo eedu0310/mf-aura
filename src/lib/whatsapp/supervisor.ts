@@ -711,6 +711,21 @@ async function garantirRelacionamento(
   return { id: data.id, aviso: null };
 }
 
+/**
+ * O negócio como esta parte do supervisor precisa dele. O tipo tem nome porque
+ * os quatro caminhos de busca devolvem a mesma coisa e, escrito à mão em cada
+ * um, o parceiro do atendimento em dupla ficaria de fora de algum deles sem o
+ * compilador reclamar.
+ */
+type NegocioDaConversa = {
+  id: string;
+  etapa: Etapa;
+  valor: number;
+  cliente: string;
+  parceiro_id: string | null;
+  percentual_parceiro: number | null;
+};
+
 async function garantirOportunidade(
   sb: SupabaseClient,
   userId: string,
@@ -727,18 +742,18 @@ async function garantirOportunidade(
   const fechadas = nomesDasEtapas(funil).filter((n) => ehFechada(n, funil));
   const listaFechadas = `(${fechadas.map((n) => `"${n}"`).join(",")})`;
   if (oportunidadeId) {
-    const { data } = await sb.from("oportunidades").select("id, etapa, valor, cliente").eq("id", oportunidadeId).maybeSingle();
-    if (data) return data as { id: string; etapa: Etapa; valor: number; cliente: string };
+    const { data } = await sb.from("oportunidades").select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro").eq("id", oportunidadeId).maybeSingle();
+    if (data) return data as NegocioDaConversa;
   }
   const { data: aberta } = await sb
     .from("oportunidades")
-    .select("id, etapa, valor, cliente")
+    .select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro")
     .eq("relacionamento_id", relacionamentoId)
     .not("etapa", "in", listaFechadas)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (aberta) return aberta as { id: string; etapa: Etapa; valor: number; cliente: string };
+  if (aberta) return aberta as NegocioDaConversa;
 
   // Sem negocio aberto, o padrao e criar um — e assim que o cliente que volta
   // depois de meses ganha a venda nova dele. Mas so existe um card fechado
@@ -749,13 +764,13 @@ async function garantirOportunidade(
   const inicioDeHoje = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })}T00:00:00-03:00`).toISOString();
   const { data: deHoje } = await sb
     .from("oportunidades")
-    .select("id, etapa, valor, cliente")
+    .select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro")
     .eq("relacionamento_id", relacionamentoId)
     .gte("created_at", inicioDeHoje)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (deHoje) return deHoje as { id: string; etapa: Etapa; valor: number; cliente: string };
+  if (deHoje) return deHoje as NegocioDaConversa;
 
   const { data, error } = await sb
     .from("oportunidades")
@@ -765,19 +780,22 @@ async function garantirOportunidade(
       cliente,
       produto: interesse,
       valor: valor ?? 0,
-      etapa: "Prospecção",
-      probabilidade: "Baixa",
+      // A primeira etapa é a do funil DESTA loja. Estava escrita à mão
+      // ("Prospecção"): numa loja que renomeasse a etapa, o negócio nasceria
+      // numa coluna que não existe e o card não apareceria no quadro.
+      etapa: primeiraEtapa(funil),
+      probabilidade: probabilidadeDe(primeiraEtapa(funil), funil),
       relacionamento_id: relacionamentoId,
       descricao: "Oportunidade criada automaticamente pelo Supervisor AURA (WhatsApp).",
     })
-    .select("id, etapa, valor, cliente")
+    .select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro")
     .single();
   if (error) {
     console.error("[supervisor] criar oportunidade:", error.message);
     return null;
   }
   await registrarAtividade(sb, userId, empresa, relacionamentoId, cliente, `Oportunidade criada pela IA: ${cliente}`, interesse ?? "Lead vindo do WhatsApp", { oportunidade_id: data.id });
-  return data as { id: string; etapa: Etapa; valor: number; cliente: string };
+  return data as NegocioDaConversa;
 }
 
 async function registrarAtividade(
@@ -822,7 +840,7 @@ async function moverOportunidade(
   sb: SupabaseClient,
   userId: string,
   empresa: string,
-  op: { id: string; etapa: Etapa; valor: number; cliente: string },
+  op: NegocioDaConversa,
   para: Etapa,
   evidencia: string,
   relacionamentoId: string | null,
@@ -857,6 +875,11 @@ async function moverOportunidade(
     const { data: jaTem } = await sb.from("vendas").select("id").eq("oportunidade_id", op.id).limit(1);
     if (!jaTem?.length) {
       const valor = Number(patch.valor ?? op.valor) || 0;
+      // Atendimento em dupla: a dupla combinada no negócio viaja para a
+      // venda. Parceiro igual ao dono é descartado — a mesma pessoa não
+      // recebe duas fatias.
+      const parceiro =
+        op.parceiro_id && op.parceiro_id !== userId ? op.parceiro_id : null;
       const { error: vErr } = await sb.from("vendas").insert({
         owner_id: userId,
         empresa,
@@ -871,6 +894,8 @@ async function moverOportunidade(
         quantidade_parcelas: 1,
         status: "aguardando_detalhes",
         origem: "WhatsApp",
+        parceiro_id: parceiro,
+        percentual_parceiro: parceiro ? (op.percentual_parceiro ?? 50) : 0,
       });
       if (vErr) console.error("[supervisor] venda:", vErr.message);
     }
@@ -881,6 +906,16 @@ async function moverOportunidade(
       `${op.cliente}: negócio marcado como fechado. Complete os detalhes da venda (valor, pagamento).`,
       "/vendas",
     );
+    // O parceiro é avisado do fechamento que ele também trabalhou.
+    if (op.parceiro_id && op.parceiro_id !== userId) {
+      await notificar(
+        sb,
+        op.parceiro_id,
+        "🎉 Venda da dupla fechada",
+        `${op.cliente}: o negócio que vocês atenderam juntos foi fechado. Confira a divisão na tela de Vendas.`,
+        "/vendas",
+      );
+    }
   } else {
     await notificar(sb, userId, "🤖 Lead avançou no pipeline", `${op.cliente}: ${op.etapa} → ${para}. ${evidencia}`.slice(0, 280), "/pipeline");
   }

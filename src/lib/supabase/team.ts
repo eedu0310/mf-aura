@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
 
 export interface MembroEquipe {
   id: string;
@@ -59,7 +60,9 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
   }
 
   const [{ data: vendas }, { data: contagemAtividades }] = await Promise.all([
-    supabase.from("vendas").select("owner_id, valor, data"),
+    supabase
+      .from("vendas")
+      .select("owner_id, valor, valor_fechado, data, parceiro_id, percentual_parceiro"),
     supabase.rpc("contagem_atividades_recentes", { dias: 7 }),
   ]);
 
@@ -75,7 +78,11 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
   return perfis
     .filter((p) => p.ativo !== false)
     .map((p) => {
-    const vendasDoVendedor = (vendas ?? []).filter((v) => v.owner_id === p.id);
+    // Atendimento em dupla: a venda entra na conta de quem é dono E de quem
+    // entrou junto, mas cada um só leva a sua fatia. Um filtro por owner_id
+    // esconderia a venda do parceiro; dar o valor inteiro aos dois faria a
+    // soma da equipe passar do que a loja vendeu.
+    const minhas = vendasDoVendedor(vendas ?? [], p.id);
 
     return {
       id: p.id,
@@ -83,13 +90,15 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
       empresa: p.empresa,
       ativo: p.ativo ?? true,
       cargo: p.cargo ?? "",
-      vendasTotal: vendasDoVendedor.reduce((s, v) => s + Number(v.valor), 0),
-      vendasEsteMes: vendasDoVendedor
-        .filter((v) => (v.data as string)?.startsWith(mesAtual))
-        .reduce((s, v) => s + Number(v.valor), 0),
-      vendasMesPassado: vendasDoVendedor
-        .filter((v) => (v.data as string)?.startsWith(mesPassado))
-        .reduce((s, v) => s + Number(v.valor), 0),
+      vendasTotal: somaDoVendedor(minhas, p.id),
+      vendasEsteMes: somaDoVendedor(
+        minhas.filter((v) => (v.data as string)?.startsWith(mesAtual)),
+        p.id,
+      ),
+      vendasMesPassado: somaDoVendedor(
+        minhas.filter((v) => (v.data as string)?.startsWith(mesPassado)),
+        p.id,
+      ),
       atividades7dias: mapaAtividades.get(p.id) ?? 0,
       souEu: p.id === user.id,
     };

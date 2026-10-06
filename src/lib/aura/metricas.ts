@@ -14,6 +14,7 @@ import {
   nomesDasEtapas,
   type EtapaFunil,
 } from "@/lib/funil";
+import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
 
 /**
  * As três listas de etapas que existiam aqui viraram perguntas ao funil da
@@ -199,9 +200,10 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     .map((p) => ({
       id: p.id,
       nome: p.nome,
-      valor: d.vendas
-        .filter((v) => v.owner_id === p.id && v.data?.slice(0, 7) === mes)
-        .reduce((s, v) => s + valorVenda(v), 0),
+      valor: somaDoVendedor(
+        d.vendas.filter((v) => v.data?.slice(0, 7) === mes),
+        p.id,
+      ),
     }))
     .sort((a, b) => b.valor - a.valor);
   const pos = placar.findIndex((p) => p.id === vendedorId);
@@ -449,8 +451,10 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       id: p.id,
       nome: p.nome,
       loja: p.empresa,
-      vendido: vendas.filter((v) => v.owner_id === p.id).reduce((s, v) => s + valorVenda(v), 0),
-      vendas: vendas.filter((v) => v.owner_id === p.id).length,
+      // Atendimento em dupla: a fatia de cada um, não a venda inteira para os
+      // dois — senão a soma dos vendedores passa o total da loja.
+      vendido: somaDoVendedor(vendas, p.id),
+      vendas: vendasDoVendedor(vendas, p.id).length,
       atividades: ativs.filter((a) => a.owner_id === p.id).length,
       pipeline: ops.filter((o) => o.owner_id === p.id && contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
       // Leads que entraram para esta pessoa no periodo. O gestor pedia para

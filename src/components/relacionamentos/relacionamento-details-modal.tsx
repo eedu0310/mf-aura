@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Trash2, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { HistoricoCompras } from "./historico-compras";
+import { DuplaPanel } from "@/components/atendimento/dupla-panel";
 import type { Relacionamento, CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
 
@@ -31,7 +32,8 @@ export function RelacionamentoDetailsModal({
   onClose: () => void;
   onDelete: (id: string) => void;
 }) {
-  const { updateRelacionamento, deleteRelacionamento } = useAppData();
+  const { updateRelacionamento, deleteRelacionamento, nomesPorOwnerId, meuId, recarregar } =
+    useAppData();
   const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [deletando, setDeletando] = useState(false);
@@ -317,6 +319,17 @@ export function RelacionamentoDetailsModal({
             </div>
           </form>
         )}
+
+        <div className="mt-5">
+          <DuplaPanel
+            relacionamento={relacionamento}
+            nomesPorId={nomesPorOwnerId}
+            souODono={
+              !meuId || !relacionamento.ownerId || relacionamento.ownerId === meuId
+            }
+            onAtualizado={recarregar}
+          />
+        </div>
 
         <div className="mt-5">
           <HistoricoCompras relacionamentoId={relacionamento.id} />
