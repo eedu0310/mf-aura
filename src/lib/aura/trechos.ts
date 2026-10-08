@@ -330,8 +330,15 @@ export async function nucleoDoManual(sb: SupabaseClient, empresa: string): Promi
       }
       texto = partes.join("\n\n");
     }
-  } catch {
-    texto = "";
+  } catch (e) {
+    /**
+     * Erro de leitura não vira "esta loja não tem manual" guardado por dez
+     * minutos. Guardar o vazio faria a AURA atender sem manual nenhum até o
+     * cache expirar, e o motivo não apareceria em lugar nenhum. Devolve vazio
+     * para esta chamada e deixa a próxima tentar de novo.
+     */
+    console.error("Não consegui ler o manual de", empresa, e);
+    return "";
   }
 
   cacheNucleo.set(empresa, { at: Date.now(), texto });

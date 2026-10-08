@@ -90,10 +90,23 @@ export async function GET(request: Request) {
   // O vendedor só alcança a linha dele. A régua é o id da sessão, não a URL.
   if (!gestor) consulta = consulta.eq("vendedor_id", auth.userId);
 
-  const { data, error } = await consulta.maybeSingle();
+  /**
+   * O mais recente, não "o único".
+   *
+   * A tela antiga de /relatorios ainda tem um botão que grava uma linha
+   * `semanal_gestor` pelo gerador velho, sem apagar a anterior. Se ela gerar
+   * no mesmo período deste relatório, ficam duas linhas — e um .maybeSingle()
+   * ali derrubaria a tela inteira com "múltiplas linhas retornadas" em vez de
+   * mostrar o relatório. Pegando o último, a tela sobrevive aos dois
+   * geradores convivendo.
+   */
+  const { data: linhas, error } = await consulta
+    .order("created_at", { ascending: false })
+    .limit(1);
   if (error) {
     return NextResponse.json({ erro: `Não consegui ler o relatório: ${error.message}` }, { status: 500 });
   }
+  const data = linhas?.[0] ?? null;
 
   const dados = data?.dados_json as Record<string, unknown> | null;
   /**
