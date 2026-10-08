@@ -29,7 +29,6 @@ import {
   getChats,
   getMessages,
   onMessage,
-  previewOf,
   sendText,
   type WaMessage,
 } from "./live-manager";
@@ -253,13 +252,51 @@ interface AnaliseIa {
   alertas: string[];
 }
 
+/**
+ * Como cada mensagem chega para a IA.
+ *
+ * NÃO usa o previewOf da tela. Lá, "🎤 Áudio" é um rótulo bonito para o
+ * vendedor, que vai ouvir o áudio. Aqui era uma armadilha: a IA lia
+ *
+ *     CLIENTE: 🎤 Áudio
+ *     VENDEDOR: 📄 Catálogo.pdf
+ *
+ * e concluía que o vendedor mandou catálogo sem perguntar nada — quando o
+ * pedido do cliente estava dentro do áudio, que ela não ouve. Um vendedor da
+ * A&G foi cobrado exatamente assim por um atendimento que ele fez certo.
+ *
+ * A marcação agora é explícita na própria transcrição, e não só numa regra
+ * distante do prompt: a IA vê, na linha, que ali existe conteúdo que ela não
+ * tem. Dezessete por cento das conversas da semana passam por isso.
+ */
+function conteudoParaIa(m: WaMessage): string {
+  switch (m.type) {
+    case "audio":
+      return "🎤 [ÁUDIO NÃO TRANSCRITO — o que foi dito aqui você NÃO tem acesso]";
+    case "image":
+      return m.text
+        ? `📷 [FOTO que você não vê] com legenda: ${m.text}`
+        : "📷 [FOTO SEM LEGENDA — você NÃO vê a imagem]";
+    case "video":
+      return m.text
+        ? `🎥 [VÍDEO que você não vê] com legenda: ${m.text}`
+        : "🎥 [VÍDEO — você NÃO vê o conteúdo]";
+    case "document":
+      return `📄 [documento enviado: ${m.fileName ?? "sem nome"}]`;
+    case "sticker":
+      return "(figurinha)";
+    default:
+      return m.text || "(mensagem vazia)";
+  }
+}
+
 function transcricao(msgs: WaMessage[], nomeCliente: string) {
   return msgs
     .slice(-50)
     .map((m) => {
       const quando = new Date(m.timestamp).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
       const quem = m.fromMe ? "VENDEDOR" : `CLIENTE (${nomeCliente})`;
-      return `[${quando}] ${quem}: ${previewOf(m) || "(mensagem vazia)"}`;
+      return `[${quando}] ${quem}: ${conteudoParaIa(m)}`;
     })
     .join("\n");
 }
@@ -483,6 +520,21 @@ async function analisarComIa(
   const manual = materiais ?? lerManual();
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
+
+O QUE VOCÊ NÃO VÊ (leia antes de apontar qualquer erro do vendedor):
+Áudio, foto e vídeo chegam para você marcados entre colchetes, SEM o conteúdo.
+Você não ouve áudio e não vê imagem. Então:
+- NUNCA conclua que o vendedor pulou uma etapa, deixou de perguntar algo ou
+  respondeu sem entender quando existe áudio ou foto do cliente logo antes.
+  O pedido, a medida ou a dúvida provavelmente estavam ali.
+- O caso mais comum: o cliente manda áudio pedindo o catálogo e o vendedor
+  envia. Na sua transcrição isso parece "mandou catálogo sem diagnosticar".
+  NÃO é. Não escreva esse apontamento quando houver áudio do cliente antes.
+- Quando a falta de conteúdo atrapalhar sua leitura, aponte a LACUNA, não a
+  pessoa: "há áudios não transcritos nesta conversa; confirme por escrito o
+  que foi combinado". Isso ajuda; acusar o vendedor de algo que ele fez
+  destrói a confiança dele no sistema.
+- Erro só vale como erro se estiver VISÍVEL no texto que você recebeu.
 
 REGRA DE OURO SOBRE "e_lead": na dúvida, diga que NÃO tem certeza em vez de
 chutar que sim. O campo "confianca" é levado a sério: abaixo de 0,75 o
