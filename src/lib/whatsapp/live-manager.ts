@@ -1397,3 +1397,72 @@ export async function logout(userId: string) {
     /* ignora */
   }
 }
+
+/**
+ * Religa as sessões de WhatsApp que já estavam conectadas antes de o servidor
+ * reiniciar.
+ *
+ * POR QUE ISSO PRECISA EXISTIR: startSession só era chamado quando alguém
+ * abria a tela de WhatsApp no CRM. Depois de cada `systemctl restart`, a
+ * equipe inteira ficava desconectada em silêncio e cada vendedor só voltava
+ * quando abria a tela — um por um, sem ninguém avisar que precisava. Durante
+ * esse tempo a AURA não via conversa nenhuma: não analisava, não criava lead,
+ * não alertava. As mensagens chegavam no celular do vendedor normalmente, mas
+ * o sistema ficava cego.
+ *
+ * A credencial de cada sessão já está salva em disco (.whatsapp-sessions/),
+ * que é o que permite reconectar sem QR code novo. Só faltava alguém mandar
+ * reconectar.
+ *
+ * Duas coisas importantes:
+ *
+ * - Quem o vendedor desconectou de propósito NÃO volta. O startSession
+ *   respeita o `manualStop`, e religamento não é pedido do usuário.
+ * - As sessões sobem espaçadas. Subir dez de uma vez faz dez handshakes
+ *   simultâneos com o WhatsApp, e isso é a receita para o servidor deles
+ *   recusar tudo e derrubar as credenciais.
+ */
+export async function religarSessoesSalvas(): Promise<{ religadas: string[]; jaAtivas: string[] }> {
+  const religadas: string[] = [];
+  const jaAtivas: string[] = [];
+
+  let pastas: string[];
+  try {
+    if (!fs.existsSync(SESSIONS_DIR)) return { religadas, jaAtivas };
+    pastas = fs
+      .readdirSync(SESSIONS_DIR, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && d.name !== "_store")
+      .map((d) => d.name);
+  } catch (e) {
+    console.error("[whatsapp] não consegui listar as sessões salvas:", e);
+    return { religadas, jaAtivas };
+  }
+
+  for (const userId of pastas) {
+    // Sem creds.json não há credencial: seria um QR novo, não um religamento.
+    if (!fs.existsSync(path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, userId, "creds.json"))) continue;
+
+    const atual = sessions.get(userId);
+    if (atual && (atual.status === "connected" || atual.status === "connecting")) {
+      jaAtivas.push(userId);
+      continue;
+    }
+    if (atual?.manualStop) continue;
+
+    try {
+      await startSession(userId);
+      religadas.push(userId);
+      // Espaçar: dez handshakes ao mesmo tempo é como o WhatsApp vê um ataque.
+      await new Promise((r) => setTimeout(r, 1500));
+    } catch (e) {
+      console.error(`[whatsapp] falha ao religar ${userId}:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  if (religadas.length || jaAtivas.length) {
+    console.log(
+      `[whatsapp] religamento: ${religadas.length} reconectada(s), ${jaAtivas.length} já ativa(s)`,
+    );
+  }
+  return { religadas, jaAtivas };
+}

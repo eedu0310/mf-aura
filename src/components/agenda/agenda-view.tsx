@@ -494,13 +494,15 @@ export function AgendaView() {
           dataInicial={dataLocal(diaSelecionado ?? new Date())}
           onClose={() => setModalAberto(false)}
           onSalvar={async (dados) => {
-            const criado = await criarCompromisso(dados);
-            if (!criado) {
-              alert("Não consegui salvar o compromisso. Verifique sua conexão e tente de novo.");
-              return;
+            try {
+              const criado = await criarCompromisso(dados);
+              setCompromissos((atual) => [...atual, criado]);
+              setModalAberto(false);
+            } catch (e) {
+              // A causa real, não um palpite sobre a internet do vendedor.
+              const motivo = e instanceof Error ? e.message : String(e);
+              alert(`Não consegui salvar o compromisso.\n\nMotivo: ${motivo}`);
             }
-            setCompromissos((atual) => [...atual, criado]);
-            setModalAberto(false);
           }}
         />
       )}

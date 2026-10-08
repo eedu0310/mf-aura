@@ -65,14 +65,21 @@ export async function criarCompromisso(dados: {
   local?: string;
   observacao?: string;
   relacionamentoId?: string;
-}): Promise<Compromisso | null> {
+  // Lança em vez de devolver null: quem chama precisa do MOTIVO para mostrar.
+}): Promise<Compromisso> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return null;
+  if (!supabase) throw new Error("O banco de dados não está configurado neste servidor.");
 
   const {
     data: { user },
+    error: erroSessao,
   } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (erroSessao || !user) {
+    throw new Error(
+      "Sua sessão expirou. Recarregue a página (F5) e entre de novo antes de salvar." +
+        (erroSessao ? ` (${erroSessao.message})` : ""),
+    );
+  }
 
   const { data: linha, error } = await supabase
     .from("compromissos")
@@ -92,9 +99,19 @@ export async function criarCompromisso(dados: {
     .select()
     .single();
 
+  /**
+   * O erro do banco CHEGA ATÉ O USUÁRIO.
+   *
+   * Antes isto devolvia null, e a tela dizia "verifique sua conexão" para
+   * qualquer causa: sessão expirada, coluna recusada, regra de permissão,
+   * cliente que não existe mais. O vendedor via um problema de internet que
+   * não era, tentava de novo, e ninguém — nem ele, nem o gestor, nem eu —
+   * ficava sabendo o que de fato aconteceu. Diagnóstico impossível por
+   * desenho.
+   */
   if (error || !linha) {
     console.error("Erro ao criar compromisso:", error);
-    return null;
+    throw new Error(error?.message ?? "O banco não devolveu o compromisso salvo.");
   }
   return compromissoDoBanco(linha);
 }
