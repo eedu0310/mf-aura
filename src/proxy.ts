@@ -19,9 +19,44 @@ export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Sem Supabase configurado, não há sessão para atualizar — segue o app
-  // normalmente em modo demonstração.
-  if (!url || !anonKey) return response;
+  /**
+   * SEM SUPABASE CONFIGURADO, NINGUÉM ENTRA.
+   *
+   * Isto aqui dizia "segue o app normalmente em modo demonstração" e devolvia
+   * a resposta sem checar nada: sem conferir login, sem bloquear conta
+   * desativada, sem proteger rota nenhuma. O proxy é justamente quem faz essa
+   * guarda, e ele a dispensava inteira por causa de uma variável de ambiente
+   * faltando.
+   *
+   * Foi o que aconteceu de verdade: a NEXT_PUBLIC_SUPABASE_ANON_KEY não estava
+   * no .env.local, e o sistema seguiu de pé sem a guarda do proxy — sem
+   * ninguém perceber, porque nada quebrou na tela.
+   *
+   * Falta de configuração não pode virar porta aberta. Agora bloqueia, e diz
+   * o que fazer, porque num servidor de verdade isto é defeito de instalação
+   * e não um "modo".
+   */
+  if (!url || !anonKey) {
+    console.error(
+      "[proxy] Supabase não configurado: falta " +
+        [!url && "NEXT_PUBLIC_SUPABASE_URL", !anonKey && "NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+          .filter(Boolean)
+          .join(" e ") +
+        ". Nenhuma requisição é autenticada enquanto isso; o acesso está bloqueado.",
+    );
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { erro: "Servidor sem configuração do Supabase. Avise o responsável técnico." },
+        { status: 503 },
+      );
+    }
+    return new NextResponse(
+      "Este servidor está sem a configuração do banco de dados " +
+        "(NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY no .env.local). " +
+        "Por segurança, o acesso está bloqueado até isso ser corrigido.",
+      { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } },
+    );
+  }
 
   const supabase = createServerClient(url, anonKey, {
     cookies: {
