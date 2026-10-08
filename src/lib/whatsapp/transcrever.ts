@@ -29,6 +29,34 @@ import { getMedia, type WaMessage } from "./live-manager";
 const TETO_POR_ANALISE = 8;
 const TETO_BYTES = 20 * 1024 * 1024;
 
+/**
+ * Limite de tempo por etapa. SEM ISTO A ANÁLISE TRAVA.
+ *
+ * A transcrição roda dentro do caminho da análise da conversa. Um download de
+ * mídia que o WhatsApp não responde, ou uma chamada ao Whisper que fica
+ * pendurada, parariam a análise daquela conversa por tempo indefinido — e a
+ * conversa fica marcada como "em análise", então nem a próxima mensagem a
+ * destrava. Transcrição é melhoria; ela não pode segurar o que já funcionava.
+ */
+const LIMITE_DOWNLOAD_MS = 20_000;
+const LIMITE_WHISPER_MS = 60_000;
+/**
+ * Orçamento da ETAPA INTEIRA. Oito áudios, cada um com os limites acima,
+ * poderiam somar mais de dez minutos — tempo demais para segurar a análise de
+ * uma conversa. Estourado o orçamento, os áudios que faltaram ficam para a
+ * próxima análise, que é exatamente o que o teto por rodada já faz.
+ */
+const ORCAMENTO_TOTAL_MS = 90_000;
+
+function comLimite<T>(promessa: Promise<T>, ms: number, oQue: string): Promise<T> {
+  return Promise.race([
+    promessa,
+    new Promise<T>((_, rejeita) =>
+      setTimeout(() => rejeita(new Error(`${oQue} passou de ${ms / 1000}s`)), ms),
+    ),
+  ]);
+}
+
 /** Transcrições já guardadas, por id de mensagem. */
 async function jaTranscritos(ids: string[]): Promise<Map<string, string>> {
   const mapa = new Map<string, string>();
@@ -75,10 +103,15 @@ export async function transcricoesDaConversa(
 
   const sb = getSupabaseServiceClient();
   const novas: Record<string, unknown>[] = [];
+  const prazo = Date.now() + ORCAMENTO_TOTAL_MS;
 
   for (const m of faltando) {
+    if (Date.now() > prazo) {
+      console.warn("[transcrever] orçamento de tempo estourado; o resto fica para a próxima análise");
+      break;
+    }
     try {
-      const midia = await getMedia(userId, m.id);
+      const midia = await comLimite(getMedia(userId, m.id), LIMITE_DOWNLOAD_MS, "download do áudio");
       const buffer = midia?.buffer;
       if (!buffer || buffer.length === 0 || buffer.length > TETO_BYTES) continue;
 
@@ -86,13 +119,17 @@ export async function transcricoesDaConversa(
         type: m.mimetype || "audio/ogg",
       });
 
-      const resp = await openai.audio.transcriptions.create({
-        file: arquivo,
-        model: "whisper-1",
-        // O áudio é de cliente brasileiro falando de lareira e aquecimento.
-        // Dizer a língua evita o Whisper "adivinhar" espanhol num áudio curto.
-        language: "pt",
-      });
+      const resp = await comLimite(
+        openai.audio.transcriptions.create({
+          file: arquivo,
+          model: "whisper-1",
+          // O áudio é de cliente brasileiro falando de lareira e aquecimento.
+          // Dizer a língua evita o Whisper "adivinhar" espanhol num áudio curto.
+          language: "pt",
+        }),
+        LIMITE_WHISPER_MS,
+        "transcrição no Whisper",
+      );
 
       const texto = String(resp.text ?? "").trim();
       if (!texto) continue;
