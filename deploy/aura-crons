@@ -27,5 +27,7 @@ ALVO=http://127.0.0.1:3000
 # Supervisão da AURA, 9h.
 0 9 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/supervisao-aura >> /var/log/aura-cron.log 2>&1
 
-# Relatórios semanais, segunda-feira às 8h.
-0 8 * * 1 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
+# Relatório semanal de cada loja, sábado às 16h. Roda sábado de propósito: a
+# janela vai de segunda até o fim do próprio sábado, então o que a loja vendeu
+# no sábado entra no relatório que fala dessa semana.
+0 16 * * 6 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
