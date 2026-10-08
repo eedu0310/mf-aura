@@ -194,7 +194,7 @@ ${transcricao(opts.falas, opts.cliente) || "(não há conversa de WhatsApp regis
         {
           type: "text" as const,
           text: system,
-          cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+          cache_control: { type: "ephemeral" as const },
         },
       ],
       messages: [{ role: "user", content: user }],

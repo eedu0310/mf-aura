@@ -647,15 +647,23 @@ ${transcricao(msgs, nomeCliente, transcricoes)}`;
     // como cacheável, a Anthropic cobra 10% pela releitura em vez do preço
     // cheio — e isto roda centenas de vezes por dia.
     //
-    // TTL de 1 hora, não os 5 minutos padrão: com as análises espalhadas ao
-    // longo do dia, um cache de 5 min expiraria entre boa parte das chamadas e
-    // a gente pagaria escrita atrás de escrita. A escrita de 1h custa 2x, mas
-    // todas as leituras da hora seguinte custam 0,1x.
+    // TTL PADRÃO, não o estendido de 1 hora.
+    //
+    // O código pedia ttl "1h" achando que amortizaria melhor. Depois que o
+    // painel passou a separar as fatias, o banco mostrou a verdade: ZERO
+    // tokens de escrita e ZERO de leitura de cache, em dois caminhos de
+    // código independentes — tudo estava sendo cobrado como entrada crua. O
+    // TTL estendido depende de um cabeçalho de beta que não mandamos, e o
+    // efeito era o cache_control inteiro não valer.
+    //
+    // Cache padrão é API estável e não precisa de cabeçalho nenhum. Vale
+    // conferir no painel depois de rodar: se as colunas de escrita e leitura
+    // saírem do zero, era isto.
     system: [
       {
         type: "text" as const,
         text: system,
-        cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+        cache_control: { type: "ephemeral" as const },
       },
       // Depois do corte do cache: muda a cada conversa, então não é cacheável.
       {
