@@ -33,6 +33,7 @@ import {
   type WaMessage,
 } from "./live-manager";
 import { calcularAlertas, detectarEtapa, type Alerta } from "./stage-rules";
+import { transcricoesDaConversa } from "./transcrever";
 import {
   ehFechada,
   ehGanho,
@@ -269,10 +270,17 @@ interface AnaliseIa {
  * distante do prompt: a IA vê, na linha, que ali existe conteúdo que ela não
  * tem. Dezessete por cento das conversas da semana passam por isso.
  */
-function conteudoParaIa(m: WaMessage): string {
+function conteudoParaIa(m: WaMessage, transcricoes: Map<string, string>): string {
   switch (m.type) {
-    case "audio":
-      return "🎤 [ÁUDIO NÃO TRANSCRITO — o que foi dito aqui você NÃO tem acesso]";
+    case "audio": {
+      const falado = transcricoes.get(m.id);
+      // Com a transcrição, o áudio deixa de ser um buraco e vira o que ele
+      // sempre foi: parte da conversa. Sem ela (falta a chave da OpenAI, o
+      // áudio não baixou, o teto da rodada), o marcador continua valendo.
+      return falado
+        ? `🎤 (áudio, transcrito) ${falado}`
+        : "🎤 [ÁUDIO NÃO TRANSCRITO — o que foi dito aqui você NÃO tem acesso]";
+    }
     case "image":
       return m.text
         ? `📷 [FOTO que você não vê] com legenda: ${m.text}`
@@ -290,13 +298,17 @@ function conteudoParaIa(m: WaMessage): string {
   }
 }
 
-function transcricao(msgs: WaMessage[], nomeCliente: string) {
+function transcricao(
+  msgs: WaMessage[],
+  nomeCliente: string,
+  transcricoes: Map<string, string> = new Map(),
+) {
   return msgs
     .slice(-50)
     .map((m) => {
       const quando = new Date(m.timestamp).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
       const quem = m.fromMe ? "VENDEDOR" : `CLIENTE (${nomeCliente})`;
-      return `[${quando}] ${quem}: ${conteudoParaIa(m)}`;
+      return `[${quando}] ${quem}: ${conteudoParaIa(m, transcricoes)}`;
     })
     .join("\n");
 }
@@ -513,6 +525,11 @@ async function analisarComIa(
    * da conta.
    */
   empresaDoUso?: string,
+  /**
+   * O que foi dito nos áudios, por id de mensagem. Chega pronto de fora
+   * porque quem tem o userId para baixar a mídia é quem chama.
+   */
+  transcricoes: Map<string, string> = new Map(),
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -521,9 +538,12 @@ async function analisarComIa(
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
 
-O QUE VOCÊ NÃO VÊ (leia antes de apontar qualquer erro do vendedor):
-Áudio, foto e vídeo chegam para você marcados entre colchetes, SEM o conteúdo.
-Você não ouve áudio e não vê imagem. Então:
+O QUE VOCÊ VÊ E O QUE NÃO VÊ (leia antes de apontar qualquer erro do vendedor):
+Áudio pode chegar de duas formas. Quando vier como "🎤 (áudio, transcrito) ...",
+aquilo É o que a pessoa falou: trate como fala normal dela, igual a texto.
+Quando vier entre colchetes — "[ÁUDIO NÃO TRANSCRITO]", "[FOTO SEM LEGENDA]",
+"[VÍDEO]" — o conteúdo NÃO chegou até você. Você não ouve nem vê nada ali.
+Nesse caso:
 - NUNCA conclua que o vendedor pulou uma etapa, deixou de perguntar algo ou
   respondeu sem entender quando existe áudio ou foto do cliente logo antes.
   O pedido, a medida ou a dúvida provavelmente estavam ali.
@@ -617,7 +637,7 @@ Etapa atual no pipeline: ${etapaAtual ?? "sem oportunidade ainda"}
 Alertas automáticos: ${alertas.map((a) => a.texto).join("; ") || "nenhum"}
 
 CONVERSA (mais recentes por último):
-${transcricao(msgs, nomeCliente)}`;
+${transcricao(msgs, nomeCliente, transcricoes)}`;
 
   const resp = await client.messages.create({
     model: modeloDeVolume(),
@@ -1363,11 +1383,25 @@ export async function analisarConversa(
        * vem vazio e voltamos ao jeito antigo, mandando o material inteiro. É
        * melhor pagar mais caro do que atender sem manual.
        */
+      /**
+       * Os áudios viram texto ANTES de qualquer coisa, porque o que foi falado
+       * também decide quais trechos do manual têm a ver com esta conversa. Com
+       * o áudio como buraco, a busca de trechos procurava pelo que sobrou.
+       * Falha aqui não derruba a análise: segue com o marcador de não
+       * transcrito, que é como era antes.
+       */
+      const transcricoes = await transcricoesDaConversa(userId, empresa, chatJid, msgs).catch(
+        (e) => {
+          console.error("[supervisor] transcrição dos áudios falhou:", e?.message ?? e);
+          return new Map<string, string>();
+        },
+      );
+
       let fixo = sb0 ? await nucleoDoManual(sb0, empresa).catch(() => "") : "";
       let trechos = "";
       if (sb0 && fixo) {
         trechos = textoDosTrechos(
-          await trechosRelevantes(sb0, empresa, transcricao(msgs, chat.name), 6),
+          await trechosRelevantes(sb0, empresa, transcricao(msgs, chat.name, transcricoes), 6),
         );
       }
       if (!fixo) fixo = await materiaisDaEmpresa(empresa);
@@ -1383,6 +1417,7 @@ export async function analisarConversa(
         trechos,
         await blocoDeAtendimento(empresa, chat.phone).catch(() => ""),
         empresa,
+        transcricoes,
       );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);
