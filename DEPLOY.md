@@ -83,6 +83,32 @@ Teste um agora, sem esperar o horário:
 curl -H "Authorization: Bearer SEU_CRON_SECRET" http://127.0.0.1:3000/api/cron/briefing-do-dia
 ```
 
+## 6.1 Conferência das variáveis do navegador
+
+O build PARA se faltar `NEXT_PUBLIC_SUPABASE_URL` ou
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` no `.env.local`. É de propósito.
+
+Essas duas são assadas dentro do JavaScript do navegador na hora do build. Se
+faltarem, o servidor sobe normal — ele lê o arquivo em tempo de execução — e só
+o navegador fica sem: toda tela que grava direto do navegador quebra dizendo
+que o banco não está configurado. Foi assim que o "Salvar compromisso" da
+agenda ficou quebrado sem ninguém saber, porque o resto do sistema usa rotas de
+servidor e continuou de pé.
+
+Para ver quais variáveis o arquivo tem, sem expor nenhum valor:
+
+```bash
+grep -oE '^[A-Za-z0-9_]+' /opt/aura/.env.local | sort
+```
+
+A chave serve com qualquer um dos dois nomes, porque o Supabase renomeou "anon
+key" para "publishable key" no painel:
+
+```
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
+
 ## 7. Supabase: liberar o domínio novo
 
 No painel do Supabase → **Authentication → URL Configuration**:
