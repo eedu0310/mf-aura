@@ -136,6 +136,14 @@ REGRAS DURAS:
 - Seja direto e respeitoso. Isso vai ser lido pelo vendedor e pelo gestor.
 - Se a semana teve pouca coisa, diga isso com honestidade em vez de encher linguiça.
 
+TAMANHO (a resposta precisa caber inteira; resposta cortada é perdida):
+- "resumo": no máximo 3 frases.
+- "acertos": no máximo 3 itens, uma linha cada.
+- "erros": no máximo 4 itens. "ponto" em uma linha; "porque" em no máximo 2 frases.
+- "comoMelhorar": no máximo 4 itens, uma linha cada.
+- Prefira o apontamento mais importante a listar tudo. O que ficou de fora
+  aparece na semana seguinte se continuar acontecendo.
+
 Responda SOMENTE com um JSON válido, sem cercas de código, nesta forma:
 {
   "resumo": "2 a 3 frases sobre como foi a semana dele",
@@ -177,7 +185,14 @@ export async function avaliarAtendimento(
     bruto = await chamarClaude({
       sistema: SISTEMA,
       pergunta,
-      maxTokens: 2000,
+      /**
+       * Teto alto de propósito. Com 2.000, DEZ das doze avaliações da primeira
+       * rodada real bateram no limite (saída média de 1.986 tokens): o JSON
+       * chegava cortado no meio, o parse falhava e o relatório mostrava o
+       * texto cru em vez dos acertos e erros separados. O prompt agora limita
+       * a quantidade de itens, e este teto dá a folga para a resposta fechar.
+       */
+      maxTokens: 4000,
       funcao: "relatorio-semanal-atendimento",
     });
   } catch (err) {
@@ -218,7 +233,16 @@ export async function avaliarAtendimento(
       semManual,
     };
   } catch {
-    console.error(`avaliarAtendimento: resposta da IA não era JSON para ${v.nome}`);
+    /**
+     * Resposta cortada tem assinatura: começa com '{' e não fecha. Vale
+     * distinguir no log, porque o conserto é diferente — cortada pede mais
+     * teto ou menos itens; malformada pede ajuste no prompt.
+     */
+    const cortada = limpo.startsWith("{") && !limpo.trimEnd().endsWith("}");
+    console.error(
+      `avaliarAtendimento: ${cortada ? "resposta CORTADA no limite de tokens" : "resposta não era JSON"} para ${v.nome}` +
+        ` (${limpo.length} caracteres)`,
+    );
     return VAZIA(false, semManual, limpo.slice(0, 1200));
   }
 }
