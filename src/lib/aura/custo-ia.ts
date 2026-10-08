@@ -193,6 +193,18 @@ export async function registrarUsoIA(dados: {
       modelo: dados.modelo,
       tokens_entrada: entrada,
       tokens_saida: saida,
+      /**
+       * As três fatias separadas, não só o total.
+       *
+       * O total sozinho diz quanto se gastou, mas não por quê: entrada crua
+       * custa 1x, escrita no cache custa 2x e leitura do cache custa 0,1x.
+       * Guardando separado dá para ver se o cache está sendo APROVEITADO ou
+       * só reescrito — que é a diferença entre pagar um décimo e pagar o
+       * dobro pelo mesmo manual.
+       */
+      tokens_entrada_crua: entradaCrua,
+      tokens_cache_escrita: escritaCache,
+      tokens_cache_leitura: leituraCache,
       custo_usd: Number(custo.toFixed(6)),
     });
 

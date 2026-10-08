@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessaoAura } from "@/lib/aura/sessao";
 import { insightsRegras, kpisDaPagina, painelGestor, resumoVendedor, moeda, type Pagina, type Insight } from "@/lib/aura/metricas";
 import { gerarRecados, iaDisponivel } from "@/lib/aura/ia";
-import { textoDosMateriais } from "@/lib/aura/materiais";
+import { nucleoDoManual } from "@/lib/aura/trechos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const s = await sessaoAura();
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
   const { dados, userId, gestor } = s;
-  const materiais = await textoDosMateriais(s.sb, dados.perfil.empresa);
+  const materiais = await nucleoDoManual(s.sb, dados.perfil.empresa);
   const pessoa = { nome: dados.perfil.nome, cargo: dados.perfil.cargo, loja: dados.perfil.empresa };
 
   if (pagina === "gestor") {

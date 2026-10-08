@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sessaoAura } from "@/lib/aura/sessao";
 import { montarRelatorio, moeda, type Insight } from "@/lib/aura/metricas";
 import { gerarRecados } from "@/lib/aura/ia";
-import { textoDosMateriais } from "@/lib/aura/materiais";
+import { nucleoDoManual } from "@/lib/aura/trechos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     pessoa: { nome: dados.perfil.nome, cargo: dados.perfil.cargo, loja: dados.perfil.empresa },
     metricas: { ...rel, vendasPorDia: undefined, atividadesPorDia: undefined },
     recadosBase: base,
-    materiais: await textoDosMateriais(s.sb, dados.perfil.empresa),
+    materiais: await nucleoDoManual(s.sb, dados.perfil.empresa),
     forcar: sp.has("refresh"),
   });
 

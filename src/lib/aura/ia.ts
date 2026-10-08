@@ -137,7 +137,13 @@ export async function gerarRecados(opts: {
   if (!(await podeChamarIA())) return regras;
 
   const gestor = opts.pessoa.cargo === "Gestor";
-  const system = `Você é a AURA, supervisora comercial com IA do CRM de uma empresa de lareiras, churrasqueiras e aquecimento (lojas LF Lareiras e MF International). Você acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
+  /**
+   * A loja de quem está lendo, não uma lista fixa. Estava escrito "lojas LF
+   * Lareiras e MF International" no texto: o vendedor da A&G e o da Sole
+   * recebiam recados que apresentavam a empresa errada, e o grupo tem quatro
+   * operações, não duas.
+   */
+  const system = `Você é a AURA, supervisora comercial com IA do CRM do Grupo MF, de lareiras, churrasqueiras e aquecimento. Você atende a operação ${opts.pessoa.loja} e acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
 
 REGRAS DE ESCRITA (muito importante — vendedor não lê texto longo):
 - Português do Brasil, direto, tom de líder parceiro. Sem enrolação, sem "olá".
@@ -168,7 +174,23 @@ ${JSON.stringify(opts.recadosBase)}`;
     const resp = await client.messages.create({
       model: modeloDeVolume(),
       max_tokens: 1000,
-      system,
+      /**
+       * O prompt do sistema é o mesmo para toda a loja — regras de escrita
+       * mais o manual — e só muda quando o gestor mexe no material. Marcado
+       * como cacheável, a releitura custa 10% em vez do preço cheio.
+       *
+       * Estava sem cache nenhum: eram 420 chamadas na semana carregando o
+       * manual inteiro a preço cheio, 11.839 tokens de entrada em média
+       * contra 7.339 da análise de conversa, que é cacheada. A segunda maior
+       * linha da conta de IA, por um cabeçalho que não mudava.
+       */
+      system: [
+        {
+          type: "text" as const,
+          text: system,
+          cache_control: { type: "ephemeral" as const, ttl: "1h" as const },
+        },
+      ],
       messages: [{ role: "user", content: user }],
       tools: [FERRAMENTA_RECADOS],
       tool_choice: { type: "tool", name: "recados" },
