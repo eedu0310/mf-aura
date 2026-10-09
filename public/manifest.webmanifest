@@ -1,28 +1,73 @@
 {
+  "id": "/",
   "name": "AURA | Sales OS",
   "short_name": "AURA",
-  "description": "Alta performance não acontece por acaso. Ela é construída todos os dias.",
+  "description": "CRM e supervisão comercial com IA do Grupo MF. Pipeline, carteira, WhatsApp analisado conversa por conversa, metas e relatório semanal de cada vendedor.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "portrait-primary",
-  "background_color": "#f5f8f8",
+  "background_color": "#071f24",
   "theme_color": "#071f24",
   "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/aura-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icons/aura-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/aura-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/aura-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Meu Dia",
+      "short_name": "Meu Dia",
+      "description": "O raio-x do dia: o que fazer agora",
+      "url": "/meu-dia",
+      "icons": [{ "src": "/icons/aura-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "WhatsApp",
+      "short_name": "WhatsApp",
+      "description": "Conversas e análise da AURA",
+      "url": "/whatsapp",
+      "icons": [{ "src": "/icons/aura-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Pipeline",
+      "short_name": "Pipeline",
+      "description": "Negócios em aberto",
+      "url": "/pipeline",
+      "icons": [{ "src": "/icons/aura-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Registrar atividade",
+      "short_name": "Registrar",
+      "description": "Lançar visita, ligação ou orçamento",
+      "url": "/registrar-atividade",
+      "icons": [{ "src": "/icons/aura-192.png", "sizes": "192x192" }]
     }
   ]
 }
