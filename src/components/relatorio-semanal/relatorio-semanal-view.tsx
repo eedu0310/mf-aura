@@ -327,6 +327,61 @@ function MetasDoVendedor({ v }: { v: VendedorNoRelatorio }) {
   );
 }
 
+/**
+ * Onde o vendedor está na meta do MÊS, não na semana.
+ *
+ * A tabela acima compara a semana com um quarto da meta, que serve de ritmo.
+ * Esta aqui responde a outra pergunta, a que o gestor faz na reunião: quanto
+ * falta e quanto por dia para fechar. Relatório antigo (versão 2) não tem este
+ * campo, então simplesmente não aparece.
+ */
+function ProgressoNoMes({ v }: { v: VendedorNoRelatorio }) {
+  const p = v.progresso;
+  if (!p || p.itens.length === 0) return null;
+  const valor = (n: number, emReais: boolean) =>
+    emReais ? moedaCurta(n) : String(Math.round(n * 100) / 100);
+
+  return (
+    <div className="mt-4 rounded-lg border border-aura-mist bg-aura-bg p-3">
+      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-aura-graphite-soft">
+        Acumulado do mês até {p.apuradoAte.split("-").reverse().join("/")} —{" "}
+        {p.diasUteisRestantes} {p.diasUteisRestantes === 1 ? "dia útil restante" : "dias úteis restantes"}
+      </p>
+      <div className="space-y-2">
+        {p.itens.map((i) => {
+          const largura = Math.min(100, Math.max(0, i.percentual));
+          const bateu = i.falta === 0;
+          return (
+            <div key={i.rotulo}>
+              <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="text-aura-graphite">{i.rotulo}</span>
+                <span className="font-medium text-aura-graphite">
+                  {valor(i.atingido, i.emReais)} / {valor(i.meta, i.emReais)}{" "}
+                  <span style={{ color: bateu ? COR.serie2 : COR.alerta }}>({i.percentual}%)</span>
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${largura}%`, backgroundColor: bateu ? COR.serie2 : COR.alerta }}
+                />
+              </div>
+              <p className="mt-0.5 text-[11px] text-aura-graphite-soft">
+                {bateu
+                  ? "Meta batida."
+                  : `Faltam ${valor(i.falta, i.emReais)} — ` +
+                    (p.diasUteisRestantes > 0
+                      ? `${valor(i.porDiaUtil, i.emReais)} por dia útil.`
+                      : "o mês acabou.")}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function BlocoDoVendedor({
   v,
   abertoInicial,
@@ -456,6 +511,7 @@ function BlocoDoVendedor({
                 Meta do mês contra a semana
               </p>
               <MetasDoVendedor v={v} />
+              <ProgressoNoMes v={v} />
             </div>
           </div>
 

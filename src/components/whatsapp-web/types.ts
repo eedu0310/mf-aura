@@ -69,6 +69,8 @@ export interface WaState {
   name: string | null;
   myJid: string | null;
   error: string | null;
+  /** Existe credencial salva no servidor: habilita o "Parear de novo". */
+  temLoginSalvo?: boolean;
   chats: WaChat[];
   leads: Record<string, LeadResumo>;
   alertas: Record<string, Alerta[]>;

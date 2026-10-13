@@ -135,16 +135,39 @@ function authDir(userId: string) {
  * Serve para descobrir onde a conexão parou sem precisar ficar olhando o
  * terminal do servidor: .whatsapp-sessions/diagnostico.log
  */
-function anotar(mensagem: string) {
-  const linha = `${new Date().toISOString()} ${mensagem}`;
-  console.log(`[whatsapp] ${mensagem}`);
+const LIMITE_LOG_BYTES = 2_000_000;
+
+/**
+ * Registra uma linha de diagnóstico.
+ *
+ * O `quem` não é enfeite. O log era um arquivo só para a equipe inteira, sem
+ * dizer de qual vendedor era cada linha — então quando um deles não
+ * conseguia parear, não havia como saber o que tinha acontecido com ELE no
+ * meio das linhas de outras nove sessões. Era o dado que faltava para
+ * diagnosticar em vez de adivinhar.
+ */
+function registrar(mensagem: string, quem?: string) {
+  const dono = quem ? ` [${quem}]` : "";
+  const linha = `${new Date().toISOString()}${dono} ${mensagem}`;
+  console.log(`[whatsapp]${dono} ${mensagem}`);
   try {
     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-    fs.appendFileSync(path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, "diagnostico.log"), linha + "\n");
+    const arquivo = path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, "diagnostico.log");
+    // Sem isso o arquivo cresce para sempre e um dia enche o disco da VPS,
+    // derrubando o sistema inteiro por causa de um log de apoio.
+    try {
+      if (fs.statSync(arquivo).size > LIMITE_LOG_BYTES) {
+        fs.renameSync(arquivo, `${arquivo}.1`);
+      }
+    } catch {
+      /* arquivo ainda não existe */
+    }
+    fs.appendFileSync(arquivo, linha + "\n");
   } catch {
     /* o log é só apoio; nunca derruba a conexão */
   }
 }
+
 
 function getOrCreate(userId: string): WaSession {
   let s = sessions.get(userId);
@@ -694,6 +717,11 @@ export async function startSession(
   porPedidoDoUsuario = false,
 ): Promise<WaSession> {
   const s = getOrCreate(userId);
+  /*
+   * Sombreia o anotar do módulo: tudo que esta função registrar sai com o id
+   * do vendedor na linha, sem precisar mexer em cada chamada.
+   */
+  const anotar = (mensagem: string) => registrar(mensagem, userId);
   // Só o clique do usuário desfaz um "desconectar" pedido por ele.
   if (porPedidoDoUsuario) s.manualStop = false;
   if (s.manualStop) return s;
@@ -723,10 +751,18 @@ export async function startSession(
   // Se em 40 segundos não vier QR nem conexão, o usuário precisa saber.
   s.vigia = setTimeout(() => {
     if (s.status === "connecting" && !s.qrDataUrl) {
-      anotar("40s sem QR e sem conexão — provável bloqueio de rede/firewall");
+      anotar("40s sem QR e sem conexão — o servidor não obteve resposta do WhatsApp");
       s.status = "disconnected";
+      /*
+       * Mesmo conserto da mensagem de conexão fechada: a internet, o antivírus
+       * e o firewall citados aqui eram os do VENDEDOR, e quem fala com o
+       * WhatsApp é o servidor. Mandar ele mexer na própria máquina só fazia
+       * perder tempo com o que não era o problema.
+       */
       s.error =
-        "Não consegui falar com o WhatsApp em 40 segundos. Verifique a internet do computador (e se algum antivírus ou firewall está bloqueando) e clique em Conectar de novo.";
+        "O servidor da AURA não conseguiu resposta do WhatsApp em 40 segundos. " +
+        "Não é a sua internet nem o seu antivírus — essa conexão é feita pelo servidor. " +
+        "Espere um minuto e clique em Conectar de novo; se insistir, avise o gestor.";
       try {
         s.sock?.end?.(undefined);
       } catch {
@@ -856,9 +892,20 @@ export async function startSession(
           }
           return;
         }
-        // O WhatsApp derruba o aperto de mão (428) quando não aceita a versão
-        // do protocolo que veio da internet. Tenta uma vez com a embutida.
-        if (!wasQr && !s.qrDataUrl && !s.usarVersaoEmbutida && (code === 428 || code === 405)) {
+        /*
+         * O WhatsApp derruba o aperto de mão quando não aceita a versão do
+         * protocolo que veio da internet. Tenta uma vez com a embutida.
+         *
+         * Isto era condicionado a `code === 428 || code === 405`. Qualquer
+         * outro código — inclusive conexão fechada SEM código, que é o caso
+         * comum quando o WhatsApp simplesmente corta — pulava as duas
+         * tentativas de contorno e ia direto para a desistência. Desconectar
+         * sem código é exatamente quando mais vale tentar o contorno, então a
+         * escada passa a valer para todo código que chegou até aqui. O que
+         * não devia tentar de novo já saiu antes: desconectado pelo celular,
+         * parada manual e QR vencido.
+         */
+        if (!wasQr && !s.qrDataUrl && !s.usarVersaoEmbutida) {
           anotar("versão do protocolo recusada; tentando com a versão embutida");
           s.usarVersaoEmbutida = true;
           s.reconnects = 0;
@@ -872,8 +919,9 @@ export async function startSession(
         }
 
         // Última cartada antes de desistir: conectar como um navegador comum,
-        // sem pedir o histórico completo.
-        if (!wasQr && !s.qrDataUrl && !s.modoSimples && (code === 428 || code === 405)) {
+        // sem pedir o histórico completo. Vale para qualquer código, pelo
+        // mesmo motivo da tentativa acima.
+        if (!wasQr && !s.qrDataUrl && !s.modoSimples) {
           anotar("pedido de histórico completo recusado; tentando sem ele");
           s.modoSimples = true;
           s.reconnects = 0;
@@ -914,10 +962,34 @@ export async function startSession(
           s.status = "disconnected";
           if (s.vigia) { clearTimeout(s.vigia); s.vigia = null; }
           s.conectandoDesde = null;
-          s.error =
-            s.jaAbriu || s.qrDataUrl
-              ? `A conexão caiu (código ${code ?? "?"}). Clique em Conectar para tentar de novo.`
-              : `O WhatsApp encerrou a conexão (código ${code ?? "?"}) antes de gerar o QR code. Normalmente é o antivírus, o firewall ou a rede do computador bloqueando o acesso a web.whatsapp.com. Tente em outra rede (ou com o antivírus desligado) e clique em Conectar.`;
+          /*
+           * A mensagem anterior dizia que o culpado era "o antivírus, o
+           * firewall ou a rede do computador bloqueando o acesso a
+           * web.whatsapp.com". Isso é falso: quem abre essa conexão é o
+           * SERVIDOR da AURA, não a máquina do vendedor. O estrago foi real —
+           * um vendedor leu a mensagem, foi abrir o web.whatsapp.com no
+           * celular por conta própria e passou a manhã tentando uma coisa que
+           * nunca ia funcionar, com o antivírus desligado à toa.
+           *
+           * Agora a mensagem separa os três casos, porque a saída de cada um
+           * é diferente.
+           */
+          if (s.jaAbriu || s.qrDataUrl) {
+            s.error = `A conexão caiu (código ${code ?? "?"}). Clique em Conectar para tentar de novo.`;
+          } else if (hasSavedLogin(userId)) {
+            s.error =
+              `A conexão salva não funciona mais (código ${code ?? "?"}) e o QR nem chegou a aparecer. ` +
+              `Isso acontece quando o aparelho foi desligado em "Dispositivos conectados" no celular. ` +
+              `Use "Parear de novo" para apagar a conexão antiga e ler um QR novo.`;
+          } else {
+            s.error =
+              `O WhatsApp recusou a conexão (código ${code ?? "?"}) antes de gerar o QR code. ` +
+              `Quem faz essa conexão é o servidor da AURA, não o seu computador — antivírus, ` +
+              `firewall e a sua internet não têm nada a ver com isso, e não adianta abrir o ` +
+              `web.whatsapp.com no celular. Normalmente é limite do próprio WhatsApp para ` +
+              `pareamento novo vindo do mesmo servidor: espere uns minutos e clique em Conectar. ` +
+              `Se insistir, avise o gestor informando o código ${code ?? "?"}.`;
+          }
         }
       }
     });
@@ -1024,6 +1096,14 @@ export async function getState(userId: string) {
     name: s.name,
     myJid: s.jid,
     error: s.error,
+    /*
+     * A tela precisa saber disso para oferecer "Parear de novo". Sem isso o
+     * único botão de quem está desconectado era "Conectar", que reusa a
+     * credencial salva: se ela estivesse morta, o vendedor ficava preso num
+     * laço clicando Conectar e recebendo o mesmo erro, sem saída possível
+     * pela interface.
+     */
+    temLoginSalvo: hasSavedLogin(userId),
     chats,
   };
 }

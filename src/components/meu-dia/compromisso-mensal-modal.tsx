@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/compromisso-mensal";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { CampoMoeda } from "@/components/shared/campo-moeda";
 
 interface FormState {
   metaFaturamento: string;
@@ -194,19 +195,36 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
               <p className="mb-3 font-medium text-aura-graphite">{grupo}</p>
               <div className="grid grid-cols-2 gap-3">
                 {campos.map(({ chave, label }) => (
-                  <div key={chave}>
+                  <div key={chave} className={chave === "metaFaturamento" ? "col-span-2" : undefined}>
                     <label className="block text-xs text-aura-graphite-soft">
                       {label}
                     </label>
-                    <input
-                      type="number"
-                      value={form[chave]}
-                      onChange={(e) =>
-                        setForm({ ...form, [chave]: e.target.value })
-                      }
-                      placeholder="0"
-                      className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
-                    />
+                    {/*
+                      Faturamento vai no campo com máscara: agrupa o milhar e
+                      escreve por extenso. Num <input type="number"> o ponto é
+                      separador decimal, então "200.000" valia 200.
+                    */}
+                    {chave === "metaFaturamento" ? (
+                      <div className="mt-1">
+                        <CampoMoeda
+                          valor={form[chave]}
+                          onChange={(digitos) => setForm({ ...form, [chave]: digitos })}
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1}
+                        value={form[chave]}
+                        onChange={(e) =>
+                          setForm({ ...form, [chave]: e.target.value })
+                        }
+                        placeholder="0"
+                        className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

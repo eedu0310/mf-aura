@@ -265,6 +265,32 @@ export default function WhatsAppPage() {
     }
   }
 
+  /**
+   * Apaga a conexão salva e começa um pareamento limpo.
+   *
+   * Existe porque quem está desconectado só tinha o botão "Conectar", e
+   * Conectar reaproveita a credencial guardada no servidor. Quando essa
+   * credencial morre (o aparelho foi removido em "Dispositivos conectados" no
+   * celular, por exemplo), o WhatsApp derruba a conexão antes de gerar o QR e
+   * o vendedor fica clicando Conectar e recebendo o mesmo erro, sem nenhuma
+   * saída pela tela. "Desconectar" resolveria, mas ele mora no menu da tela
+   * de quem JÁ está conectado.
+   */
+  async function parearDeNovo() {
+    if (!window.confirm("Apagar a conexão salva e ler um QR code novo?\n\nVocê vai precisar do celular em mãos.")) return;
+    setBusy(true);
+    setLoadError(null);
+    try {
+      await postJson({ action: "logout" });
+      await postJson({ action: "connect" });
+      await loadState();
+    } catch (e: any) {
+      setLoadError(e?.message ?? "Não consegui reiniciar o pareamento.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function abrirChat(chat: WaChat) {
     setSelectedChatId(chat.id);
     setRespondendo(null);
@@ -542,6 +568,21 @@ export default function WhatsAppPage() {
                 </button>
               )}
             </div>
+            {state.temLoginSalvo && status !== "qr" && (
+              <div className="self-center justify-self-center text-center">
+                <button
+                  type="button"
+                  onClick={parearDeNovo}
+                  disabled={busy}
+                  className="text-sm text-[#8696a0] underline underline-offset-4 hover:text-[#e9edef] disabled:opacity-50"
+                >
+                  Parear de novo (apaga a conexão salva)
+                </button>
+                <p className="mt-1 max-w-[280px] text-xs text-[#667781]">
+                  Use se o erro insistir: apaga a conexão antiga e gera um QR code limpo.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -180,6 +180,27 @@ conferir("conversa analisada em setembro não conta para o Bruno", bruno.atendim
 // ------------------------------------------------------ metas e lacunas
 conferir("meta aprovada da Ana é lida", ana.metas?.visitas, 8);
 conferir("Bruno sem meta aprovada", bruno.metas, null);
+
+// ------------------------------------------ meta do mês x realizado do mês
+/*
+ * A meta é do mês e a semana é um pedaço dela, então o realizado tem de ser o
+ * acumulado do mês até o corte do relatório. Estas verificações existem porque
+ * a primeira versão somava setembro em outubro e dava 194% de uma meta de 50
+ * mil para quem tinha vendido 7 mil.
+ */
+const fat = ana.progresso?.itens.find((i) => i.rotulo === "Faturamento");
+conferir("faturamento do mês da Ana é só outubro", fat?.atingido, 7000);
+conferir("falta para a meta de faturamento", fat?.falta, 43000);
+conferir("percentual da meta de faturamento", fat?.percentual, 14);
+conferir("faturamento está marcado como reais", fat?.emReais, true);
+// 1/out/2026 é quinta; de 8 a 31 são 24 dias, menos os domingos 11, 18 e 25.
+conferir("dias úteis restantes depois do corte", ana.progresso?.diasUteisRestantes, 21);
+conferir("esforço por dia útil", fat?.porDiaUtil, 2047.62);
+conferir("apurado até o último dia coberto", ana.progresso?.apuradoAte, "2026-10-07");
+const vis = ana.progresso?.itens.find((i) => i.rotulo === "Visitas");
+conferir("visitas do mês não herdam atividade fora da janela", vis?.atingido, 2);
+conferir("meta zerada não entra na lista", ana.progresso?.itens.length, 4);
+conferir("sem meta aprovada não há progresso", bruno.progresso, null);
 conferir(
   "a lacuna das mensagens é declarada",
   loja.lacunas.some((l) => l.includes("não de mensagens")),

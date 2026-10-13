@@ -12,7 +12,11 @@ import { avaliarAtendimento, type AvaliacaoDoAtendimento } from "./avaliar";
  * gestor — e esta marca diz à tela qual formato ela está lendo. Linha sem
  * `versao` é relatório antigo, só texto.
  */
-export const VERSAO_RELATORIO = 2;
+/**
+ * 3: passou a trazer meta do mês contra realizado acumulado do mês, com o
+ * quanto falta e o esforço por dia útil restante.
+ */
+export const VERSAO_RELATORIO = 3;
 
 export interface VendedorNoRelatorio extends SemanaDoVendedor {
   avaliacao: AvaliacaoDoAtendimento;

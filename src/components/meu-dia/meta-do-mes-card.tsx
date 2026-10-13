@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { CampoMoeda } from "@/components/shared/campo-moeda";
+import { digitosParaNumero, formatarReais } from "@/lib/formato/moeda";
 
 interface MetaDoMesCardProps {
   valor: number | null;
@@ -13,16 +15,28 @@ export function MetaDoMesCard({ valor, atingido, onDefinir }: MetaDoMesCardProps
   const [entrada, setEntrada] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
-  const moeda = (numero: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 }).format(numero);
+  const moeda = (numero: number) => formatarReais(numero, true);
   async function salvarMeta() {
     if (!onDefinir) return;
-    const texto = entrada.trim().replace(/\s/g, "");
-    const numero = texto.includes(",") || texto.includes(".")
-      ? Number(texto.replace(/\./g, "").replace(",", "."))
-      : Number(texto);
+    const numero = digitosParaNumero(entrada);
     if (!Number.isFinite(numero) || numero <= 0) {
       setErro("Informe um valor de meta maior que zero.");
       return;
+    }
+    /*
+     * Confirmação de ordem de grandeza. O banco mostra por que ela é
+     * necessária: em outubro entrou uma meta de R$ 2.000.000 (zero a mais) e
+     * uma de R$ 300 (três zeros a menos). O campo nunca mostrou a quem digitou
+     * o que tinha acabado de escrever.
+     */
+    if (numero < 1000 || numero >= 1_000_000) {
+      const certeza = confirm(
+        `Confirmar a meta de ${formatarReais(numero)}?\n\n` +
+          (numero < 1000
+            ? "Esse valor é menor que mil reais. Se você quis dizer mil, digite 1000; se quis duzentos mil, digite 200000."
+            : "Esse valor passa de um milhão de reais. Confira se não sobrou um zero."),
+      );
+      if (!certeza) return;
     }
     setSalvando(true);
     setErro("");
@@ -46,7 +60,7 @@ export function MetaDoMesCard({ valor, atingido, onDefinir }: MetaDoMesCardProps
         <p className="text-sm text-aura-graphite-soft">Meta não definida para este mês.</p>
         {onDefinir && !editando && <button type="button" onClick={() => setEditando(true)} className="mt-3 rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-medium text-white hover:bg-aura-petrol-600">Definir meta</button>}
         {editando && <div className="mt-3 space-y-2">
-          <input autoFocus inputMode="decimal" value={entrada} onChange={(e) => setEntrada(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void salvarMeta()} placeholder="Ex.: 50000" className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm" />
+          <CampoMoeda autoFocus valor={entrada} onChange={setEntrada} placeholder="50.000" />
           {erro && <p className="text-xs text-aura-danger">{erro}</p>}
           <div className="flex gap-2"><button type="button" disabled={salvando} onClick={() => void salvarMeta()} className="rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{salvando ? "Salvando..." : "Salvar meta"}</button><button type="button" onClick={() => { setEditando(false); setErro(""); }} className="rounded-lg border border-aura-mist px-3 py-2 text-xs">Cancelar</button></div>
         </div>}

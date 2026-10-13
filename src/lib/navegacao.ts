@@ -49,6 +49,7 @@ const VENDEDOR: ItemMenu[] = [
 const POS_VENDA: ItemMenu[] = [
   { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
+  { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/relacionamentos", label: "Clientes", icon: Users },
   { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
   { href: "/atividades", label: "Atividades", icon: Activity },
@@ -58,6 +59,7 @@ const POS_VENDA: ItemMenu[] = [
 const SDR: ItemMenu[] = [
   { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/leads", label: "Leads Recebidos", icon: UserPlus },
+  { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/relacionamentos", label: "Clientes", icon: Users },
   { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
   { href: "/atividades", label: "Atividades", icon: Activity },
@@ -68,6 +70,7 @@ const SDR: ItemMenu[] = [
 const VENDEDOR_INTERNO: ItemMenu[] = [
   { href: "/meu-dia", label: "Meu Dia", icon: Home },
   { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/relacionamentos", label: "Atendimento", icon: Users },
   { href: "/pipeline", label: "Pipeline", icon: Filter },
   { href: "/vendas", label: "Orçamentos", icon: ShoppingBag },
@@ -79,6 +82,13 @@ const VENDEDOR_INTERNO: ItemMenu[] = [
 
 /**
  * Menu principal do cargo.
+ *
+ * AGENDA VALE PARA TODO MUNDO. Ela só estava no menu de Vendedor, então
+ * Vendedor Interno, Pós-venda e SDR não tinham como chegar na tela: /agenda
+ * existe, funciona e ninguém linka para ela fora do Meu Dia. Para a Jociane
+ * isso apareceu como "a agenda sumiu da AURA" — ela nunca esteve lá para o
+ * cargo dela. Quem atende por dentro marca retorno e visita igual a quem está
+ * na rua; o pós-venda marca assistência; o SDR marca callback.
  *
  * Meu Dia abre a lista de TODOS os cargos: é a tela onde a pessoa vê o que
  * tem para fazer hoje, e isso vale para quem atende no balcão, para o

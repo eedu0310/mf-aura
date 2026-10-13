@@ -116,6 +116,27 @@ function materiaPrima(v: SemanaDoVendedor): string {
         `Visitas ${v.metas.visitas} | Ligações ${v.metas.ligacoes}`,
     );
     linhas.push("(são metas do MÊS; a semana é cerca de um quarto disso)");
+    if (v.progresso) {
+      linhas.push("");
+      linhas.push(
+        `ONDE ELE ESTÁ NO MÊS (acumulado de ${v.progresso.mes} até ${v.progresso.apuradoAte}, ` +
+          `faltam ${v.progresso.diasUteisRestantes} dias úteis)`,
+      );
+      for (const i of v.progresso.itens) {
+        const valor = (n: number) =>
+          i.emReais ? `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : String(n);
+        linhas.push(
+          i.falta === 0
+            ? `${i.rotulo}: ${valor(i.atingido)} de ${valor(i.meta)} — meta batida (${i.percentual}%)`
+            : `${i.rotulo}: ${valor(i.atingido)} de ${valor(i.meta)} (${i.percentual}%) — ` +
+              `faltam ${valor(i.falta)}, ou ${valor(i.porDiaUtil)} por dia útil`,
+        );
+      }
+      linhas.push(
+        "Use estes números quando falar de meta: diga o que falta e o ritmo " +
+          "necessário, com o número. Não invente outro valor.",
+      );
+    }
   } else {
     linhas.push("");
     linhas.push("Este vendedor não tem meta do mês aprovada, então não cobre meta dele.");

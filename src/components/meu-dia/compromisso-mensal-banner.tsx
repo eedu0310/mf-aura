@@ -7,16 +7,6 @@ import { buscarCompromissoDoMes, type CompromissoMensal } from "@/lib/supabase/c
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CompromissoMensalModal } from "./compromisso-mensal-modal";
 
-function verificar30Dias(dataEnvio: string | null | undefined): boolean {
-  if (!dataEnvio) return true;
-
-  const data = new Date(dataEnvio);
-  const agora = new Date();
-  const diasPassados = Math.floor((agora.getTime() - data.getTime()) / (1000 * 60 * 60 * 24));
-
-  return diasPassados >= 30;
-}
-
 export function CompromissoMensalBanner() {
   const { profile } = useUserProfile();
   const [compromisso, setCompromisso] = useState<CompromissoMensal | null>(null);
@@ -75,13 +65,14 @@ export function CompromissoMensalBanner() {
 
   if (carregando) return null;
 
-  const hoje = new Date().getDate();
-  if (!compromisso && hoje < 5) return null;
-
-  // ✅ Se compromisso foi aprovado e não passaram 30 dias, não mostra
-  if (compromisso?.status === "aprovado" && !verificar30Dias(compromisso.dataEnvio)) {
-    return null;
-  }
+  /*
+   * O banner não se esconde mais no começo do mês.
+   *
+   * Antes ele só aparecia a partir do dia 5 ("hoje < 5 return null"), ou seja
+   * ficava calado exatamente nos quatro dias em que a meta deveria ser
+   * mandada. A cobrança do dia 1 agora também sai por notificação
+   * (/api/cron/cobrar-metas), e as duas coisas têm de falar no mesmo dia.
+   */
 
   if (!compromisso || compromisso.status === "rascunho") {
     return (

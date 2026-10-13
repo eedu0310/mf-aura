@@ -61,6 +61,26 @@ export interface MetasDoMes {
   ligacoes: number;
 }
 
+export interface ItemDoProgresso {
+  rotulo: string;
+  meta: number;
+  atingido: number;
+  /** Quanto ainda falta para bater. Zero quando já bateu. */
+  falta: number;
+  percentual: number;
+  /** Quanto por dia útil que sobra no mês, para fechar o que falta. */
+  porDiaUtil: number;
+  emReais: boolean;
+}
+
+export interface ProgressoDaMeta {
+  mes: string;
+  /** Último dia do mês já coberto por este relatório. */
+  apuradoAte: string;
+  diasUteisRestantes: number;
+  itens: ItemDoProgresso[];
+}
+
 export interface SemanaDoVendedor {
   vendedorId: string;
   nome: string;
@@ -94,6 +114,12 @@ export interface SemanaDoVendedor {
   };
   atendimento: AtendimentoDoVendedor;
   metas: MetasDoMes | null;
+  /**
+   * Meta é do MÊS; a semana é só um pedaço dela. Comparar venda da semana com
+   * meta do mês daria um "12% da meta" que não quer dizer nada. Então aqui o
+   * realizado é o acumulado do mês até o fim do período do relatório.
+   */
+  progresso: ProgressoDaMeta | null;
 }
 
 export interface SemanaDaLoja {
@@ -162,6 +188,8 @@ export async function coletarSemanaDaLoja(
     rVendas,
     rConversas,
     rMetas,
+    rVendasMes,
+    rAtividadesMes,
     funil,
   ] = await Promise.all([
     sb.from("profiles").select("id, nome, cargo").eq("empresa", empresa).eq("ativo", true),
@@ -195,6 +223,23 @@ export async function coletarSemanaDaLoja(
       )
       .eq("mes", mes)
       .eq("status", "aprovado"),
+    /*
+     * Acumulado do mês, para comparar com a meta do mês. Vai do dia 1 até o
+     * mesmo corte do relatório semanal, então o número nunca inclui dia que o
+     * relatório diz não ter coberto.
+     */
+    sb
+      .from("vendas")
+      .select("owner_id, valor, valor_fechado, data, parceiro_id, percentual_parceiro")
+      .eq("empresa", empresa)
+      .gte("data", `${mes}-01`)
+      .lt("data", fimDia),
+    sb
+      .from("atividades")
+      .select("owner_id, tipo, subtipo, relacionamento_id, cliente_categoria, ocorrida_em")
+      .eq("empresa", empresa)
+      .gte("ocorrida_em", `${mes}-01T00:00:00.000Z`)
+      .lt("ocorrida_em", fimISO),
     carregarFunil(sb, empresa),
   ]);
 
@@ -211,6 +256,8 @@ export async function coletarSemanaDaLoja(
     ["vendas", rVendas.error],
     ["conversas", rConversas.error],
     ["metas", rMetas.error],
+    ["vendas do mês", rVendasMes.error],
+    ["atividades do mês", rAtividadesMes.error],
   ].filter(([, e]) => e) as [string, { message: string }][];
   if (falhas.length) {
     throw new Error(
@@ -226,6 +273,8 @@ export async function coletarSemanaDaLoja(
   const vendas = rVendas.data ?? [];
   const conversas = rConversas.data ?? [];
   const metas = rMetas.data ?? [];
+  const vendasMes = rVendasMes.data ?? [];
+  const atividadesMes = rAtividadesMes.data ?? [];
 
   const categoriaDoRelacionamento = new Map(
     relacionamentos.map((r) => [String(r.id), String(r.categoria ?? "")]),
@@ -260,6 +309,10 @@ export async function coletarSemanaDaLoja(
       categoriaDoRelacionamento,
       inicioISO,
       fimISO,
+      vendasMes,
+      atividadesMes,
+      mes,
+      ultimoDiaCoberto,
     }),
   );
 
@@ -314,6 +367,10 @@ interface Fontes {
   vendas: Record<string, unknown>[];
   conversas: Record<string, unknown>[];
   metas: Record<string, unknown>[];
+  vendasMes: Record<string, unknown>[];
+  atividadesMes: Record<string, unknown>[];
+  mes: string;
+  ultimoDiaCoberto: string;
   funil: EtapaFunil[];
   categoriaDoRelacionamento: Map<string, string>;
   inicioISO: string;
@@ -413,6 +470,70 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
 
   const metaLinha = f.metas.find((m) => String(m.vendedor_id) === id);
 
+  // ------------------------------------------------------- meta x realizado
+  /**
+   * A janela do mês é reaplicada aqui, como a da semana. O filtro no SQL não
+   * basta: se ele mudar, ou a consulta for reaproveitada, o acumulado passa a
+   * somar mês passado e o relatório diz "194% da meta" para quem está em 14%.
+   * Aconteceu no teste exatamente assim.
+   */
+  const noMesAteOCorte = (valor: unknown) => {
+    const em = String(valor ?? "");
+    if (!em) return false;
+    return em.slice(0, 7) === f.mes && em.slice(0, 10) <= f.ultimoDiaCoberto;
+  };
+
+  const minhasAtividadesMes = (
+    meu(f.atividadesMes as { owner_id?: unknown }[]) as Record<string, unknown>[]
+  ).filter((a) => noMesAteOCorte(a.ocorrida_em));
+  const temTipoNoMes = (frag: string) =>
+    minhasAtividadesMes.filter((a) => String(a.tipo ?? "").toLowerCase().includes(frag)).length;
+  const faturamentoDoMes = somaDoVendedor(
+    (f.vendasMes as Record<string, unknown>[]).filter((v) =>
+      noMesAteOCorte(v.data),
+    ) as unknown as VendaComParceria[],
+    id,
+  );
+  const novasRelacoesNoMes = minhasRelacoes.filter((r) => noMesAteOCorte(r.created_at)).length;
+
+  const progresso: ProgressoDaMeta | null = metaLinha
+    ? (() => {
+        const item = (rotulo: string, meta: number, atingido: number, emReais = false) => {
+          const falta = Math.max(0, meta - atingido);
+          return {
+            rotulo,
+            meta,
+            atingido,
+            falta,
+            percentual: meta > 0 ? Math.round((atingido / meta) * 100) : 0,
+            porDiaUtil: 0, // preenchido abaixo, quando souber quantos dias sobram
+            emReais,
+          };
+        };
+        const itens = [
+          item("Faturamento", Number(metaLinha.meta_faturamento ?? 0), faturamentoDoMes, true),
+          item("Clientes novos", Number(metaLinha.meta_clientes_novos ?? 0), novasRelacoesNoMes),
+          item("Visitas", Number(metaLinha.meta_visitas ?? 0), temTipoNoMes("visita")),
+          item("Ligações", Number(metaLinha.meta_ligacoes ?? 0), temTipoNoMes("liga")),
+        ].filter((i) => i.meta > 0);
+
+        const diasUteisRestantes = contarDiasUteis(f.ultimoDiaCoberto, f.mes);
+        for (const i of itens) {
+          i.porDiaUtil =
+            diasUteisRestantes > 0
+              ? Math.ceil((i.falta / diasUteisRestantes) * 100) / 100
+              : i.falta;
+        }
+
+        return {
+          mes: f.mes,
+          apuradoAte: f.ultimoDiaCoberto,
+          diasUteisRestantes,
+          itens,
+        };
+      })()
+    : null;
+
   return {
     vendedorId: id,
     nome,
@@ -482,5 +603,44 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
           ligacoes: Number(metaLinha.meta_ligacoes ?? 0),
         }
       : null,
+    progresso,
   };
+}
+
+/**
+ * Dias úteis que ainda restam no mês depois do último dia coberto.
+ *
+ * Loja de lareira abre sábado, então sábado conta; domingo não. Serve para
+ * dizer "faltam R$ 48 mil em 11 dias úteis, R$ 4.364 por dia" em vez de só
+ * dizer que está atrasado.
+ */
+function contarDiasUteis(ultimoDiaCoberto: string, mes: string): number {
+  const [ano, m] = mes.split("-").map(Number);
+  if (!ano || !m) return 0;
+  const ultimoDoMes = new Date(Date.UTC(ano, m, 0)).getUTCDate();
+  /*
+   * A semana pode atravessar a virada do mês: um relatório de 28/set a 3/out
+   * tem corte em outubro, mas um de 26/out a 31/out gerado no dia 1º tem corte
+   * no mês anterior ao da meta. Sem este ajuste o mês novo começaria com zero
+   * dia útil e o relatório diria que falta tudo "para hoje".
+   */
+  const mesDoCorte = ultimoDiaCoberto.slice(0, 7);
+  if (mesDoCorte < mes) return contarDiasUteisDoMesInteiro(ano, m);
+  if (mesDoCorte > mes) return 0;
+  const diaCorte = Number(ultimoDiaCoberto.slice(8, 10));
+  let uteis = 0;
+  for (let d = diaCorte + 1; d <= ultimoDoMes; d += 1) {
+    const semana = new Date(Date.UTC(ano, m - 1, d)).getUTCDay();
+    if (semana !== 0) uteis += 1;
+  }
+  return uteis;
+}
+
+function contarDiasUteisDoMesInteiro(ano: number, m: number): number {
+  const ultimoDoMes = new Date(Date.UTC(ano, m, 0)).getUTCDate();
+  let uteis = 0;
+  for (let d = 1; d <= ultimoDoMes; d += 1) {
+    if (new Date(Date.UTC(ano, m - 1, d)).getUTCDay() !== 0) uteis += 1;
+  }
+  return uteis;
 }

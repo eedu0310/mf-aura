@@ -31,3 +31,8 @@ ALVO=http://127.0.0.1:3000
 # janela vai de segunda até o fim do próprio sábado, então o que a loja vendeu
 # no sábado entra no relatório que fala dessa semana.
 0 16 * * 6 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
+
+# Cobrança da meta do mês, 11h. A rota só age do dia 1 ao 7 e manda uma
+# cobrança por pessoa por dia, então rodar todo dia é inofensivo e garante que
+# quem entrar na equipe no meio da janela também seja cobrado.
+0 11 * * * root curl -sS -m 120 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/cobrar-metas >> /var/log/aura-cron.log 2>&1
