@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Layers, TrendingUp, Target, Plus, GripVertical } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { NewOpportunityModal } from "./new-opportunity-modal";
 import { OportunidadeDetailsModal } from "./oportunidade-details-modal";
@@ -100,19 +100,26 @@ function OportunidadeCard({
           <GripVertical size={16} className="text-aura-graphite-soft" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-aura-graphite truncate">
+          {/*
+            O nome do negócio em duas linhas, não cortado com "...".
+            Com `truncate` numa coluna estreita sobrava "Maria Apare..." em
+            todo card, e o quadro inteiro virava uma fileira de reticências —
+            para saber de quem era o negócio, a pessoa tinha de abrir um por
+            um. Duas linhas resolvem a quase totalidade dos nomes.
+          */}
+          <p className="line-clamp-2 break-words text-sm font-semibold leading-snug text-aura-graphite">
             {oportunidade.cliente}
           </p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">
-            {formatarMoeda(oportunidade.valor)}
-          </p>
           {oportunidade.produto && (
-            <p className="mt-1 text-xs text-aura-graphite-soft truncate">
+            <p className="mt-1 line-clamp-1 break-words text-xs text-aura-graphite-soft">
               {oportunidade.produto}
             </p>
           )}
-          <div className="mt-2 flex items-center justify-between">
-            <span className="inline-block rounded-full bg-aura-petrol-100 px-2 py-1 text-xs font-medium text-aura-petrol-700">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
+            <span className="font-data text-sm font-semibold text-aura-graphite">
+              {formatarMoeda(oportunidade.valor)}
+            </span>
+            <span className="inline-block rounded-full bg-aura-petrol-100 px-2 py-0.5 text-[11px] font-medium text-aura-petrol-700">
               {oportunidade.probabilidade}
             </span>
           </div>
@@ -185,7 +192,47 @@ export function PipelineBoard({}: PipelineBoardProps) {
   const appData = useAppData();
   const oportunidades = appData.oportunidades || [];
   const { moveOportunidade, vendas, funil } = appData;
-  const colunas = etapasVisiveis(funil);
+  const todasAsColunas = etapasVisiveis(funil);
+
+  /*
+   * Colunas escondidas, por pessoa.
+   *
+   * O funil tem oito etapas e quase ninguém trabalha nas oito no mesmo dia —
+   * Pós-venda e Perdidos, por exemplo, só interessam em revisão. Esconder é
+   * escolha de quem olha, então fica no navegador da pessoa e não no banco:
+   * não é configuração da loja, e o vendedor não deveria mexer no quadro do
+   * colega para arrumar o próprio.
+   */
+  const [escondidas, setEscondidas] = useState<string[]>([]);
+  const [menuColunas, setMenuColunas] = useState(false);
+
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem("aura:pipeline:colunas-escondidas");
+      if (salvo) setEscondidas(JSON.parse(salvo) as string[]);
+    } catch {
+      /* navegador sem localStorage, ou JSON estragado: mostra tudo */
+    }
+  }, []);
+
+  function alternarColuna(nome: string) {
+    setEscondidas((atual) => {
+      const novo = atual.includes(nome) ? atual.filter((n) => n !== nome) : [...atual, nome];
+      try {
+        window.localStorage.setItem("aura:pipeline:colunas-escondidas", JSON.stringify(novo));
+      } catch {
+        /* se não der para guardar, vale só nesta sessão */
+      }
+      return novo;
+    });
+  }
+
+  /*
+   * Esconder TODAS deixaria o quadro em branco sem explicação, e a pessoa
+   * pensaria que perdeu os negócios. Nesse caso mostramos tudo.
+   */
+  const colunas = todasAsColunas.filter((c) => !escondidas.includes(c.nome));
+  const colunasVisiveis = colunas.length > 0 ? colunas : todasAsColunas;
 
   const [modalAberto, setModalAberto] = useState(false);
   const [oportunidadeSelecionada, setOportunidadeSelecionada] =
@@ -359,14 +406,69 @@ export function PipelineBoard({}: PipelineBoardProps) {
           </div>
         </div>
 
+        {/* Escolher quais etapas aparecem. Fica logo acima do quadro, porque é
+            onde a pessoa está olhando quando percebe que tem coluna demais. */}
+        <div className="relative flex justify-end">
+          <button
+            type="button"
+            onClick={() => setMenuColunas((v) => !v)}
+            className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
+          >
+            <Columns3 size={14} />
+            Colunas
+            {escondidas.length > 0 && (
+              <span className="rounded-full bg-aura-petrol-700 px-1.5 text-[10px] text-white">
+                {todasAsColunas.length - escondidas.length}/{todasAsColunas.length}
+              </span>
+            )}
+          </button>
+          {menuColunas && (
+            <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-aura-mist bg-white py-1 shadow-xl">
+              {todasAsColunas.map((c) => {
+                const visivel = !escondidas.includes(c.nome);
+                return (
+                  <button
+                    key={c.nome}
+                    type="button"
+                    onClick={() => alternarColuna(c.nome)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-bg"
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-aura-mist">
+                      {visivel && <Check size={12} className="text-aura-petrol-700" />}
+                    </span>
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
+                    <span className="truncate">{c.nome}</span>
+                  </button>
+                );
+              })}
+              <p className="border-t border-aura-mist px-3 py-2 text-[11px] text-aura-graphite-soft">
+                Vale só para você, neste aparelho.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* As colunas são as etapas que o gestor deixou ativas, na ordem dele.
             O número de colunas deixa de ser fixo em seis, senão um funil com
             sete etapas espremeria tudo ou deixaria a última de fora. */}
+        {/*
+          LARGURA MÍNIMA POR COLUNA, e o quadro rola na horizontal.
+
+          Antes era `minmax(0, 1fr)`, e esse style em linha anulava as classes
+          de responsivo ao lado: as oito etapas eram espremidas para caber na
+          largura da tela em qualquer aparelho. Num celular de 390px cada
+          coluna ficava com 45 pixels, e o overflow-x-auto nunca entrava em
+          ação porque o grid sempre "cabia". Com piso de 17rem a coluna para
+          de encolher e o quadro passa a rolar, que é como um kanban se
+          comporta.
+        */}
         <div
-          className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2"
-          style={{ gridTemplateColumns: `repeat(${Math.max(1, colunas.length)}, minmax(0, 1fr))` }}
+          className="grid gap-4 overflow-x-auto pb-2"
+          style={{
+            gridTemplateColumns: `repeat(${Math.max(1, colunasVisiveis.length)}, minmax(17rem, 1fr))`,
+          }}
         >
-          {colunas.map((def) => {
+          {colunasVisiveis.map((def) => {
             // Pelo nome RESOLVIDO, não pelo texto cru: um negócio gravado
             // como "Proposta" aparece na coluna "Follow-up" depois da
             // renomeação, em vez de sumir do quadro.
