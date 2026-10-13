@@ -182,6 +182,17 @@ export interface Relacionamento {
   campanhaId?: string | null;
   cidade?: string;
   estado?: string;
+  /** Rua e número. Separado de cidade porque a visita precisa do endereço. */
+  endereco?: string;
+  /** Quem resolve do lado do cliente: o arquiteto titular, o comprador. */
+  responsavel?: string;
+  /**
+   * Anotações livres sobre o CADASTRO — como o escritório trabalha, com quem
+   * falar, o histórico. Não confundir com a descrição do negócio, que mora na
+   * oportunidade. A coluna existia no banco desde sempre e nenhuma tela a
+   * usava: o campo estava lá e ninguém conseguia preencher.
+   */
+  observacao?: string;
   temperatura: TemperaturaRelacionamento;
   ultimoContato?: string;
   ultimoContatoEm?: string;

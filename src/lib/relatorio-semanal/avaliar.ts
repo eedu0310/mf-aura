@@ -106,6 +106,21 @@ function materiaPrima(v: SemanaDoVendedor): string {
     }
   }
 
+  if (v.agenda && (v.agenda.paraASemana > 0 || v.agenda.marcados > 0)) {
+    linhas.push("");
+    linhas.push("AGENDA DA SEMANA");
+    linhas.push(
+      `Marcados para a semana ${v.agenda.paraASemana} | realizados ${v.agenda.realizados} | ` +
+        `não cumpridos ${v.agenda.naoCumpridos} | marcou ${v.agenda.marcados} nesta semana`,
+    );
+    if (v.agenda.naoCumpridos > 0) {
+      linhas.push(
+        "Compromisso marcado e não cumprido é falha de compromisso com o cliente: " +
+          "cobre isso se for o caso, com o número.",
+      );
+    }
+  }
+
   if (v.metas) {
     linhas.push("");
     linhas.push("METAS DO MÊS QUE ELE DEFINIU E O GESTOR APROVOU");

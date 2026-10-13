@@ -84,6 +84,20 @@ const TABELAS: Record<string, Record<string, unknown>[]> = {
       created_at: "2026-01-01T10:00:00Z", ultima_analise_em: "2026-09-01T10:00:00Z",
     },
   ],
+  compromissos: [
+    // Marcado E realizado dentro da semana.
+    { owner_id: ANA, tipo: "Visita", data: "2026-10-03", concluido: true, created_at: "2026-10-01T09:00:00Z" },
+    // Marcado na semana, para a semana, e NÃO cumprido (dia já passou).
+    { owner_id: ANA, tipo: "Reunião", data: "2026-10-02", concluido: false, created_at: "2026-10-01T09:00:00Z" },
+    // Marcado na semana, mas para DEPOIS do corte: não conta como furado.
+    { owner_id: ANA, tipo: "Visita", data: "2026-10-07", concluido: false, created_at: "2026-10-02T09:00:00Z" },
+    // Marcado ANTES da semana, acontecendo dentro dela.
+    { owner_id: ANA, tipo: "Visita", data: "2026-10-03", concluido: true, created_at: "2026-09-20T09:00:00Z" },
+    // Do Bruno, para não vazar de um vendedor para o outro.
+    { owner_id: BRUNO, tipo: "Ligação", data: "2026-10-03", concluido: true, created_at: "2026-10-01T09:00:00Z" },
+    // Fora da semana nas duas pontas.
+    { owner_id: ANA, tipo: "Visita", data: "2026-09-10", concluido: true, created_at: "2026-09-09T09:00:00Z" },
+  ],
   compromissos_mensais: [
     {
       vendedor_id: ANA, meta_faturamento: 50000, meta_clientes_novos: 4, meta_arquitetos: 2,
@@ -180,6 +194,22 @@ conferir("conversa analisada em setembro não conta para o Bruno", bruno.atendim
 // ------------------------------------------------------ metas e lacunas
 conferir("meta aprovada da Ana é lida", ana.metas?.visitas, 8);
 conferir("Bruno sem meta aprovada", bruno.metas, null);
+
+// ------------------------------------------------------------------ agenda
+conferir("agendamentos marcados na semana", ana.agenda.marcados, 3);
+conferir("agendamentos marcados PARA a semana", ana.agenda.paraASemana, 4);
+conferir("realizados na semana", ana.agenda.realizados, 2);
+/*
+ * O corte é 07/10 e o compromisso de 07/10 ainda não aconteceu: contá-lo como
+ * furado faria o relatório acusar o vendedor por um horário que não chegou.
+ */
+conferir("só conta como não cumprido o que já passou", ana.agenda.naoCumpridos, 1);
+conferir("agenda do Bruno não vaza para a Ana", bruno.agenda.paraASemana, 1);
+conferir(
+  "agendamentos por tipo",
+  ana.agenda.porTipo.map((t) => `${t.tipo}:${t.n}`).sort(),
+  ["Reunião:1", "Visita:3"],
+);
 
 // ------------------------------------------ meta do mês x realizado do mês
 /*

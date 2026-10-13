@@ -382,6 +382,73 @@ function ProgressoNoMes({ v }: { v: VendedorNoRelatorio }) {
   );
 }
 
+/**
+ * Agenda: marcado, cumprido e furado.
+ *
+ * Separar "marcou" de "cumpriu" é o ponto. Um número só deixaria igual quem
+ * marcou dez visitas e fez dez e quem marcou dez e fez duas — que é
+ * exatamente a conversa que o gestor precisa ter.
+ */
+function AgendaDoVendedor({ v }: { v: VendedorNoRelatorio }) {
+  const a = v.agenda;
+  if (!a) return null;
+  if (a.paraASemana === 0 && a.marcados === 0) {
+    return (
+      <p className="text-xs text-aura-graphite-soft">
+        Nenhum compromisso na agenda esta semana.
+      </p>
+    );
+  }
+  const taxa = a.paraASemana > 0 ? Math.round((a.realizados / a.paraASemana) * 100) : 0;
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[
+          ["Marcados p/ a semana", a.paraASemana, undefined],
+          ["Realizados", a.realizados, COR.serie2],
+          ["Não cumpridos", a.naoCumpridos, a.naoCumpridos ? COR.alerta : undefined],
+        ].map(([rotulo, n, cor]) => (
+          <div key={String(rotulo)} className="rounded-lg border border-aura-mist bg-aura-bg p-2">
+            <p className="font-data text-lg font-semibold" style={cor ? { color: String(cor) } : undefined}>
+              {String(n)}
+            </p>
+            <p className="text-[10px] leading-tight text-aura-graphite-soft">{String(rotulo)}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-aura-graphite-soft">
+        {a.paraASemana > 0 && <>Cumpriu {taxa}% do que estava marcado. </>}
+        Marcou {a.marcados} nesta semana
+        {a.porTipo.length > 0 && <> · {a.porTipo.map((t) => `${t.n} ${t.tipo}`).join(", ")}</>}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Os números da semana em palavras, na ordem em que o gestor cobra.
+ *
+ * Zero é omitido de propósito: uma linha com "0 ligações · 0 orçamentos · 0
+ * agendamentos" rouba a atenção do que a pessoa de fato fez. O que não
+ * aconteceu aparece no detalhe, dentro do bloco.
+ */
+function placarDaSemana(v: VendedorNoRelatorio): string[] {
+  const partes: string[] = [];
+  const por = (n: number, um: string, varios: string) => {
+    if (n > 0) partes.push(`${n} ${n === 1 ? um : varios}`);
+  };
+  por(v.prospeccao.clientesNovos, "cliente cadastrado", "clientes cadastrados");
+  por(v.crm.visitas, "visita", "visitas");
+  por(v.crm.ligacoes, "ligação", "ligações");
+  por(v.agenda?.paraASemana ?? 0, "agendamento", "agendamentos");
+  por(v.crm.orcamentos, "orçamento", "orçamentos");
+  por(v.crm.followUps, "follow-up", "follow-ups");
+  por(v.atendimento.conversasAtivas, "conversa", "conversas");
+  por(v.pipeline.criados, "negócio criado", "negócios criados");
+  por(v.vendas.quantidade, "venda", "vendas");
+  return partes;
+}
+
 function BlocoDoVendedor({
   v,
   abertoInicial,
@@ -407,6 +474,17 @@ function BlocoDoVendedor({
             {v.nome}
           </span>
           <span className="block text-[11px] text-aura-graphite-soft">{v.cargo}</span>
+          {/*
+            O placar da reunião.
+            Antes o cabeçalho dizia "CRM: 12", que não conta o que a pessoa
+            fez — o gestor abria cada bloco para descobrir. Aqui estão, em uma
+            linha lida em voz alta, os números que ele cobra: cadastrou,
+            visitou, ligou, agendou, orçou, conversou. Só aparece o que
+            aconteceu, para a linha não virar uma fileira de zeros.
+          */}
+          <span className="mt-1 block text-xs text-aura-graphite">
+            {placarDaSemana(v).join(" · ") || "sem atividade registrada na semana"}
+          </span>
         </span>
         <span className="hidden shrink-0 gap-4 text-right sm:flex print:flex">
           <span>
@@ -504,6 +582,13 @@ function BlocoDoVendedor({
                   Perdeu por: {v.pipeline.motivosDePerda.map((m) => `${m.motivo} (${m.n})`).join(", ")}
                 </p>
               ) : null}
+            </div>
+
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+                Agenda da semana
+              </p>
+              <AgendaDoVendedor v={v} />
             </div>
 
             <div>

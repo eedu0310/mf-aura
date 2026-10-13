@@ -15,8 +15,11 @@ import { avaliarAtendimento, type AvaliacaoDoAtendimento } from "./avaliar";
 /**
  * 3: passou a trazer meta do mês contra realizado acumulado do mês, com o
  * quanto falta e o esforço por dia útil restante.
+ * 4: agenda da semana (marcados, realizados, não cumpridos) e o placar
+ *    legível no cabeçalho de cada vendedor, para o gestor conduzir a reunião
+ *    sem abrir bloco por bloco.
  */
-export const VERSAO_RELATORIO = 3;
+export const VERSAO_RELATORIO = 4;
 
 export interface VendedorNoRelatorio extends SemanaDoVendedor {
   avaliacao: AvaliacaoDoAtendimento;

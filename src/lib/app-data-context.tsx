@@ -566,6 +566,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       payload.email = patch.email?.trim().toLowerCase() || null;
     if (patch.cidade !== undefined) payload.cidade = patch.cidade || null;
     if (patch.estado !== undefined) payload.estado = patch.estado || null;
+    if (patch.endereco !== undefined) payload.endereco = patch.endereco?.trim() || null;
+    if (patch.responsavel !== undefined) payload.responsavel = patch.responsavel?.trim() || null;
+    if (patch.observacao !== undefined) payload.observacao = patch.observacao?.trim() || null;
     if (patch.temperatura !== undefined)
       payload.temperatura = patch.temperatura;
     if (patch.proximoContato !== undefined)

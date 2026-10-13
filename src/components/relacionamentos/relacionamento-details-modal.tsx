@@ -44,6 +44,9 @@ export function RelacionamentoDetailsModal({
     telefone: relacionamento.telefone || "",
     email: relacionamento.email || "",
     cidade: relacionamento.cidade || "",
+    endereco: relacionamento.endereco || "",
+    responsavel: relacionamento.responsavel || "",
+    observacao: relacionamento.observacao || "",
     temperatura: relacionamento.temperatura,
     proximoContato: relacionamento.proximoContato,
   });
@@ -57,6 +60,9 @@ export function RelacionamentoDetailsModal({
         telefone: formData.telefone || undefined,
         email: formData.email || undefined,
         cidade: formData.cidade || undefined,
+        endereco: formData.endereco,
+        responsavel: formData.responsavel,
+        observacao: formData.observacao,
         temperatura: formData.temperatura,
         proximoContato: formData.proximoContato,
       });
@@ -143,6 +149,18 @@ export function RelacionamentoDetailsModal({
                 </p>
               </div>
               <div className="rounded-xl bg-aura-bg p-4">
+                <p className="text-xs font-medium text-aura-graphite-soft">Endereço</p>
+                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+                  {relacionamento.endereco || "-"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-aura-bg p-4">
+                <p className="text-xs font-medium text-aura-graphite-soft">Responsável</p>
+                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+                  {relacionamento.responsavel || "-"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-aura-bg p-4">
                 <p className="text-xs font-medium text-aura-graphite-soft">Temperatura</p>
                 <p className="mt-1 text-sm font-semibold text-aura-graphite">
                   {relacionamento.temperatura}
@@ -161,6 +179,23 @@ export function RelacionamentoDetailsModal({
                 </p>
               </div>
             </div>
+
+            {/*
+              A observação é lida com muito mais frequência do que escrita, e
+              é texto corrido — por isso fica fora da grade, em largura cheia.
+              Ela só aparece quando existe: um quadro vazio em toda ficha é
+              ruído que ensina a pessoa a ignorar o lugar.
+            */}
+            {relacionamento.observacao ? (
+              <div className="rounded-xl border border-aura-mist bg-white p-4">
+                <p className="text-xs font-medium text-aura-graphite-soft">
+                  Observações sobre o cadastro
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-aura-graphite">
+                  {relacionamento.observacao}
+                </p>
+              </div>
+            ) : null}
 
             {/* Botões de Ação */}
             <div className="flex gap-3">
@@ -237,6 +272,44 @@ export function RelacionamentoDetailsModal({
                 onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
                 className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
                 disabled={salvando}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-aura-graphite-soft">Endereço</label>
+              <input
+                type="text"
+                value={formData.endereco}
+                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+                placeholder="Rua, número, bairro"
+                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-aura-graphite-soft">Responsável</label>
+              <input
+                type="text"
+                value={formData.responsavel}
+                onChange={(e) => setFormData({ ...formData, responsavel: e.target.value })}
+                placeholder="Quem resolve do lado do cliente"
+                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-aura-graphite-soft">
+                Observações sobre o cadastro
+              </label>
+              {/*
+                Do CADASTRO, não do negócio: como o escritório trabalha, com
+                quem falar, o que já foi combinado. A coluna já existia no
+                banco e nenhuma tela a usava — o campo estava lá e ninguém
+                conseguia preencher.
+              */}
+              <textarea
+                value={formData.observacao}
+                onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
+                rows={4}
+                placeholder="Ex.: falei com o João, que é quem fecha. Prefere orçamento por e-mail. Atende de terça a sexta."
+                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
               />
             </div>
 

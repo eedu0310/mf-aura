@@ -93,6 +93,18 @@ export interface SemanaDoVendedor {
     orcamentos: number;
     followUps: number;
   };
+  /**
+   * Agenda da semana. "Marcados" e "realizados" são coisas diferentes e o
+   * gestor cobra as duas: marcar dez e cumprir dois é um problema que um
+   * número só esconderia.
+   */
+  agenda: {
+    marcados: number;
+    paraASemana: number;
+    realizados: number;
+    naoCumpridos: number;
+    porTipo: { tipo: string; n: number }[];
+  };
   prospeccao: {
     clientesNovos: number;
     porCategoria: ProspeccaoDaCategoria[];
@@ -190,6 +202,7 @@ export async function coletarSemanaDaLoja(
     rMetas,
     rVendasMes,
     rAtividadesMes,
+    rCompromissos,
     funil,
   ] = await Promise.all([
     sb.from("profiles").select("id, nome, cargo").eq("empresa", empresa).eq("ativo", true),
@@ -240,6 +253,15 @@ export async function coletarSemanaDaLoja(
       .eq("empresa", empresa)
       .gte("ocorrida_em", `${mes}-01T00:00:00.000Z`)
       .lt("ocorrida_em", fimISO),
+    /*
+     * Agenda. Sem filtro de data no SQL porque precisamos de duas janelas
+     * diferentes sobre as mesmas linhas: o que foi CRIADO na semana e o que
+     * estava MARCADO para a semana. A tabela é pequena.
+     */
+    sb
+      .from("compromissos")
+      .select("owner_id, tipo, data, concluido, created_at")
+      .eq("empresa", empresa),
     carregarFunil(sb, empresa),
   ]);
 
@@ -258,6 +280,7 @@ export async function coletarSemanaDaLoja(
     ["metas", rMetas.error],
     ["vendas do mês", rVendasMes.error],
     ["atividades do mês", rAtividadesMes.error],
+    ["agenda", rCompromissos.error],
   ].filter(([, e]) => e) as [string, { message: string }][];
   if (falhas.length) {
     throw new Error(
@@ -275,6 +298,7 @@ export async function coletarSemanaDaLoja(
   const metas = rMetas.data ?? [];
   const vendasMes = rVendasMes.data ?? [];
   const atividadesMes = rAtividadesMes.data ?? [];
+  const compromissos = rCompromissos.data ?? [];
 
   const categoriaDoRelacionamento = new Map(
     relacionamentos.map((r) => [String(r.id), String(r.categoria ?? "")]),
@@ -311,6 +335,7 @@ export async function coletarSemanaDaLoja(
       fimISO,
       vendasMes,
       atividadesMes,
+      compromissos,
       mes,
       ultimoDiaCoberto,
     }),
@@ -369,6 +394,7 @@ interface Fontes {
   metas: Record<string, unknown>[];
   vendasMes: Record<string, unknown>[];
   atividadesMes: Record<string, unknown>[];
+  compromissos: Record<string, unknown>[];
   mes: string;
   ultimoDiaCoberto: string;
   funil: EtapaFunil[];
@@ -468,6 +494,36 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     .filter((e) => e.alerta)
     .slice(0, 10);
 
+  // ---------------------------------------------------------------- agenda
+  const meusCompromissos = meu(f.compromissos as { owner_id?: unknown }[]) as Record<string, unknown>[];
+  /*
+   * Duas janelas sobre as mesmas linhas, porque são perguntas diferentes:
+   * "quantos ele MARCOU esta semana" (trabalho de prospecção) e "quantos
+   * estavam marcados PARA esta semana" (compromisso assumido). Um número só
+   * esconderia o vendedor que marca dez e cumpre dois.
+   */
+  const marcadosNaSemana = meusCompromissos.filter((c) => noPeriodo(c.created_at));
+  const paraASemana = meusCompromissos.filter((c) => noPeriodo(c.data, true));
+  const realizados = paraASemana.filter((c) => c.concluido === true);
+
+  const agenda = {
+    marcados: marcadosNaSemana.length,
+    paraASemana: paraASemana.length,
+    realizados: realizados.length,
+    /*
+     * Só conta como não cumprido o que já PASSOU. Compromisso de hoje à tarde
+     * ainda não foi furado, e contá-lo como falha faria o relatório acusar o
+     * vendedor por um horário que ainda não chegou.
+     */
+    naoCumpridos: paraASemana.filter(
+      (c) => c.concluido !== true && String(c.data ?? "") < f.ultimoDiaCoberto,
+    ).length,
+    porTipo: contar(paraASemana, (c) => String(c.tipo ?? "sem tipo")).map((t) => ({
+      tipo: t.texto,
+      n: t.n,
+    })),
+  };
+
   const metaLinha = f.metas.find((m) => String(m.vendedor_id) === id);
 
   // ------------------------------------------------------- meta x realizado
@@ -549,6 +605,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
       orcamentos: temTipo("orçament") + temTipo("orcament"),
       followUps: temTipo("follow"),
     },
+    agenda,
     prospeccao: {
       clientesNovos: novasRelacoes.length,
       porCategoria,
