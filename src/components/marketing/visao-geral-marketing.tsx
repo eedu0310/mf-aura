@@ -83,7 +83,20 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
 
   const totalUltimos14Dias = dadosGrafico.reduce((s, d) => s + d.Leads, 0);
 
-  const topCampanhas = [...campanhas].sort((a, b) => b.leadsGerados - a.leadsGerados).slice(0, 5);
+  /*
+   * Campanha sem lead nenhum não ocupa vaga no top: o quadro é para mostrar o
+   * que está trazendo gente, e com os números vindo da contagem real agora dá
+   * para separar quem gerou de quem não gerou.
+   */
+  const topCampanhas = [...campanhas]
+    .filter((c) => c.leadsGerados > 0 || c.vendasFechadas > 0)
+    .sort((a, b) => b.valorGerado - a.valorGerado || b.leadsGerados - a.leadsGerados)
+    .slice(0, 5);
+
+  const moedaCurta = (v: number) =>
+    v >= 1000
+      ? `R$ ${(v / 1000).toFixed(v >= 10000 ? 0 : 1).replace(".", ",")} mil`
+      : `R$ ${Math.round(v)}`;
 
   const atividade: ItemAtividade[] = [
     ...leads.slice(0, 8).map((l) => ({
@@ -225,7 +238,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
           </p>
           {topCampanhas.length === 0 ? (
             <p className="mt-4 text-center text-xs text-aura-graphite-soft">
-              Nenhuma campanha com leads registrados ainda.
+              Nenhuma campanha gerou lead ainda. Os leads que chegam pelos seus
+              anúncios do Facebook e do Instagram entram aqui sozinhos.
             </p>
           ) : (
             <ul className="mt-3 flex flex-col divide-y divide-aura-mist">
@@ -244,9 +258,16 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
                       <p className="truncate text-xs text-aura-graphite-soft">{c.canal}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 font-data text-sm font-semibold text-aura-graphite">
-                    {c.leadsGerados}
-                  </span>
+                  <div className="shrink-0 text-right">
+                    <p className="font-data text-sm font-semibold text-aura-graphite">
+                      {c.leadsGerados} {c.leadsGerados === 1 ? "lead" : "leads"}
+                    </p>
+                    <p className="text-xs text-aura-graphite-soft">
+                      {c.vendasFechadas > 0
+                        ? `${c.vendasFechadas} fechada${c.vendasFechadas > 1 ? "s" : ""} · ${moedaCurta(c.valorGerado)}`
+                        : "nenhuma fechada ainda"}
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>

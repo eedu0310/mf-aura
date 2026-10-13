@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import QRCode from "qrcode";
 import pino from "pino";
+import { extrairAnuncio, type AnuncioDeOrigem } from "@/lib/whatsapp/anuncio";
 
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected";
 export type WaMsgType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact";
@@ -22,10 +23,18 @@ export interface WaQuote {
   fromMe: boolean;
 }
 
+/*
+ * ATENÇÃO: este tipo é gêmeo do WaMessage de src/components/whatsapp-web/types.ts,
+ * que é o que a tela usa. Campo novo aqui precisa entrar lá também, senão ele
+ * existe no servidor e some antes de chegar no navegador — sem erro nenhum,
+ * porque os dois tipos continuam válidos cada um por si.
+ */
 export interface WaMessage {
   id: string;
   chatId: string;
   quoted?: WaQuote;
+  /** De qual anúncio do Facebook/Instagram a conversa nasceu. */
+  anuncio?: AnuncioDeOrigem;
   fromMe: boolean;
   text: string;
   timestamp: number;
@@ -634,6 +643,18 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
   };
   const citacao = citacaoDe(unwrap(msg.message), s, jid);
   if (citacao) item.quoted = citacao;
+
+  /*
+   * Carimbo do anúncio, lido aqui e não depois: o `raw` abaixo só guarda
+   * mensagem com mídia, e a maioria dos leads de anúncio chega como texto
+   * puro — lendo só do raw, perderíamos justamente o caso mais comum.
+   * Só interessa no que o CLIENTE mandou; carimbo em mensagem nossa seria
+   * eco de encaminhamento, não origem do lead.
+   */
+  if (!fromMe) {
+    const anuncio = extrairAnuncio(msg);
+    if (anuncio) item.anuncio = anuncio;
+  }
 
   list.push(item);
   list.sort((a, b) => a.timestamp - b.timestamp);

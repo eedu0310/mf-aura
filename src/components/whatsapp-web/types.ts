@@ -28,6 +28,17 @@ export interface WaQuote {
   fromMe: boolean;
 }
 
+/** De qual anúncio do Facebook/Instagram a conversa nasceu. */
+export interface AnuncioNaMensagem {
+  titulo: string | null;
+  corpo: string | null;
+  anuncioId: string | null;
+  url: string | null;
+  plataforma: "facebook" | "instagram" | "meta";
+  tipo: string | null;
+  cliqueId: string | null;
+}
+
 export interface WaMessage {
   id: string;
   chatId: string;
@@ -42,6 +53,12 @@ export interface WaMessage {
   status?: number;
   /** Reações nesta mensagem, por emoji. `minha` deixa o botão marcado. */
   reacoes?: { emoji: string; total: number; minha: boolean }[];
+  /**
+   * Presente só na mensagem que abriu a conversa a partir de um anúncio.
+   * Fica na mensagem porque é ela que é persistida em disco: o `raw` só guarda
+   * mensagem com mídia, e boa parte dos leads de anúncio chega como texto.
+   */
+  anuncio?: AnuncioNaMensagem;
 }
 
 export interface Alerta {

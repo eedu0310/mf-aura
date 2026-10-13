@@ -49,6 +49,7 @@ import {
   type EtapaFunil,
 } from "@/lib/funil";
 import { carregarFunil } from "@/lib/funil-servidor";
+import { anuncioDaConversa, resolverCampanha, camposDoAnuncio } from "@/lib/whatsapp/marketing";
 
 export interface LeadInfo {
   chatJid: string;
@@ -796,6 +797,13 @@ async function garantirRelacionamento(
    * corrigir depois, um por um.
    */
   categoria: CategoriaContato | null = null,
+  /**
+   * Preenchido quando a conversa nasceu de um anúncio. É o que faz o cliente
+   * entrar na carteira já marcado como lead de marketing, em vez de alguém ter
+   * de lembrar de marcar depois — que é por que os 257 relacionamentos
+   * existentes estão todos com origem_lead nulo.
+   */
+  campanhaId: string | null = null,
 ): Promise<{ id: string | null; aviso: string | null }> {
   const variantes = variantesTelefone(phone);
   if (variantes.length) {
@@ -821,6 +829,7 @@ async function garantirRelacionamento(
       telefone: variantes.length ? formatarTelefone(phone) : null,
       temperatura: "quente",
       origem: "WhatsApp",
+      ...(campanhaId ? { origem_lead: "marketing", campanha_id: campanhaId } : {}),
       observacao: "Criado automaticamente pelo Supervisor AURA a partir de uma conversa no WhatsApp.",
       ultimo_contato_em: new Date().toISOString(),
     })
@@ -869,6 +878,8 @@ async function garantirOportunidade(
   valor: number | null,
   oportunidadeId: string | null,
   funil: EtapaFunil[],
+  /** A campanha que trouxe o lead, para a venda poder ser creditada a ela. */
+  campanhaId: string | null = null,
 ) {
   // "Negócio ainda em aberto" = toda etapa que não é de ganho nem de perda,
   // segundo o funil DESTA loja. Era uma lista fixa escrita na consulta.
@@ -919,6 +930,11 @@ async function garantirOportunidade(
       etapa: primeiraEtapa(funil),
       probabilidade: probabilidadeDe(primeiraEtapa(funil), funil),
       relacionamento_id: relacionamentoId,
+      /*
+       * Sem isto, a venda fechada não tem como voltar à campanha: a atribuição
+       * se perde justamente no passo que interessa ao marketing.
+       */
+      ...(campanhaId ? { origem_lead: "marketing", campanha_id: campanhaId } : {}),
       descricao: "Oportunidade criada automaticamente pelo Supervisor AURA (WhatsApp).",
     })
     .select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro")
@@ -1504,10 +1520,30 @@ export async function analisarConversa(
       );
     }
 
+    /*
+     * Origem de anúncio.
+     *
+     * Resolvida uma vez só: se a conversa JÁ tem campanha gravada, não mexe.
+     * Reprocessar a cada análise trocaria a campanha de um lead antigo caso a
+     * pessoa clicasse em outro anúncio depois, e a venda seria creditada ao
+     * anúncio errado — pior do que não ter o número.
+     */
+    const anuncio = row?.campanha_id ? null : anuncioDaConversa(msgs);
+    let campanhaId: string | null = (row?.campanha_id as string | null) ?? null;
+    let camposAnuncio: Record<string, unknown> = {};
+    if (anuncio) {
+      campanhaId = await resolverCampanha(sb, empresa, userId, anuncio);
+      camposAnuncio = {
+        ...camposDoAnuncio(anuncio, campanhaId),
+        anuncio_em: new Date().toISOString(),
+      };
+    }
+
     const patch: Record<string, unknown> = {
       owner_id: userId,
       empresa,
       chat_jid: chatJid,
+      ...camposAnuncio,
       telefone: chat.phone,
       nome: chat.name,
       ultimo_msg_id: ultimo.id,
@@ -1558,6 +1594,7 @@ export async function analisarConversa(
           chat.name,
           chat.phone,
           ehCategoria(row?.categoria) ? row.categoria : analise?.categoria_sugerida ?? null,
+          campanhaId,
         );
         relacionamentoId = r.id;
         if (r.aviso) aviso = r.aviso;
@@ -1575,6 +1612,7 @@ export async function analisarConversa(
           patch.valor_estimado as number | null,
           row?.oportunidade_id ?? null,
           funil,
+          campanhaId,
         );
         if (op) {
           patch.oportunidade_id = op.id;

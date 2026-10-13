@@ -11,7 +11,20 @@ export interface Campanha {
   dataInicio: string | null;
   dataFim: string | null;
   orcamento: number | null;
+  /**
+   * Leads de verdade, contados na hora a partir dos clientes atribuídos.
+   *
+   * A coluna leads_gerados da tabela nunca foi atualizada por ninguém — toda
+   * campanha aparecia com zero. Não foi substituída por um gatilho porque
+   * contador denormalizado desencontra do real no primeiro caso de borda
+   * (lead transferido, venda cancelada) e continua mostrando um número
+   * plausível, que é o pior tipo de erro.
+   */
   leadsGerados: number;
+  negocios: number;
+  vendasFechadas: number;
+  valorGerado: number;
+  conversas: number;
   observacoes: string | null;
   createdAt: string;
 }
@@ -26,7 +39,11 @@ function doBanco(linha: Record<string, unknown>): Campanha {
     dataInicio: (linha.data_inicio as string) ?? null,
     dataFim: (linha.data_fim as string) ?? null,
     orcamento: linha.orcamento !== null ? Number(linha.orcamento) : null,
-    leadsGerados: Number(linha.leads_gerados ?? 0),
+    leadsGerados: Number(linha.leads ?? linha.leads_gerados ?? 0),
+    negocios: Number(linha.negocios ?? 0),
+    vendasFechadas: Number(linha.vendas_fechadas ?? 0),
+    valorGerado: Number(linha.valor_gerado ?? 0),
+    conversas: Number(linha.conversas ?? 0),
     observacoes: (linha.observacoes as string) ?? null,
     createdAt: linha.created_at as string,
   };
@@ -36,8 +53,12 @@ export async function listarCampanhas(): Promise<Campanha[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
 
+  /*
+   * Lê da view campanhas_resumo, não da tabela: é ela que traz leads,
+   * negócios, vendas fechadas e valor gerado contados na hora.
+   */
   const { data, error } = await supabase
-    .from("campanhas_marketing")
+    .from("campanhas_resumo")
     .select("*")
     .order("created_at", { ascending: false });
 

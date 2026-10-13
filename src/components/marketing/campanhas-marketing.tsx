@@ -13,6 +13,7 @@ import {
 } from "@/lib/supabase/campanhas-marketing";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { LeadsPorVendedor } from "@/components/marketing/leads-por-vendedor";
 
 const LABEL_STATUS: Record<StatusCampanha, { texto: string; cor: string }> = {
   planejada: { texto: "Planejada", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft" },
@@ -115,6 +116,7 @@ export function CampanhasMarketing() {
 
   return (
     <div className="flex flex-col gap-4">
+      <LeadsPorVendedor />
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-aura-mist bg-white p-4">
           <p className="flex items-center gap-1.5 text-xs text-aura-graphite-soft">
