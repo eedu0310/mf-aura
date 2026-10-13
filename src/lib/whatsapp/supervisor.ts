@@ -830,7 +830,15 @@ async function garantirRelacionamento(
       temperatura: "quente",
       origem: "WhatsApp",
       ...(campanhaId ? { origem_lead: "marketing", campanha_id: campanhaId } : {}),
-      observacao: "Criado automaticamente pelo Supervisor AURA a partir de uma conversa no WhatsApp.",
+      /*
+       * `observacao` NÃO é mais preenchida aqui.
+       *
+       * Ela é o campo de anotações do vendedor sobre o cadastro, e o
+       * Supervisor estava carimbando "Criado automaticamente..." em todo
+       * contato que criava — 175 deles. Quem fosse anotar algo útil teria de
+       * apagar o aviso antes. O fato já está registrado em `origem:
+       * "WhatsApp"`, que é onde ele pertence.
+       */
       ultimo_contato_em: new Date().toISOString(),
     })
     .select("id")

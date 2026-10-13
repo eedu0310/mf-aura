@@ -8,6 +8,23 @@ import { DuplaPanel } from "@/components/atendimento/dupla-panel";
 import type { Relacionamento, CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
 
+/**
+ * O carimbo que o Supervisor gravava em todo contato criado por ele.
+ *
+ * Eram 175 cadastros com este texto no campo de anotações do vendedor. Ele
+ * parou de ser escrito, mas os antigos continuam no banco: mostrá-los aqui
+ * encheria a ficha de um aviso que não diz nada e ensinaria a equipe a
+ * ignorar o lugar onde a anotação de verdade mora.
+ */
+const CARIMBO_ANTIGO = "Criado automaticamente pelo Supervisor AURA";
+
+function observacaoUtil(texto?: string | null): string {
+  const t = (texto ?? "").trim();
+  if (!t || t.startsWith(CARIMBO_ANTIGO)) return "";
+  return t;
+}
+
+
 const CATEGORIAS: CategoriaRelacionamento[] = [
   "Cliente Final",
   "Arquiteto",
@@ -46,7 +63,7 @@ export function RelacionamentoDetailsModal({
     cidade: relacionamento.cidade || "",
     endereco: relacionamento.endereco || "",
     responsavel: relacionamento.responsavel || "",
-    observacao: relacionamento.observacao || "",
+    observacao: observacaoUtil(relacionamento.observacao),
     temperatura: relacionamento.temperatura,
     proximoContato: relacionamento.proximoContato,
   });
@@ -186,13 +203,13 @@ export function RelacionamentoDetailsModal({
               Ela só aparece quando existe: um quadro vazio em toda ficha é
               ruído que ensina a pessoa a ignorar o lugar.
             */}
-            {relacionamento.observacao ? (
+            {observacaoUtil(relacionamento.observacao) ? (
               <div className="rounded-xl border border-aura-mist bg-white p-4">
                 <p className="text-xs font-medium text-aura-graphite-soft">
                   Observações sobre o cadastro
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-aura-graphite">
-                  {relacionamento.observacao}
+                  {observacaoUtil(relacionamento.observacao)}
                 </p>
               </div>
             ) : null}
