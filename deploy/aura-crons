@@ -36,3 +36,7 @@ ALVO=http://127.0.0.1:3000
 # cobrança por pessoa por dia, então rodar todo dia é inofensivo e garante que
 # quem entrar na equipe no meio da janela também seja cobrado.
 0 11 * * * root curl -sS -m 120 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/cobrar-metas >> /var/log/aura-cron.log 2>&1
+
+# Backup do banco todo dia às 22h. Guarda 7 diários e 4 domingos anteriores a
+# eles — cerca de 30 dias de cobertura — em /opt/aura/.backups.
+0 22 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/backup >> /var/log/aura-cron.log 2>&1

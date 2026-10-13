@@ -8,3 +8,5 @@ node_modules/
 tsconfig.tsbuildinfo
 .whatsapp-sessions/
 .env.local
+
+.backups/
