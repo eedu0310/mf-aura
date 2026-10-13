@@ -47,7 +47,10 @@ export async function GET(request: Request) {
   }
 
   const [rPessoas, rMetas] = await Promise.all([
-    supabase.from("profiles").select("id, nome, cargo, empresa, ativo").eq("ativo", true),
+    supabase
+      .from("profiles")
+      .select("id, nome, cargo, empresa, ativo, gestor_mestre, gestor_aprovado")
+      .eq("ativo", true),
     supabase.from("compromissos_mensais").select("vendedor_id").eq("mes", mes),
   ]);
 
@@ -101,23 +104,50 @@ export async function GET(request: Request) {
       acao_url: "/meu-dia",
     }));
 
-  // O gestor recebe a lista de quem está devendo na própria loja dele.
+  /*
+   * O gestor recebe a lista de quem está devendo.
+   *
+   * Duas correções que só apareceram quando fui conferir o resultado da
+   * primeira execução no banco, em vez de confiar no "ok" da resposta:
+   *
+   * - A visão de todas as lojas estava presa ao cargo "Diretor", que NINGUÉM
+   *   tem no sistema. Quem enxerga o grupo inteiro é o gestor mestre, e ele
+   *   recebia só a lista da própria loja. Importa de verdade: a Sole
+   *   Aquecimento não tem gestor nenhum cadastrado, então as três pessoas de
+   *   lá ficavam devendo meta sem que ninguém fosse avisado.
+   *
+   * - Gestor não aprovado recebia o alerta e não conseguia abrir a tela, que
+   *   exige gestor_aprovado na RLS. Avisar alguém sobre algo que ele não tem
+   *   permissão de ver é pior do que não avisar: gasta a atenção dele e não
+   *   oferece saída. Enquanto não for aprovado, a cobrança da equipe dele
+   *   fica com o gestor mestre, que enxerga todas as lojas.
+   */
+  const vêTodasAsLojas = (p: Record<string, unknown>) =>
+    String(p.cargo) === "Diretor" || p.gestor_mestre === true;
+
   const gestores = pessoas.filter(
-    (p) => String(p.cargo) === "Gestor" || String(p.cargo) === "Diretor",
+    (p) =>
+      (String(p.cargo) === "Gestor" || String(p.cargo) === "Diretor") &&
+      (String(p.cargo) === "Diretor" || p.gestor_aprovado === true),
   );
   for (const g of gestores) {
     if (avisadoHoje.has(String(g.id))) continue;
-    const daLoja =
-      String(g.cargo) === "Diretor"
-        ? devendo
-        : devendo.filter((p) => String(p.empresa) === String(g.empresa));
+    const daLoja = vêTodasAsLojas(g)
+      ? devendo
+      : devendo.filter((p) => String(p.empresa) === String(g.empresa));
     if (daLoja.length === 0) continue;
     avisos.push({
       vendedor_id: String(g.id),
       titulo: TITULO_GESTOR,
       mensagem:
         `${daLoja.length} ${daLoja.length === 1 ? "pessoa" : "pessoas"} sem meta deste mês: ` +
-        `${daLoja.map((p) => String(p.nome ?? "sem nome")).join(", ")}.`,
+        `${daLoja
+          .map((p) =>
+            vêTodasAsLojas(g)
+              ? `${String(p.nome ?? "sem nome")} (${String(p.empresa ?? "sem loja")})`
+              : String(p.nome ?? "sem nome"),
+          )
+          .join(", ")}.`,
       tipo: "alerta",
       acao_url: "/gestor/compromissos-mensais",
     });
