@@ -297,7 +297,19 @@ export function PipelineBoard({}: PipelineBoardProps) {
         ehGanho(novaEtapa, funil) &&
         !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
       ) return;
-      moveOportunidade(oportunidadeId, novaEtapa);
+      /*
+       * Com .catch: mover para Fechamento grava uma venda, e se o banco
+       * recusar (venda igual já existe, ou erro de verdade) a pessoa precisa
+       * ver o motivo. Sem isto a promessa estourava no console e a tela
+       * ficava como se tivesse dado certo.
+       */
+      moveOportunidade(oportunidadeId, novaEtapa).catch((e) => {
+        window.alert(
+          `O card foi movido, mas a venda não foi gravada. Motivo: ${
+            e instanceof Error ? e.message : "erro desconhecido"
+          }`,
+        );
+      });
       return;
     }
 

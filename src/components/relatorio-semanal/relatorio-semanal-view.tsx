@@ -154,7 +154,18 @@ function CabecalhoImpressao({ r }: { r: RelatorioSemanal }) {
     <header className="hidden print:block" data-cabecalho-impressao>
       <div className="flex items-end justify-between border-b-2 border-aura-navy-950 pb-2">
         <div>
-          <p className="font-display text-xl font-bold text-aura-graphite">Relatório semanal</p>
+          {/*
+            O título diz o que o relatório É. Um relatório de um dia chamado
+            "semanal" faria o gestor comparar números de 1 dia com a meta de
+            uma semana sem perceber.
+          */}
+          <p className="font-display text-xl font-bold text-aura-graphite">
+            {r.periodoInicio === r.periodoFim
+              ? "Relatório do dia"
+              : diasEntre(r.periodoInicio, r.periodoFim) >= 6
+                ? "Relatório semanal"
+                : "Relatório do período"}
+          </p>
           <p className="text-[11px] text-aura-graphite-soft">AURA · Grupo MF</p>
         </div>
         <div className="text-right text-[11px] text-aura-graphite-soft">
@@ -162,8 +173,10 @@ function CabecalhoImpressao({ r }: { r: RelatorioSemanal }) {
             <strong className="text-aura-graphite">Loja:</strong> {r.empresa}
           </p>
           <p>
-            <strong className="text-aura-graphite">Semana:</strong> {dataBR(r.periodoInicio)} a{" "}
-            {dataBR(r.periodoFim)}
+            <strong className="text-aura-graphite">Período:</strong>{" "}
+            {r.periodoInicio === r.periodoFim
+              ? dataBR(r.periodoInicio)
+              : `${dataBR(r.periodoInicio)} a ${dataBR(r.periodoFim)}`}
           </p>
           <p>
             Gerado em{" "}
@@ -432,6 +445,10 @@ function AgendaDoVendedor({ v }: { v: VendedorNoRelatorio }) {
  * agendamentos" rouba a atenção do que a pessoa de fato fez. O que não
  * aconteceu aparece no detalhe, dentro do bloco.
  */
+function diasEntre(a: string, b: string): number {
+  return Math.round((new Date(`${b}T12:00:00Z`).getTime() - new Date(`${a}T12:00:00Z`).getTime()) / 86_400_000);
+}
+
 function placarDaSemana(v: VendedorNoRelatorio): string[] {
   const partes: string[] = [];
   const por = (n: number, um: string, varios: string) => {
@@ -664,6 +681,7 @@ export function RelatorioSemanalView() {
   const [erro, setErro] = useState<string | null>(null);
   const [loja, setLoja] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<string | null>(null);
+  const [menuGerar, setMenuGerar] = useState(false);
   const [preparandoImpressao, setPreparandoImpressao] = useState(false);
 
   const buscar = useCallback(async () => {
@@ -693,18 +711,43 @@ export function RelatorioSemanalView() {
     void buscar();
   }, [buscar]);
 
-  async function gerarAgora() {
+  /**
+   * Gera um relatório de qualquer janela.
+   *
+   * O de sábado continua automático. Este botão existe porque o gestor
+   * passava a semana sem saber o que a equipe estava fazendo — "às cegas",
+   * nas palavras dele — e só descobria no sábado. "Hoje" e "Ontem" respondem
+   * isso; "Últimos 7 dias" é a semana corrida, sem esperar a segunda-feira.
+   */
+  async function gerarJanela(janela: "hoje" | "ontem" | "7dias" | "semana") {
     setGerando(true);
     setErro(null);
+    setMenuGerar(false);
+    const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const dias = (n: number) => {
+      const d = new Date(`${hojeBR}T12:00:00-03:00`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    };
+    const corpo: Record<string, string | undefined> = { loja: loja ?? dados?.loja };
+    if (janela === "hoje") Object.assign(corpo, { inicio: hojeBR, fim: hojeBR });
+    else if (janela === "ontem") Object.assign(corpo, { inicio: dias(-1), fim: dias(-1) });
+    else if (janela === "7dias") Object.assign(corpo, { inicio: dias(-6), fim: hojeBR });
+    // "semana": sem inicio/fim, a rota usa a segunda-feira como sempre.
+
     try {
       const resp = await fetch("/api/relatorios/semanal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ loja: loja ?? dados?.loja, periodo }),
+        body: JSON.stringify(corpo),
       });
       const j = await resp.json();
       if (!resp.ok) setErro(j.erro ?? "Não consegui gerar o relatório.");
-      else await buscar();
+      else {
+        // Abre direto no período que acabou de ser gerado.
+        if (j.relatorio?.periodoInicio) setPeriodo(`${j.relatorio.periodoInicio}|${j.relatorio.periodoFim}`);
+        await buscar();
+      }
     } catch {
       setErro("Não consegui falar com o servidor.");
     } finally {
@@ -786,33 +829,61 @@ export function RelatorioSemanalView() {
 
         {dados?.periodos.length ? (
           <select
-            value={periodo ?? dados.periodos[0].periodo_inicio}
+            value={periodo ?? `${dados.periodos[0].periodo_inicio}|${dados.periodos[0].periodo_fim}`}
             onChange={(e) => setPeriodo(e.target.value)}
             className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
-            aria-label="Semana"
+            aria-label="Período"
           >
             {dados.periodos.map((p) => (
-              <option key={p.periodo_inicio} value={p.periodo_inicio}>
-                {dataBR(p.periodo_inicio)} a {dataBR(p.periodo_fim)}
+              <option key={`${p.periodo_inicio}|${p.periodo_fim}`} value={`${p.periodo_inicio}|${p.periodo_fim}`}>
+                {p.periodo_inicio === p.periodo_fim
+                  ? `Dia ${dataBR(p.periodo_inicio)}`
+                  : `${dataBR(p.periodo_inicio)} a ${dataBR(p.periodo_fim)}`}
               </option>
             ))}
           </select>
         ) : null}
 
         {dados?.podeGerar ? (
-          <button
-            type="button"
-            onClick={gerarAgora}
-            disabled={gerando}
-            className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite hover:bg-aura-bg disabled:opacity-60"
-          >
-            {gerando ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuGerar((v) => !v)}
+              disabled={gerando}
+              className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite hover:bg-aura-bg disabled:opacity-60"
+            >
+              {gerando ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {gerando ? "Gerando..." : "Gerar relatório"}
+            </button>
+            {menuGerar && !gerando && (
+              <div className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-aura-mist bg-white py-1 shadow-xl">
+                {(
+                  [
+                    ["hoje", "Hoje"],
+                    ["ontem", "Ontem"],
+                    ["7dias", "Últimos 7 dias"],
+                    ["semana", "Esta semana (seg → hoje)"],
+                  ] as const
+                ).map(([chave, rotulo]) => (
+                  <button
+                    key={chave}
+                    type="button"
+                    onClick={() => void gerarJanela(chave)}
+                    className="block w-full px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-bg"
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+                <p className="border-t border-aura-mist px-3 py-2 text-[11px] text-aura-graphite-soft">
+                  Cada geração avalia cada vendedor com a IA. Leva alguns segundos.
+                </p>
+              </div>
             )}
-            {gerando ? "Gerando..." : "Gerar esta semana agora"}
-          </button>
+          </div>
         ) : null}
 
         {r ? (

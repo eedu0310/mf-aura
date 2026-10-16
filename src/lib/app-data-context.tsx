@@ -415,7 +415,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user || !empresaAtual || !nome) return null;
+      /*
+       * Cada motivo com a sua mensagem. Antes tudo virava `return null` e a
+       * tela dizia "Erro ao salvar. Tente novamente." — o vendedor não sabia
+       * se faltou campo, se o telefone já era de outro colega ou se caiu a
+       * conexão, e não tinha como contar ao gestor o que viu.
+       */
+      if (!user) throw new Error("Sua sessão expirou. Entre de novo.");
+      if (!nome) throw new Error("O nome do contato está vazio.");
+      if (!empresaAtual) {
+        throw new Error("Seu perfil está sem loja definida. Peça ao gestor para conferir seu cadastro.");
+      }
 
       let existente: Record<string, unknown> | null = null;
 
@@ -479,7 +489,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
         if (error || !data) {
           console.error("Erro ao actualizar relacionamento existente:", error);
-          return null;
+          throw new Error(error?.message ?? "O banco não atualizou o contato.");
         }
 
         const actualizado = relacionamentoDoBanco(data);
@@ -501,7 +511,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       if (error || !data) {
         console.error("Erro ao criar relacionamento:", error);
-        return null;
+        if (error?.code === "23505") {
+          throw new Error(
+            "Já existe um contato com este telefone ou e-mail na carteira de outro vendedor. Fale com seu gestor para transferir.",
+          );
+        }
+        if (error?.code === "42501") {
+          throw new Error("Sem permissão para criar contato nesta loja. Confira sua loja no perfil.");
+        }
+        throw new Error(error?.message ?? "O banco não gravou o contato.");
       }
 
       const novo = relacionamentoDoBanco(data);
@@ -863,14 +881,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error || !data) {
-        // O banco impede duas vendas para a mesma oportunidade. Quando isso
-        // acontece, o negócio já foi registrado — não é erro para o usuário.
-        if (error?.code === "23505" || /já tem uma venda/i.test(error?.message ?? "")) {
-          console.warn("Venda já registrada para esta oportunidade; ignorando a segunda.");
+        /*
+         * Dois destinos diferentes, de propósito.
+         *
+         * Duplicata (o banco recusou porque a venda igual já existe): devolve
+         * null, e quem chamou trata como "já registrada". Qualquer OUTRO erro
+         * estoura com a mensagem real do banco. Antes os dois viravam null, e
+         * a tela não tinha como distinguir "já existe" de "caiu a conexão" —
+         * dizia a mesma coisa para os dois, e nos dois estava errada para
+         * metade dos casos.
+         */
+        if (error?.code === "23505" || /já tem uma venda|venda igual/i.test(error?.message ?? "")) {
+          console.warn("Venda já registrada; ignorando a segunda.", error?.message);
           return null;
         }
         console.error("Erro ao criar venda:", error);
-        return null;
+        throw new Error(error?.message ?? "O banco não gravou a venda.");
       }
       const nova = vendaDoBanco(data);
 

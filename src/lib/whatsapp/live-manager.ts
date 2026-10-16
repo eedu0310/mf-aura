@@ -1539,7 +1539,17 @@ export async function religarSessoesSalvas(): Promise<{ religadas: string[]; jaA
     return { religadas, jaAtivas };
   }
 
+  const EH_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   for (const userId of pastas) {
+    /*
+     * Só pasta cujo nome é um id de usuário de verdade. Havia uma pasta
+     * "demo" (sessão de teste) e o religamento tentava subi-la a cada cinco
+     * minutos: cada tentativa consultava o banco com owner_id = 'demo' e
+     * gerava um erro de uuid inválido no log — 288 por dia, escondendo
+     * qualquer erro de verdade no meio.
+     */
+    if (!EH_UUID.test(userId)) continue;
     // Sem creds.json não há credencial: seria um QR novo, não um religamento.
     if (!fs.existsSync(path.join(/*turbopackIgnore: true*/ SESSIONS_DIR, userId, "creds.json"))) continue;
 

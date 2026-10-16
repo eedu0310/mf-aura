@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { X, Trash2, Download, Upload, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Trash2, Download, Upload, Loader2, FileText } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { nomesDasEtapas } from "@/lib/funil";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  listarOrcamentos,
+  anexarOrcamento,
+  linkDoOrcamento,
+  removerOrcamento,
+  type OrcamentoAnexo,
+} from "@/lib/supabase/orcamentos";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Oportunidade, Etapa, Probabilidade } from "@/lib/types";
 
@@ -25,11 +31,12 @@ export function OportunidadeDetailsModal({
   const [deletando, setDeletando] = useState(false);
   const [uploadandoOrcamento, setUploadandoOrcamento] = useState(false);
   const [erroOrcamento, setErroOrcamento] = useState<string | null>(null);
-  const [orcamento, setOrcamento] = useState<{ path: string; nome: string } | null>(
-    oportunidade.orcamentoPath
-      ? { path: oportunidade.orcamentoPath, nome: oportunidade.orcamentoNome ?? "orçamento" }
-      : null,
-  );
+  /*
+   * Lista, não um só. Havia uma coluna e o upload usava upsert: o segundo
+   * orçamento sobrescrevia o primeiro. A casa faz vários até fechar.
+   */
+  const [orcamentos, setOrcamentos] = useState<OrcamentoAnexo[]>([]);
+  const [carregandoOrcamentos, setCarregandoOrcamentos] = useState(true);
   const { profile } = useUserProfile();
 
   const [formData, setFormData] = useState({
@@ -74,65 +81,61 @@ export function OportunidadeDetailsModal({
     }
   }
 
-  const TAMANHO_MAXIMO_MB = 10;
+  useEffect(() => {
+    let vivo = true;
+    setCarregandoOrcamentos(true);
+    listarOrcamentos(oportunidade.id)
+      .then((lista) => vivo && setOrcamentos(lista))
+      .catch((e) => vivo && setErroOrcamento(e instanceof Error ? e.message : "Não consegui listar os orçamentos."))
+      .finally(() => vivo && setCarregandoOrcamentos(false));
+    return () => {
+      vivo = false;
+    };
+  }, [oportunidade.id]);
 
   /** Envia o orçamento para o armazenamento da loja e guarda o caminho na oportunidade. */
   async function handleUploadOrcamento(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setErroOrcamento(null);
-
-    if (file.size > TAMANHO_MAXIMO_MB * 1024 * 1024) {
-      setErroOrcamento(`O arquivo passa de ${TAMANHO_MAXIMO_MB} MB.`);
-      return;
-    }
-
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setErroOrcamento("Armazenamento indisponível.");
-      return;
-    }
-
     setUploadandoOrcamento(true);
     try {
-      const loja = oportunidade.empresa || profile.empresa;
-      const nomeSeguro = file.name.replace(/[^\w.\-]+/g, "_");
-      const caminho = `${loja}/oportunidades/${oportunidade.id}/${nomeSeguro}`;
-
-      const { error: erroUpload } = await supabase.storage
-        .from("orcamentos")
-        .upload(caminho, file, { upsert: true });
-      if (erroUpload) throw erroUpload;
-
-      const { error: erroBanco } = await supabase
-        .from("oportunidades")
-        .update({ orcamento_path: caminho, orcamento_nome: file.name })
-        .eq("id", oportunidade.id);
-      if (erroBanco) throw erroBanco;
-
-      setOrcamento({ path: caminho, nome: file.name });
-    } catch (erro: any) {
+      const novo = await anexarOrcamento({
+        oportunidadeId: oportunidade.id,
+        relacionamentoId: oportunidade.relacionamentoId ?? null,
+        empresa: oportunidade.empresa || profile.empresa,
+        arquivo: file,
+      });
+      setOrcamentos((atual) => [novo, ...atual]);
+    } catch (erro) {
       console.error("Erro ao anexar orçamento:", erro);
-      setErroOrcamento(erro?.message ?? "Não consegui anexar o orçamento.");
+      setErroOrcamento(erro instanceof Error ? erro.message : "Não consegui anexar o orçamento.");
     } finally {
       setUploadandoOrcamento(false);
       e.target.value = "";
     }
   }
 
-  /** Abre o orçamento anexado por um link temporário e assinado. */
-  async function baixarOrcamento() {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase || !orcamento) return;
-    const { data, error } = await supabase.storage
-      .from("orcamentos")
-      .createSignedUrl(orcamento.path, 60);
-    if (error || !data?.signedUrl) {
-      setErroOrcamento("Não consegui abrir o arquivo.");
-      return;
+  async function abrirOrcamento(anexo: OrcamentoAnexo) {
+    setErroOrcamento(null);
+    try {
+      window.open(await linkDoOrcamento(anexo.path), "_blank", "noopener");
+    } catch (erro) {
+      setErroOrcamento(erro instanceof Error ? erro.message : "Não consegui abrir o arquivo.");
     }
-    window.open(data.signedUrl, "_blank", "noopener");
   }
+
+  async function excluirOrcamento(anexo: OrcamentoAnexo) {
+    if (!window.confirm(`Remover o orçamento ${anexo.versao} (${anexo.nome})?`)) return;
+    setErroOrcamento(null);
+    try {
+      await removerOrcamento(anexo);
+      setOrcamentos((atual) => atual.filter((o) => o.id !== anexo.id));
+    } catch (erro) {
+      setErroOrcamento(erro instanceof Error ? erro.message : "Não consegui remover.");
+    }
+  }
+
 
   function formatarMoeda(valor: number) {
     return new Intl.NumberFormat("pt-BR", {
@@ -208,38 +211,17 @@ export function OportunidadeDetailsModal({
               </div>
             </div>
 
-            {/* Orçamento anexado */}
+            {/* Orçamentos anexados — vários por negócio */}
             <div className="rounded-xl border border-aura-mist p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Upload size={16} className="text-aura-petrol-600" />
-                <p className="text-sm font-medium text-aura-graphite">Orçamento</p>
-              </div>
-
-              {orcamento ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-aura-mist bg-aura-bg/50 px-3 py-3">
-                  <p className="min-w-0 truncate text-sm text-aura-graphite">{orcamento.nome}</p>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void baixarOrcamento()}
-                      className="flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-white"
-                    >
-                      <Download size={13} /> Abrir
-                    </button>
-                    <label className="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium text-aura-petrol-700 hover:underline">
-                      Trocar
-                      <input
-                        type="file"
-                        onChange={handleUploadOrcamento}
-                        disabled={uploadandoOrcamento}
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
-                      />
-                    </label>
-                  </div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Upload size={16} className="text-aura-petrol-600" />
+                  <p className="text-sm font-medium text-aura-graphite">
+                    Orçamentos{orcamentos.length > 0 ? ` (${orcamentos.length})` : ""}
+                  </p>
                 </div>
-              ) : (
-                <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-aura-mist bg-aura-bg/50 px-4 py-8 transition hover:border-aura-petrol-300">
+                <label className="cursor-pointer rounded-lg bg-aura-petrol-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-aura-petrol-600">
+                  {uploadandoOrcamento ? "Enviando..." : orcamentos.length ? "Anexar outro" : "Anexar orçamento"}
                   <input
                     type="file"
                     onChange={handleUploadOrcamento}
@@ -247,21 +229,54 @@ export function OportunidadeDetailsModal({
                     className="hidden"
                     accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
                   />
-                  <div className="text-center">
-                    {uploadandoOrcamento ? (
-                      <Loader2 size={24} className="mx-auto animate-spin text-aura-petrol-600" />
-                    ) : (
-                      <>
-                        <p className="text-sm font-medium text-aura-graphite">
-                          Clique para anexar o orçamento
-                        </p>
-                        <p className="mt-1 text-xs text-aura-graphite-soft">
-                          PDF, Word, Excel ou foto — até 10 MB
-                        </p>
-                      </>
-                    )}
-                  </div>
                 </label>
+              </div>
+
+              {carregandoOrcamentos ? (
+                <p className="flex items-center gap-2 text-xs text-aura-graphite-soft">
+                  <Loader2 size={14} className="animate-spin" /> Carregando...
+                </p>
+              ) : orcamentos.length === 0 ? (
+                <p className="text-xs text-aura-graphite-soft">
+                  Nenhum orçamento ainda. PDF, Word, Excel ou foto — até 10 MB cada.
+                </p>
+              ) : (
+                <ul className="divide-y divide-aura-mist">
+                  {orcamentos.map((o) => (
+                    <li key={o.id} className="flex items-center justify-between gap-3 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="shrink-0 rounded-full bg-aura-petrol-100 px-2 py-0.5 text-[11px] font-semibold text-aura-petrol-700">
+                          {o.versao}º
+                        </span>
+                        <FileText size={14} className="shrink-0 text-aura-graphite-soft" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-aura-graphite">{o.nome}</p>
+                          <p className="text-[11px] text-aura-graphite-soft">
+                            {new Date(o.criadoEm).toLocaleDateString("pt-BR")}
+                            {o.bytes ? ` · ${(o.bytes / 1024 / 1024).toFixed(1)} MB` : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void abrirOrcamento(o)}
+                          className="flex items-center gap-1 rounded-lg border border-aura-mist px-2.5 py-1 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
+                        >
+                          <Download size={12} /> Abrir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void excluirOrcamento(o)}
+                          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-red-50 hover:text-aura-danger"
+                          title="Remover"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
 
               {erroOrcamento && (

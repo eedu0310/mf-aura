@@ -165,7 +165,17 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       );
 
       if (!venda) {
-        setErro("Não foi possível guardar a venda.");
+        /*
+         * null aqui quase sempre quer dizer "já existe": o banco recusa venda
+         * igual (mesmo cliente, valor e dia) e o addVenda devolve null sem
+         * erro. Dizer "não foi possível guardar" fazia a pessoa tentar de
+         * novo — e de novo — achando que era falha de conexão. Foi assim que
+         * a mesma venda entrou três vezes antes de a regra existir.
+         */
+        setErro(
+          "Esta venda já está registrada: mesmo cliente, mesmo valor, hoje. " +
+            "Confira na aba Vendas antes de registrar de novo.",
+        );
         return;
       }
 
@@ -221,7 +231,14 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       onConcluir();
     } catch (error) {
       console.error("Erro ao guardar venda:", error);
-      setErro("Ocorreu um erro ao guardar a venda.");
+      // A mensagem real, não "ocorreu um erro": é ela que diz se foi
+      // permissão, conexão ou dado inválido, e é ela que o gestor precisa
+      // ler quando o vendedor mandar o print.
+      setErro(
+        `Não consegui guardar a venda. Motivo: ${
+          error instanceof Error ? error.message : "erro desconhecido"
+        }`,
+      );
     } finally {
       setEnviando(false);
     }

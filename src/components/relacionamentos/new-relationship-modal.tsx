@@ -122,10 +122,11 @@ export function NewRelationshipModal({
         onCriado(novo.id);
         onClose();
       } else {
-        setErro("Erro ao salvar. Tente novamente.");
+        setErro("O contato não foi salvo e o sistema não disse por quê. Avise o gestor.");
       }
     } catch (e) {
-      setErro("Erro inesperado. Tente novamente.");
+      // A mensagem real. "Erro inesperado" não ajuda ninguém a resolver nada.
+      setErro(e instanceof Error ? e.message : "Erro inesperado. Tente novamente.");
       console.error(e);
     } finally {
       setSalvando(false);

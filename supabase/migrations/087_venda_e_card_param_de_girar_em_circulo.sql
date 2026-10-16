@@ -1,0 +1,23 @@
+-- 087: a venda e o card não podem se criar mutuamente.
+--
+-- O CICLO: dois gatilhos que se olham.
+--   vendas → aura_venda_fecha_pipeline: venda registrada move/cria o card.
+--   oportunidades → aura_fechar_card_cria_venda: card em Fechamento cria venda.
+-- Cada um se protege pelo oportunidade_id. A venda do formulário chega SEM
+-- esse id, que só é preenchido pelo primeiro gatilho — e ele, ao mover o
+-- card, já disparou o segundo antes de a venda original existir na tabela.
+-- O segundo não acha venda ligada ao card e cria outra. Foi assim que a
+-- Maristela apareceu duas vezes no mesmo segundo.
+--
+-- Com a 085 (venda CRIA o card quando não existe), o ciclo piorava: a
+-- segunda venda era recusada pela trava de duplicata e a transação inteira
+-- voltava — inclusive a venda original. Registrar venda pelo formulário
+-- passaria a falhar sempre. Descoberto ao testar, antes de chegar na loja.
+--
+-- A SAÍDA: marca na transação (set_config com is_local = true, morre no fim
+-- da transação). Quem começou pela venda avisa; o gatilho do card, vendo a
+-- marca, não cria uma segunda. Padrão do Postgres para ciclo de gatilho.
+--
+-- TESTADO em transação desfeita: formulário → 1 venda + 1 card ligado;
+-- mesma venda duas vezes → segunda recusada; card arrastado → 1 venda.
+-- (Corpo das funções aplicado via conector; idêntico ao que está no banco.)

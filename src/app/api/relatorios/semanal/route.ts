@@ -67,7 +67,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ erro: `Não consegui listar os períodos: ${erroPeriodos.message}` }, { status: 500 });
   }
 
-  const inicioPedido = url.searchParams.get("periodo") ?? periodos?.[0]?.periodo_inicio ?? null;
+  /*
+   * O período é identificado por início E fim.
+   *
+   * Com relatório diário, "hoje" numa segunda-feira e "esta semana" começam
+   * no mesmo dia; identificar só pelo início fazia um sobrescrever o outro
+   * na tela. O parâmetro aceita "AAAA-MM-DD|AAAA-MM-DD"; só o início ainda
+   * funciona, para não quebrar link antigo.
+   */
+  const pedido = url.searchParams.get("periodo");
+  const [inicioPedido, fimPedido] = pedido
+    ? pedido.split("|")
+    : [periodos?.[0]?.periodo_inicio ?? null, periodos?.[0]?.periodo_fim ?? null];
 
   if (!inicioPedido) {
     return NextResponse.json({
@@ -86,6 +97,7 @@ export async function GET(request: Request) {
     .eq("empresa", loja)
     .eq("periodo_inicio", inicioPedido)
     .eq("tipo", gestor ? "semanal_gestor" : "semanal_vendedor");
+  if (fimPedido) consulta = consulta.eq("periodo_fim", fimPedido);
 
   // O vendedor só alcança a linha dele. A régua é o id da sessão, não a URL.
   if (!gestor) consulta = consulta.eq("vendedor_id", auth.userId);
@@ -137,27 +149,55 @@ export async function POST(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
 
-  const corpo = (await request.json().catch(() => ({}))) as { loja?: string; periodo?: string };
+  const corpo = (await request.json().catch(() => ({}))) as {
+    loja?: string;
+    /** Segunda-feira da semana (modo antigo). */
+    periodo?: string;
+    /** Janela livre: primeiro e último dia COBERTOS, AAAA-MM-DD. */
+    inicio?: string;
+    fim?: string;
+  };
   const lojasQuePodeVer = auth.gestorMestre || auth.cargo === "Diretor" ? [...NOMES_EMPRESAS] : [auth.empresa];
   const loja = corpo.loja ?? auth.empresa;
   if (!lojasQuePodeVer.includes(loja)) {
     return NextResponse.json({ erro: "Esta loja não está no seu alcance." }, { status: 403 });
   }
 
-  const segunda = corpo.periodo ?? segundaDaSemana(new Date());
-  const inicio = new Date(`${segunda}T00:00:00-03:00`);
-  if (Number.isNaN(inicio.getTime())) {
-    return NextResponse.json({ erro: "Período inválido." }, { status: 400 });
-  }
-
-  const domingo = new Date(inicio);
-  domingo.setUTCDate(domingo.getUTCDate() + 7);
-  // Igual ao cron: a janela não passa do fim de hoje, para não rotular com um
-  // dia que ainda não aconteceu.
+  /*
+   * Dois modos. O antigo manda a segunda-feira e ganha a semana inteira. O
+   * novo manda início e fim (dias cobertos) e ganha exatamente isso — é o que
+   * permite "hoje", "ontem" e "últimos 7 dias". O gestor pediu o diário
+   * porque com só o de sábado passava a semana "às cegas".
+   */
   const hoje = new Date(`${new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })}T00:00:00-03:00`);
   const amanha = new Date(hoje);
   amanha.setUTCDate(amanha.getUTCDate() + 1);
-  const fim = amanha < domingo ? amanha : domingo;
+
+  let inicio: Date;
+  let fimExclusivo: Date;
+  if (corpo.inicio && corpo.fim) {
+    inicio = new Date(`${corpo.inicio}T00:00:00-03:00`);
+    fimExclusivo = new Date(`${corpo.fim}T00:00:00-03:00`);
+    fimExclusivo.setUTCDate(fimExclusivo.getUTCDate() + 1);
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fimExclusivo.getTime())) {
+      return NextResponse.json({ erro: "Período inválido." }, { status: 400 });
+    }
+    // Mais de 31 dias vira varredura pesada e um relatório que ninguém lê.
+    if ((fimExclusivo.getTime() - inicio.getTime()) / 86_400_000 > 31) {
+      return NextResponse.json({ erro: "O período máximo é de 31 dias." }, { status: 400 });
+    }
+  } else {
+    const segunda = corpo.periodo ?? segundaDaSemana(new Date());
+    inicio = new Date(`${segunda}T00:00:00-03:00`);
+    if (Number.isNaN(inicio.getTime())) {
+      return NextResponse.json({ erro: "Período inválido." }, { status: 400 });
+    }
+    fimExclusivo = new Date(inicio);
+    fimExclusivo.setUTCDate(fimExclusivo.getUTCDate() + 7);
+  }
+  // Igual ao cron: a janela não passa do fim de hoje, para não rotular com um
+  // dia que ainda não aconteceu.
+  const fim = amanha < fimExclusivo ? amanha : fimExclusivo;
 
   if (fim <= inicio) {
     return NextResponse.json({ erro: "Esse período ainda não começou." }, { status: 400 });
