@@ -159,7 +159,7 @@ function EtapaColuna({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border bg-aura-bg ${
+      className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-aura-bg ${
         ehPerdidos ? "border-aura-danger/20" : "border-aura-mist"
       }`}
     >
@@ -172,7 +172,7 @@ function EtapaColuna({
         </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+      <div className="flex flex-1 flex-col gap-2 p-3 min-h-96 overflow-y-auto">
         {oportunidades.length === 0 ? (
           <div className="rounded-xl border border-dashed border-aura-mist px-3 py-6 text-center">
             <p className="text-xs text-aura-graphite-soft">
@@ -216,17 +216,16 @@ export function PipelineBoard({}: PipelineBoardProps) {
   /*
    * ROLAGEM HORIZONTAL SEM IR ATÉ O RODAPÉ.
    *
-   * A barra de rolagem lateral fica no pé do quadro. Quem estava no topo,
-   * lendo Prospecção, não tinha como chegar em Negociação sem rolar a página
-   * até o fim. Duas correções juntas:
-   *   1. setas ‹ › ao lado de "Colunas", sempre à vista;
-   *   2. a altura do quadro é medida pela posição REAL dele na tela, para ele
-   *      caber na janela e a barra de baixo aparecer. Um valor fixo
-   *      ("100dvh - 15rem") não contava os cartões de resumo de cima e a
-   *      barra continuava fora da tela.
+   * A barra de rolagem lateral fica no pé do quadro, e o quadro cresce com a
+   * coluna mais cheia. Quem estava no topo, lendo Prospecção, não tinha como
+   * chegar em Negociação sem rolar a página até o fim. As setas ‹ › ao lado
+   * de "Colunas" ficam sempre à vista.
+   *
+   * Tentamos também prender a altura do quadro à janela (cada coluna rolando
+   * por dentro); ficou ruim de ler os cards e foi desfeito a pedido em 20/10.
+   * As colunas voltam a mostrar todos os cards de uma vez.
    */
   const quadroRef = useRef<HTMLDivElement>(null);
-  const [alturaQuadro, setAlturaQuadro] = useState<number | null>(null);
   const [podeEsquerda, setPodeEsquerda] = useState(false);
   const [podeDireita, setPodeDireita] = useState(false);
 
@@ -238,17 +237,9 @@ export function PipelineBoard({}: PipelineBoardProps) {
   }, []);
 
   useEffect(() => {
-    function medir() {
-      const el = quadroRef.current;
-      if (!el) return;
-      const topoNaPagina = el.getBoundingClientRect().top + window.scrollY;
-      // 448px = 28rem: abaixo disso as colunas ficam baixas demais para usar.
-      setAlturaQuadro(Math.max(448, window.innerHeight - topoNaPagina - 16));
-      conferirSetas();
-    }
-    medir();
-    window.addEventListener("resize", medir);
-    return () => window.removeEventListener("resize", medir);
+    conferirSetas();
+    window.addEventListener("resize", conferirSetas);
+    return () => window.removeEventListener("resize", conferirSetas);
   }, [conferirSetas]);
 
   function rolarColunas(direcao: 1 | -1) {
@@ -557,16 +548,12 @@ export function PipelineBoard({}: PipelineBoardProps) {
           de encolher e o quadro passa a rolar, que é como um kanban se
           comporta.
         */}
-        {/* Altura presa à janela (medida acima): cada coluna rola por dentro e
-            a barra horizontal fica no fim do quadro visível, não no rodapé. */}
         <div
           ref={quadroRef}
           onScroll={conferirSetas}
           className="grid gap-4 overflow-x-auto pb-2"
           style={{
             gridTemplateColumns: `repeat(${Math.max(1, colunasVisiveis.length)}, minmax(17rem, 1fr))`,
-            height: alturaQuadro ? `${alturaQuadro}px` : "calc(100dvh - 15rem)",
-            minHeight: "28rem",
           }}
         >
           {colunasVisiveis.map((def) => {
