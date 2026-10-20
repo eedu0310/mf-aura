@@ -221,7 +221,13 @@ export async function executarBackup(
   sb: SupabaseClient,
   pasta = PASTA_PADRAO,
   quando = new Date(),
-  pastaSessoes = path.join(process.cwd(), ".whatsapp-sessions"),
+  /*
+   * turbopackIgnore é obrigatório aqui. Sem ele o Turbopack trata o caminho
+   * como padrão de arquivos e tenta mapear a pasta de sessões inteira
+   * (67 mil arquivos) dentro do build — foi o que estourou a memória da VPS
+   * em 20/10 e derrubou o deploy. O live-manager tem a mesma marcação.
+   */
+  pastaSessoes = path.join(/*turbopackIgnore: true*/ process.cwd(), ".whatsapp-sessions"),
 ): Promise<ResultadoBackup> {
   const dia = diaBR(quando);
 

@@ -44,6 +44,11 @@ else
 fi
 
 echo "== 3/6 build"
+# Build antigo feito como root deixa .next com dono root, e o usuário aura
+# não consegue sobrescrever (EACCES no unlink). Devolve a pasta ao dono certo.
+for pasta in .next node_modules .backups; do
+  [ -d "$PASTA/$pasta" ] && chown -R "$USUARIO:$USUARIO" "$PASTA/$pasta"
+done
 sudo -u "$USUARIO" npm run build
 
 echo "== 4/6 crons"
