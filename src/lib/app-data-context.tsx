@@ -22,6 +22,7 @@ import { listarLeads as listarLeadsSupabase } from "@/lib/supabase/leads";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { gravarExigindoLinha } from "@/lib/supabase/gravar";
 import {
   daLinha,
   ehGanho,
@@ -565,6 +566,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     id: string,
     patch: Partial<Relacionamento>,
   ) {
+    const anterior = todosRelacionamentos.find((r) => r.id === id);
     setTodosRelacionamentos((prev) =>
       prev.map((relacionamento) =>
         relacionamento.id === id
@@ -574,6 +576,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
 
     if (!supabase) return;
+
+    try {
+      await gravarRelacionamento(supabase, id, patch);
+    } catch (e) {
+      // Banco recusou (ou não mexeu em linha nenhuma): a tela volta ao que
+      // era, em vez de mostrar um valor que só existe aqui.
+      if (anterior) setTodosRelacionamentos((prev) => prev.map((r) => (r.id === id ? anterior : r)));
+      throw e;
+    }
+  }
+
+  async function gravarRelacionamento(
+    supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+    id: string,
+    patch: Partial<Relacionamento>,
+  ) {
 
     const payload: Record<string, unknown> = {};
     if (patch.nome !== undefined) payload.nome = patch.nome.trim();
@@ -600,15 +618,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     if (Object.keys(payload).length === 0) return;
 
-    const { error } = await supabase
-      .from("relacionamentos")
-      .update(payload)
-      .eq("id", id);
-
-    if (error) {
-      console.error("Erro ao actualizar relacionamento:", error);
-      throw error;
-    }
+    await gravarExigindoLinha(
+      supabase.from("relacionamentos").update(payload, { count: "exact" }).eq("id", id),
+      "o contato",
+    );
   }
 
   async function deleteRelacionamento(id: string) {
@@ -802,17 +815,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
        * no lugar antigo sem nenhum aviso. Quem move e volta sozinho é pior do
        * que quem não move: agora o card volta na hora, que é a verdade.
        */
-      const { error } = await supabase
-        .from("oportunidades")
-        .update({ etapa: novaEtapa })
-        .eq("id", id);
-
-      if (error) {
-        console.error("Erro ao mover oportunidade:", error);
+      try {
+        await gravarExigindoLinha(
+          supabase.from("oportunidades").update({ etapa: novaEtapa }, { count: "exact" }).eq("id", id),
+          "o negócio",
+        );
+      } catch (e) {
+        /*
+         * Erro OU zero linhas (RLS bloqueou sem erro): o card volta na hora e
+         * o motivo sobe para quem chamou mostrar. Antes só o erro desfazia; o
+         * "zero linhas" ficava firme na tela até o próximo F5.
+         */
         setTodasOportunidades((prev) =>
           prev.map((o) => (o.id === id ? { ...o, etapa: etapaAnterior } : o)),
         );
-        return;
+        throw e;
       }
 
       integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa);
@@ -838,13 +855,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (patch.probabilidade !== undefined) payload.probabilidade = patch.probabilidade;
     if (patch.etapa !== undefined) payload.etapa = patch.etapa;
 
-    const { error } = await supabase.from("oportunidades").update(payload).eq("id", id);
-    if (error) {
-      console.error("Erro ao atualizar oportunidade:", error);
+    try {
+      await gravarExigindoLinha(
+        supabase.from("oportunidades").update(payload, { count: "exact" }).eq("id", id),
+        "o negócio",
+      );
+    } catch (e) {
       if (anterior) {
         setTodasOportunidades((prev) => prev.map((o) => (o.id === id ? anterior : o)));
       }
-      throw new Error("Não consegui salvar a oportunidade. Tente de novo.");
+      throw e;
     }
   }
 
@@ -854,11 +874,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTodasOportunidades((prev) => prev.filter((o) => o.id !== id));
     if (!supabase) return;
 
-    const { error } = await supabase.from("oportunidades").delete().eq("id", id);
-    if (error) {
-      console.error("Erro ao excluir oportunidade:", error);
+    try {
+      await gravarExigindoLinha(
+        supabase.from("oportunidades").delete({ count: "exact" }).eq("id", id),
+        "o negócio",
+      );
+    } catch (e) {
       if (anterior) setTodasOportunidades((prev) => [anterior, ...prev]);
-      throw new Error("Não consegui excluir a oportunidade. Verifique suas permissões.");
+      throw e;
     }
   }
 
@@ -945,11 +968,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (patch.produto !== undefined) payload.produto = patch.produto;
     if (patch.valor !== undefined) payload.valor = patch.valor;
 
-    const { error } = await supabase.from("vendas").update(payload).eq("id", id);
-    if (error) {
-      console.error("Erro ao atualizar venda:", error);
+    try {
+      await gravarExigindoLinha(
+        supabase.from("vendas").update(payload, { count: "exact" }).eq("id", id),
+        "a venda",
+      );
+    } catch (e) {
       if (anterior) setTodasVendas((prev) => prev.map((v) => (v.id === id ? anterior : v)));
-      throw new Error("Não consegui salvar a venda. Tente de novo.");
+      throw e;
     }
   }
 
@@ -959,11 +985,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setTodasVendas((prev) => prev.filter((v) => v.id !== id));
     if (!supabase) return;
 
-    const { error } = await supabase.from("vendas").delete().eq("id", id);
-    if (error) {
-      console.error("Erro ao excluir venda:", error);
+    try {
+      await gravarExigindoLinha(
+        supabase.from("vendas").delete({ count: "exact" }).eq("id", id),
+        "a venda",
+      );
+    } catch (e) {
       if (anterior) setTodasVendas((prev) => [anterior, ...prev]);
-      throw new Error("Não consegui excluir a venda. Verifique suas permissões.");
+      throw e;
     }
   }
 
@@ -1057,16 +1086,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   async function deleteAtividade(id: string): Promise<boolean> {
     if (supabase) {
       const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return false;
-      const { error } = await supabase
-        .from("atividades")
-        .delete()
-        .eq("id", id)
-        .eq("owner_id", user.user.id);
-      if (error) {
-        console.error("Erro ao excluir atividade:", error);
-        return false;
-      }
+      if (!user.user) throw new Error("Sua sessão expirou. Entre de novo para excluir a atividade.");
+      await gravarExigindoLinha(
+        supabase.from("atividades").delete({ count: "exact" }).eq("id", id).eq("owner_id", user.user.id),
+        "a atividade",
+      );
     }
     setTodasAtividades((prev) => prev.filter((atividade) => atividade.id !== id));
     return true;

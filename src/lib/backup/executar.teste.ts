@@ -5,7 +5,7 @@
  *
  * Rodar com: npx tsx src/lib/backup/executar.teste.ts
  */
-import { decidirRemocoes, diaDoArquivo } from "./executar";
+import { decidirRemocoes, diaDoArquivo, diaDasSessoes, nomesDoDia } from "./executar";
 
 let passou = 0;
 const falhas: string[] = [];
@@ -78,4 +78,15 @@ if (falhas.length) {
   console.error(`${falhas.length} verificação(ões) falharam:\n\n${falhas.join("\n\n")}`);
   process.exit(1);
 }
+
+// ---- nomes dos arquivos de sessão (backup v2)
+{
+  const n = nomesDoDia("2026-10-19");
+  conferir("nome dos dados", n.dados, "aura-2026-10-19.json.gz");
+  conferir("nome das sessões", n.sessoes, "aura-sessoes-2026-10-19.tar.gz");
+  conferir("diaDasSessoes lê o próprio nome", diaDasSessoes(n.sessoes), "2026-10-19");
+  conferir("diaDasSessoes recusa arquivo de dados", diaDasSessoes(n.dados), null);
+  conferir("diaDoArquivo recusa arquivo de sessões", diaDoArquivo(n.sessoes), null);
+}
+
 console.log(`${passou}/${passou} verificações passaram`);

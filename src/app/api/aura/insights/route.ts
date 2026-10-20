@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       vendedores: painel.vendedores.map((v) => ({ ...v, vendidoMes: moeda(v.vendidoMes) })),
       leadsEmRisco: painel.leadsEmRisco,
     };
-    const aura = await gerarRecados({ cacheKey: `${userId}|gestor|${loja ?? "*"}`, pagina, pessoa, metricas, recadosBase: base, materiais, forcar: sp.has("refresh") });
+    const aura = await gerarRecados({ cacheKey: `${userId}|gestor|${loja ?? "*"}`, pagina, pessoa, metricas, recadosBase: base, materiais, forcar: sp.has("refresh"), usuarioId: userId });
     const total = painel.vendedores.reduce((acc, v) => acc + v.vendidoMes, 0);
     return NextResponse.json({
       ...aura,
@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
     recadosBase: base,
     materiais,
     forcar: sp.has("refresh"),
+    usuarioId: userId,
   });
   return NextResponse.json({ ...aura, kpis: kpisDaPagina(pagina, r), iaDisponivel: iaDisponivel() });
 }

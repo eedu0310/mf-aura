@@ -57,11 +57,21 @@ sudo certbot --nginx -d crm.seudominio.com.br
 visitas, o microfone do relato por voz e a instalação do app no celular. Foi
 exatamente por isso que nenhuma visita tinha coordenada até hoje.
 
+## 5b. Atualizar depois (deploy em um comando)
+
+```bash
+sudo bash /opt/aura/deploy/deploy.sh
+```
+
+Ele faz `git pull`, `npm run build`, atualiza os crons se mudaram e reinicia
+o serviço, parando no primeiro erro. Substitui o passo a passo manual.
+
 ## 6. Crons
 
-**Isto é o passo que costuma ser esquecido.** O `vercel.json` do repositório
-só funciona na Vercel; numa VPS ele é ignorado e **nada roda sozinho** — nem o
-briefing das 7h, nem o repasse de lead parado, nem a supervisão da AURA.
+**Isto é o passo que costuma ser esquecido.** Numa VPS **nada roda sozinho**
+— nem o briefing das 7h, nem o repasse de lead parado, nem a supervisão da
+AURA — até o arquivo de crons ser instalado. (O `vercel.json` antigo foi
+removido do repositório: só servia na Vercel e confundia.)
 
 ```bash
 sudo cp deploy/aura-crons /etc/cron.d/aura

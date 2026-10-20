@@ -304,8 +304,11 @@ export function AtividadesView() {
                       type="button"
                       onClick={async () => {
                         if (!window.confirm("Excluir esta atividade permanentemente?")) return;
-                        const excluida = await deleteAtividade(atividade.id);
-                        if (!excluida) window.alert("Não foi possível excluir a atividade no banco de dados.");
+                        try {
+                          await deleteAtividade(atividade.id);
+                        } catch (erro) {
+                          window.alert(erro instanceof Error ? erro.message : "Não foi possível excluir a atividade.");
+                        }
                       }}
                       aria-label="Excluir atividade"
                       title="Excluir atividade"

@@ -74,7 +74,7 @@ export async function GET(request: Request) {
    */
   const ehSabado = diaDaSemanaBR(hoje) === 6;
   const ehPrimeiroDiaDoMes = Number(diaBR(hoje).slice(8, 10)) === 1;
-  /** Para chamar na mão fora de sábado: ?forcar=semanal */
+  /** Para chamar na mão fora de sábado: ?forcar=semanal (ou ?forcar=mensal) */
   const forcar = new URL(request.url).searchParams.get("forcar");
 
   let gerados = 0;
@@ -118,7 +118,12 @@ export async function GET(request: Request) {
     }
   }
 
-  if (ehPrimeiroDiaDoMes) {
+  /*
+   * O mensal só saía se o dia 1 caísse num sábado: a linha do cron era só
+   * "sábado 16h". Agora há uma linha própria no dia 1 (deploy/aura-crons) e
+   * ?forcar=mensal para gerar na mão.
+   */
+  if (ehPrimeiroDiaDoMes || forcar === "mensal") {
     const { inicio, fim } = inicioDoMesPassado();
     for (const empresa of NOMES_EMPRESAS) {
       const relatorioMensal = await gerarRelatorioLoja(supabase, empresa, inicio, fim, "mensal_diretor");

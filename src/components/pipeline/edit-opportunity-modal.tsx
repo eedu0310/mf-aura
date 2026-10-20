@@ -20,18 +20,24 @@ export function EditOpportunityModal({
   const [valor, setValor] = useState(String(o.valor));
   const [probabilidade, setProbabilidade] = useState<Probabilidade>(o.probabilidade);
 
-  function salvar(e: React.FormEvent) {
+  async function salvar(e: React.FormEvent) {
     e.preventDefault();
     const valorNumerico = Number(valor.replace(/\D/g, ""));
     if (!cliente.trim() || !valorNumerico) return;
 
-    updateOportunidade(o.id, {
-      cliente: cliente.trim(),
-      produto: (produto || "").trim() || "Não especificado",
-      valor: valorNumerico,
-      probabilidade,
-    });
-    onClose();
+    // Antes disparava sem await e fechava: o banco recusava e o vendedor nunca
+    // sabia. Agora espera, e se recusar mostra o motivo e deixa o modal aberto.
+    try {
+      await updateOportunidade(o.id, {
+        cliente: cliente.trim(),
+        produto: (produto || "").trim() || "Não especificado",
+        valor: valorNumerico,
+        probabilidade,
+      });
+      onClose();
+    } catch (erro) {
+      window.alert(erro instanceof Error ? erro.message : "Não consegui salvar. Tente de novo.");
+    }
   }
 
   return (

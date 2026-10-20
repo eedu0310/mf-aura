@@ -101,7 +101,7 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
       onConcluir();
     } catch (error) {
       console.error("Erro ao registar reunião:", error);
-      setErro("Ocorreu um erro ao guardar a reunião.");
+      setErro(error instanceof Error ? error.message : "Ocorreu um erro ao guardar a reunião.");
     } finally {
       setSalvando(false);
     }

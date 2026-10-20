@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { spawnSync } from "node:child_process";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -29,7 +30,18 @@ export interface ResultadoBackup {
   tabelas: number;
   linhas: number;
   apagados: string[];
+  /** Tamanho do SQL do esquema que foi junto (0 = não veio). */
+  esquemaBytes: number;
+  /** Quantas migrações aplicadas foram junto. */
+  migracoes: number;
+  /** Arquivo .tar.gz com as sessões do WhatsApp, ou null se não havia pasta. */
+  sessoes: string | null;
+  /** O que subiu para o Supabase Storage (bucket "backups"), ou o motivo de não ter subido. */
+  nuvem: { enviados: string[]; apagados: string[]; erro: string | null };
 }
+
+/** Bucket privado criado na migração 088. Só o service_role lê e grava. */
+export const BUCKET_NUVEM = "backups";
 
 function diaBR(quando = new Date()) {
   return quando.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -57,6 +69,17 @@ async function lerTabela(sb: SupabaseClient, tabela: string): Promise<Record<str
 export function diaDoArquivo(nome: string): string | null {
   const m = /^aura-(\d{4}-\d{2}-\d{2})\.json\.gz$/.exec(nome);
   return m ? m[1] : null;
+}
+
+/** AAAA-MM-DD do arquivo de sessões do WhatsApp, ou null. */
+export function diaDasSessoes(nome: string): string | null {
+  const m = /^aura-sessoes-(\d{4}-\d{2}-\d{2})\.tar\.gz$/.exec(nome);
+  return m ? m[1] : null;
+}
+
+/** Nomes dos dois arquivos de um dia. */
+export function nomesDoDia(dia: string) {
+  return { dados: `aura-${dia}.json.gz`, sessoes: `aura-sessoes-${dia}.tar.gz` };
 }
 
 function ehDomingo(dia: string) {
@@ -100,10 +123,105 @@ export function decidirRemocoes(
   return ordenados.filter((d) => !guardar.has(d));
 }
 
+/**
+ * Esquema (DDL) e migrações, via as funções da migração 088.
+ *
+ * Por quê: dados sem esquema não se restauram. Antes o backup tinha as linhas
+ * de cada tabela, mas as tabelas, triggers e políticas só existiam dentro do
+ * Supabase — perdido o projeto, ninguém recriava a casa para pôr os dados.
+ * Se as funções não existirem (migração 088 não aplicada), o backup avisa e
+ * segue sem esquema em vez de parar: dados sem esquema ainda valem mais do
+ * que nada.
+ */
+async function lerEsquema(sb: SupabaseClient): Promise<{ esquema: string; migracoes: unknown[]; aviso: string | null }> {
+  const [ddl, mig] = await Promise.all([sb.rpc("aura_esquema_ddl"), sb.rpc("aura_migracoes")]);
+  const avisos: string[] = [];
+  if (ddl.error) avisos.push(`esquema: ${ddl.error.message}`);
+  if (mig.error) avisos.push(`migrações: ${mig.error.message}`);
+  return {
+    esquema: typeof ddl.data === "string" ? ddl.data : "",
+    migracoes: Array.isArray(mig.data) ? mig.data : [],
+    aviso: avisos.length ? avisos.join(" | ") : null,
+  };
+}
+
+/**
+ * Empacota as pastas de sessão do WhatsApp (.whatsapp-sessions) num .tar.gz.
+ *
+ * Fora do backup, perder a VPS significava 12 pessoas pareando o celular de
+ * novo. O log de diagnóstico fica de fora: cresce, não serve para restaurar.
+ * Usa o `tar` do sistema; na VPS (Linux) ele sempre existe. Se não existir
+ * (Windows de desenvolvimento), devolve null em vez de quebrar o backup.
+ */
+function empacotarSessoes(pastaSessoes: string, destino: string): string | null {
+  if (!fs.existsSync(pastaSessoes)) return null;
+  const temporario = `${destino}.tmp`;
+  const r = spawnSync(
+    "tar",
+    ["-czf", temporario, "--exclude=diagnostico.log", "-C", path.dirname(pastaSessoes), path.basename(pastaSessoes)],
+    { stdio: "ignore" },
+  );
+  if (r.status !== 0) {
+    try { fs.unlinkSync(temporario); } catch { /* não chegou a existir */ }
+    return null;
+  }
+  fs.renameSync(temporario, destino);
+  return destino;
+}
+
+/**
+ * Sobe os arquivos do dia para o bucket "backups" e aplica lá a mesma
+ * retenção do disco.
+ *
+ * Por quê: o disco da VPS é a mesma máquina que roda o app. Se ela for
+ * perdida, o backup vai junto. O Storage do Supabase é outro lugar; e mesmo
+ * sendo o mesmo fornecedor do banco, um `delete` por engano numa tabela não
+ * apaga um arquivo num bucket.
+ *
+ * Nunca derruba o backup: se a nuvem falhar, o arquivo local já está salvo e
+ * o motivo vai no resultado, para o log do cron.
+ */
+async function subirParaNuvem(
+  sb: SupabaseClient,
+  arquivos: string[],
+  dia: string,
+): Promise<ResultadoBackup["nuvem"]> {
+  const enviados: string[] = [];
+  const apagados: string[] = [];
+  try {
+    for (const caminho of arquivos) {
+      const nome = path.basename(caminho);
+      const { error } = await sb.storage
+        .from(BUCKET_NUVEM)
+        .upload(nome, fs.readFileSync(caminho), { contentType: "application/gzip", upsert: true });
+      if (error) throw new Error(`${nome}: ${error.message}`);
+      enviados.push(nome);
+    }
+
+    const { data: lista, error: erroLista } = await sb.storage.from(BUCKET_NUVEM).list("", { limit: 1000 });
+    if (erroLista) throw new Error(`listar: ${erroLista.message}`);
+    const nomes = (lista ?? []).map((o) => o.name);
+    const dias = nomes.map((n) => diaDoArquivo(n) ?? diaDasSessoes(n)).filter((d): d is string => d !== null);
+    const remover = decidirRemocoes(dias, dia).flatMap((d) => {
+      const n = nomesDoDia(d);
+      return [n.dados, n.sessoes].filter((x) => nomes.includes(x));
+    });
+    if (remover.length > 0) {
+      const { error } = await sb.storage.from(BUCKET_NUVEM).remove(remover);
+      if (error) throw new Error(`apagar antigos: ${error.message}`);
+      apagados.push(...remover);
+    }
+    return { enviados, apagados, erro: null };
+  } catch (e) {
+    return { enviados, apagados, erro: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export async function executarBackup(
   sb: SupabaseClient,
   pasta = PASTA_PADRAO,
   quando = new Date(),
+  pastaSessoes = path.join(process.cwd(), ".whatsapp-sessions"),
 ): Promise<ResultadoBackup> {
   const dia = diaBR(quando);
 
@@ -134,9 +252,20 @@ export async function executarBackup(
     throw new Error(`Backup abortado, não consegui ler: ${falhas.join(" | ")}`);
   }
 
+  const { esquema, migracoes, aviso: avisoEsquema } = await lerEsquema(sb);
+
   fs.mkdirSync(pasta, { recursive: true });
-  const arquivo = path.join(pasta, `aura-${dia}.json.gz`);
-  const corpo = JSON.stringify({ gerado_em: new Date().toISOString(), dia, versao: 1, tabelas: conteudo });
+  const nomes = nomesDoDia(dia);
+  const arquivo = path.join(pasta, nomes.dados);
+  const corpo = JSON.stringify({
+    gerado_em: new Date().toISOString(),
+    dia,
+    versao: 2,
+    esquema_sql: esquema,
+    migracoes,
+    aviso_esquema: avisoEsquema,
+    tabelas: conteudo,
+  });
   /*
    * Grava em temporário e renomeia. Se a VPS cair no meio da escrita, não
    * sobra um .gz truncado com cara de backup bom.
@@ -146,16 +275,36 @@ export async function executarBackup(
   fs.renameSync(temporario, arquivo);
   const bytes = fs.statSync(arquivo).size;
 
-  const existentes = fs.readdirSync(pasta).map(diaDoArquivo).filter((d): d is string => d !== null);
+  const sessoes = empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
+
+  const existentes = fs
+    .readdirSync(pasta)
+    .map((n) => diaDoArquivo(n) ?? diaDasSessoes(n))
+    .filter((d): d is string => d !== null);
   const apagados: string[] = [];
   for (const d of decidirRemocoes(existentes, dia)) {
-    try {
-      fs.unlinkSync(path.join(pasta, `aura-${d}.json.gz`));
-      apagados.push(d);
-    } catch {
-      /* já não estava lá */
+    const n = nomesDoDia(d);
+    for (const nome of [n.dados, n.sessoes]) {
+      try {
+        fs.unlinkSync(path.join(pasta, nome));
+        if (!apagados.includes(d)) apagados.push(d);
+      } catch {
+        /* já não estava lá */
+      }
     }
   }
 
-  return { arquivo, bytes, tabelas: tabelas.length, linhas, apagados };
+  const nuvem = await subirParaNuvem(sb, [arquivo, ...(sessoes ? [sessoes] : [])], dia);
+
+  return {
+    arquivo,
+    bytes,
+    tabelas: tabelas.length,
+    linhas,
+    apagados,
+    esquemaBytes: esquema.length,
+    migracoes: migracoes.length,
+    sessoes,
+    nuvem,
+  };
 }

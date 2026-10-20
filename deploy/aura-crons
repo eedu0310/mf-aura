@@ -32,6 +32,9 @@ ALVO=http://127.0.0.1:3000
 # no sábado entra no relatório que fala dessa semana.
 0 16 * * 6 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
 
+# Relatório mensal do diretor: dia 1, 08h (a rota gera o mensal quando é dia 1).
+0 8 1 * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/gerar-relatorios >> /var/log/aura-cron.log 2>&1
+
 # Cobrança da meta do mês, 11h. A rota só age do dia 1 ao 7 e manda uma
 # cobrança por pessoa por dia, então rodar todo dia é inofensivo e garante que
 # quem entrar na equipe no meio da janela também seja cobrado.

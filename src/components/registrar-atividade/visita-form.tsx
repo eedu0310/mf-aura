@@ -132,7 +132,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       onConcluir();
     } catch (error) {
       console.error("Erro ao concluir visita:", error);
-      setErro("Ocorreu um erro ao guardar a visita.");
+      setErro(error instanceof Error ? error.message : "Ocorreu um erro ao guardar a visita.");
     } finally {
       setSalvando(false);
     }

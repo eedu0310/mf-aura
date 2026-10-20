@@ -120,7 +120,7 @@ export function GenericActivityForm({
       onConcluir();
     } catch (error) {
       console.error("Erro ao concluir actividade:", error);
-      setErro("Ocorreu um erro ao guardar. Tente novamente.");
+      setErro(error instanceof Error ? error.message : "Ocorreu um erro ao guardar. Tente novamente.");
     } finally {
       setSalvando(false);
     }

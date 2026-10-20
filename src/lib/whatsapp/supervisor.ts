@@ -531,6 +531,12 @@ async function analisarComIa(
    * porque quem tem o userId para baixar a mídia é quem chama.
    */
   transcricoes: Map<string, string> = new Map(),
+  /**
+   * O vendedor dono da sessão, só para o registro de consumo. Sem ele, 9.980
+   * das 9.982 chamadas do mês ficavam sem dono e o painel "custo por vendedor"
+   * nunca mostrava nada.
+   */
+  usuarioDoUso?: string | null,
 ): Promise<AnaliseIa | null> {
   const client = ai();
   if (!client) return null;
@@ -681,6 +687,7 @@ ${transcricao(msgs, nomeCliente, transcricoes)}`;
     modelo: modeloDeVolume(),
     uso: (resp as any).usage,
     empresa: empresaDoUso ?? null,
+    usuarioId: usuarioDoUso ?? null,
   });
 
   const bloco = resp.content.find((b: any) => b.type === "tool_use") as any;
@@ -980,7 +987,36 @@ async function registrarAtividade(
   if (error) console.error("[supervisor] atividade:", error.message);
 }
 
-async function notificar(sb: SupabaseClient, userId: string, titulo: string, mensagem: string, acaoUrl = "/whatsapp") {
+async function notificar(
+  sb: SupabaseClient,
+  userId: string,
+  titulo: string,
+  mensagem: string,
+  acaoUrl = "/whatsapp",
+  /**
+   * Começo da mensagem que identifica "o mesmo aviso" (normalmente o nome do
+   * cliente). Se já existe um aviso NÃO LIDO com este título e este começo,
+   * não cria outro.
+   *
+   * Por quê: a trava contra repetição ficava só na memória do servidor, e a
+   * cada deploy ela zerava — o supervisor reavisava todos os follow-ups
+   * pendentes de todo mundo. Foram 826 "Follow-up pendente" em três semanas,
+   * 823 nunca lidos. Com o sino nesse estado, o aviso que importa some.
+   */
+  prefixoDaMesmaCoisa?: string,
+) {
+  if (prefixoDaMesmaCoisa) {
+    const { data: igual } = await sb
+      .from("notificacoes")
+      .select("id")
+      .eq("vendedor_id", userId)
+      .eq("titulo", titulo)
+      .eq("lida", false)
+      .like("mensagem", `${prefixoDaMesmaCoisa.replace(/[%_]/g, "")}%`)
+      .limit(1)
+      .maybeSingle();
+    if (igual) return;
+  }
   const { error } = await sb.from("notificacoes").insert({
     vendedor_id: userId,
     titulo,
@@ -1062,6 +1098,7 @@ async function moverOportunidade(
       "🎉 Venda identificada pela IA",
       `${op.cliente}: negócio marcado como fechado. Complete os detalhes da venda (valor, pagamento).`,
       "/vendas",
+      `${op.cliente}:`,
     );
     // O parceiro é avisado do fechamento que ele também trabalhou.
     if (op.parceiro_id && op.parceiro_id !== userId) {
@@ -1074,7 +1111,8 @@ async function moverOportunidade(
       );
     }
   } else {
-    await notificar(sb, userId, "🤖 Lead avançou no pipeline", `${op.cliente}: ${op.etapa} → ${para}. ${evidencia}`.slice(0, 280), "/pipeline");
+    // Mesmo cliente, aviso de avanço ainda não lido: não empilha outro.
+    await notificar(sb, userId, "🤖 Lead avançou no pipeline", `${op.cliente}: ${op.etapa} → ${para}. ${evidencia}`.slice(0, 280), "/pipeline", `${op.cliente}:`);
   }
   if (relacionamentoId) {
     await sb
@@ -1450,6 +1488,7 @@ export async function analisarConversa(
         await blocoDeAtendimento(empresa, chat.phone).catch(() => ""),
         empresa,
         transcricoes,
+        userId,
       );
     } catch (e: any) {
       console.error("[supervisor] IA:", e?.message ?? e);
@@ -1858,6 +1897,8 @@ async function varredura() {
             userId,
             alerta.tipo === "sem_resposta" ? "⏰ Cliente esperando resposta" : "📌 Follow-up pendente",
             `${chat.name}: ${alerta.texto}.`,
+            "/whatsapp",
+            `${chat.name}:`,
           );
         }
       }

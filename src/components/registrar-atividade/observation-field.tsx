@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square, Loader2, AlertCircle, Keyboard } from "lucide-react";
+import { juntarResultados, resultadosDoEvento } from "@/lib/voz/resultados";
 
 type Estado = "ocioso" | "ditando" | "gravando" | "transcrevendo" | "erro";
 
@@ -61,20 +62,20 @@ export function ObservationField({
     baseRef.current = value.trim();
     recRef.current = rec;
 
+    // O Android reenvia a lista inteira de resultados a cada evento; sem este
+    // contador o relato saía duplicado ("fui na obra fui na obra").
+    let entregueAte = 0;
+    let ultimoEntregue = "";
     rec.onresult = (evento: any) => {
-      let finalizado = "";
-      let emAndamento = "";
-      for (let i = evento.resultIndex; i < evento.results.length; i++) {
-        const trecho = evento.results[i][0].transcript;
-        if (evento.results[i].isFinal) finalizado += trecho;
-        else emAndamento += trecho;
-      }
-      if (finalizado) {
-        baseRef.current = `${baseRef.current} ${finalizado.trim()}`.trim();
+      const j = juntarResultados(resultadosDoEvento(evento), entregueAte, ultimoEntregue);
+      entregueAte = j.entregueAte;
+      if (j.pronto) {
+        ultimoEntregue = j.pronto;
+        baseRef.current = `${baseRef.current} ${j.pronto}`.trim();
         onChange(baseRef.current);
         setParcial("");
       } else {
-        setParcial(emAndamento);
+        setParcial(j.andando);
       }
     };
 

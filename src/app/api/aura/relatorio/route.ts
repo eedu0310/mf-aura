@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
     recadosBase: base,
     materiais: await nucleoDoManual(s.sb, dados.perfil.empresa),
     forcar: sp.has("refresh"),
+    usuarioId: userId,
   });
 
   return NextResponse.json({

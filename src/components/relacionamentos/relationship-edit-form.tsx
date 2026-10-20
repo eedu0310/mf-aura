@@ -91,7 +91,7 @@ export function RelationshipEditForm({
       });
     } catch (erro) {
       console.error("Erro ao atualizar:", erro);
-      alert("Não consegui salvar. Tente de novo.");
+      alert(erro instanceof Error ? erro.message : "Não consegui salvar. Tente de novo.");
     } finally {
       setSalvando(false);
     }

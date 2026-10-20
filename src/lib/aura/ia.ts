@@ -118,6 +118,8 @@ export async function gerarRecados(opts: {
   /** Manuais e playbooks enviados pelo gestor (biblioteca da AURA). */
   materiais?: string;
   forcar?: boolean;
+  /** Quem pediu, para o custo da IA ter dono no painel. */
+  usuarioId?: string | null;
 }): Promise<RespostaAura> {
   const hit = cache.get(opts.cacheKey);
   if (!opts.forcar && hit && Date.now() - hit.at < CACHE_MS) return hit.valor;
@@ -200,6 +202,7 @@ ${JSON.stringify(opts.recadosBase)}`;
       modelo: modeloDeVolume(),
       uso: (resp as any).usage,
       empresa: opts.pessoa.loja,
+      usuarioId: opts.usuarioId ?? null,
     });
 
     const bloco = resp.content.find((b) => b.type === "tool_use");

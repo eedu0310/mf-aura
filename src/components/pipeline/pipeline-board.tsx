@@ -23,6 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import {
+  acharEtapa,
   colunaDoNegocio,
   contaNoPipeline,
   nomeDaChave,
@@ -116,9 +117,15 @@ function OportunidadeCard({
             </p>
           )}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5">
-            <span className="font-data text-sm font-semibold text-aura-graphite">
-              {formatarMoeda(oportunidade.valor)}
-            </span>
+            {oportunidade.valor ? (
+              <span className="font-data text-sm font-semibold text-aura-graphite">
+                {formatarMoeda(oportunidade.valor)}
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800" title="Abra o card e informe o valor estimado">
+                sem valor
+              </span>
+            )}
             <span className="inline-block rounded-full bg-aura-petrol-100 px-2 py-0.5 text-[11px] font-medium text-aura-petrol-700">
               {oportunidade.probabilidade}
             </span>
@@ -191,7 +198,7 @@ function EtapaColuna({
 export function PipelineBoard({}: PipelineBoardProps) {
   const appData = useAppData();
   const oportunidades = appData.oportunidades || [];
-  const { moveOportunidade, vendas, funil } = appData;
+  const { moveOportunidade, updateOportunidade, vendas, funil } = appData;
   const todasAsColunas = etapasVisiveis(funil);
 
   /*
@@ -269,73 +276,76 @@ export function PipelineBoard({}: PipelineBoardProps) {
     .filter((venda) => venda.data?.startsWith(mesAtual))
     .reduce((total, venda) => total + (venda.valorFechado ?? venda.valor ?? 0), 0);
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
+  /**
+   * Etapas em que o negócio precisa ter valor: a partir de Follow-up o
+   * vendedor já mandou orçamento, então sabe quanto é. 190 dos 266 negócios
+   * estavam em R$ 0 e a previsão de faturamento do gestor não valia nada.
+   */
+  function exigeValor(etapa: Etapa) {
+    const chave = acharEtapa(etapa, funil)?.chave;
+    return chave === "followup" || chave === "negociacao" || chave === "fechamento";
+  }
 
-    if (!over) {
+  /** Um só caminho para mover, seja soltando na coluna ou sobre outro card. */
+  async function mover(oportunidadeId: string, novaEtapa: Etapa) {
+    const opp = oportunidades.find((o) => o.id === oportunidadeId);
+    if (!opp || opp.etapa === novaEtapa) return;
+
+    if (ehPerda(novaEtapa, funil)) {
+      setOportunidadePerdendo(opp);
       return;
     }
+
+    if (!opp.valor && exigeValor(novaEtapa)) {
+      const digitado = window.prompt(
+        `Qual o valor estimado do negócio de ${opp.cliente}? (em reais, só números)\nA partir de ${novaEtapa} o valor entra na previsão do mês.`,
+        "",
+      );
+      if (digitado === null) return;
+      const valor = Number(digitado.replace(/[^\d]/g, ""));
+      if (!valor) {
+        window.alert("Sem valor o negócio fica onde está. Abra o card e preencha quando souber.");
+        return;
+      }
+      try {
+        await updateOportunidade(oportunidadeId, { valor });
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : "Não consegui gravar o valor.");
+        return;
+      }
+    }
+
+    if (
+      ehGanho(novaEtapa, funil) &&
+      !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
+    ) return;
+
+    /*
+     * Se o banco recusar (RLS, venda igual já existe, erro de verdade), o
+     * card volta sozinho para a coluna de origem e a pessoa vê o motivo.
+     */
+    try {
+      await moveOportunidade(oportunidadeId, novaEtapa);
+    } catch (e) {
+      window.alert(`O card voltou para ${opp.etapa}. Motivo: ${e instanceof Error ? e.message : "erro desconhecido"}`);
+    }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
 
     const oportunidadeId = active.id as string;
     const overData = over.data.current;
 
-
-    // Se está sobre uma ETAPA (coluna)
     if (overData?.type === "Etapa") {
-      const novaEtapa = over.id as Etapa;
-
-      // ⭐ SE FOR "PERDIDOS", ABRE MODAL
-      if (ehPerda(novaEtapa, funil)) {
-        const opp = oportunidades.find((o) => o.id === oportunidadeId);
-        if (opp) {
-          setOportunidadePerdendo(opp);
-        }
-        return;
-      }
-
-      if (
-        ehGanho(novaEtapa, funil) &&
-        !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
-      ) return;
-      /*
-       * Com .catch: mover para Fechamento grava uma venda, e se o banco
-       * recusar (venda igual já existe, ou erro de verdade) a pessoa precisa
-       * ver o motivo. Sem isto a promessa estourava no console e a tela
-       * ficava como se tivesse dado certo.
-       */
-      moveOportunidade(oportunidadeId, novaEtapa).catch((e) => {
-        window.alert(
-          `O card foi movido, mas a venda não foi gravada. Motivo: ${
-            e instanceof Error ? e.message : "erro desconhecido"
-          }`,
-        );
-      });
+      void mover(oportunidadeId, over.id as Etapa);
       return;
     }
-
-    // Se está sobre uma OPORTUNIDADE, pega a etapa dessa oportunidade
     if (overData?.type === "Oportunidade") {
       const oportunidadeOver = oportunidades.find((o) => o.id === over.id);
-      if (oportunidadeOver) {
-
-        // ⭐ SE FOR "PERDIDOS", ABRE MODAL
-        if (ehPerda(oportunidadeOver.etapa, funil)) {
-          const opp = oportunidades.find((o) => o.id === oportunidadeId);
-          if (opp) {
-            setOportunidadePerdendo(opp);
-          }
-          return;
-        }
-
-        if (
-          ehGanho(oportunidadeOver.etapa, funil) &&
-          !window.confirm("Confirmar o fechamento desta oportunidade? Ela será registrada nas vendas do mês.")
-        ) return;
-        moveOportunidade(oportunidadeId, oportunidadeOver.etapa);
-        return;
-      }
+      if (oportunidadeOver) void mover(oportunidadeId, oportunidadeOver.etapa);
     }
-
   }
 
   return (

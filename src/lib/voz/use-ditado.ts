@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { juntarResultados, resultadosDoEvento } from "./resultados";
 
 export type EstadoDoDitado =
   | "ocioso"
@@ -148,19 +149,20 @@ export function useDitado({
     rec.interimResults = true;
     recRef.current = rec;
 
+    // Quantos finais já entregamos nesta sessão de ditado, e qual foi o
+    // último. É o que impede o Android de entregar o mesmo trecho duas vezes
+    // (ver src/lib/voz/resultados.ts).
+    let entregueAte = 0;
+    let ultimoEntregue = "";
     rec.onresult = (evento: any) => {
-      let pronto = "";
-      let andando = "";
-      for (let i = evento.resultIndex; i < evento.results.length; i++) {
-        const trecho = evento.results[i][0].transcript;
-        if (evento.results[i].isFinal) pronto += trecho;
-        else andando += trecho;
-      }
-      if (pronto) {
-        aoTextoRef.current(pronto.trim());
+      const j = juntarResultados(resultadosDoEvento(evento), entregueAte, ultimoEntregue);
+      entregueAte = j.entregueAte;
+      if (j.pronto) {
+        ultimoEntregue = j.pronto;
+        aoTextoRef.current(j.pronto);
         setParcial("");
       } else {
-        setParcial(andando);
+        setParcial(j.andando);
       }
     };
 

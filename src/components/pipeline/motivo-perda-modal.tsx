@@ -78,7 +78,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
       fechar();
     } catch (error) {
       console.error("Erro ao salvar:", error);
-      alert("Não consegui registrar o motivo da perda.");
+      alert(error instanceof Error ? error.message : "Não consegui registrar o motivo da perda.");
     } finally {
       setSalvando(false);
     }

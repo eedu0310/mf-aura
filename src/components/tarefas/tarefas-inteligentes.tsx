@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Circle, Trash2, Plus, Loader2, Lock } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { gravarExigindoLinha } from "@/lib/supabase/gravar";
 
 interface Tarefa {
   id: string;
@@ -103,28 +104,34 @@ export function TarefasInteligentes() {
         await carregar();
       } else {
         console.error("Erro ao inserir tarefa:", error);
-        window.alert("Não consegui salvar a tarefa. Tente de novo.");
+        window.alert(`Não consegui salvar a tarefa: ${error.message}`);
       }
     } catch (erro) {
       console.error("Erro ao adicionar tarefa:", erro);
+      window.alert(erro instanceof Error ? erro.message : "Não consegui salvar a tarefa.");
     }
 
     setAdicionando(false);
   }
 
+  /*
+   * Marcar e apagar passam a conferir que o banco mexeu em alguma linha. O
+   * Supabase não lança erro quando a RLS bloqueia: devolve zero linhas e a
+   * tela recarregava com a tarefa igual, sem dizer por quê.
+   */
   async function toggleTarefa(id: string, concluida: boolean) {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
 
     try {
-      await supabase
-        .from("tarefas")
-        .update({ concluida: !concluida })
-        .eq("id", id);
-
+      await gravarExigindoLinha(
+        supabase.from("tarefas").update({ concluida: !concluida }, { count: "exact" }).eq("id", id),
+        "a tarefa",
+      );
       await carregar();
     } catch (erro) {
       console.error("Erro ao atualizar tarefa:", erro);
+      window.alert(erro instanceof Error ? erro.message : "Não consegui atualizar a tarefa.");
     }
   }
 
@@ -133,10 +140,14 @@ export function TarefasInteligentes() {
     if (!supabase) return;
 
     try {
-      await supabase.from("tarefas").delete().eq("id", id);
+      await gravarExigindoLinha(
+        supabase.from("tarefas").delete({ count: "exact" }).eq("id", id),
+        "a tarefa",
+      );
       await carregar();
     } catch (erro) {
       console.error("Erro ao deletar tarefa:", erro);
+      window.alert(erro instanceof Error ? erro.message : "Não consegui apagar a tarefa.");
     }
   }
 

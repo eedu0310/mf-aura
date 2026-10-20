@@ -37,6 +37,23 @@ if (!url || !chave) {
 }
 
 const dados = JSON.parse(zlib.gunzipSync(fs.readFileSync(arquivo)).toString("utf8"));
+
+/*
+ * Tabela especial "esquema": escreve o SQL do esquema num arquivo em vez de
+ * gravar no banco. Para reconstruir um projeto do zero: rodar esse SQL no
+ * editor do Supabase e só depois restaurar as tabelas, uma a uma.
+ */
+if (tabela === "esquema") {
+  if (!dados.esquema_sql) {
+    console.error("Este backup é anterior à versão 2 e não carrega o esquema.");
+    process.exit(1);
+  }
+  const destino = `esquema-${dados.dia}.sql`;
+  fs.writeFileSync(destino, dados.esquema_sql);
+  console.log(`Esquema de ${dados.dia} gravado em ${destino} (${Math.round(dados.esquema_sql.length / 1024)} KB, ${(dados.migracoes ?? []).length} migrações no backup).`);
+  process.exit(0);
+}
+
 const linhas = dados?.tabelas?.[tabela];
 if (!Array.isArray(linhas)) {
   console.error(`A tabela "${tabela}" não existe neste backup.`);

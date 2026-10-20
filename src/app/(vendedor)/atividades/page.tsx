@@ -72,8 +72,9 @@ export default function AtividadesPage() {
     if (!window.confirm(`Excluir "${titulo}"? Ela sai do seu histórico e das contagens.`)) return;
     setExcluindo(id);
     try {
-      const ok = await deleteAtividade(id);
-      if (!ok) window.alert("Não consegui excluir a atividade. Verifique suas permissões.");
+      await deleteAtividade(id);
+    } catch (erro) {
+      window.alert(erro instanceof Error ? erro.message : "Não consegui excluir a atividade.");
     } finally {
       setExcluindo(null);
     }
