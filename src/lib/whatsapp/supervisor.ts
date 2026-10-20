@@ -50,6 +50,8 @@ import {
 } from "@/lib/funil";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { anuncioDaConversa, resolverCampanha, camposDoAnuncio } from "@/lib/whatsapp/marketing";
+import { pareceNaoLeadRecente } from "@/lib/whatsapp/nao-lead";
+import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface LeadInfo {
   chatJid: string;
@@ -543,7 +545,7 @@ async function analisarComIa(
 
   const manual = materiais ?? lerManual();
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de uma empresa de lareiras, churrasqueiras e aquecimento. Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
+  const system = `Você é o Supervisor AURA, um gerente comercial experiente que acompanha em tempo real as conversas de WhatsApp dos vendedores de um grupo que vende VÁRIOS segmentos de aquecimento e conforto térmico — não só lareira. O QUE O GRUPO VENDE: ${SEGMENTOS_EM_UMA_LINHA}. Conversa sobre qualquer um desses itens é do nosso ramo e nunca é "fuga de segmento". Seu objetivo: nenhum lead perdido, atendimento rápido, follow-up em dia e mais vendas.
 
 O QUE VOCÊ VÊ E O QUE NÃO VÊ (leia antes de apontar qualquer erro do vendedor):
 Áudio pode chegar de duas formas. Quando vier como "🎤 (áudio, transcrito) ...",
@@ -581,7 +583,7 @@ erros que mais aparecem na prática, e todos devem ter "e_lead": false:
   fornecedor.
 - FORNECEDOR e transportadora: nota fiscal, prazo de entrega PARA NÓS, frete,
   pedido de compra nosso.
-- AMIGO e FAMÍLIA, mesmo que puxem assunto de lareira.
+- AMIGO e FAMÍLIA, mesmo que puxem assunto de lareira ou de piscina.
 - SUPORTE a quem já comprou: a peça não acende, veio torta, quer manutenção.
   É pós-venda, não venda nova. Use "tipo_nao_lead": "Suporte técnico".
 Quando "e_lead" for false, preencha "tipo_nao_lead" com o que o contato é
@@ -593,7 +595,7 @@ mercado, pela forma de falar. Arquiteto, designer e consultor falam de
 projeto, cliente dele, especificação, planta, acabamento, RT. Construtora e
 obra falam de várias unidades, cronograma, engenheiro, medição. Revendedor e
 distribuidor pedem tabela, margem, condição para revenda. Quem fala da casa
-dele, da lareira dele, é "Cliente Final". Sem sinal claro, devolva null — o
+dele, da lareira ou da piscina dele, é "Cliente Final". Sem sinal claro, devolva null — o
 vendedor escolhe.
 
 Use o MANUAL DE TREINAMENTO abaixo como a regra da casa. Suas dicas devem aplicar o manual ao caso concreto, citando o que o cliente disse.
@@ -603,7 +605,7 @@ ${descricaoDasEtapas(funil)}
 
 Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 {
-  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, suporte de quem já comprou, ou qualquer assunto fora de lareira/churrasqueira/aquecimento)
+  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, suporte de quem já comprou, ou qualquer assunto fora dos segmentos listados no começo — lareiras, churrasqueiras, calefação, piso aquecido, piscina, aquecedores de passagem, boilers e solar são TODOS do nosso ramo)
   "categoria_sugerida": "Cliente Final"|"Arquiteto"|"Construtora"|"Revendedor"|"Engenheiro"|"Designer de Interiores"|"Consultor"|"Obra"|"Distribuidor"|"Outro"|null,
   "tipo_nao_lead": "o que o contato é, quando e_lead for false, ou null",
   "etapa": ${nomesDasEtapas(funil).map((n) => JSON.stringify(n)).join("|")}|null,
@@ -1417,6 +1419,15 @@ export async function analisarConversa(
     if ((row?.ignorado || decidido) && !opts.comoLead) return;
     const ultimo = msgs[msgs.length - 1];
     if (!opts.forcar && row?.ultimo_msg_id === ultimo.id) return;
+    /**
+     * Quem a própria IA já disse que não é lead (instalador, colega, amigo:
+     * confiança abaixo de 0,3) não é reanalisado a cada mensagem. Eram 485
+     * conversas assim, um terço de todas as análises do mês, gastas no grupo
+     * do instalador. Volta a analisar: se passou uma semana, se o vendedor
+     * pediu ("Tratar como lead" ou "Analisar agora"), ou se a última mensagem
+     * do cliente fala de produto, preço ou orçamento — aí a IA pode ter errado.
+     */
+    if (!opts.forcar && !opts.comoLead && row && pareceNaoLeadRecente(row, ultimo)) return;
 
     const empresa = await empresaDo(userId);
     // Sem loja no perfil, nada daqui para baixo tem onde ser gravado: o lead,

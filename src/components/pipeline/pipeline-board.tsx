@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { NewOpportunityModal } from "./new-opportunity-modal";
 import { OportunidadeDetailsModal } from "./oportunidade-details-modal";
@@ -159,7 +159,7 @@ function EtapaColuna({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-aura-bg ${
+      className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border bg-aura-bg ${
         ehPerdidos ? "border-aura-danger/20" : "border-aura-mist"
       }`}
     >
@@ -172,7 +172,7 @@ function EtapaColuna({
         </p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3 min-h-96 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
         {oportunidades.length === 0 ? (
           <div className="rounded-xl border border-dashed border-aura-mist px-3 py-6 text-center">
             <p className="text-xs text-aura-graphite-soft">
@@ -213,6 +213,53 @@ export function PipelineBoard({}: PipelineBoardProps) {
   const [escondidas, setEscondidas] = useState<string[]>([]);
   const [menuColunas, setMenuColunas] = useState(false);
 
+  /*
+   * ROLAGEM HORIZONTAL SEM IR ATÉ O RODAPÉ.
+   *
+   * A barra de rolagem lateral fica no pé do quadro. Quem estava no topo,
+   * lendo Prospecção, não tinha como chegar em Negociação sem rolar a página
+   * até o fim. Duas correções juntas:
+   *   1. setas ‹ › ao lado de "Colunas", sempre à vista;
+   *   2. a altura do quadro é medida pela posição REAL dele na tela, para ele
+   *      caber na janela e a barra de baixo aparecer. Um valor fixo
+   *      ("100dvh - 15rem") não contava os cartões de resumo de cima e a
+   *      barra continuava fora da tela.
+   */
+  const quadroRef = useRef<HTMLDivElement>(null);
+  const [alturaQuadro, setAlturaQuadro] = useState<number | null>(null);
+  const [podeEsquerda, setPodeEsquerda] = useState(false);
+  const [podeDireita, setPodeDireita] = useState(false);
+
+  const conferirSetas = useCallback(() => {
+    const el = quadroRef.current;
+    if (!el) return;
+    setPodeEsquerda(el.scrollLeft > 4);
+    setPodeDireita(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    function medir() {
+      const el = quadroRef.current;
+      if (!el) return;
+      const topoNaPagina = el.getBoundingClientRect().top + window.scrollY;
+      // 448px = 28rem: abaixo disso as colunas ficam baixas demais para usar.
+      setAlturaQuadro(Math.max(448, window.innerHeight - topoNaPagina - 16));
+      conferirSetas();
+    }
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [conferirSetas]);
+
+  function rolarColunas(direcao: 1 | -1) {
+    const el = quadroRef.current;
+    if (!el) return;
+    // Uma coluna por clique: largura da primeira coluna + o espaço entre elas.
+    const primeira = el.firstElementChild as HTMLElement | null;
+    const passo = primeira ? primeira.getBoundingClientRect().width + 16 : el.clientWidth * 0.8;
+    el.scrollBy({ left: direcao * passo, behavior: "smooth" });
+  }
+
   useEffect(() => {
     try {
       const salvo = window.localStorage.getItem("aura:pipeline:colunas-escondidas");
@@ -240,6 +287,10 @@ export function PipelineBoard({}: PipelineBoardProps) {
    */
   const colunas = todasAsColunas.filter((c) => !escondidas.includes(c.nome));
   const colunasVisiveis = colunas.length > 0 ? colunas : todasAsColunas;
+  // Esconder ou mostrar coluna muda a largura do quadro: confere as setas de novo.
+  useEffect(() => {
+    conferirSetas();
+  }, [colunasVisiveis.length, conferirSetas]);
 
   const [modalAberto, setModalAberto] = useState(false);
   const [oportunidadeSelecionada, setOportunidadeSelecionada] =
@@ -430,7 +481,29 @@ export function PipelineBoard({}: PipelineBoardProps) {
 
         {/* Escolher quais etapas aparecem. Fica logo acima do quadro, porque é
             onde a pessoa está olhando quando percebe que tem coluna demais. */}
-        <div className="relative flex justify-end">
+        <div className="relative flex items-center justify-end gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => rolarColunas(-1)}
+              disabled={!podeEsquerda}
+              aria-label="Ver colunas à esquerda"
+              title="Colunas à esquerda"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-aura-mist bg-white text-aura-graphite hover:bg-aura-bg disabled:opacity-35"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => rolarColunas(1)}
+              disabled={!podeDireita}
+              aria-label="Ver colunas à direita"
+              title="Colunas à direita"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-aura-mist bg-white text-aura-graphite hover:bg-aura-bg disabled:opacity-35"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setMenuColunas((v) => !v)}
@@ -484,10 +557,16 @@ export function PipelineBoard({}: PipelineBoardProps) {
           de encolher e o quadro passa a rolar, que é como um kanban se
           comporta.
         */}
+        {/* Altura presa à janela (medida acima): cada coluna rola por dentro e
+            a barra horizontal fica no fim do quadro visível, não no rodapé. */}
         <div
+          ref={quadroRef}
+          onScroll={conferirSetas}
           className="grid gap-4 overflow-x-auto pb-2"
           style={{
             gridTemplateColumns: `repeat(${Math.max(1, colunasVisiveis.length)}, minmax(17rem, 1fr))`,
+            height: alturaQuadro ? `${alturaQuadro}px` : "calc(100dvh - 15rem)",
+            minHeight: "28rem",
           }}
         >
           {colunasVisiveis.map((def) => {

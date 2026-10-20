@@ -23,6 +23,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { modeloDeRaciocinio } from "./modelos";
 import { registrarUsoIA } from "./custo-ia";
 import { guardarAprendizado, type TipoAprendizado } from "./aprendizado";
+import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export type Resultado = "fechado" | "perdido";
 
@@ -155,7 +156,7 @@ export async function analisarFechamento(opts: {
 
   const fechou = opts.resultado === "fechado";
 
-  const system = `Você é o Supervisor AURA, um gerente comercial experiente de uma empresa de lareiras, churrasqueiras e aquecimento. Um negócio acabou de ser ${fechou ? "FECHADO" : "PERDIDO"} e você vai escrever o retorno para o vendedor.
+  const system = `Você é o Supervisor AURA, um gerente comercial experiente de um grupo que vende ${SEGMENTOS_EM_UMA_LINHA}. Um negócio acabou de ser ${fechou ? "FECHADO" : "PERDIDO"} e você vai escrever o retorno para o vendedor.
 
 COMO ESCREVER
 - Fale com o vendedor, não sobre ele. Segunda pessoa.

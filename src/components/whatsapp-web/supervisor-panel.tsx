@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Bot,
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   History,
   Lightbulb,
+  Link2,
   Loader2,
   RefreshCw,
   Tags,
@@ -17,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { estiloDaEtapa, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
+import { listarLinksParaWhatsapp, textoParaWhatsapp, type LinkUtil } from "@/lib/supabase/links";
 import {
   ehPerda,
   etapasVisiveis,
@@ -40,6 +42,11 @@ interface Props {
   funil?: EtapaFunil[];
   onClose: () => void;
   onChanged: () => void;
+  /**
+   * Põe um texto no campo de mensagem da conversa (não envia). Usado pelos
+   * atalhos de catálogo e links da loja, para o vendedor conferir e enviar.
+   */
+  onUsarTexto?: (texto: string) => void;
 }
 
 function Secao({ icone, titulo, children }: { icone: React.ReactNode; titulo: string; children: React.ReactNode }) {
@@ -54,7 +61,17 @@ function Secao({ icone, titulo, children }: { icone: React.ReactNode; titulo: st
   );
 }
 
-export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, onClose, onChanged }: Props) {
+export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, onClose, onChanged, onUsarTexto }: Props) {
+  // Catálogo e outros links da loja que o gestor marcou com frase para o
+  // WhatsApp. Lista curta, carregada uma vez por painel aberto.
+  const [atalhos, setAtalhos] = useState<LinkUtil[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    void listarLinksParaWhatsapp().then((l) => vivo && setAtalhos(l));
+    return () => {
+      vivo = false;
+    };
+  }, []);
   // As etapas do caminho normal: as abertas mais a de ganho. Perdidos fica
   // fora da lista numerada porque perder não é um passo do caminho — tem
   // botão próprio embaixo.
@@ -125,6 +142,30 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
         )}
         {lead?.aviso && <p className="mx-4 rounded-lg bg-[#3d3219] px-3 py-2 text-xs text-[#ffd279]">{lead.aviso}</p>}
         {erro && <p className="mx-4 rounded-lg bg-[#3d1d22] px-3 py-2 text-xs text-[#f15c6d]">{erro}</p>}
+
+        {/* Atalhos de envio: catálogo e links que o gestor cadastrou. Ficam no
+            alto do painel porque são o que o vendedor mais manda; o texto cai
+            no campo da conversa para ele conferir antes de enviar. */}
+        {onUsarTexto && atalhos.length > 0 && (
+          <Secao icone={<Link2 className="h-4 w-4" />} titulo="Enviar rápido">
+            <div className="flex flex-wrap gap-2">
+              {atalhos.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => onUsarTexto(textoParaWhatsapp(l))}
+                  title={l.mensagemWhatsapp ?? l.url}
+                  className="rounded-full border border-[#00a884]/50 px-3 py-1.5 text-[13px] text-[#00a884] hover:bg-[#00a884]/10"
+                >
+                  {l.titulo}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-[#8696a0]">
+              O texto vai para o campo de mensagem; confira e envie. O gestor edita a lista em Configurações.
+            </p>
+          </Secao>
+        )}
 
         {/* Alertas de atendimento */}
         {(alertas.length > 0 || (lead?.alertasIa.length ?? 0) > 0) && (

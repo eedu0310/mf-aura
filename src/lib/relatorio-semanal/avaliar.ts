@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { chamarClaude } from "@/lib/aura/texto-ia";
 import { nucleoDoManual } from "@/lib/aura/trechos";
 import type { SemanaDoVendedor } from "./coletar";
+import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface ErroApontado {
   /** O que saiu errado, em uma linha. */
@@ -160,7 +161,7 @@ function materiaPrima(v: SemanaDoVendedor): string {
   return linhas.join("\n");
 }
 
-const SISTEMA = `Você é a AURA, analista de vendas de uma rede de lojas de lareiras, churrasqueiras e aquecimento (Grupo MF). Avalie a semana de UM vendedor e aponte onde o atendimento dele seguiu ou não seguiu o manual da casa.
+const SISTEMA = `Você é a AURA, analista de vendas do Grupo MF, uma rede de lojas que vende ${SEGMENTOS_EM_UMA_LINHA} — todos esses segmentos são do ramo da loja; nunca aponte venda deles como fuga de segmento. Avalie a semana de UM vendedor e aponte onde o atendimento dele seguiu ou não seguiu o manual da casa.
 
 Você recebe: os números do CRM dele na semana, e os alertas e dicas que você mesma já registrou conversa por conversa durante a semana. Esses alertas são a sua evidência — é a partir deles que você aponta o erro.
 

@@ -9,6 +9,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Insight } from "./metricas";
 import { podeChamarIA, registrarUsoIA } from "./custo-ia";
 import { modeloDeVolume } from "@/lib/aura/modelos";
+import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface RespostaAura {
   manchete: string;
@@ -145,7 +146,7 @@ export async function gerarRecados(opts: {
    * recebiam recados que apresentavam a empresa errada, e o grupo tem quatro
    * operações, não duas.
    */
-  const system = `Você é a AURA, supervisora comercial com IA do CRM do Grupo MF, de lareiras, churrasqueiras e aquecimento. Você atende a operação ${opts.pessoa.loja} e acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
+  const system = `Você é a AURA, supervisora comercial com IA do CRM do Grupo MF, que vende ${SEGMENTOS_EM_UMA_LINHA}. Você atende a operação ${opts.pessoa.loja} e acompanha ${gestor ? "a equipe inteira para o gestor" : "o vendedor"} em tempo real.
 
 REGRAS DE ESCRITA (muito importante — vendedor não lê texto longo):
 - Português do Brasil, direto, tom de líder parceiro. Sem enrolação, sem "olá".

@@ -130,6 +130,8 @@ export default function WhatsAppPage() {
   const [buscandoAntigas, setBuscandoAntigas] = useState(false);
   const [erroAntigas, setErroAntigas] = useState<string | null>(null);
   const [respondendo, setRespondendo] = useState<WaMessage | null>(null);
+  // Texto que um atalho do painel do Supervisor (catálogo, links) manda para o campo de mensagem.
+  const [textoParaInserir, setTextoParaInserir] = useState<{ texto: string; n: number } | null>(null);
   /** Mensagem escolhida para encaminhar, e para quais conversas. */
   const [encaminhando, setEncaminhando] = useState<WaMessage | null>(null);
   const [destinos, setDestinos] = useState<string[]>([]);
@@ -883,6 +885,7 @@ export default function WhatsAppPage() {
             limparArrastado={() => setArrastado(null)}
             respondendo={respondendo}
             onCancelarResposta={() => setRespondendo(null)}
+            inserir={textoParaInserir}
           />
 
           {arrastando && (
@@ -913,6 +916,12 @@ export default function WhatsAppPage() {
               alertas={alertasChat}
               funil={funilDaLoja}
               onClose={() => setPainelIa(false)}
+              onUsarTexto={(texto) => {
+                setTextoParaInserir({ texto, n: Date.now() });
+                // No celular o painel cobre a conversa: fecha para o vendedor
+                // ver o texto no campo e enviar.
+                if (window.innerWidth < 768) setPainelIa(false);
+              }}
               onChanged={() => {
                 loadLead(selectedChat.id);
                 loadState();

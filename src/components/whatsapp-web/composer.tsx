@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, FileText, Headphones, Image as ImageIcon, Loader2, Mic, Plus, Send, Smile, Sparkles, Trash2, Video, X } from "lucide-react";
+import { Camera, FileText, Headphones, Image as ImageIcon, Link2, Loader2, Mic, Plus, Send, Smile, Sparkles, Trash2, Video, X } from "lucide-react";
+import { listarLinksParaWhatsapp, textoParaWhatsapp, type LinkUtil } from "@/lib/supabase/links";
 import { API, type WaMessage } from "./types";
 
 interface Props {
@@ -12,6 +13,12 @@ interface Props {
   limparArrastado: () => void;
   respondendo?: WaMessage | null;
   onCancelarResposta?: () => void;
+  /**
+   * Texto vindo de fora (atalhos do painel do Supervisor) para acrescentar
+   * ao campo. O `n` muda a cada clique, para o mesmo atalho funcionar duas
+   * vezes seguidas.
+   */
+  inserir?: { texto: string; n: number } | null;
 }
 
 /** Como a mensagem citada aparece na barra acima do campo de texto. */
@@ -57,12 +64,17 @@ export function Composer({
   limparArrastado,
   respondendo,
   onCancelarResposta,
+  inserir,
 }: Props) {
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [emojis, setEmojis] = useState(false);
+  // Links da loja com frase pronta (catálogo, folder...). Carregados uma vez
+  // por tela; o gestor edita na Área do Vendedor.
+  const [links, setLinks] = useState<LinkUtil[] | null>(null);
+  const [menuLinks, setMenuLinks] = useState(false);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [legenda, setLegenda] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -85,7 +97,36 @@ export function Composer({
     setArquivo(null);
     setMenu(false);
     setEmojis(false);
+    setMenuLinks(false);
   }, [chatId]);
+
+  useEffect(() => {
+    let vivo = true;
+    void listarLinksParaWhatsapp().then((l) => vivo && setLinks(l));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /**
+   * O link cai no campo de texto, não vai direto: o vendedor confere a
+   * frase, adapta se quiser ("segue o catálogo, Maria") e aí envia.
+   */
+  function acrescentar(trecho: string) {
+    setTexto((t) => (t.trim() ? `${t.trimEnd()}\n${trecho}` : trecho));
+    setMenuLinks(false);
+    setEmojis(false);
+    areaRef.current?.focus();
+  }
+
+  function usarLink(link: LinkUtil) {
+    acrescentar(textoParaWhatsapp(link));
+  }
+
+  useEffect(() => {
+    if (inserir?.texto) acrescentar(inserir.texto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inserir?.n]);
 
   useEffect(() => {
     if (arquivoArrastado) {
@@ -411,6 +452,38 @@ export function Composer({
           <button type="button" onClick={() => setEmojis((v) => !v)} className={`rounded-full p-2 transition hover:bg-white/10 ${emojis ? "text-[#00a884]" : "text-[#aebac1]"}`} aria-label="Emojis">
             <Smile className="h-6 w-6" />
           </button>
+          {links && links.length > 0 && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuLinks((v) => !v);
+                  setMenu(false);
+                }}
+                className={`rounded-full p-2 transition hover:bg-white/10 ${menuLinks ? "text-[#00a884]" : "text-[#aebac1]"}`}
+                aria-label="Links da loja"
+                title="Catálogo e links da loja"
+              >
+                <Link2 className="h-6 w-6" />
+              </button>
+              {menuLinks && (
+                <div className="absolute bottom-12 left-0 z-20 w-72 overflow-hidden rounded-xl bg-[#233138] py-2 shadow-2xl">
+                  <p className="px-4 pb-1 pt-1 text-[11px] uppercase tracking-wide text-[#8696a0]">Links da loja</p>
+                  {links.map((l) => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => usarLink(l)}
+                      className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left hover:bg-[#182229]"
+                    >
+                      <span className="text-[15px] text-[#e9edef]">{l.titulo}</span>
+                      <span className="line-clamp-1 text-xs text-[#8696a0]">{l.mensagemWhatsapp}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             ref={areaRef}
             rows={1}
