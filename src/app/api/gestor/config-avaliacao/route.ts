@@ -66,7 +66,8 @@ export async function PATCH(request: Request) {
   if (corpo.linkGoogle !== undefined) patch.link_google = limpar(corpo.linkGoogle);
   if (corpo.linkInstagram !== undefined) patch.link_instagram = limpar(corpo.linkInstagram);
   if (corpo.linkFacebook !== undefined) patch.link_facebook = limpar(corpo.linkFacebook);
-  if (corpo.mensagem !== undefined) patch.mensagem_padrao = String(corpo.mensagem).slice(0, 600);
+  if (corpo.mensagem !== undefined) patch.mensagem_padrao = String(corpo.mensagem).slice(0, 1000);
+  if (corpo.mensagemRedes !== undefined) patch.mensagem_redes = String(corpo.mensagemRedes).slice(0, 1000) || null;
 
   const { error } = await sb.from("config_avaliacao").upsert(patch, { onConflict: "empresa" });
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });

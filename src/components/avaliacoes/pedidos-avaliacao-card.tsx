@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Send, Star } from "lucide-react";
+import { montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
 
 export interface Pedido {
   id: string;
@@ -18,7 +19,40 @@ export interface Pedido {
 interface Config {
   empresa: string;
   link_google: string | null;
+  link_instagram: string | null;
+  link_facebook: string | null;
   mensagem_padrao: string | null;
+  mensagem_redes: string | null;
+}
+
+/** 2ª mensagem que ficou para o vendedor mandar pelo WhatsApp do celular. */
+interface Segunda {
+  id: string;
+  cliente: string;
+  numero: string;
+  texto: string;
+}
+
+function linkDoWhatsapp(numero: string, texto: string) {
+  return numero
+    ? `https://wa.me/55${numero.replace(/^55/, "")}?text=${encodeURIComponent(texto)}`
+    : `https://wa.me/?text=${encodeURIComponent(texto)}`;
+}
+
+/** Envia pelo WhatsApp conectado no AURA. Devolve o motivo se não deu. */
+async function enviarPeloAura(numero: string, texto: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/whatsapp/live", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send", to: numero, text: texto }),
+    });
+    if (res.ok) return null;
+    const j = await res.json().catch(() => ({}));
+    return String(j.error ?? "falhou");
+  } catch (e) {
+    return e instanceof Error ? e.message : "falhou";
+  }
 }
 
 /**
@@ -33,6 +67,10 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState<string | null>(null);
   const [aviso, setAviso] = useState("");
+  const [feito, setFeito] = useState("");
+  // Fica na tela mesmo depois que o pedido sai da lista de pendentes, senão
+  // o botão da 2ª mensagem sumiria junto.
+  const [segundas, setSegundas] = useState<Segunda[]>([]);
 
   const carregar = useCallback(async () => {
     try {
@@ -62,19 +100,40 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
     }
 
     setAviso("");
+    setFeito("");
     setEnviando(p.id);
 
     const link = `${window.location.origin}/av/${p.token}`;
-    const texto = (c.mensagem_padrao ?? "Oi {cliente}! Se puder deixar sua avaliação, ajuda muito: {link}")
-      .replace("{cliente}", p.cliente ?? "")
-      .replace("{link}", link);
-
+    // Duas mensagens: 1ª agradecimento + Google; 2ª redes sociais.
+    const mensagens = montarMensagensDeAvaliacao(c, p.cliente, link);
     const numero = (p.telefone ?? "").replace(/\D/g, "");
-    const url = numero
-      ? `https://wa.me/55${numero.replace(/^55/, "")}?text=${encodeURIComponent(texto)}`
-      : `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
-    window.open(url, "_blank", "noopener");
+    /*
+     * Com o WhatsApp do vendedor conectado no AURA e o telefone do cliente
+     * cadastrado, as duas saem direto, uma depois da outra. Sem isso, abre o
+     * WhatsApp do aparelho com a 1ª e deixa um botão para a 2ª: o link
+     * wa.me só leva uma mensagem por vez.
+     */
+    let foiPeloAura = false;
+    if (numero) {
+      const erro1 = await enviarPeloAura(numero, mensagens[0]);
+      if (!erro1) {
+        foiPeloAura = true;
+        if (mensagens[1]) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const erro2 = await enviarPeloAura(numero, mensagens[1]);
+          if (erro2) setSegundas((s) => [...s, { id: p.id, cliente: p.cliente ?? "Cliente", numero, texto: mensagens[1] }]);
+        }
+        setFeito(`Pedido de avaliação enviado para ${p.cliente ?? "o cliente"} pelo WhatsApp do AURA.`);
+      }
+    }
+
+    if (!foiPeloAura) {
+      window.open(linkDoWhatsapp(numero, mensagens[0]), "_blank", "noopener");
+      if (mensagens[1]) {
+        setSegundas((s) => [...s, { id: p.id, cliente: p.cliente ?? "Cliente", numero, texto: mensagens[1] }]);
+      }
+    }
 
     await fetch("/api/avaliacoes", {
       method: "PATCH",
@@ -85,7 +144,7 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
     setEnviando(null);
   }
 
-  if (carregando || !pedidos.length) return null;
+  if (carregando || (!pedidos.length && !segundas.length && !feito)) return null;
 
   return (
     <section
@@ -97,9 +156,11 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
         <Star className="mt-0.5 h-5 w-5 shrink-0 text-aura-gold" />
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-aura-graphite">
-            {pedidos.length === 1
-              ? "Falta pedir a avaliação de 1 cliente"
-              : `Faltam pedir a avaliação de ${pedidos.length} clientes`}
+            {pedidos.length === 0
+              ? "Avaliações"
+              : pedidos.length === 1
+                ? "Falta pedir a avaliação de 1 cliente"
+                : `Faltam pedir a avaliação de ${pedidos.length} clientes`}
           </h3>
           <p className="mt-0.5 text-xs text-aura-graphite-soft">
             Vale ponto no ranking. Quanto mais perto da entrega você pede, mais gente responde.
@@ -131,6 +192,35 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
           </li>
         ))}
       </ul>
+
+      {segundas.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {segundas.map((m) => (
+            <li key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-aura-gold/40 bg-white px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-aura-graphite">{m.cliente}</p>
+                <p className="text-xs text-aura-graphite-soft">Falta a 2ª mensagem (redes sociais)</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.open(linkDoWhatsapp(m.numero, m.texto), "_blank", "noopener");
+                  setSegundas((s) => s.filter((x) => x.id !== m.id));
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-aura-navy-950 px-3 py-2 text-xs font-medium text-aura-navy-950"
+              >
+                <Send size={13} /> Enviar 2ª mensagem
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {feito && (
+        <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs text-aura-success">
+          <Check size={12} /> {feito}
+        </p>
+      )}
 
       {aviso && (
         <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-aura-warning">{aviso}</p>

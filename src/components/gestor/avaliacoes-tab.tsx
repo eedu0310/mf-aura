@@ -9,6 +9,7 @@ interface Config {
   link_instagram: string | null;
   link_facebook: string | null;
   mensagem_padrao: string | null;
+  mensagem_redes: string | null;
 }
 
 interface Pedido {
@@ -66,11 +67,17 @@ export function AvaliacoesTab() {
   }, [carregar]);
 
   async function salvar(empresa: string, campo: string, valor: string) {
-    await fetch("/api/gestor/config-avaliacao", {
+    const res = await fetch("/api/gestor/config-avaliacao", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ empresa, [campo]: valor }),
     });
+    // Antes mostrava "salvo" mesmo quando o servidor recusava.
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      window.alert(`Não salvou: ${j.erro ?? "erro no servidor"}`);
+      return;
+    }
     setSalvo(`${empresa}:${campo}`);
     window.setTimeout(() => setSalvo(null), 2000);
     await carregar();
@@ -171,7 +178,7 @@ export function AvaliacoesTab() {
             </div>
 
             <label className="mt-3 block text-sm text-aura-graphite">
-              Mensagem que o vendedor envia
+              1ª mensagem — agradecimento e avaliação no Google
               <textarea
                 defaultValue={c.mensagem_padrao ?? ""}
                 onBlur={(e) => {
@@ -179,11 +186,41 @@ export function AvaliacoesTab() {
                     void salvar(c.empresa, "mensagem", e.target.value);
                   }
                 }}
-                rows={2}
+                rows={7}
                 className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
               />
               <span className="mt-1 block text-xs text-aura-graphite-soft">
-                Use <code>{"{cliente}"}</code> para o nome e <code>{"{link}"}</code> para o link.
+                {salvo === `${c.empresa}:mensagem` ? (
+                  <span className="text-aura-success">salvo</span>
+                ) : (
+                  <>
+                    Use <code>{"{cliente}"}</code> para o nome e <code>{"{link}"}</code> para o link do Google.
+                  </>
+                )}
+              </span>
+            </label>
+
+            <label className="mt-3 block text-sm text-aura-graphite">
+              2ª mensagem — redes sociais (vai logo depois da 1ª)
+              <textarea
+                defaultValue={c.mensagem_redes ?? ""}
+                onBlur={(e) => {
+                  if (e.target.value !== (c.mensagem_redes ?? "")) {
+                    void salvar(c.empresa, "mensagemRedes", e.target.value);
+                  }
+                }}
+                rows={7}
+                placeholder="Deixe vazio para mandar só a 1ª mensagem."
+                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+              />
+              <span className="mt-1 block text-xs text-aura-graphite-soft">
+                {salvo === `${c.empresa}:mensagemRedes` ? (
+                  <span className="text-aura-success">salvo</span>
+                ) : (
+                  <>
+                    Use <code>{"{instagram}"}</code> e <code>{"{facebook}"}</code>: entram os links cadastrados acima. Se a loja não tiver um deles, a linha sai sozinha.
+                  </>
+                )}
               </span>
             </label>
           </div>

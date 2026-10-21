@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const [{ data: pedidos, error }, { data: config }] = await Promise.all([
     q,
-    sb.from("config_avaliacao").select("empresa, link_google, link_instagram, link_facebook, mensagem_padrao"),
+    sb.from("config_avaliacao").select("empresa, link_google, link_instagram, link_facebook, mensagem_padrao, mensagem_redes"),
   ]);
 
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
