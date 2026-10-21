@@ -253,3 +253,15 @@ export function primeiraEtapa(funil: EtapaFunil[]): string {
   const abertas = etapasVisiveis(funil).filter((e) => e.tipo === "aberta");
   return abertas[0]?.nome ?? FUNIL_PADRAO[0].nome;
 }
+
+/**
+ * Etapas em que o negócio tem de ter valor. A partir da Negociação o cliente
+ * já recebeu o orçamento: um card ali em R$ 0 deixa a previsão do mês vazia.
+ * O banco recusa (trava da migração 091); a tela pede o valor antes.
+ */
+export const CHAVES_QUE_EXIGEM_VALOR: ChaveEtapa[] = ["negociacao", "fechamento"];
+
+export function exigeValor(nome: string | null | undefined, funil: EtapaFunil[]): boolean {
+  const chave = acharEtapa(nome, funil)?.chave;
+  return !!chave && CHAVES_QUE_EXIGEM_VALOR.includes(chave);
+}

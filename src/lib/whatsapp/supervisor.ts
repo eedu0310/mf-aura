@@ -37,6 +37,7 @@ import { transcricoesDaConversa } from "./transcrever";
 import {
   ehFechada,
   ehGanho,
+  exigeValor,
   ehPerda,
   etapasVisiveis,
   nomeDaChave,
@@ -1049,6 +1050,22 @@ async function moverOportunidade(
     updated_at: new Date().toISOString(),
   };
   if ((!op.valor || Number(op.valor) === 0) && valorEstimado) patch.valor = valorEstimado;
+  /*
+   * Negociação e Fechamento exigem valor (o banco recusa sem). Se nem o card
+   * nem a conversa trazem um valor, a IA não move: pede ao vendedor. Antes
+   * ela movia e 17 negócios ficaram em Negociação com R$ 0.
+   */
+  if (exigeValor(para, funil) && !(Number(patch.valor ?? op.valor) > 0)) {
+    await notificar(
+      sb,
+      userId,
+      "💰 Falta o valor do negócio",
+      `${op.cliente}: a conversa indica ${para}, mas o card está sem valor. Abra o card e informe o valor estimado para ele avançar.`,
+      "/pipeline",
+      `${op.cliente}:`,
+    );
+    return false;
+  }
   const { error } = await sb.from("oportunidades").update(patch).eq("id", op.id);
   if (error) {
     console.error("[supervisor] mover oportunidade:", error.message);

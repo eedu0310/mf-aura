@@ -181,7 +181,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     let ativo = true;
 
     async function carregarTudo() {
-      setCarregandoDados(true);
+      // Recarga de fundo (voltou para a aba, a conexão voltou) não mostra
+      // "carregando": a tela troca os dados no lugar, sem piscar.
+      if (pedidoDeRecarga === 0) setCarregandoDados(true);
 
       // Quem sou eu. A tela usa isto para distinguir "meu cliente" de "cliente
       // que eu atendo em dupla com alguém", que na lista aparecem lado a lado.
@@ -298,6 +300,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    let canalJaCaiu = false;
     const canal = supabase
       .channel("aura-sync")
       .on(
@@ -370,12 +373,46 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         },
       )
       .subscribe((status) => {
+        /*
+         * A conexão em tempo real cai quando o computador dorme ou troca de
+         * rede, e nada avisava: a tela ficava parada nos dados daquele
+         * momento. Caiu e voltou? Recarrega tudo, porque o que mudou nesse
+         * meio-tempo não chega mais pelo canal.
+         */
+        if (status === "SUBSCRIBED" && canalJaCaiu) {
+          canalJaCaiu = false;
+          setPedidoDeRecarga((n) => n + 1);
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          canalJaCaiu = true;
+        }
       });
 
     return () => {
       supabase.removeChannel(canal);
     };
   }, [supabase, empresaAtual]);
+
+  /*
+   * Voltou para a aba depois de 2 minutos ou mais fora (outra aba, tampa do
+   * notebook fechada): recarrega os dados. Era o caso do Alexandre, com a
+   * aba aberta havia dias mostrando uma venda que já tinha sido apagada.
+   */
+  useEffect(() => {
+    let escondidaDesde: number | null = null;
+    function aoMudar() {
+      if (document.visibilityState === "hidden") {
+        escondidaDesde = Date.now();
+      } else if (escondidaDesde && Date.now() - escondidaDesde > 120_000) {
+        escondidaDesde = null;
+        setPedidoDeRecarga((n) => n + 1);
+      } else {
+        escondidaDesde = null;
+      }
+    }
+    document.addEventListener("visibilitychange", aoMudar);
+    return () => document.removeEventListener("visibilitychange", aoMudar);
+  }, []);
 
   const vejoTudo = profile.cargo === "Gestor";
   const relacionamentos = vejoTudo

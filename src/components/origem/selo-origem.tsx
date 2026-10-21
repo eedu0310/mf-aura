@@ -29,7 +29,7 @@ export function SeloOrigem({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${info.cor}`}
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${info.cor}`}
       title={info.ajuda}
     >
       <Icone size={tamanho} />

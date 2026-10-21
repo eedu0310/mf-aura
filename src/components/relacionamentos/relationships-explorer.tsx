@@ -274,11 +274,18 @@ export function RelationshipsExplorer() {
               >
                 {/* Header do Card */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className={`font-semibold ${temperaturaColors[rel.temperatura].text}`}>
+                  {/* min-w-0 + nome em até 2 linhas: sem isso um nome comprido
+                      empurrava a etiqueta de temperatura e partia o selo de
+                      origem ("Marketing") ao meio nas telas mais estreitas. */}
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRelacionamento(rel)}
+                      className={`line-clamp-2 break-words text-left font-semibold hover:underline ${temperaturaColors[rel.temperatura].text}`}
+                    >
                       {rel.nome}
-                    </h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    </button>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 [&>span]:shrink-0 [&>span]:whitespace-nowrap">
                       <p className="text-xs text-aura-graphite-soft">{rel.categoria}</p>
                       {/* O ícone da origem: o vendedor bate o olho e sabe se o
                           card veio da loja, da MF ou de campanha. */}
@@ -294,7 +301,7 @@ export function RelationshipsExplorer() {
                     )}
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
                       temperaturaColors[rel.temperatura].badge
                     }`}
                   >
@@ -347,7 +354,7 @@ export function RelationshipsExplorer() {
                     className="flex-1 rounded-lg border border-aura-mist bg-white px-3 py-2 text-xs font-medium text-aura-graphite hover:bg-aura-bg transition flex items-center justify-center gap-1"
                   >
                     <Edit2 size={14} />
-                    Editar
+                    {vejoMaisDeUmaCarteira ? "Abrir ficha" : "Editar"}
                   </button>
                   <button
                     onClick={() => excluirRelacionamento(rel.id, rel.nome)}

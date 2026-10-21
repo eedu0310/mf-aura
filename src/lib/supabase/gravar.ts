@@ -47,6 +47,9 @@ export function explicarErroDoBanco(erro: ErroDoBanco, oQue: string): string {
       return `Você não tem permissão para alterar ${oQue}. Se ele for de outro vendedor, peça ao gestor.`;
     case "23505":
       return `Já existe um registro igual a ${oQue}: ${erro.details ?? erro.message}`;
+    case "23514":
+      // Regra de negócio do banco (ex.: Negociação exige valor): a frase já é para o vendedor.
+      return erro.message;
     case "23503":
       return `${oQue} está ligado a outro registro e o banco não deixou. ${erro.message}`;
     case "PGRST301":

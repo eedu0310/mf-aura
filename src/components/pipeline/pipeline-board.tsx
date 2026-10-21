@@ -24,6 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 import {
   acharEtapa,
+  exigeValor,
   colunaDoNegocio,
   contaNoPipeline,
   nomeDaChave,
@@ -323,9 +324,10 @@ export function PipelineBoard({}: PipelineBoardProps) {
    * vendedor já mandou orçamento, então sabe quanto é. 190 dos 266 negócios
    * estavam em R$ 0 e a previsão de faturamento do gestor não valia nada.
    */
-  function exigeValor(etapa: Etapa) {
-    const chave = acharEtapa(etapa, funil)?.chave;
-    return chave === "followup" || chave === "negociacao" || chave === "fechamento";
+  // Negociação e Fechamento: obrigatório (o banco também recusa sem valor).
+  // Follow-up continua pedindo: é onde o orçamento foi enviado.
+  function pedeValor(etapa: Etapa) {
+    return exigeValor(etapa, funil) || acharEtapa(etapa, funil)?.chave === "followup";
   }
 
   /** Um só caminho para mover, seja soltando na coluna ou sobre outro card. */
@@ -338,7 +340,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
       return;
     }
 
-    if (!opp.valor && exigeValor(novaEtapa)) {
+    if (!opp.valor && pedeValor(novaEtapa)) {
       const digitado = window.prompt(
         `Qual o valor estimado do negócio de ${opp.cliente}? (em reais, só números)\nA partir de ${novaEtapa} o valor entra na previsão do mês.`,
         "",

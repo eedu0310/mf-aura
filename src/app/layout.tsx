@@ -11,6 +11,7 @@ import "./globals.css";
 import { UserProfileProvider } from "@/lib/user-profile-context";
 import { AppDataProvider } from "@/lib/app-data-context";
 import { PwaRegister } from "@/components/pwa-register";
+import { AtualizadorDeVersao } from "@/components/atualizador-de-versao";
 
 /**
  * O endereço do sistema. Sem ele, as imagens de compartilhamento viajam com
@@ -181,6 +182,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-aura-bg text-aura-graphite">
         <PwaRegister />
+        <AtualizadorDeVersao />
         <UserProfileProvider>
           <AppDataProvider>{children}</AppDataProvider>
         </UserProfileProvider>

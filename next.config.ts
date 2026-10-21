@@ -50,7 +50,15 @@ function conferirVariaveisDoNavegador() {
 
 conferirVariaveisDoNavegador();
 
+/**
+ * Identidade deste build. Vai assada no JavaScript do navegador E na rota
+ * /api/versao; quando as duas deixam de bater, o navegador está rodando uma
+ * versão antiga e se atualiza (componente AtualizadorDeVersao).
+ */
+const VERSAO_DO_BUILD = new Date().toISOString();
+
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_VERSAO: VERSAO_DO_BUILD },
   // Pacotes de servidor que não devem ser empacotados pelo Next (o Baileys é
   // ESM puro e usa módulos nativos do Node; empacotado ele quebra em runtime).
   serverExternalPackages: ["@whiskeysockets/baileys", "pino", "qrcode", "jimp", "sharp"],

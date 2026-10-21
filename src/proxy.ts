@@ -143,7 +143,11 @@ export async function proxy(request: NextRequest) {
     caminho.startsWith("/auth") ||
     caminho.startsWith("/_next") ||
     caminho.startsWith("/manifest") ||
-    caminho.startsWith("/icons");
+    caminho.startsWith("/icons") ||
+    // O service worker e a versão do build: o navegador precisa buscar os
+    // dois mesmo com a sessão vencida, senão o app fica preso numa versão velha.
+    caminho === "/sw.js" ||
+    caminho === "/api/versao";
 
   // Uma conta desativada pelo gestor não pode mais entrar. Antes o campo
   // "ativo" só escondia a pessoa das listas: ela continuava logando e

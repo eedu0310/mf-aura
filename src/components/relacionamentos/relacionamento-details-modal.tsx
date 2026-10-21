@@ -5,6 +5,8 @@ import { X, Trash2, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { HistoricoCompras } from "./historico-compras";
 import { DuplaPanel } from "@/components/atendimento/dupla-panel";
+import { FichaGestor } from "./ficha-gestor";
+import { useUserProfile } from "@/lib/user-profile-context";
 import type { Relacionamento, CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
 
@@ -51,6 +53,8 @@ export function RelacionamentoDetailsModal({
 }) {
   const { updateRelacionamento, deleteRelacionamento, nomesPorOwnerId, meuId, recarregar } =
     useAppData();
+  const { profile } = useUserProfile();
+  const souGestor = profile.cargo === "Gestor";
   const [editando, setEditando] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [deletando, setDeletando] = useState(false);
@@ -109,7 +113,7 @@ export function RelacionamentoDetailsModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -133,6 +137,10 @@ export function RelacionamentoDetailsModal({
         {!editando ? (
           // MODO VISUALIZAÇÃO
           <div className="space-y-6">
+            {/* Para o gestor: origem, quem atende, valor, sinais de que está
+                esfriando e o botão para pedir atenção ao vendedor. */}
+            {souGestor && <FichaGestor relacionamentoId={relacionamento.id} />}
+
             {/* Informações */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-xl bg-aura-bg p-4">
