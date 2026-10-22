@@ -22,6 +22,9 @@ const PALAVRAS_DE_PRODUTO = [
   "aquecedor", "passagem", "boiler", "solar", "água quente", "agua quente",
   "orçamento", "orcamento", "preço", "preco", "valor", "quanto custa", "catálogo", "catalogo",
   "comprar", "instalar", "medida", "projeto",
+  // Linhas que a base de conhecimento do grupo trouxe (22/10/2026).
+  "pellet", "estufa", "toalheiro", "forno", "braseiro", "parrilla", "grill",
+  "chaminé", "chamine", "lenha", "scheer", "titan", "guindani", "la nordica",
 ];
 
 export interface LinhaDeLead {

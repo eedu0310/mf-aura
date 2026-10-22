@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sessaoAura } from "@/lib/aura/sessao";
 import { textoDosMateriais } from "@/lib/aura/materiais";
+import { materiaisParaPergunta } from "@/lib/aura/trechos";
 import { textoDoAprendizado } from "@/lib/aura/aprendizado";
 import { analisarFechamento, registrarLaudo, type Fala, type Resultado } from "@/lib/aura/fechamento";
 import { getChats, getMessages } from "@/lib/whatsapp/live-manager";
@@ -104,14 +105,19 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
     : { data: null };
 
-  const [manual, aprendizado] = await Promise.all([
-    textoDosMateriais(sb, op.empresa).catch(() => ""),
-    textoDoAprendizado(sb, op.empresa).catch(() => ""),
-  ]);
-
   // As mensagens vivem no processo do WhatsApp, não no banco. Se o dono da
   // oportunidade for outra pessoa, buscamos na sessão dele.
   const falas = falasDoCliente(op.owner_id ?? userId, rel?.telefone ?? null);
+
+  // O manual vem pelo assunto da conversa (regras fixas + trechos achados),
+  // não inteiro: inteiro passava de 90 mil caracteres e o corte em 40 mil
+  // deixava de fora a ficha técnica e a garantia.
+  const assunto = [corpo.motivo ?? "", ...falas.slice(-30).map((f) => f.texto)].join("\n");
+  const [manualBuscado, aprendizado] = await Promise.all([
+    materiaisParaPergunta(sb, op.empresa, assunto).catch(() => ""),
+    textoDoAprendizado(sb, op.empresa).catch(() => ""),
+  ]);
+  const manual = manualBuscado || (await textoDosMateriais(sb, op.empresa).catch(() => ""));
 
   // Etapas que este negócio realmente visitou, para a IA julgar aderência ao
   // funil em vez de supor. O histórico está nas atividades do relacionamento.

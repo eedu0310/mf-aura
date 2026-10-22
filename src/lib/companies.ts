@@ -23,14 +23,16 @@ export const NOMES_EMPRESAS = EMPRESAS.map((e) => e.nome);
  * segmento novo acrescenta nesta lista e todos os prompts passam a saber.
  */
 export const SEGMENTOS_DO_GRUPO = [
-  "lareiras (a lenha, a gás, elétricas, a etanol)",
-  "churrasqueiras e fogões a lenha",
-  "calefatores e aquecimento de ambientes",
+  "lareiras MF de alto rendimento (embutidas, expostas, suspensas, de canto, dupla face)",
+  "lareiras e estufas a pellet",
+  "outras lareiras e calefatores (a gás, elétricas, bioetanol)",
+  "fogões a lenha (La Nordica, Guindani)",
+  "linha gourmet: fornos de pizza, braseiros, parrillas, churrasqueiras Scheer, grills Titan, De Bacco",
   "piso aquecido (elétrico e hidráulico)",
-  "aquecedores de piscina (bomba de calor e trocador de calor)",
-  "aquecedores de água de passagem (a gás)",
-  "boilers e aquecimento solar de água",
-  "projetos, instalação e manutenção de tudo isso",
+  "toalheiros elétricos (Aquece, Seccare)",
+  "aquecimento de água: bomba de calor, solar, piscina, aquecedores de passagem e boilers",
+  "chaminés e tubulações prediais MF para construtoras",
+  "projeto, instalação e manutenção de tudo isso",
 ] as const;
 
 export const SEGMENTOS_EM_UMA_LINHA = SEGMENTOS_DO_GRUPO.join("; ");

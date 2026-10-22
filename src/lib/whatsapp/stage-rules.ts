@@ -116,7 +116,7 @@ const REGRAS: Regra[] = [
 ];
 
 const RE_COMERCIAL =
-  /\b(orcamento|orcamentos|preco|precos|valor|valores|quanto (custa|fica|sai|e)|lareira|lareiras|churrasqueira|forno|coifa|calefacao|aquecedor|aquecimento|lenha|gas|bioetanol|instala(r|cao)|comprar|compra|modelo|modelos|catalogo|loja|showroom|obra|projeto|arquitet[oa]|entrega|frete|prazo|medida|medidas)\b/;
+  /\b(orcamento|orcamentos|preco|precos|valor|valores|quanto (custa|fica|sai|e)|lareira|lareiras|churrasqueira|forno|coifa|calefacao|aquecedor|aquecimento|lenha|gas|bioetanol|pellet|estufas?|toalheiros?|braseiros?|parrillas?|grills?|chamines?|boilers?|piscinas?|piso aquecido|bomba de calor|instala(r|cao)|comprar|compra|modelo|modelos|catalogo|loja|showroom|obra|projeto|arquitet[oa]|entrega|frete|prazo|medida|medidas)\b/;
 
 const RE_PERDA =
   /\b(ja comprei|fechei com outr[oa]|comprei (em|com) outr[oa]|nao tenho mais interesse|nao tenho interesse|desisti|vou deixar pra (depois|outra hora|ano que vem)|nao vou (fazer|comprar|fechar)|achei (muito )?caro|ficou (muito )?caro|fora do (meu )?orcamento|nao cabe no (meu )?orcamento)\b/;

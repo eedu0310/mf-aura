@@ -6,6 +6,7 @@ import { AURA_COACH_SYSTEM_PROMPT, PERSONA_GESTOR } from "@/lib/aura-coach-promp
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { registrarFalhaIA } from "@/lib/aura/custo-ia";
 import { textoDosMateriais } from "@/lib/aura/materiais";
+import { materiaisParaPergunta } from "@/lib/aura/trechos";
 import { textoDoAprendizado, blocoDeAprendizado } from "@/lib/aura/aprendizado";
 import {
   ferramentasParaResponsesAPI,
@@ -56,7 +57,7 @@ function montarSystemPrompt(
   // estuda"): regras da casa, tabela de produtos, scripts. Valem mais que
   // conhecimento genérico de vendas.
   if (materiais && materiais.trim()) {
-    prompt += `\n\nMATERIAIS DA EMPRESA (regras da casa, produtos, scripts — responda com base nisto quando a pergunta for sobre política interna, prazo, desconto ou produto):\n"""\n${materiais.trim()}\n"""`;
+    prompt += `\n\nMATERIAIS DA EMPRESA (regras da casa, produtos, scripts — responda com base nisto quando a pergunta for sobre política interna, prazo, desconto ou produto; número de produto — potência, área, garantia, horas de queima — só o que está aqui, e se não estiver, diga que vai confirmar com a loja em vez de estimar):\n"""\n${materiais.trim()}\n"""`;
   }
   // O que a casa aprendeu nas conversas reais, já revisado pelo gestor.
   prompt += blocoDeAprendizado(aprendizado ?? "");
@@ -164,7 +165,19 @@ export async function POST(request: Request) {
   let aprendizado = "";
   if (auth) {
     try {
-      materiais = await textoDosMateriais(auth.supabase, auth.empresa);
+      // O assunto que a busca usa: no chat, as últimas falas; na análise de
+      // reunião, a transcrição. Na pauta da reunião não há assunto, e vão só
+      // as regras fixas.
+      const falas: MensagemEntrada[] = Array.isArray(body.mensagens) ? body.mensagens : [];
+      const assunto =
+        modo === "analise_reuniao"
+          ? String(body.transcricao ?? "")
+          : modo === "chat"
+            ? falas.slice(-4).map((m) => String(m?.texto ?? "")).join("\n")
+            : "";
+      materiais = await materiaisParaPergunta(auth.supabase, auth.empresa, assunto);
+      // Loja sem material indexado: o texto inteiro, como antes.
+      if (!materiais) materiais = await textoDosMateriais(auth.supabase, auth.empresa);
     } catch (e) {
       console.error("[coach] materiais da empresa:", e);
     }

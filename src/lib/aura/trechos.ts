@@ -64,6 +64,12 @@ export const SECOES_NUCLEO = [
   "O QUE NÃO É PROSPECÇÃO",
   "O QUE O VENDEDOR SCMF NÃO FAZ",
   "O VENDEDOR SCMF FAZ",
+  // Base de conhecimento do Grupo MF (22/10/2026): fatos de produto que a IA
+  // não pode errar (garantia, combustão, calor em outros ambientes) e quem é
+  // a loja (endereço, contato, tom). Valem em toda conversa e nenhum cliente
+  // escreve a palavra que faria a busca trazê-los.
+  "REGRAS DE PRODUTO E COMUNICAÇÃO",
+  "IDENTIDADE DA LOJA",
 ];
 
 function ehNucleo(origem: string): boolean {
@@ -212,17 +218,39 @@ export function partirEmTrechos(
       continue;
     }
 
-    // Seção longa: quebra por parágrafo, sem cortar frase no meio.
-    let bloco = "";
+    /**
+     * Seção longa: quebra por parágrafo; parágrafo longo demais, por linha.
+     *
+     * Antes o parágrafo que passava do máximo era cortado no caractere 1.200,
+     * no meio da palavra: uma lista de garantias virava "...da ficha técnica
+     * do mod" num trecho e "elo, nunca..." no seguinte, e nenhum dos dois
+     * ensinava a regra inteira. Lista em markdown é um parágrafo só (itens
+     * separados por uma quebra simples), então isso acontecia em quase todo
+     * material com lista. Agora os itens viram unidades; o corte bruto fica
+     * para a linha única maior que o máximo, e mesmo ele recua até o último
+     * espaço.
+     */
+    const unidades: { texto: string; sep: string }[] = [];
     for (const paragrafo of corpo.split(/\n{2,}/)) {
-      if (bloco && bloco.length + paragrafo.length + 2 > max) {
+      if (paragrafo.length <= max) {
+        unidades.push({ texto: paragrafo, sep: "\n\n" });
+      } else {
+        paragrafo.split("\n").forEach((linha, i) => unidades.push({ texto: linha, sep: i === 0 ? "\n\n" : "\n" }));
+      }
+    }
+
+    let bloco = "";
+    for (const u of unidades) {
+      if (bloco && bloco.length + u.sep.length + u.texto.length > max) {
         saida.push({ ordem: ++ordem, origem, texto: bloco.trim() });
         bloco = "";
       }
-      bloco += (bloco ? "\n\n" : "") + paragrafo;
+      bloco += (bloco ? u.sep : "") + u.texto;
       while (bloco.length > max) {
-        saida.push({ ordem: ++ordem, origem, texto: bloco.slice(0, max).trim() });
-        bloco = bloco.slice(max);
+        const espaco = bloco.lastIndexOf(" ", max);
+        const corte = espaco > max / 2 ? espaco : max;
+        saida.push({ ordem: ++ordem, origem, texto: bloco.slice(0, corte).trim() });
+        bloco = bloco.slice(corte);
       }
     }
     if (bloco.trim()) saida.push({ ordem: ++ordem, origem, texto: bloco.trim() });
@@ -390,4 +418,39 @@ export function textoDosTrechos(trechos: Trecho[]): string {
     out += (out ? "\n\n" : "") + bloco;
   }
   return out;
+}
+
+/**
+ * Material da casa para uma pergunta: as regras fixas (núcleo) mais os
+ * trechos que a busca acha para ESTA pergunta.
+ *
+ * A AURA Coach e a análise de fechamento recebiam o texto inteiro de todos os
+ * materiais, cortado em 40 mil caracteres. Com a base de conhecimento do
+ * grupo (ficha técnica, instalação, objeções, parceiros) a soma passou de 90
+ * mil, e o corte deixava de fora justamente o que entrou por último: a IA não
+ * via a ficha da Adatto nem a regra da garantia. A busca resolve as duas
+ * pontas — a resposta vem do trecho certo e o prompt fica menor que antes.
+ *
+ * Sem núcleo nem trecho (loja sem material, ou banco fora), devolve vazio e
+ * quem chama decide o plano B.
+ */
+export async function materiaisParaPergunta(
+  sb: SupabaseClient,
+  empresa: string,
+  pergunta: string,
+  limite = 8,
+): Promise<string> {
+  const [nucleo, achados] = await Promise.all([
+    nucleoDoManual(sb, empresa).catch(() => ""),
+    trechosRelevantes(sb, empresa, pergunta, limite),
+  ]);
+  // O que já está no núcleo não ocupa vaga da busca.
+  const extras = achados.filter((t) => !nucleo.includes(t.texto));
+  const busca = textoDosTrechos(extras);
+  return [
+    nucleo && `REGRAS FIXAS DA CASA (valem sempre):\n${nucleo}`,
+    busca && `TRECHOS DOS MATERIAIS LIGADOS A ESTE ASSUNTO:\n${busca}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
