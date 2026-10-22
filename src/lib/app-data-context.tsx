@@ -218,6 +218,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           supabase!
             .from("leads_recebidos")
             .select("*")
+            // Cliente antigo e não-lead não são lead (ver SO_LEADS_DE_VERDADE).
+            .or("natureza.is.null,natureza.eq.lead")
             .order("created_at", { ascending: false }),
         ]);
 
@@ -360,6 +362,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             );
           } else if (payload.eventType === "UPDATE") {
             const leadAtualizado = payload.new as Lead;
+            // Marcado como cliente antigo ou não-lead: sai da lista.
+            const natureza = (payload.new as { natureza?: string | null }).natureza;
+            if (natureza && natureza !== "lead") {
+              setLeads((prev) => prev.filter((x) => x.id !== leadAtualizado.id));
+              return;
+            }
             setLeads((prev) =>
               prev.map((x) =>
                 x.id === leadAtualizado.id ? leadAtualizado : x,

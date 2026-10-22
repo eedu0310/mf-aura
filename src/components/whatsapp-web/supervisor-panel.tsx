@@ -32,6 +32,7 @@ import {
   INFO_NATUREZA,
   MOTIVOS_NAO_LEAD,
   NATUREZAS,
+  PALPITES_DE_CLIENTE_ANTIGO,
 } from "@/lib/categoria-contato";
 
 interface Props {
@@ -314,7 +315,7 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
             */}
             <p className="text-sm text-[#8696a0]">
               {lead?.natureza === "cliente"
-                ? "Cliente da casa. Está no seu pós-venda, fora do funil de prospecção."
+                ? "Cliente antigo. Foi para o pós-venda da loja (coluna Clientes antigos) e saiu do funil e dos alertas de lead. Continua na sua carteira."
                 : lead?.natureza === "nao_lead" || lead?.ignorado
                 ? `Marcado como não sendo lead${lead?.motivoNatureza ? ` (${lead.motivoNatureza})` : ""}. A AURA não acompanha e não sugere mais.`
                 : lead?.analisando
@@ -330,6 +331,28 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
               logo acima, que aparece sempre. Aqui fica so a confirmacao do que
               a AURA sugeriu, que e o atalho do dia a dia.
             */}
+            {/*
+              A AURA achou que é cliente antigo (o número já comprou da casa,
+              ou a conversa é de quem já tem a lareira). Um toque manda para o
+              pós-venda; "Tratar como lead" continua ali para compra nova.
+            */}
+            {!lead?.natureza && PALPITES_DE_CLIENTE_ANTIGO.some((p) => p === lead?.motivoNatureza) && (
+              <div className="mt-3 rounded-md border border-[#53bdeb]/40 bg-[#0d2b36] px-3 py-2.5">
+                <p className="text-sm text-[#e9edef]">
+                  Parece cliente antigo: já comprou da casa ou fala do que já tem instalado.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => acao("nat-cliente", { action: "classify", natureza: "cliente" })}
+                  disabled={!!ocupado}
+                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#53bdeb] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#7fd1ff] disabled:opacity-60"
+                >
+                  {ocupado === "nat-cliente" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Sim, cliente antigo · pós-venda
+                </button>
+              </div>
+            )}
+
             <div className="mt-3">
               <button
                 type="button"

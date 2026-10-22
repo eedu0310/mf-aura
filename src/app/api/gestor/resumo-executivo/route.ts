@@ -38,7 +38,7 @@ export async function POST() {
   ] = await Promise.all([
     supabase.from("vendas").select("empresa, valor, data"),
     supabase.from("oportunidades").select("empresa, valor, etapa, dias_parado"),
-    supabase.from("leads_recebidos").select("empresa, status, gestor_notificado, urgencia"),
+    supabase.from("leads_recebidos").select("empresa, status, gestor_notificado, urgencia").or("natureza.is.null,natureza.eq.lead"),
     supabase.from("pos_vendas").select("empresa, status, reclamacao, reclamacao_resolvida, avaliou_loja, nota_avaliacao, data_agendamento"),
     supabase.from("profiles").select("empresa, cargo, ativo"),
   ]);

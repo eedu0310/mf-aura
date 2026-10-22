@@ -35,6 +35,7 @@ import {
 import { calcularAlertas, detectarEtapa, type Alerta } from "./stage-rules";
 import { transcricoesDaConversa } from "./transcrever";
 import {
+  acharEtapa,
   ehFechada,
   ehGanho,
   exigeValor,
@@ -585,11 +586,14 @@ erros que mais aparecem na prática, e todos devem ter "e_lead": false:
 - FORNECEDOR e transportadora: nota fiscal, prazo de entrega PARA NÓS, frete,
   pedido de compra nosso.
 - AMIGO e FAMÍLIA, mesmo que puxem assunto de lareira ou de piscina.
-- SUPORTE a quem já comprou: a peça não acende, veio torta, quer manutenção.
-  É pós-venda, não venda nova. Use "tipo_nao_lead": "Suporte técnico".
+- CLIENTE ANTIGO, que já comprou da casa (há um mês ou há anos): fala da
+  lareira que JÁ TEM, uso, limpeza, manutenção, garantia, peça, a instalação
+  que foi feita, manda foto do produto instalado ou agradece. É pós-venda,
+  não venda nova, e não é "cliente sem atendimento". Use "tipo_nao_lead":
+  "Cliente antigo". Só vira lead se pedir orçamento de outro produto.
 Quando "e_lead" for false, preencha "tipo_nao_lead" com o que o contato é
 (Instalador, Fornecedor, Colega de equipe, Gestor ou chefe, Amigo ou família,
-Suporte técnico, Outro assunto). É isso que o vendedor vê na etiqueta.
+Cliente antigo, Outro assunto). É isso que o vendedor vê na etiqueta.
 
 CATEGORIA: quando for lead, diga em "categoria_sugerida" o que o contato é no
 mercado, pela forma de falar. Arquiteto, designer e consultor falam de
@@ -606,7 +610,7 @@ ${descricaoDasEtapas(funil)}
 
 Responda APENAS com um JSON válido, sem texto antes ou depois, neste formato:
 {
-  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, suporte de quem já comprou, ou qualquer assunto fora dos segmentos listados no começo — lareiras, churrasqueiras, calefação, piso aquecido, piscina, aquecedores de passagem, boilers e solar são TODOS do nosso ramo)
+  "e_lead": boolean,            // é uma conversa comercial com cliente/potencial cliente? (false para instalador, colega de equipe, gestor, fornecedor, família, amigos, spam, cliente antigo pedindo suporte ou manutenção do que já comprou, ou qualquer assunto fora dos segmentos listados no começo — lareiras, churrasqueiras, calefação, piso aquecido, piscina, aquecedores de passagem, boilers e solar são TODOS do nosso ramo)
   "categoria_sugerida": "Cliente Final"|"Arquiteto"|"Construtora"|"Revendedor"|"Engenheiro"|"Designer de Interiores"|"Consultor"|"Obra"|"Distribuidor"|"Outro"|null,
   "tipo_nao_lead": "o que o contato é, quando e_lead for false, ou null",
   "etapa": ${nomesDasEtapas(funil).map((n) => JSON.stringify(n)).join("|")}|null,
@@ -814,6 +818,13 @@ async function garantirRelacionamento(
    * existentes estão todos com origem_lead nulo.
    */
   campanhaId: string | null = null,
+  /**
+   * Falso para cliente antigo. A fila de leads tem prazo de 30 minutos e
+   * avisa o gestor quando vence; cliente antigo não é lead, e era exatamente
+   * por isso que o gestor recebia "Lead sem resposta" de quem comprou há um
+   * ano (18 casos no dia em que isto foi corrigido).
+   */
+  entrarNaFilaDeLeads = true,
 ): Promise<{ id: string | null; aviso: string | null }> {
   const variantes = variantesTelefone(phone);
   if (variantes.length) {
@@ -859,7 +870,7 @@ async function garantirRelacionamento(
   }
 
   // Contato novo entra também na fila de leads, para o gestor acompanhar.
-  await registrarLeadWhatsApp(sb, {
+  if (entrarNaFilaDeLeads) await registrarLeadWhatsApp(sb, {
     empresa,
     vendedorId: userId,
     relacionamentoId: data.id,
@@ -1454,6 +1465,9 @@ export async function analisarConversa(
     // O funil é desta loja: o gestor edita as etapas por loja, e tudo daqui
     // para baixo pergunta o PAPEL da etapa em vez de comparar o nome.
     const funil = await carregarFunil(sb, empresa);
+    // Já comprou da casa? Muda o que a IA deve entender da conversa e o que o
+    // painel sugere ao vendedor (cliente antigo, em vez de lead novo).
+    const casa = await clienteDaCasa(sb, empresa, chat.phone);
     const regras = detectarEtapa(msgs);
     const alertas = calcularAlertas(msgs);
 
@@ -1513,7 +1527,9 @@ export async function analisarConversa(
         fixo,
         sb0 ? await textoDoAprendizado(sb0, empresa) : "",
         trechos,
-        await blocoDeAtendimento(empresa, chat.phone).catch(() => ""),
+        [await blocoDeAtendimento(empresa, chat.phone).catch(() => ""), casa ? blocoClienteDaCasa(casa) : ""]
+          .filter(Boolean)
+          .join("\n\n"),
         empresa,
         transcricoes,
         userId,
@@ -1643,6 +1659,11 @@ export async function analisarConversa(
     if (!analise?.e_lead && analise?.tipo_nao_lead && !row?.natureza) {
       patch.motivo_natureza = analise.tipo_nao_lead;
     }
+    // Número que já comprou da casa e não está pedindo produto novo: o painel
+    // oferece "Cliente antigo (pós-venda)" em vez de "É um lead?".
+    if (casa && !row?.natureza && !analise?.e_lead && !jaEhNegocio) {
+      patch.motivo_natureza = "Cliente antigo";
+    }
     patch.lead_sugerido = sugerirLead;
     patch.confianca_lead = analise ? confiancaLead : null;
     patch.motivo_sugestao = sugerirLead
@@ -1650,6 +1671,9 @@ export async function analisarConversa(
         ? `${confiancaLead >= CONFIANCA_MINIMA ? "Parece venda" : "Pode ser venda"} (${Math.round(confiancaLead * 100)}%): ${analise.resumo}`
         : "Apareceram palavras de venda na conversa. Confirme se é cliente."
       : null;
+    if (sugerirLead && casa && patch.motivo_sugestao) {
+      patch.motivo_sugestao = `Já é cliente da casa. ${patch.motivo_sugestao} Se for só pós-venda, marque Cliente antigo.`;
+    }
     if (opts.comoLead) {
       patch.ignorado = false;
       patch.lead_sugerido = false;
@@ -1794,42 +1818,94 @@ export async function classificarContato(
   if (entrada.motivo !== undefined) linha.motivo_natureza = entrada.motivo;
 
   /**
-   * "Ja e nosso cliente" tem de valer na carteira, nao so na conversa.
+   * Cliente antigo tem de valer na carteira, no pós-venda e na fila de
+   * leads — não só na conversa.
    *
-   * Sem isto, o vendedor marcava o cliente antigo e nada acontecia: o contato
-   * ficava de fora do funil (certo) e de fora da carteira (errado), ou seja,
-   * sumia. Quem comprou da casa pertence a carteira de quem vendeu — e dali
-   * que sai o pos-venda.
+   * Na carteira: quem comprou da casa pertence a carteira de quem vendeu, com
+   * a etiqueta "Cliente antigo".
    *
-   * Nao criamos pos_vendas aqui: aquela tabela exige uma venda registrada, e
-   * cliente antigo de antes do CRM nao tem. Inventar venda para preencher a
-   * tabela seria faturamento que ninguem vendeu.
+   * No pós-venda: ganha um card próprio (origem 'cliente_antigo', sem venda —
+   * cliente de antes do CRM não tem venda, e inventar uma seria faturamento
+   * que ninguém vendeu). A migração 093 abriu a tabela para isso.
+   *
+   * Na fila de leads: sai. Antes, marcar o cliente antigo o CADASTRAVA na
+   * fila com prazo de 30 minutos, o prazo vencia e o gestor recebia "Lead sem
+   * resposta" de quem comprou há um ano.
+   *
+   * Negócio aberto que a AURA tenha criado para ele vai para a etapa
+   * Pós-venda: sai da conta do pipeline sem virar perda.
    */
+  if (entrada.natureza === "cliente" || entrada.natureza === "nao_lead") {
+    linha.alertas = [];
+    linha.lead_sugerido = false;
+    linha.motivo_sugestao = null;
+  }
+
+  const { data: atual } = await sb
+    .from("whatsapp_ia_leads")
+    .select("relacionamento_id, oportunidade_id, interesse")
+    .eq("owner_id", userId)
+    .eq("chat_jid", chatJid)
+    .maybeSingle();
+  const empresaDaLinha = String(linha.empresa ?? "");
+
   if (entrada.natureza === "cliente" && chat?.phone) {
     const r = await garantirRelacionamento(
       sb,
       userId,
-      String(linha.empresa ?? ""),
+      empresaDaLinha,
       chat.name ?? "",
       chat.phone,
       entrada.categoria ?? null,
+      null,
+      false,
     );
-    if (r.id) {
-      linha.relacionamento_id = r.id;
+    const relId = r.id ?? (atual?.relacionamento_id as string | null) ?? null;
+    if (relId) {
+      linha.relacionamento_id = relId;
+      const { data: rel } = await sb
+        .from("relacionamentos")
+        .select("tags, nome, telefone")
+        .eq("id", relId)
+        .maybeSingle();
+      const tags: string[] = Array.isArray(rel?.tags) ? rel.tags : [];
       await sb
         .from("relacionamentos")
         .update({
           status_relacionamento: "cliente",
           // 'ativo' e nao 'quente': cliente da casa e relacionamento para
-          // manter, nao prospecto para perseguir. A tela da carteira mostra a
-          // temperatura, entao esta e a parte que o vendedor realmente ve.
+          // manter, nao prospecto para perseguir.
           temperatura: "ativo",
           ultimo_contato_em: new Date().toISOString(),
+          tags: tags.includes("Cliente antigo") ? tags : [...tags, "Cliente antigo"],
           ...(entrada.categoria ? { categoria: entrada.categoria } : {}),
         })
-        .eq("id", r.id)
+        .eq("id", relId)
         .eq("owner_id", userId);
+
+      await abrirPosVendaDeClienteAntigo(sb, {
+        empresa: empresaDaLinha,
+        relacionamentoId: relId,
+        vendedorId: userId,
+        cliente: (rel?.nome as string | null) || chat.name || formatarTelefone(chat.phone),
+        telefone: (rel?.telefone as string | null) ?? formatarTelefone(chat.phone),
+        produto: (atual?.interesse as string | null) ?? null,
+      });
     }
+    if (atual?.oportunidade_id) {
+      await levarNegocioAbertoProPosVenda(sb, String(atual.oportunidade_id), empresaDaLinha);
+    }
+  }
+
+  if ((entrada.natureza === "cliente" || entrada.natureza === "nao_lead") && empresaDaLinha) {
+    await tirarDaFilaDeLeads(sb, {
+      empresa: empresaDaLinha,
+      telefone: chat?.phone ?? null,
+      relacionamentoId: (linha.relacionamento_id as string | null) ?? (atual?.relacionamento_id as string | null) ?? null,
+      natureza: entrada.natureza,
+      motivo: entrada.natureza === "cliente" ? "Cliente antigo" : entrada.motivo ?? null,
+      userId,
+    });
   }
 
   const { error } = await sb
@@ -1840,6 +1916,166 @@ export async function classificarContato(
   // Marcou como lead: analisa agora, para o vendedor nao esperar o proximo ciclo.
   if (entrada.natureza === "lead") {
     agendarAnalise(userId, chatJid, 0, { forcar: true, comoLead: true });
+  }
+}
+
+/**
+ * Este número já comprou da casa?
+ *
+ * Olha a carteira da LOJA, não só a do vendedor: o cliente pode ter comprado
+ * com outro vendedor ou antes de quem atende hoje. Comprou = tem venda
+ * registrada, ou o cadastro está como cliente / com a etiqueta "Cliente
+ * antigo" (quem comprou antes do CRM só tem isso).
+ */
+async function clienteDaCasa(
+  sb: SupabaseClient,
+  empresa: string,
+  phone: string | null | undefined,
+): Promise<{ comprouEm: string | null; produto: string | null } | null> {
+  const variantes = phone ? variantesTelefone(phone) : [];
+  if (!variantes.length) return null;
+  try {
+    const { data: rels } = await sb
+      .from("relacionamentos")
+      .select("id, status_relacionamento, tags")
+      .eq("empresa", empresa)
+      .in("telefone_normalizado", variantes)
+      .limit(5);
+    if (!rels?.length) return null;
+    const { data: venda } = await sb
+      .from("vendas")
+      .select("data, produto")
+      .in("relacionamento_id", rels.map((r) => r.id))
+      .order("data", { ascending: false })
+      .limit(1);
+    if (venda?.length) return { comprouEm: (venda[0].data as string) ?? null, produto: (venda[0].produto as string) ?? null };
+    const marcado = rels.some(
+      (r) => r.status_relacionamento === "cliente" || (Array.isArray(r.tags) && r.tags.includes("Cliente antigo")),
+    );
+    return marcado ? { comprouEm: null, produto: null } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** O bloco que conta para a IA que este contato já é cliente da casa. */
+function blocoClienteDaCasa(casa: { comprouEm: string | null; produto: string | null }): string {
+  const quando = casa.comprouEm ? ` em ${casa.comprouEm.slice(0, 10).split("-").reverse().join("/")}` : "";
+  const oque = casa.produto ? ` (${casa.produto})` : "";
+  return (
+    `HISTÓRICO COM A CASA: este número JÁ COMPROU da loja${quando}${oque}. É CLIENTE ANTIGO. ` +
+    `Dúvida de uso, limpeza, manutenção, garantia, peça, instalação, foto do produto instalado ou agradecimento é PÓS-VENDA: ` +
+    `"e_lead": false e "tipo_nao_lead": "Cliente antigo", sem tratar como lead novo nem cobrar atendimento de lead. ` +
+    `Só é venda nova ("e_lead": true) se ele pedir orçamento de OUTRO produto ou de mais uma unidade.`
+  );
+}
+
+/**
+ * Tira o contato da fila de leads: quem o vendedor disse que é cliente antigo
+ * ou que não é lead não tem prazo de resposta a cumprir, e o gestor não deve
+ * ser avisado dele. Grava quem decidiu e quando, em vez de apagar.
+ */
+async function tirarDaFilaDeLeads(
+  sb: SupabaseClient,
+  d: {
+    empresa: string;
+    telefone: string | null;
+    relacionamentoId: string | null;
+    natureza: "cliente" | "nao_lead";
+    motivo: string | null;
+    userId: string;
+  },
+) {
+  const patch = {
+    natureza: d.natureza,
+    motivo_natureza: d.motivo,
+    descartado_em: new Date().toISOString(),
+    descartado_por: d.userId,
+  };
+  try {
+    if (d.relacionamentoId) {
+      await sb
+        .from("leads_recebidos")
+        .update(patch)
+        .eq("empresa", d.empresa)
+        .eq("relacionamento_id", d.relacionamentoId)
+        .neq("status", "respondido")
+        .is("natureza", null);
+    }
+    const variantes = d.telefone ? variantesTelefone(d.telefone) : [];
+    if (variantes.length) {
+      await sb
+        .from("leads_recebidos")
+        .update(patch)
+        .eq("empresa", d.empresa)
+        .in("telefone", [d.telefone as string, ...variantes])
+        .neq("status", "respondido")
+        .is("natureza", null);
+    }
+  } catch (e: any) {
+    console.error("[supervisor] tirar da fila de leads:", e?.message ?? e);
+  }
+}
+
+/**
+ * Card de pós-venda para o cliente antigo. Um só por cliente (índice único
+ * no banco), e nenhum se ele já tem venda ou pós-venda — aí o pós-venda dele
+ * já existe e é o da venda.
+ */
+async function abrirPosVendaDeClienteAntigo(
+  sb: SupabaseClient,
+  d: {
+    empresa: string;
+    relacionamentoId: string;
+    vendedorId: string;
+    cliente: string;
+    telefone: string | null;
+    produto: string | null;
+  },
+) {
+  try {
+    const [{ data: pos }, { data: venda }] = await Promise.all([
+      sb.from("pos_vendas").select("id").eq("relacionamento_id", d.relacionamentoId).limit(1),
+      sb.from("vendas").select("id").eq("relacionamento_id", d.relacionamentoId).limit(1),
+    ]);
+    if (pos?.length || venda?.length) return;
+    const { error } = await sb.from("pos_vendas").insert({
+      empresa: d.empresa,
+      origem: "cliente_antigo",
+      status: "cliente_antigo",
+      relacionamento_id: d.relacionamentoId,
+      vendedor_id: d.vendedorId,
+      cliente: d.cliente,
+      telefone: d.telefone,
+      produto: d.produto?.trim() || "Cliente antigo",
+      observacao: "Marcado como cliente antigo no WhatsApp.",
+    });
+    // 23505: outro clique chegou antes. O card existe, que é o que importa.
+    if (error && error.code !== "23505") console.error("[supervisor] pós-venda do cliente antigo:", error.message);
+  } catch (e: any) {
+    console.error("[supervisor] pós-venda do cliente antigo:", e?.message ?? e);
+  }
+}
+
+/**
+ * Negócio que a AURA abriu para quem, no fim, era cliente antigo: vai para a
+ * etapa Pós-venda, que não conta no pipeline e não é perda. Só sai de etapa
+ * ABERTA — card em Fechamento já virou venda e não se mexe.
+ */
+async function levarNegocioAbertoProPosVenda(sb: SupabaseClient, oportunidadeId: string, empresa: string) {
+  try {
+    const funil = await carregarFunil(sb, empresa);
+    const destino = nomeDaChave("posvenda", funil);
+    if (!destino) return;
+    const { data: op } = await sb.from("oportunidades").select("id, etapa").eq("id", oportunidadeId).maybeSingle();
+    if (!op || acharEtapa(op.etapa, funil)?.tipo !== "aberta") return;
+    const { error } = await sb
+      .from("oportunidades")
+      .update({ etapa: destino, updated_at: new Date().toISOString(), dias_parado: 0 })
+      .eq("id", op.id);
+    if (error) console.error("[supervisor] negócio do cliente antigo:", error.message);
+  } catch (e: any) {
+    console.error("[supervisor] negócio do cliente antigo:", e?.message ?? e);
   }
 }
 

@@ -22,6 +22,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
  *   instalacao_pendente     a data passou e a instalação não aconteceu
  *   reclamacao              o cliente reclamou
  *   pos_venda_realizado     acabou
+ *   cliente_antigo          comprou antes (ou fora) do CRM; o vendedor marcou
+ *                           no WhatsApp. Não tem venda (migração 093).
  *
  * "Instalação realizada" e "Pós-venda concluído" eram dois nomes para o mesmo
  * fim de linha; viraram pos_venda_realizado.
@@ -31,7 +33,9 @@ import type { StatusPosVenda } from "@/lib/types";
 
 export interface PosVenda {
   id: string;
-  vendaId: string;
+  /** Nulo no cliente antigo, que não tem venda registrada. */
+  vendaId: string | null;
+  origem: "venda" | "cliente_antigo";
   empresa: string;
   status: StatusPosVenda;
   dataAgendamento: string | null;
@@ -54,7 +58,11 @@ export interface PosVenda {
 
 interface LinhaPosVenda {
   id: string;
-  venda_id: string;
+  venda_id: string | null;
+  origem: string | null;
+  cliente: string | null;
+  produto: string | null;
+  created_at: string;
   empresa: string;
   status: StatusPosVenda;
   data_agendamento: string | null;
@@ -74,6 +82,7 @@ function doBanco(linha: LinhaPosVenda): PosVenda {
   return {
     id: linha.id,
     vendaId: linha.venda_id,
+    origem: linha.origem === "cliente_antigo" ? "cliente_antigo" : "venda",
     empresa: linha.empresa,
     status: linha.status,
     dataAgendamento: linha.data_agendamento,
@@ -85,10 +94,11 @@ function doBanco(linha: LinhaPosVenda): PosVenda {
     notaAvaliacao: linha.nota_avaliacao,
     comentarioAvaliacao: linha.comentario_avaliacao,
     tokenAvaliacao: linha.token_avaliacao,
-    cliente: linha.vendas?.cliente ?? "Cliente não encontrado",
-    produto: linha.vendas?.produto ?? "",
+    // Cliente antigo não tem venda: o nome e o produto moram no próprio card.
+    cliente: linha.vendas?.cliente ?? linha.cliente ?? "Cliente não encontrado",
+    produto: linha.vendas?.produto ?? linha.produto ?? "",
     valor: Number(linha.vendas?.valor ?? 0),
-    dataVenda: linha.vendas?.data ?? "",
+    dataVenda: linha.vendas?.data ?? linha.created_at?.slice(0, 10) ?? "",
     telefone: linha.telefone ?? null,
   };
 }

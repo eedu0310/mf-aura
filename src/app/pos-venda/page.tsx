@@ -20,6 +20,9 @@ const COLUNAS: { status: StatusPosVenda; titulo: string; cor: string }[] = [
   { status: "instalacao_pendente", titulo: "Instalação Pendente", cor: "border-t-aura-warning" },
   { status: "reclamacao", titulo: "Reclamação", cor: "border-t-aura-danger" },
   { status: "pos_venda_realizado", titulo: "Pós-venda Concluído", cor: "border-t-aura-success" },
+  // Quem comprou antes do CRM e o vendedor marcou como cliente antigo no
+  // WhatsApp. Daqui ele vai para Reclamação ou Concluído como qualquer outro.
+  { status: "cliente_antigo", titulo: "Clientes antigos", cor: "border-t-aura-petrol-700" },
 ];
 
 type Filtro = "todas" | "atrasadas" | "reclamacoes" | "sem_avaliacao";
@@ -90,9 +93,10 @@ export default function PosVendaPage() {
     [itens, empresaFiltro]
   );
 
-  const totalVendas = itensDaLoja.length;
+  // Cliente antigo não é venda: fica fora do total de vendas e da taxa de avaliação.
+  const totalVendas = itensDaLoja.filter((i) => i.origem !== "cliente_antigo").length;
   const totalReclamacoes = itensDaLoja.filter((i) => i.status === "reclamacao").length;
-  const totalAvaliaram = itensDaLoja.filter((i) => i.avaliouLoja).length;
+  const totalAvaliaram = itensDaLoja.filter((i) => i.avaliouLoja && i.origem !== "cliente_antigo").length;
   const notaMedia =
     totalAvaliaram > 0
       ? itensDaLoja.filter((i) => i.notaAvaliacao).reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / totalAvaliaram
@@ -119,7 +123,7 @@ export default function PosVendaPage() {
       <div>
         <p className="font-display text-xl font-semibold text-aura-graphite">Pós-venda</p>
         <p className="text-sm text-aura-graphite-soft">
-          Todas as vendas fechadas pelo time, do agendamento da instalação até a avaliação do cliente.
+          Todas as vendas fechadas pelo time, do agendamento da instalação até a avaliação do cliente, e os clientes antigos marcados no WhatsApp.
         </p>
       </div>
 
@@ -290,9 +294,15 @@ export default function PosVendaPage() {
                             </span>
                           )}
                           <div className="flex items-center justify-between">
-                            <span className="font-data text-xs font-semibold text-aura-graphite">
-                              {formatarMoeda(item.valor)}
-                            </span>
+                            {item.origem === "cliente_antigo" ? (
+                              <span className="rounded-full bg-aura-petrol-700/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-petrol-700">
+                                Cliente antigo
+                              </span>
+                            ) : (
+                              <span className="font-data text-xs font-semibold text-aura-graphite">
+                                {formatarMoeda(item.valor)}
+                              </span>
+                            )}
                             {item.avaliouLoja && item.notaAvaliacao && (
                               <span className="flex items-center gap-0.5 text-[0.65rem] text-aura-gold">
                                 <Star size={10} className="fill-aura-gold" />

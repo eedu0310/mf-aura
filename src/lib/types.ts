@@ -78,7 +78,9 @@ export type StatusPosVenda =
   | "agendamento_realizado"
   | "instalacao_pendente"
   | "reclamacao"
-  | "pos_venda_realizado";
+  | "pos_venda_realizado"
+  /** Comprou antes (ou fora) do CRM; marcado no WhatsApp. Não tem venda. */
+  | "cliente_antigo";
 
 export type TipoPeriodoMeta = "mensal" | "anual";
 

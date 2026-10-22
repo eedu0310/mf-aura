@@ -37,10 +37,17 @@ export const INFO_NATUREZA: Record<
     cor: "#8696a0",
     fundo: "#202c33",
   },
+  /**
+   * Cliente antigo: comprou há um mês ou há anos. Vai para o pós-venda (card
+   * próprio na tela de pós-venda e etiqueta "Cliente antigo" na carteira),
+   * sai do funil e da fila de leads — o gestor não é mais avisado de "lead
+   * sem resposta" por ele. Antes o botão dizia "Já é nosso cliente" e só
+   * tirava o contato do funil; o pós-venda nunca ficava sabendo.
+   */
   cliente: {
-    label: "Já é nosso cliente",
-    curto: "Cliente",
-    descricao: "Já comprou da casa. É pós-venda, não prospecção.",
+    label: "Cliente antigo (pós-venda)",
+    curto: "Pós-venda",
+    descricao: "Já comprou da casa, há pouco ou há anos. Vai para o pós-venda e sai do funil e dos alertas de lead.",
     cor: "#53bdeb",
     fundo: "#0d2b36",
   },
@@ -56,6 +63,13 @@ export const MOTIVOS_NAO_LEAD = [
   "Suporte técnico",
   "Outro assunto",
 ] as const;
+
+/**
+ * O palpite da AURA (motivo_natureza) que quer dizer "isto é cliente antigo".
+ * "Suporte técnico" entra porque é como a análise chamava quem já comprou e
+ * voltou com problema na lareira, antes de existir a opção própria.
+ */
+export const PALPITES_DE_CLIENTE_ANTIGO = ["Cliente antigo", "Suporte técnico"] as const;
 export type MotivoNaoLead = (typeof MOTIVOS_NAO_LEAD)[number];
 
 export const CATEGORIAS_CONTATO = [

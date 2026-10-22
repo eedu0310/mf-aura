@@ -143,6 +143,7 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
             "instalacao_pendente",
             "reclamacao",
             "pos_venda_realizado",
+            "cliente_antigo",
           ],
           description: "Novo status do pós-venda.",
         },

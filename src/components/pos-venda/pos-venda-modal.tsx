@@ -12,6 +12,7 @@ const STATUS_LABEL: Record<StatusPosVenda, string> = {
   instalacao_pendente: "Instalação Pendente",
   reclamacao: "Reclamação",
   pos_venda_realizado: "Pós-venda Concluído",
+  cliente_antigo: "Cliente antigo",
 };
 
 const STATUS_ORDEM: StatusPosVenda[] = [
@@ -20,6 +21,7 @@ const STATUS_ORDEM: StatusPosVenda[] = [
   "instalacao_pendente",
   "reclamacao",
   "pos_venda_realizado",
+  "cliente_antigo",
 ];
 
 function formatarMoeda(valor: number) {
@@ -102,7 +104,9 @@ export function PosVendaModal({
           <div>
             <p className="font-display text-lg font-semibold text-aura-graphite">{pv.cliente}</p>
             <p className="text-xs text-aura-graphite-soft">
-              {pv.produto} · {formatarMoeda(pv.valor)}
+              {pv.origem === "cliente_antigo"
+                ? `Cliente antigo${pv.produto && pv.produto !== "Cliente antigo" ? ` · ${pv.produto}` : ""}`
+                : `${pv.produto} · ${formatarMoeda(pv.valor)}`}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar" className="text-aura-graphite-soft hover:text-aura-graphite">

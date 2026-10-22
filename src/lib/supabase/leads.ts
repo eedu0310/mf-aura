@@ -52,6 +52,13 @@ function doBanco(linha: Record<string, unknown>): Lead {
   };
 }
 
+/**
+ * Filtro dos leads de verdade: quem o vendedor marcou no WhatsApp como
+ * cliente antigo ou como não-lead sai da fila (natureza preenchida). Sem isto
+ * o cliente que comprou há um ano aparecia como "lead sem resposta".
+ */
+export const SO_LEADS_DE_VERDADE = "natureza.is.null,natureza.eq.lead";
+
 export async function listarLeads(): Promise<Lead[] | null> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
@@ -59,6 +66,7 @@ export async function listarLeads(): Promise<Lead[] | null> {
   const { data, error } = await supabase
     .from("leads_recebidos")
     .select("*")
+    .or(SO_LEADS_DE_VERDADE)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -155,6 +163,7 @@ export async function listarLeadsEscalonados(): Promise<LeadEscalonado[]> {
     .select("*")
     .eq("gestor_notificado", true)
     .eq("status", "repassado_vendedor")
+    .or(SO_LEADS_DE_VERDADE)
     .order("prazo_resposta", { ascending: true });
 
   if (error || !leadsData || leadsData.length === 0) return [];

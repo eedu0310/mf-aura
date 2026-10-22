@@ -199,8 +199,9 @@ export async function GET(req: NextRequest) {
   }
 
   for (const l of leads.data ?? []) {
-    // Lead descartado como não-lead não entra na conta de ninguém.
-    if (l.natureza === "nao_lead") continue;
+    // Lead descartado como não-lead, ou que era cliente antigo, não entra na
+    // conta de ninguém.
+    if (l.natureza === "nao_lead" || l.natureza === "cliente") continue;
     const id = (l.vendedor_id ?? l.sdr_id) as string | null;
     if (!id) continue;
     pegar(naJanela, id).leadsRecebidos++;
