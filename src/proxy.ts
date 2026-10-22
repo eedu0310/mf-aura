@@ -147,7 +147,9 @@ export async function proxy(request: NextRequest) {
     // O service worker e a versão do build: o navegador precisa buscar os
     // dois mesmo com a sessão vencida, senão o app fica preso numa versão velha.
     caminho === "/sw.js" ||
-    caminho === "/api/versao";
+    caminho === "/api/versao" ||
+    // Destrava navegador preso em versão antiga; precisa abrir mesmo sem login.
+    caminho === "/limpar";
 
   // Uma conta desativada pelo gestor não pode mais entrar. Antes o campo
   // "ativo" só escondia a pessoa das listas: ela continuava logando e
