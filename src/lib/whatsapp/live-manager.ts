@@ -45,6 +45,12 @@ export interface WaMessage {
   /** 0 erro · 1 pendente · 2 enviado (✓) · 3 entregue (✓✓) · 4 lido (✓✓ azul) */
   status?: number;
   /**
+   * Endereço com que o WhatsApp entregou a mensagem (o @lid, muitas vezes),
+   * quando é diferente do da conversa. O recibo de "lido" precisa voltar
+   * para esse endereço, senão o celular não fica sabendo que lemos.
+   */
+  jidOriginal?: string;
+  /**
    * Reacoes nesta mensagem, por emoji. `minha` diz se a nossa esta entre elas,
    * para o botao aparecer marcado.
    *
@@ -497,6 +503,32 @@ function jidCanonico(s: WaSession, jid: string): string {
   return (jid.endsWith("@lid") && s.lidParaPn.get(jid)) || jid;
 }
 
+/** A conversa por qualquer um dos endereços dela (@lid ou número). */
+function acharConversa(s: WaSession, jid: string): WaChat | null {
+  const canonico = jidCanonico(s, jid);
+  return s.chats.get(canonico) ?? s.chats.get(jid) ?? Array.from(s.chats.values()).find((c) => c.pnJid === jid) ?? null;
+}
+
+/**
+ * Acha a mensagem do recibo. O recibo pode vir com o @lid, com o número ou
+ * até com o nosso próprio endereço; se a conversa não bater, procura pelo id
+ * em todas (id de mensagem do WhatsApp é único).
+ */
+function acharMensagem(s: WaSession, remoteJid: string | undefined, id: string): { msg: WaMessage; jid: string } | null {
+  if (remoteJid) {
+    const jid = jidCanonico(s, remoteJid);
+    for (const j of [jid, remoteJid]) {
+      const msg = s.messages.get(j)?.find((m) => m.id === id);
+      if (msg) return { msg, jid: j };
+    }
+  }
+  for (const [jid, lista] of s.messages) {
+    const msg = lista.find((m) => m.id === id);
+    if (msg) return { msg, jid };
+  }
+  return null;
+}
+
 function lembrarLid(s: WaSession, lid: string, pnJid: string) {
   if (!lid.endsWith("@lid") || !pnJid.endsWith("@s.whatsapp.net")) return;
   if (s.lidParaPn.get(lid) === pnJid) return;
@@ -607,7 +639,12 @@ function toMillis(ts: any): number {
   return Number.isFinite(n) && n > 0 ? n * 1000 : Date.now();
 }
 
-function addMessage(s: WaSession, msg: any, live: boolean) {
+/**
+ * `live`: chegou agora (avisa os ouvintes, como a IA do WhatsApp).
+ * `contarNaoLida`: conta como não lida. Vale também para o que chegou com o
+ * servidor fora do ar ("append"), que antes entrava como já lido.
+ */
+function addMessage(s: WaSession, msg: any, live: boolean, contarNaoLida = live) {
   const jidBruto: string | undefined = msg?.key?.remoteJid;
   if (!jidBruto || isIgnoredJid(jidBruto)) return;
 
@@ -639,6 +676,7 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     fromMe,
     timestamp,
     status: fromMe ? (typeof msg.status === "number" ? msg.status : 2) : undefined,
+    ...(jidBruto !== jid ? { jidOriginal: jidBruto } : {}),
     ...parsed,
   };
   const citacao = citacaoDe(unwrap(msg.message), s, jid);
@@ -705,7 +743,11 @@ function addMessage(s: WaSession, msg: any, live: boolean) {
     chat.lastType = item.type;
     chat.timestamp = timestamp;
   }
-  if (live && !fromMe) chat.unread += 1;
+  if (contarNaoLida && !fromMe) chat.unread += 1;
+  // Respondeu (pelo celular ou pela AURA): no WhatsApp a conversa fica lida.
+  // Mensagem nossa que chega "atrasada" (celular estava sem rede) também conta,
+  // desde que seja recente e a mais nova da conversa.
+  if (fromMe && (live || (Date.now() - timestamp < 10 * 60_000 && timestamp >= chat.timestamp))) chat.unread = 0;
   s.chats.set(jid, chat);
   markDirty(s);
 
@@ -1028,18 +1070,40 @@ export async function startSession(
       markDirty(s);
     });
 
+    /**
+     * Leu ou marcou como não lida NO CELULAR (ou no WhatsApp Web): o aparelho
+     * avisa por aqui. Antes a conversa era procurada pelo endereço cru, que
+     * hoje costuma vir como @lid enquanto a AURA guarda pelo número; o aviso
+     * se perdia e a AURA continuava mostrando "não lida" do que já foi lido.
+     * unreadCount -1 é "marcar como não lida".
+     */
     sock.ev.on("chats.update", (updates: any[]) => {
+      let mudou = false;
       for (const u of updates ?? []) {
-        const chat = u?.id ? s.chats.get(u.id) : null;
+        const chat = u?.id ? acharConversa(s, u.id) : null;
         if (!chat) continue;
-        if (typeof u.unreadCount === "number" && u.unreadCount >= 0) chat.unread = u.unreadCount;
-        if (u.conversationTimestamp) chat.timestamp = Math.max(chat.timestamp, toMillis(u.conversationTimestamp));
+        /*
+         * 0 = lida no aparelho; -1 = marcada como não lida. Número positivo
+         * é o "+1" que a biblioteca manda a cada mensagem nova, e essa a
+         * AURA já conta ao receber a mensagem: usar aqui contaria duas vezes.
+         */
+        if (u.unreadCount === 0 || u.unreadCount === -1) {
+          const novo = u.unreadCount === 0 ? 0 : Math.max(chat.unread, 1);
+          if (novo !== chat.unread) {
+            chat.unread = novo;
+            mudou = true;
+          }
+        }
+        if (u.conversationTimestamp) {
+          chat.timestamp = Math.max(chat.timestamp, toMillis(u.conversationTimestamp));
+          mudou = true;
+        }
       }
-      markDirty(s);
+      if (mudou) markDirty(s);
     });
 
     sock.ev.on("messages.upsert", ({ messages, type }: any) => {
-      for (const m of messages ?? []) addMessage(s, m, type === "notify");
+      for (const m of messages ?? []) addMessage(s, m, type === "notify", type === "notify" || type === "append");
     });
 
     /**
@@ -1054,12 +1118,27 @@ export async function startSession(
      * mensagem esta guardada sob o numero.
      */
     const marcarStatus = (key: any, status: number) => {
-      if (!key?.remoteJid || !Number.isFinite(status)) return false;
-      const jid = jidCanonico(s, key.remoteJid);
-      const msg =
-        s.messages.get(jid)?.find((m) => m.id === key.id) ??
-        s.messages.get(key.remoteJid)?.find((m) => m.id === key.id);
-      if (!msg || !msg.fromMe || status <= (msg.status ?? 0)) return false;
+      if (!key?.id || !Number.isFinite(status)) return false;
+      const achado = acharMensagem(s, key.remoteJid, key.id);
+      if (!achado) return false;
+      const { msg, jid } = achado;
+      /*
+       * Recibo de "lido" numa mensagem que o CLIENTE mandou: quem leu fomos
+       * nós, em outro aparelho (o celular). Zera a conversa até ali, igual
+       * ao WhatsApp. Antes este recibo era descartado e a AURA continuava
+       * contando como não lida.
+       */
+      if (!msg.fromMe) {
+        if (status < 4) return false;
+        const chat = s.chats.get(jid);
+        if (!chat || chat.unread === 0) return false;
+        const depois = (s.messages.get(jid) ?? []).filter((m) => !m.fromMe && m.timestamp > msg.timestamp).length;
+        const novo = Math.min(chat.unread, depois);
+        if (novo === chat.unread) return false;
+        chat.unread = novo;
+        return true;
+      }
+      if (status <= (msg.status ?? 0)) return false;
       msg.status = status;
       return true;
     };
@@ -1151,18 +1230,42 @@ export function connectedUserIds(): string[] {
     .map((s) => s.userId);
 }
 
+/**
+ * Leu na AURA: o celular também precisa ficar sabendo.
+ *
+ * Antes ia o recibo só da última mensagem, e pelo número: com o WhatsApp
+ * usando @lid, o recibo se perdia e o celular continuava com a conversa
+ * "não lida". Agora vai o recibo de cada mensagem não lida pelo endereço
+ * com que ela chegou, e a conversa é marcada como lida no aparelho
+ * (chatModify), que é o que o WhatsApp Web faz.
+ */
 export function markRead(userId: string, chatId: string) {
   const s = sessions.get(userId);
   const chat = s?.chats.get(chatId);
+  const naoLidas = Math.max(chat?.unread ?? 0, 1);
   if (chat) chat.unread = 0;
   if (s) markDirty(s);
-  try {
-    const last = s?.messages.get(chatId)?.filter((m) => !m.fromMe).slice(-1)[0];
-    if (s?.sock && last) {
-      s.sock.readMessages([{ remoteJid: chatId, id: last.id, fromMe: false }]).catch(() => {});
-    }
-  } catch {
-    /* ignora */
+  if (!s?.sock) return;
+  const lista = s.messages.get(chatId) ?? [];
+  const recebidas = lista.filter((m) => !m.fromMe).slice(-Math.min(naoLidas, 30));
+  if (recebidas.length) {
+    s.sock
+      .readMessages(recebidas.map((m) => ({ remoteJid: m.jidOriginal ?? chatId, id: m.id, fromMe: false })))
+      .catch((e: any) => console.error("[whatsapp] recibo de lido:", e?.message ?? e));
+  }
+  const ultima = lista.slice(-1)[0];
+  if (ultima) {
+    Promise.resolve(
+      s.sock.chatModify(
+        {
+          markRead: true,
+          lastMessages: [
+            { key: { remoteJid: ultima.jidOriginal ?? chatId, id: ultima.id, fromMe: ultima.fromMe }, messageTimestamp: Math.floor(ultima.timestamp / 1000) },
+          ],
+        },
+        ultima.jidOriginal ?? chatId,
+      ),
+    ).catch((e: any) => console.error("[whatsapp] marcar lida no aparelho:", e?.message ?? e));
   }
 }
 
