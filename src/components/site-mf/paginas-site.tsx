@@ -90,7 +90,7 @@ export function PaginasSite() {
         </div>
       ) : lista.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-12 text-center text-sm text-aura-graphite-soft">
-          Nenhuma página ainda. Comece por “Nova página”.
+          Nenhuma LP ainda. Comece por “Nova página”. Os formulários e as páginas de materiais que já estão no ar ficam logo abaixo.
         </p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -120,7 +120,82 @@ export function PaginasSite() {
           ))}
         </ul>
       )}
+
+      {!carregando && <PaginasProntas formularios={formularios} />}
     </div>
+  );
+}
+
+/** Páginas de materiais que já estão no ar (não são editadas aqui, só abertas e divulgadas). */
+const PAGINAS_DE_MATERIAIS: { nome: string; caminho: string; texto: string }[] = [
+  { nome: "Materiais gratuitos (entrada)", caminho: "/materiais", texto: "Todos os materiais num lugar só" },
+  { nome: "Manuais", caminho: "/materiais/manuais", texto: "31 modelos, um botão de baixar por modelo" },
+  { nome: "Blocos 3D", caminho: "/materiais/blocos", texto: "52 blocos .SKP e .3DS por modelo" },
+  { nome: "Tutoriais em vídeo", caminho: "/materiais/tutoriais", texto: "10 vídeos: instalação, lenha, acendimento, limpeza" },
+  { nome: "Catálogo MF 2025", caminho: "/materiais/catalogo", texto: "Página de download do catálogo" },
+  { nome: "Tripla combustão", caminho: "/materiais/tripla-combustao", texto: "Como funciona e o infográfico" },
+  { nome: "Realidade aumentada", caminho: "/materiais/realidade-aumentada", texto: "Acesso ao MF Preview" },
+];
+
+function PaginasProntas({ formularios }: { formularios: Formulario[] }) {
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const origem = typeof window !== "undefined" ? window.location.origin : "";
+
+  function copiar(caminho: string) {
+    void navigator.clipboard?.writeText(origem + caminho).then(() => {
+      setCopiado(caminho);
+      setTimeout(() => setCopiado((c) => (c === caminho ? null : c)), 1800);
+    });
+  }
+
+  const item = ({ nome, caminho, texto, ativo = true }: { nome: string; caminho: string; texto: string; ativo?: boolean }) => (
+    <li key={caminho} className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-medium text-aura-graphite">{nome}</p>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${ativo ? "bg-emerald-100 text-emerald-900" : "bg-aura-mist text-aura-graphite-soft"}`}>
+          {ativo ? "No ar" : "Desligado"}
+        </span>
+      </div>
+      <p className="font-data text-xs text-aura-graphite-soft">{caminho}</p>
+      <p className="text-xs text-aura-graphite-soft">{texto}</p>
+      <div className="mt-1 flex flex-wrap gap-2">
+        <a href={caminho} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+          <ExternalLink size={13} /> Abrir
+        </a>
+        <button type="button" onClick={() => copiar(caminho)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+          {copiado === caminho ? <Check size={13} /> : <Copy size={13} />} {copiado === caminho ? "Copiado" : "Copiar link"}
+        </button>
+      </div>
+    </li>
+  );
+
+  return (
+    <>
+      <div className="mt-4 border-t border-aura-mist pt-5">
+        <h2 className="font-display text-base font-semibold text-aura-graphite">Formulários dos materiais</h2>
+        <p className="mt-1 text-xs text-aura-graphite-soft">
+          Onde o cliente preenche os dados. Depois de enviar, ele recebe o material. Use estes links nos botões do site, no Instagram e nas campanhas.
+        </p>
+      </div>
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {formularios.map((f) =>
+          item({
+            nome: f.nome,
+            caminho: `/f/${f.slug}`,
+            texto: f.material_url ? `Entrega: ${f.material_nome || "material"}` : "Sem material para entregar",
+            ativo: f.ativo,
+          }),
+        )}
+      </ul>
+
+      <div className="mt-4 border-t border-aura-mist pt-5">
+        <h2 className="font-display text-base font-semibold text-aura-graphite">Páginas de download</h2>
+        <p className="mt-1 text-xs text-aura-graphite-soft">As páginas para onde o cliente vai depois do formulário, com os botões de baixar.</p>
+      </div>
+      <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {PAGINAS_DE_MATERIAIS.map((p) => item(p))}
+      </ul>
+    </>
   );
 }
 
