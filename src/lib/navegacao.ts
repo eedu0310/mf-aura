@@ -119,14 +119,15 @@ export function menuDeGestao(cargo?: string | null): ItemMenu[] {
 
 /**
  * Aba "Site MF": atendimento dos formulários do site, formulários e páginas.
- * É só da MF International (fábrica). Entra logo abaixo do WhatsApp, sem
- * mexer no resto do menu. As outras lojas não veem. O servidor confere de
+ * É da MF International (fábrica) e dos gestores mestres, que enxergam todas
+ * as lojas onde quer que estejam cadastrados. Entra logo abaixo do WhatsApp,
+ * sem mexer no resto do menu. O resto das outras lojas não vê. O servidor confere de
  * novo em cada rota, então esconder aqui é só para não mostrar caminho fechado.
  */
 export const ITEM_SITE_MF: ItemMenu = { href: "/site-mf", label: "Site MF", icon: Globe };
 
-export function comSiteMf(itens: ItemMenu[], empresa?: string | null): ItemMenu[] {
-  if (normalizar(empresa) !== "mf international") return itens;
+export function comSiteMf(itens: ItemMenu[], empresa?: string | null, gestorMestre = false): ItemMenu[] {
+  if (normalizar(empresa) !== "mf international" && !gestorMestre) return itens;
   if (itens.some((i) => i.href === ITEM_SITE_MF.href)) return itens;
   const pos = itens.findIndex((i) => i.href === "/whatsapp");
   if (pos < 0) return [...itens, ITEM_SITE_MF];

@@ -8,6 +8,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
 export function MobileNavbar() {
@@ -16,6 +17,7 @@ export function MobileNavbar() {
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const pathname = usePathname();
   const { profile } = useUserProfile();
+  const acesso = usarMeuAcesso();
   const { relacionamentos } = useAppData();
   const todasNotificacoes = computePendingTasks(relacionamentos);
   // Respeita o interruptor "Follow-ups atrasados" das Configurações.
@@ -47,7 +49,7 @@ export function MobileNavbar() {
   const totalAvisos = notificacoes.length + avisos.length;
 
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
-  const links = [...comSiteMf(menuDoCargo(profile.cargo), profile.empresa), ...menuDeGestao(profile.cargo)];
+  const links = [...comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre), ...menuDeGestao(profile.cargo)];
 
   return (
     <>

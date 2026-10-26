@@ -17,7 +17,7 @@ export function VendorSidebar() {
   // interno responde. Quem manda de verdade e a rota, que confere no
   // servidor; aqui so evitamos mostrar um caminho que vai recusar.
   const podeInstagram = acesso.permissoes.usar_instagram || ["Gestor", "Diretor"].includes(acesso.cargo);
-  const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa);
+  const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
   const itensGestao = menuDeGestao(profile.cargo);
 
   const classe = (ativo: boolean) =>
