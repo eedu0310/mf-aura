@@ -146,6 +146,12 @@ export async function POST(request: Request) {
         leadExcluido = !error;
       }
     }
+    // Arquivos do chat (fotos, áudios, documentos) saem junto com a conversa.
+    const { data: conversas } = await sb.from("site_conversas").select("id").eq("envio_id", envio.id);
+    for (const c of conversas ?? []) {
+      const { data: arquivos } = await sb.storage.from("site-chat").list(c.id, { limit: 1000 });
+      if (arquivos?.length) await sb.storage.from("site-chat").remove(arquivos.map((a) => `${c.id}/${a.name}`));
+    }
     await sb.from("site_conversas").delete().eq("envio_id", envio.id);
     const { error } = await sb.from("site_envios").delete().eq("id", envio.id);
     if (error) return NextResponse.json({ erro: error.message }, { status: 500 });

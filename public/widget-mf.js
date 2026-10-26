@@ -229,7 +229,7 @@
       ".botao{min-height:46px;border:0;border-radius:12px;background:" + COR + ";color:#fff;font-weight:700;font-size:15px;cursor:pointer;padding:0 16px}" +
       ".botao[disabled]{opacity:.6;cursor:default}" +
       ".escrever{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid #e6e6e2;flex-shrink:0;align-items:flex-end}" +
-      ".escrever textarea{flex:1;resize:none;border:1px solid #d6d6d2;border-radius:12px;padding:10px 12px;font-size:15px;max-height:110px;min-height:44px;outline:none;color:#1f1f1d}" +
+      ".escrever textarea{flex:1;min-width:0;overflow-y:auto;scrollbar-width:none;resize:none;border:1px solid #d6d6d2;border-radius:12px;padding:10px 12px;font-size:15px;max-height:110px;min-height:44px;outline:none;color:#1f1f1d}" +
       ".escrever .botao{width:46px;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}" +
       ".rodape{font-size:11.5px;text-align:center;color:#888;padding:7px;flex-shrink:0;background:#fff}" +
       ".rodape a{color:#16a34a;font-weight:600;text-decoration:none}" +
@@ -328,7 +328,7 @@
   function topo() {
     var voltar =
       tela !== "inicio"
-        ? el("button", { classe: "icone", type: "button", "aria-label": "Voltar ao in\u0edcio", onclick: function () { tela = "inicio"; desenhar(); agendar(); } }, [svg(ICONES.voltar, 22)])
+        ? el("button", { classe: "icone", type: "button", "aria-label": "Voltar ao in\u00edcio", onclick: function () { tela = "inicio"; desenhar(); agendar(); } }, [svg(ICONES.voltar, 22)])
         : null;
     return el("div", { classe: "topo" }, [
       voltar,
@@ -393,7 +393,7 @@
     });
     if (atalhos.length) itens.push(el("p", { classe: "titulo", texto: "Fale com a gente" }));
     itens.push(opcao(ICONES.whats, "Falar no WhatsApp", (cfg && cfg.contato && cfg.contato.telefone) || "(51) 3536-1422", linkWhats("Ol\u00e1! Vim pelo site da MF."), " verde"));
-    itens.push(opcao(ICONES.local, "Contato e endere\u00e7o", "Onde estamos e como falar com a f\u0e1brica", function () { tela = "contato"; desenhar(); }));
+    itens.push(opcao(ICONES.local, "Contato e endere\u00e7o", "Onde estamos e como falar com a f\u00e1brica", function () { tela = "contato"; desenhar(); }));
     return [el("div", { classe: "corpo" }, itens)];
   }
 
@@ -516,7 +516,7 @@
     mensagens.forEach(function (m) {
       corpoEl.appendChild(balaoMensagem(m));
     });
-    var caixa = el("textarea", { rows: "1", placeholder: "Escreva a sua mensagem\u2026", "aria-label": "Mensagem", maxlength: "1000" });
+    var caixa = el("textarea", { rows: "1", placeholder: "Mensagem\u2026", "aria-label": "Mensagem", maxlength: "1000" });
     var botao = el("button", { classe: "botao", type: "submit", "aria-label": "Enviar" }, [svg(ICONES.enviar, 20)]);
     var arquivoEntrada = el("input", { type: "file", accept: "image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip", style: "display:none" });
     arquivoEntrada.addEventListener("change", function () {
@@ -679,7 +679,7 @@
           : null,
         el("div", { classe: "dado" }, [el("b", { texto: "WhatsApp e telefone" }), el("a", { href: linkWhats(""), target: "_blank", rel: "noopener", texto: c.telefone || "(51) 3536-1422" })]),
         el("div", { classe: "dado" }, [
-          el("b", { texto: "F\u0e1brica" }),
+          el("b", { texto: "F\u00e1brica" }),
           el("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("MF International " + (c.endereco || "S\u00e3o Sebasti\u00e3o do Ca\u00ed RS")), target: "_blank", rel: "noopener", texto: c.endereco || "ERS-122, Km 08 \u00b7 S\u00e3o Sebasti\u00e3o do Ca\u00ed/RS" }),
         ]),
         el("div", { classe: "dado" }, [el("b", { texto: "Site" }), el("a", { href: c.site || "https://mfinternational.com.br", target: "_blank", rel: "noopener", texto: "mfinternational.com.br" })]),
