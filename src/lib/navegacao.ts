@@ -19,6 +19,7 @@ import {
   MessageCircle,
   LayoutDashboard,
   Megaphone,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 
@@ -114,4 +115,20 @@ export function menuDeGestao(cargo?: string | null): ItemMenu[] {
     { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
     { href: "/marketing", label: "Marketing", icon: Megaphone },
   ];
+}
+
+/**
+ * Aba "Site MF": atendimento dos formulários do site, formulários e páginas.
+ * É só da MF International (fábrica). Entra logo abaixo do WhatsApp, sem
+ * mexer no resto do menu. As outras lojas não veem. O servidor confere de
+ * novo em cada rota, então esconder aqui é só para não mostrar caminho fechado.
+ */
+export const ITEM_SITE_MF: ItemMenu = { href: "/site-mf", label: "Site MF", icon: Globe };
+
+export function comSiteMf(itens: ItemMenu[], empresa?: string | null): ItemMenu[] {
+  if (normalizar(empresa) !== "mf international") return itens;
+  if (itens.some((i) => i.href === ITEM_SITE_MF.href)) return itens;
+  const pos = itens.findIndex((i) => i.href === "/whatsapp");
+  if (pos < 0) return [...itens, ITEM_SITE_MF];
+  return [...itens.slice(0, pos + 1), ITEM_SITE_MF, ...itens.slice(pos + 1)];
 }

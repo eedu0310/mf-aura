@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { Sparkles, Settings, AtSign } from "lucide-react";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { useUserProfile } from "@/lib/user-profile-context";
-import { menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 
 export function VendorSidebar() {
@@ -17,7 +17,7 @@ export function VendorSidebar() {
   // interno responde. Quem manda de verdade e a rota, que confere no
   // servidor; aqui so evitamos mostrar um caminho que vai recusar.
   const podeInstagram = acesso.permissoes.usar_instagram || ["Gestor", "Diretor"].includes(acesso.cargo);
-  const itensNav = menuDoCargo(profile.cargo);
+  const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa);
   const itensGestao = menuDeGestao(profile.cargo);
 
   const classe = (ativo: boolean) =>

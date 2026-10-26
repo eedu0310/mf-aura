@@ -149,7 +149,13 @@ export async function proxy(request: NextRequest) {
     caminho === "/sw.js" ||
     caminho === "/api/versao" ||
     // Destrava navegador preso em versão antiga; precisa abrir mesmo sem login.
-    caminho === "/limpar";
+    caminho === "/limpar" ||
+    // Site MF: a LP (/s/…), o formulário embutido no site (/f/…) e o envio
+    // dele. Quem abre é o visitante, sem login; a rota de envio tem a própria
+    // proteção (formulário ativo, armadilha de robô, limite por IP).
+    caminho.startsWith("/s/") ||
+    caminho.startsWith("/f/") ||
+    caminho === "/api/site/enviar";
 
   // Uma conta desativada pelo gestor não pode mais entrar. Antes o campo
   // "ativo" só escondia a pessoa das listas: ela continuava logando e

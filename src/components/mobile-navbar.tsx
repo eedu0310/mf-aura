@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
-import { menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
 export function MobileNavbar() {
@@ -47,7 +47,7 @@ export function MobileNavbar() {
   const totalAvisos = notificacoes.length + avisos.length;
 
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
-  const links = [...menuDoCargo(profile.cargo), ...menuDeGestao(profile.cargo)];
+  const links = [...comSiteMf(menuDoCargo(profile.cargo), profile.empresa), ...menuDeGestao(profile.cargo)];
 
   return (
     <>
