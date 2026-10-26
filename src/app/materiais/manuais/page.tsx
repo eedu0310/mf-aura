@@ -27,13 +27,13 @@ export default async function ManuaisMF() {
           <a href="#modelos" className={BOTAO_VERMELHO}>
             Escolher o modelo
           </a>
-          <a href="/materiais/tutoriais" className={BOTAO_CONTORNO}>
-            Ver os vídeos de uso
+          <a href={LINK_WHATSAPP} target="_blank" rel="noopener noreferrer" className={BOTAO_CONTORNO}>
+            Falar com um atendente
           </a>
         </>
       }
     >
-      <div id="modelos" className="scroll-mt-28">
+      <div id="modelos" className="scroll-mt-24">
         <ListaModelos
           modelos={MANUAIS.map((m) => ({ ...m, imagem: foto(m.imagem) }))}
           botao="Baixar manual"

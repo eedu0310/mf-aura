@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PaginaMateriais, BOTAO_VERMELHO, BOTAO_CONTORNO } from "@/components/site-mf/pagina-materiais";
+import { LINK_WHATSAPP, PaginaMateriais, BOTAO_VERMELHO, BOTAO_CONTORNO } from "@/components/site-mf/pagina-materiais";
 import { VideoTutorial } from "@/components/site-mf/video-tutorial";
 import { FUNDOS, TUTORIAIS } from "@/lib/site-mf/materiais";
 import { fotosCopiadas, logoDasPaginas } from "@/lib/site-mf/materiais-servidor";
@@ -34,13 +34,13 @@ export default async function TutoriaisMF() {
           <a href={`#${ancora(grupos[0])}`} className={BOTAO_VERMELHO}>
             Ver os vídeos
           </a>
-          <a href="/materiais/manuais" className={BOTAO_CONTORNO}>
-            Baixar o manual
+          <a href={LINK_WHATSAPP} target="_blank" rel="noopener noreferrer" className={BOTAO_CONTORNO}>
+            Falar com um atendente
           </a>
         </>
       }
     >
-      <div className="sticky top-[112px] z-20 border-b border-neutral-200 bg-white/95 backdrop-blur md:top-20">
+      <div className="sticky top-16 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur md:top-20">
         <nav aria-label="Assuntos" className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 py-3">
           {grupos.map((g) => (
             <a key={g} href={`#${ancora(g)}`} className="whitespace-nowrap rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-semibold text-neutral-700 hover:border-neutral-900">
@@ -51,7 +51,7 @@ export default async function TutoriaisMF() {
       </div>
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
         {grupos.map((g) => (
-          <section key={g} id={ancora(g)} className="mt-12 scroll-mt-44 first:mt-0" aria-label={g}>
+          <section key={g} id={ancora(g)} className="mt-12 scroll-mt-36 first:mt-0" aria-label={g}>
             <h2 className="flex items-center gap-3 text-lg font-bold uppercase tracking-wide">
               <span className="h-5 w-1.5 rounded-full bg-[#CD1C1B]" aria-hidden />
               {g}

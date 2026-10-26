@@ -47,7 +47,7 @@ export default async function BlocosMF() {
           ))}
         </ul>
       </div>
-      <div id="modelos" className="scroll-mt-28">
+      <div id="modelos" className="scroll-mt-24">
         <ListaModelos
           modelos={BLOCOS.map((m) => ({ ...m, imagem: foto(m.imagem) }))}
           botao="Baixar bloco"

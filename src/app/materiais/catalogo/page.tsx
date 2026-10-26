@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Download, ExternalLink } from "lucide-react";
+import { Download } from "lucide-react";
 import { PaginaMateriais, LINK_WHATSAPP, BOTAO_VERMELHO, BOTAO_CONTORNO } from "@/components/site-mf/pagina-materiais";
 import { CATALOGO_URL, FUNDOS, MANUAIS } from "@/lib/site-mf/materiais";
 import { fotosCopiadas, logoDasPaginas } from "@/lib/site-mf/materiais-servidor";
@@ -62,9 +62,7 @@ export default async function CatalogoMF() {
             <a href={CATALOGO_URL} target="_blank" rel="noopener noreferrer" className={BOTAO_VERMELHO}>
               <Download size={18} aria-hidden /> Baixar agora (PDF)
             </a>
-            <a href="/materiais" className="inline-flex min-h-12 items-center gap-2 px-2 text-sm font-semibold uppercase tracking-wide text-neutral-800 hover:text-[#CD1C1B]">
-              Outros materiais <ExternalLink size={15} aria-hidden />
-            </a>
+
           </div>
         </div>
       </div>

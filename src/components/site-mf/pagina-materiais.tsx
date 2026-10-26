@@ -4,27 +4,15 @@ import { TELEFONE_MF, WHATSAPP_MF } from "@/lib/site-mf/materiais";
 
 export type AbaMateriais = "inicio" | "catalogo" | "tecnologia" | "realidade" | "blocos" | "manuais" | "tutoriais";
 
-/**
- * Menu dos materiais. Catálogo, tecnologia, realidade aumentada e blocos
- * passam pelo formulário (é ali que a pessoa vira contato); depois de
- * preencher, ela cai na página do material.
- */
-const ABAS: { chave: AbaMateriais; rotulo: string; href: string }[] = [
-  { chave: "catalogo", rotulo: "Catálogo", href: "/f/catalogo-mf" },
-  { chave: "tecnologia", rotulo: "Tecnologia", href: "/f/tripla-combustao" },
-  { chave: "realidade", rotulo: "Realidade aumentada", href: "/f/realidade-aumentada" },
-  { chave: "blocos", rotulo: "Blocos 3D", href: "/f/blocos-3d" },
-  { chave: "manuais", rotulo: "Manuais", href: "/f/manuais" },
-  { chave: "tutoriais", rotulo: "Tutoriais", href: "/materiais/tutoriais" },
-];
-
 export const LINK_WHATSAPP = `https://wa.me/${WHATSAPP_MF}`;
 
 /**
- * Moldura das páginas de materiais da MF: barra vermelha com o logo e o
- * menu dos materiais, foto no topo, conteúdo, faixa de dúvida e rodapé.
- * Mesmo visual das páginas dos formulários (/f/…). O chat do site aparece
- * aqui também.
+ * Moldura das páginas de materiais da MF: barra vermelha com o logo, foto
+ * no topo, conteúdo, faixa de dúvida e rodapé. Mesmo visual das páginas
+ * dos formulários (/f/…). O chat do site aparece aqui também.
+ *
+ * Sem menu para os outros materiais (pedido do Elton): quem abriu os
+ * blocos vê só os blocos, quem abriu os manuais vê só os manuais.
  */
 export function PaginaMateriais({
   ativa,
@@ -45,26 +33,12 @@ export function PaginaMateriais({
 }) {
   return (
     <div className="min-h-screen bg-[#f6f5f3] font-sans text-neutral-900">
-      <header className="sticky top-0 z-30 bg-[#CD1C1B] shadow-[0_1px_0_rgba(0,0,0,.08)]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-3 md:h-20 md:flex-row md:justify-between md:py-0">
-          <a href="/materiais" aria-label="Materiais MF International" className="shrink-0">
+      <header className="sticky top-0 z-30 bg-[#CD1C1B] shadow-[0_1px_0_rgba(0,0,0,.08)]" data-material={ativa}>
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-center px-4 md:h-20">
+          <a href="https://mfinternational.com.br" aria-label="MF International" className="shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logo} alt="MF International" className="h-9 w-auto md:h-11" />
           </a>
-          <nav aria-label="Materiais" className="-mx-4 flex max-w-[100vw] gap-1 overflow-x-auto px-4 pb-1 md:mx-0 md:overflow-visible md:p-0">
-            {ABAS.map((a) => (
-              <a
-                key={a.chave}
-                href={a.chave === ativa ? "#" : a.href}
-                aria-current={a.chave === ativa ? "page" : undefined}
-                className={`whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-semibold uppercase tracking-wide transition-colors ${
-                  a.chave === ativa ? "bg-white text-[#CD1C1B]" : "text-white/90 hover:bg-white/15 hover:text-white"
-                }`}
-              >
-                {a.rotulo}
-              </a>
-            ))}
-          </nav>
         </div>
       </header>
 

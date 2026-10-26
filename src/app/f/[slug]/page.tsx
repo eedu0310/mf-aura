@@ -115,11 +115,6 @@ export default async function FormularioDoSite({
             mfinternational.com.br
           </a>
         </p>
-        <p className="mt-3">
-          <a href="/materiais" className="font-semibold text-white underline">
-            Ver todos os materiais gratuitos
-          </a>
-        </p>
       </footer>
     </div>
   );
