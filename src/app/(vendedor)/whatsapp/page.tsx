@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Bot,
   CheckCheck,
+  Clock,
   ChevronDown,
   Loader2,
   LogOut,
@@ -101,6 +102,17 @@ function SeletorEtapa({
       )}
     </div>
   );
+}
+
+/**
+ * Tique da última mensagem nossa na lista: ✓ enviado, ✓✓ cinza entregue,
+ * ✓✓ azul só quando o cliente leu no WhatsApp.
+ */
+function TiqueDaLista({ status }: { status?: number }) {
+  const s = status ?? 2;
+  if (s <= 1) return <Clock className="h-3.5 w-3.5 shrink-0 text-[#8696a0]" aria-label="Enviando" />;
+  if (s === 2) return <Check className="h-4 w-4 shrink-0 text-[#8696a0]" aria-label="Enviada" />;
+  return <CheckCheck className={`h-4 w-4 shrink-0 ${s >= 4 ? "text-[#53bdeb]" : "text-[#8696a0]"}`} aria-label={s >= 4 ? "Lida" : "Entregue"} />;
 }
 
 export default function WhatsAppPage() {
@@ -734,7 +746,7 @@ export default function WhatsAppPage() {
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
                     <p className="flex min-w-0 items-center gap-1 truncate text-sm text-[#8696a0]">
-                      {chat.lastFromMe && <CheckCheck className="h-4 w-4 shrink-0 text-[#53bdeb]" />}
+                      {chat.lastFromMe && <TiqueDaLista status={chat.lastStatus} />}
                       <span className="truncate">{chat.lastMessage}</span>
                     </p>
                     <div className="flex shrink-0 items-center gap-1.5">

@@ -1188,7 +1188,15 @@ export async function getState(userId: string) {
   }
   s = s ?? getOrCreate(userId);
   await loadStore(s);
-  const chats = Array.from(s.chats.values()).sort((a, b) => b.timestamp - a.timestamp);
+  /*
+   * Tique da última mensagem na lista de conversas. Antes a lista pintava
+   * de azul toda conversa em que a última mensagem era nossa, mesmo que o
+   * cliente ainda não tivesse lido. Agora vai o status real da mensagem
+   * (enviado, entregue ou lido), o mesmo que aparece dentro da conversa.
+   */
+  const chats = Array.from(s.chats.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .map((c) => ({ ...c, lastStatus: c.lastFromMe ? statusDaUltima(s, c.id) : undefined }));
   return {
     status: s.status,
     qrCode: s.qrDataUrl,
@@ -1206,6 +1214,15 @@ export async function getState(userId: string) {
     temLoginSalvo: hasSavedLogin(userId),
     chats,
   };
+}
+
+/** Status da última mensagem que mandamos na conversa (2 enviado, 3 entregue, 4 lido). */
+function statusDaUltima(s: WaSession, chatId: string): number | undefined {
+  const lista = s.messages.get(chatId);
+  if (!lista?.length) return undefined;
+  let ultima = lista[0];
+  for (const m of lista) if (m.timestamp >= ultima.timestamp) ultima = m;
+  return ultima.fromMe ? (ultima.status ?? 2) : undefined;
 }
 
 export function isConnected(userId: string) {

@@ -15,6 +15,8 @@ export interface WaChat {
   phone: string;
   lastMessage: string;
   lastFromMe: boolean;
+  /** Status da última mensagem nossa: 2 enviado (✓), 3 entregue (✓✓), 4 lido (✓✓ azul). */
+  lastStatus?: number;
   lastType: WaMsgType;
   timestamp: number;
   unread: number;
