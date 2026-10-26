@@ -24,9 +24,26 @@ export async function POST(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Sistema indisponível." }, { status: 503 });
 
-  const form = await request.formData().catch(() => null);
-  const arquivo = form?.get("arquivo");
-  if (!(arquivo instanceof File)) return NextResponse.json({ erro: "Escolha um arquivo." }, { status: 400 });
+  /**
+   * Também aceita { url } em JSON: traz a imagem de outro endereço para a
+   * pasta da AURA (usado para tirar as fotos das páginas antigas do Bitrix
+   * antes de cancelar o Bitrix).
+   */
+  let arquivo: File | null = null;
+  if ((request.headers.get("content-type") ?? "").includes("application/json")) {
+    const { url } = (await request.json().catch(() => ({}))) as { url?: string };
+    if (!url || !/^https:\/\//.test(url)) return NextResponse.json({ erro: "Informe um link https." }, { status: 400 });
+    const r = await fetch(url).catch(() => null);
+    if (!r?.ok) return NextResponse.json({ erro: "Não consegui baixar a imagem desse link." }, { status: 400 });
+    const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim();
+    const nome = decodeURIComponent(new URL(url).pathname.split("/").pop() || "imagem");
+    arquivo = new File([await r.arrayBuffer()], nome, { type: tipo });
+  } else {
+    const form = await request.formData().catch(() => null);
+    const campo = form?.get("arquivo");
+    if (campo instanceof File) arquivo = campo;
+  }
+  if (!arquivo) return NextResponse.json({ erro: "Escolha um arquivo." }, { status: 400 });
   const ext = TIPOS[arquivo.type];
   if (!ext) return NextResponse.json({ erro: "Use imagem (JPG, PNG, WEBP) ou PDF." }, { status: 400 });
   if (arquivo.size > MAXIMO) return NextResponse.json({ erro: "Arquivo maior que 15 MB." }, { status: 400 });

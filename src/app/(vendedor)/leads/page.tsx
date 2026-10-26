@@ -185,8 +185,15 @@ export default function LeadsPage() {
                           </p>
                           <p className="flex items-center gap-1 text-xs text-aura-graphite-soft">
                             <Phone size={11} />
-                            {lead.telefone} · {lead.origem}
+                            {lead.telefone}
+                            {!lead.origem?.startsWith("Site MF") && ` · ${lead.origem}`}
                           </p>
+                          {/* Veio do site da MF: de qual formulário ou do chat. */}
+                          {lead.origem?.startsWith("Site MF") && (
+                            <span className="mt-1 inline-block w-fit rounded-full bg-[#CD1C1B]/10 px-2 py-0.5 text-[0.65rem] font-medium text-[#9b1515]">
+                              {lead.origem.replace(/^Site MF · /, "Site MF: ")}
+                            </span>
+                          )}
                           {multiLoja && empresaFiltro === "todas" && (
                             <span className="mt-1 inline-block w-fit rounded-full bg-aura-petrol-700/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-petrol-700">
                               {lead.empresa}

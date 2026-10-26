@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  * POST { acao: "responder", c, texto }
  *      { acao: "encerrar" | "reabrir", c }
  *      { acao: "presenca", disponivel? }     sinal de vida / liga-desliga
- *      { acao: "config", saudacao, atendentePadraoId, ativo, atalhos, whatsapp, horario, mensagemForaHorario }
+ *      { acao: "config", saudacao, atendentePadraoId, ativo, atalhos, whatsapp, horario, mensagemForaHorario, iaAtiva, iaSemNinguem }
  *
  * Quem pode: equipe da MF e gestor mestre (equipeDoSite).
  */
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       sb.from("site_conversas").select("nao_lidas").eq("empresa", EMPRESA_DO_SITE).eq("status", "aberta").gt("nao_lidas", 0),
       sb.from("site_presenca").select("profile_id").eq("empresa", EMPRESA_DO_SITE).eq("disponivel", true).gte("visto_em", desde),
       sb.from("site_presenca").select("disponivel").eq("profile_id", auth.userId).maybeSingle(),
-      sb.from("site_chat_config").select("ativo, saudacao, atendente_padrao_id, atalhos, whatsapp, horario, mensagem_fora_horario").eq("empresa", EMPRESA_DO_SITE).maybeSingle(),
+      sb.from("site_chat_config").select("ativo, saudacao, atendente_padrao_id, atalhos, whatsapp, horario, mensagem_fora_horario, ia_ativa, ia_sem_ninguem").eq("empresa", EMPRESA_DO_SITE).maybeSingle(),
       sb.from("profiles").select("id, nome").eq("empresa", EMPRESA_DO_SITE).neq("ativo", false).order("nome"),
     ]);
     const idsOnline = (presentes ?? []).map((p) => p.profile_id as string);
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 
   const { data: mensagens } = await sb
     .from("site_mensagens")
-    .select("id, autor, autor_id, autor_nome, texto, created_at")
+    .select("id, autor, autor_id, autor_nome, texto, anexo_url, anexo_tipo, anexo_nome, anexo_tamanho, created_at")
     .eq("conversa_id", conversa.id)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -119,6 +119,8 @@ export async function POST(request: Request) {
         saudacao,
         atendente_padrao_id: typeof corpo.atendentePadraoId === "string" && corpo.atendentePadraoId ? corpo.atendentePadraoId : null,
         atalhos: limparAtalhos(corpo.atalhos),
+        ia_ativa: corpo.iaAtiva !== false,
+        ia_sem_ninguem: corpo.iaSemNinguem === true,
         whatsapp: whatsapp || null,
         horario: limparHorario(corpo.horario),
         ...(foraHorario ? { mensagem_fora_horario: foraHorario } : {}),
@@ -142,7 +144,7 @@ export async function POST(request: Request) {
     const { data: msg, error } = await sb
       .from("site_mensagens")
       .insert({ conversa_id: conversa.id, autor: "equipe", autor_id: auth.userId, autor_nome: meuNome, texto })
-      .select("id, autor, autor_id, autor_nome, texto, created_at")
+      .select("id, autor, autor_id, autor_nome, texto, anexo_url, anexo_tipo, anexo_nome, anexo_tamanho, created_at")
       .single();
     if (error || !msg) return NextResponse.json({ erro: error?.message ?? "Não consegui enviar." }, { status: 500 });
     await sb

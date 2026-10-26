@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, Bell, ChevronDown, Settings, LogOut, User } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { AvatarUsuario } from "@/components/avatar-usuario";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
+import { useAvisoMissoes } from "@/lib/use-aviso-missoes";
 import { saudacaoDoDia } from "@/lib/date-local";
 import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
@@ -35,7 +37,8 @@ export function VendorTopbar() {
       /* navegador sem armazenamento: mantém ligado */
     }
   }, []);
-  const notificacoes = avisarFollowUp ? todasNotificacoes : [];
+  const avisoMissoes = useAvisoMissoes();
+  const notificacoes = [...(avisoMissoes ? [avisoMissoes] : []), ...(avisarFollowUp ? todasNotificacoes : [])];
 
   // Avisos gravados pelo sistema (lead novo, lead sem resposta, negócio que
   // entrou no pipeline, alertas do WhatsApp). Antes eram gravados no banco e
@@ -161,7 +164,7 @@ export function VendorTopbar() {
                   {notificacoes.map((n) => (
                     <li key={n.id} className="border-b border-aura-mist last:border-b-0">
                       <Link
-                        href={`/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`}
+                        href={n.href ?? `/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`}
                         onClick={() => setNotificacoesAbertas(false)}
                         className="block px-4 py-3 hover:bg-aura-bg"
                       >
@@ -194,9 +197,7 @@ export function VendorTopbar() {
             }}
             className="flex cursor-pointer items-center gap-2.5 rounded-full py-1 pl-1 pr-2 hover:bg-aura-bg"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-aura-petrol-700 font-display text-xs font-semibold text-white">
-              {avatarIniciais}
-            </div>
+            <AvatarUsuario foto={profile.fotoUrl} iniciais={avatarIniciais} className="h-9 w-9 bg-aura-petrol-700 font-display text-xs font-semibold text-white" />
             <div className="hidden text-left sm:block">
               <p className="text-sm font-medium leading-tight text-aura-graphite">
                 {nome}

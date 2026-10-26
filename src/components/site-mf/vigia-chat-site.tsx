@@ -108,13 +108,17 @@ function VigiaLogado({ empresa }: { empresa: string }) {
     const canal = sb
       .channel("aura-vigia-chat-site")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "site_mensagens" }, (payload) => {
-        const m = payload.new as { id: string; autor: string; autor_nome: string | null; texto: string; conversa_id: string };
+        const m = payload.new as { id: string; autor: string; autor_nome: string | null; texto: string; conversa_id: string; anexo_tipo?: string | null };
         if (m.autor !== "visitante") return;
         void resumir();
         window.dispatchEvent(new CustomEvent("aura:chat-site-mensagem", { detail: m }));
         // Na própria tela do Site MF a conversa já aparece; o aviso sobra.
         if (caminho.current?.startsWith("/site-mf")) return;
-        setAviso({ id: m.conversa_id, nome: m.autor_nome || "Cliente do site", texto: m.texto });
+        setAviso({
+          id: m.conversa_id,
+          nome: m.autor_nome || "Cliente do site",
+          texto: m.texto || (m.anexo_tipo?.startsWith("audio/") ? "🎤 Mandou um áudio" : m.anexo_tipo?.startsWith("image/") ? "📷 Mandou uma foto" : "📎 Mandou um arquivo"),
+        });
         tocar();
       })
       .subscribe();

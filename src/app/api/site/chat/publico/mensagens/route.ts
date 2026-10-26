@@ -1,5 +1,6 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { atendenteDoWidget, conversaDoVisitante, preflight, respostaCors } from "@/lib/site-mf/chat";
+import { atendenteDoWidget, conversaDoVisitante, fotosDosAutores, preflight, respostaCors } from "@/lib/site-mf/chat";
+import { responderComAssistente } from "@/lib/site-mf/assistente";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,16 +33,19 @@ export async function GET(request: Request) {
   const depois = url.searchParams.get("depois");
   let q = sb
     .from("site_mensagens")
-    .select("id, autor, autor_nome, texto, created_at")
+    .select("id, autor, autor_id, autor_nome, texto, anexo_url, anexo_tipo, anexo_nome, anexo_tamanho, created_at")
     .eq("conversa_id", conversa.id)
     .order("created_at", { ascending: true })
     .limit(200);
   if (depois && !Number.isNaN(Date.parse(depois))) q = q.gt("created_at", depois);
-  const { data: mensagens } = await q;
+  const { data: brutas } = await q;
+  // Foto de quem respondeu; o id de quem é da equipe não sai daqui.
+  const fotos = await fotosDosAutores(sb, (brutas ?? []).map((m) => m.autor_id as string | null));
+  const mensagens = (brutas ?? []).map(({ autor_id, ...m }) => ({ ...m, autor_foto: autor_id ? fotos.get(autor_id) ?? null : null }));
 
   // Quem atende muda pouco: o widget pede junto só de vez em quando (?atendente=1).
   const atendente = url.searchParams.get("atendente") === "1" ? await atendenteDoWidget(sb, conversa.empresa, conversa.atendente_id) : null;
-  return respostaCors({ status: conversa.status, atendente: atendente ? { nome: atendente.nome } : null, mensagens: mensagens ?? [] });
+  return respostaCors({ status: conversa.status, atendente: atendente ? { nome: atendente.nome, foto: atendente.foto } : null, mensagens });
 }
 
 export async function POST(request: Request) {
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
   const { data: msg, error } = await sb
     .from("site_mensagens")
     .insert({ conversa_id: conversa.id, autor: "visitante", autor_nome: conversa.nome, texto })
-    .select("id, autor, autor_nome, texto, created_at")
+    .select("id, autor, autor_nome, texto, anexo_url, anexo_tipo, anexo_nome, anexo_tamanho, created_at")
     .single();
   if (error || !msg) return respostaCors({ ok: false, erro: "Não consegui enviar. Tente de novo." }, 500);
 
@@ -89,6 +93,9 @@ export async function POST(request: Request) {
       status: "aberta",
     })
     .eq("id", conversa.id);
+
+  // Fora do horário (ou sem ninguém online), o assistente responde.
+  void responderComAssistente(sb, conversa.id).catch((e) => console.error("[chat] assistente:", e?.message ?? e));
 
   return respostaCors({ ok: true, mensagem: msg });
 }

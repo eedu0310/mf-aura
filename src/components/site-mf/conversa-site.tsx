@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRightLeft, CheckCircle2, Loader2, MapPin, MessageCircle, RotateCcw, Send, X, XCircle } from "lucide-react";
+import { ArrowRightLeft, Bot, Pencil, CheckCircle2, FileText, Loader2, MapPin, MessageCircle, Mic, Paperclip, RotateCcw, Send, Smile, Square, Trash2, X, XCircle } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Mensagem {
   id: string;
-  autor: "visitante" | "equipe" | "sistema";
+  autor: "visitante" | "equipe" | "sistema" | "assistente";
+  anexo_url?: string | null;
+  anexo_tipo?: string | null;
+  anexo_nome?: string | null;
+  anexo_tamanho?: number | null;
   autor_id: string | null;
   autor_nome: string | null;
   texto: string;
@@ -24,6 +28,42 @@ interface Conversa {
   visitante_visto_em: string | null;
   origem_url: string | null;
   created_at: string;
+}
+
+const EMOJIS = "😀 😊 🙂 😉 😍 🥰 😎 🤩 🤔 😅 😂 🙏 👍 👏 🙌 💪 🤝 👋 👌 ✅ ⭐ 🔥 ❤️ 🎉 🏠 🪵 ☕ 📞 📍 📷 📄 ⏰".split(" ");
+
+function tamanho(b?: number | null) {
+  if (!b) return "";
+  return b > 1048576 ? `${(b / 1048576).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
+}
+
+/** Foto, áudio, vídeo ou documento que veio na mensagem. */
+function Anexo({ m, minha }: { m: Mensagem; minha: boolean }) {
+  if (!m.anexo_url) return null;
+  const t = m.anexo_tipo ?? "";
+  if (t.startsWith("image/"))
+    return (
+      <a href={m.anexo_url} target="_blank" rel="noopener noreferrer" aria-label="Abrir a foto">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={m.anexo_url} alt={m.anexo_nome ?? "Foto"} className="max-h-64 max-w-[240px] rounded-xl object-cover" />
+      </a>
+    );
+  if (t.startsWith("audio/")) return <audio controls preload="metadata" src={m.anexo_url} className="w-60 max-w-full" />;
+  if (t.startsWith("video/")) return <video controls preload="metadata" src={m.anexo_url} className="max-w-[240px] rounded-xl" />;
+  return (
+    <a
+      href={m.anexo_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex max-w-[240px] items-center gap-2 rounded-xl px-3 py-2 ${minha ? "bg-white/15" : "bg-aura-bg"}`}
+    >
+      <FileText size={18} className="shrink-0" />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium">{m.anexo_nome ?? "Arquivo"}</span>
+        <span className="block text-xs opacity-75">{tamanho(m.anexo_tamanho)} · abrir</span>
+      </span>
+    </a>
+  );
 }
 
 function hora(iso: string) {
@@ -46,6 +86,7 @@ export function ConversaSite({
   onFechar,
   onAtendido,
   onTransferir,
+  onEditar,
 }: {
   conversaId: string;
   podeAgir: boolean;
@@ -53,6 +94,7 @@ export function ConversaSite({
   onFechar: () => void;
   onAtendido: () => void;
   onTransferir: () => void;
+  onEditar: () => void;
 }) {
   const [conversa, setConversa] = useState<Conversa | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -61,6 +103,10 @@ export function ConversaSite({
   const [enviando, setEnviando] = useState(false);
   const [agora, setAgora] = useState(() => Date.now());
   const fim = useRef<HTMLDivElement>(null);
+  const caixaRef = useRef<HTMLTextAreaElement>(null);
+  const arquivoRef = useRef<HTMLInputElement>(null);
+  const [emojis, setEmojis] = useState(false);
+  const [gravando, setGravando] = useState<{ inicio: number; parar: (enviar: boolean) => void } | null>(null);
 
   const carregar = useCallback(async () => {
     try {
@@ -121,6 +167,55 @@ export function ConversaSite({
       setErro(e?.message ?? "Não consegui enviar.");
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function enviarArquivo(arquivo: File) {
+    if (arquivo.size > 15 * 1024 * 1024) return setErro("Arquivo grande demais (máximo 15 MB).");
+    setEnviando(true);
+    setErro(null);
+    try {
+      const fd = new FormData();
+      fd.append("c", conversaId);
+      fd.append("arquivo", arquivo);
+      const r = await fetch("/api/site/chat/equipe/anexo", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || "Não consegui enviar o arquivo.");
+      setMensagens((lista) => (lista.some((x) => x.id === j.mensagem.id) ? lista : [...lista, j.mensagem]));
+    } catch (e: any) {
+      setErro(e?.message ?? "Não consegui enviar o arquivo.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function gravarAudio() {
+    if (gravando) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const tipo = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"].find((t) => MediaRecorder.isTypeSupported?.(t)) ?? "";
+      const rec = new MediaRecorder(stream, tipo ? { mimeType: tipo } : undefined);
+      const partes: Blob[] = [];
+      let mandar = true;
+      rec.ondataavailable = (e) => e.data.size && partes.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setGravando(null);
+        if (!mandar || !partes.length) return;
+        const mime = (rec.mimeType || tipo || "audio/webm").split(";")[0];
+        const ext = mime.includes("mp4") ? "m4a" : mime.includes("ogg") ? "ogg" : "webm";
+        void enviarArquivo(new File(partes, `audio.${ext}`, { type: mime }));
+      };
+      rec.start();
+      setGravando({
+        inicio: Date.now(),
+        parar: (enviar) => {
+          mandar = enviar;
+          rec.stop();
+        },
+      });
+    } catch {
+      setErro("Não consegui usar o microfone. Libere o acesso no navegador.");
     }
   }
 
@@ -201,6 +296,13 @@ export function ConversaSite({
               </button>
             </>
           )}
+          <button
+            type="button"
+            onClick={onEditar}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite-soft hover:border-aura-petrol-500/50"
+          >
+            <Pencil size={14} /> Editar
+          </button>
           {conversa &&
             (conversa.status === "aberta" ? (
               <button
@@ -234,17 +336,23 @@ export function ConversaSite({
                   {m.texto}
                 </li>
               ) : (
-                <li key={m.id} className={`flex flex-col ${m.autor === "equipe" ? "items-end" : "items-start"}`}>
-                  <span className="mb-0.5 px-1 text-[0.7rem] text-aura-graphite-soft">
-                    {m.autor === "equipe" ? m.autor_nome || "Equipe" : conversa?.nome || "Cliente"} · {hora(m.created_at)}
+                <li key={m.id} className={`flex flex-col ${m.autor !== "visitante" ? "items-end" : "items-start"}`}>
+                  <span className="mb-0.5 flex items-center gap-1 px-1 text-[0.7rem] text-aura-graphite-soft">
+                    {m.autor === "assistente" && <Bot size={12} />}
+                    {m.autor === "equipe" ? m.autor_nome || "Equipe" : m.autor === "assistente" ? "Assistente virtual (IA)" : conversa?.nome || "Cliente"} · {hora(m.created_at)}
                   </span>
-                  <p
-                    className={`max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm ${
-                      m.autor === "equipe" ? "rounded-br-md bg-aura-petrol-700 text-white" : "rounded-bl-md border border-aura-mist bg-white text-aura-graphite"
+                  <div
+                    className={`flex max-w-[85%] flex-col gap-1.5 break-words rounded-2xl px-3.5 py-2 text-sm ${
+                      m.autor === "equipe"
+                        ? "rounded-br-md bg-aura-petrol-700 text-white"
+                        : m.autor === "assistente"
+                          ? "rounded-br-md bg-aura-graphite text-white"
+                          : "rounded-bl-md border border-aura-mist bg-white text-aura-graphite"
                     }`}
                   >
-                    {m.texto}
-                  </p>
+                    <Anexo m={m} minha={m.autor !== "visitante"} />
+                    {m.texto && <p className="whitespace-pre-wrap">{m.texto}</p>}
+                  </div>
                 </li>
               ),
             )}
@@ -259,13 +367,65 @@ export function ConversaSite({
         )}
 
         <form
-          className="flex items-end gap-2 border-t border-aura-mist bg-white px-4 py-3"
+          className="relative flex items-end gap-1.5 border-t border-aura-mist bg-white px-3 py-3"
           onSubmit={(ev) => {
             ev.preventDefault();
+            setEmojis(false);
             void responder();
           }}
         >
+          {emojis && (
+            <div className="absolute bottom-full left-3 right-3 mb-2 grid grid-cols-8 gap-1 rounded-2xl border border-aura-mist bg-white p-2 shadow-lg">
+              {EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  aria-label={e}
+                  className="rounded-lg py-1.5 text-xl hover:bg-aura-bg"
+                  onClick={() => {
+                    const c = caixaRef.current;
+                    const ini = c?.selectionStart ?? texto.length;
+                    const fimSel = c?.selectionEnd ?? ini;
+                    setTexto((t) => t.slice(0, ini) + e + t.slice(fimSel));
+                    c?.focus();
+                  }}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+          {gravando ? (
+            <div className="flex min-h-11 flex-1 items-center gap-3 rounded-xl bg-aura-bg px-3 text-sm text-aura-graphite">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" /> Gravando áudio…
+              <button type="button" onClick={() => gravando.parar(false)} aria-label="Cancelar o áudio" className="ml-auto rounded-full p-2 text-aura-graphite-soft hover:text-red-700">
+                <Trash2 size={16} />
+              </button>
+              <button type="button" onClick={() => gravando.parar(true)} aria-label="Parar e enviar o áudio" className="rounded-full bg-aura-petrol-700 p-2 text-white">
+                <Square size={14} />
+              </button>
+            </div>
+          ) : (
+            <>
+          <button type="button" onClick={() => setEmojis((v) => !v)} aria-label="Emoji" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+            <Smile size={19} />
+          </button>
+          <button type="button" onClick={() => arquivoRef.current?.click()} disabled={enviando} aria-label="Enviar arquivo ou foto" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+            <Paperclip size={19} />
+          </button>
+          <input
+            ref={arquivoRef}
+            type="file"
+            className="hidden"
+            accept="image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) void enviarArquivo(f);
+            }}
+          />
           <textarea
+            ref={caixaRef}
             rows={2}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
@@ -287,6 +447,11 @@ export function ConversaSite({
           >
             {enviando ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
+          <button type="button" onClick={() => void gravarAudio()} aria-label="Gravar áudio" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+            <Mic size={19} />
+          </button>
+            </>
+          )}
         </form>
       </div>
     </div>

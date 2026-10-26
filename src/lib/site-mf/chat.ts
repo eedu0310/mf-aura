@@ -67,6 +67,8 @@ export interface Atendente {
   id: string | null;
   nome: string;
   online: boolean;
+  /** Foto de perfil de quem atende, quando a pessoa colocou. */
+  foto: string | null;
 }
 
 /**
@@ -91,13 +93,14 @@ export async function atendenteDoWidget(sb: ClienteServico, empresa: string, pre
 
   const { data: config } = await sb.from("site_chat_config").select("atendente_padrao_id").eq("empresa", empresa).maybeSingle();
   const candidatos = [preferido, ...idsOnline, config?.atendente_padrao_id].filter(Boolean) as string[];
-  if (!candidatos.length) return { id: null, nome: "Equipe MF", online: false };
+  if (!candidatos.length) return { id: null, nome: "Equipe MF", online: false, foto: null };
 
-  const { data: perfis } = await sb.from("profiles").select("id, nome, ativo").in("id", [...new Set(candidatos)]);
-  const ativo = new Map((perfis ?? []).filter((p) => p.ativo !== false).map((p) => [p.id as string, p.nome as string]));
+  const { data: perfis } = await sb.from("profiles").select("id, nome, ativo, foto_url").in("id", [...new Set(candidatos)]);
+  const ativo = new Map((perfis ?? []).filter((p) => p.ativo !== false).map((p) => [p.id as string, p]));
   const escolhido = candidatos.find((id) => ativo.has(id));
-  if (!escolhido) return { id: null, nome: "Equipe MF", online: idsOnline.length > 0 };
-  return { id: escolhido, nome: limparNome(ativo.get(escolhido) ?? "Equipe MF"), online: idsOnline.length > 0 };
+  if (!escolhido) return { id: null, nome: "Equipe MF", online: idsOnline.length > 0, foto: null };
+  const p = ativo.get(escolhido)!;
+  return { id: escolhido, nome: limparNome(String(p.nome ?? "Equipe MF")), online: idsOnline.length > 0, foto: (p.foto_url as string | null) ?? null };
 }
 
 /** "Charles  Quevedo" → "Charles Quevedo"; tira " - Vendedor" e afins. */
@@ -156,4 +159,92 @@ export async function quemAvisar(sb: ClienteServico, empresa: string): Promise<s
     sb.from("site_chat_config").select("atendente_padrao_id").eq("empresa", empresa).maybeSingle(),
   ]);
   return [...new Set([...(online ?? []).map((o) => o.profile_id as string), config?.atendente_padrao_id].filter(Boolean) as string[])];
+}
+
+/** Fotos de perfil de quem respondeu, para o widget mostrar ao lado da mensagem. */
+export async function fotosDosAutores(sb: ClienteServico, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
+  const unicos = [...new Set(ids.filter(Boolean) as string[])];
+  if (!unicos.length) return new Map();
+  const { data } = await sb.from("profiles").select("id, foto_url").in("id", unicos);
+  return new Map((data ?? []).filter((p) => p.foto_url).map((p) => [p.id as string, p.foto_url as string]));
+}
+
+// ---------------------------------------------------------------- anexos
+
+/** O que o chat aceita como arquivo, e com que extensão guarda. */
+const TIPOS_DE_ANEXO: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "text/plain": "txt",
+  "application/zip": "zip",
+  "audio/webm": "webm",
+  "audio/ogg": "ogg",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+export const ANEXO_MAXIMO = 15 * 1024 * 1024;
+
+export interface Anexo {
+  anexo_url: string;
+  anexo_tipo: string;
+  anexo_nome: string;
+  anexo_tamanho: number;
+}
+
+/** Tipo sem parâmetros: "audio/webm;codecs=opus" → "audio/webm". */
+function tipoBase(tipo: string) {
+  return (tipo || "").split(";")[0].trim().toLowerCase();
+}
+
+/**
+ * Guarda o arquivo de uma conversa na pasta "site-chat". O caminho leva um
+ * código aleatório: a pasta é pública (o cliente precisa abrir o que a
+ * equipe manda), mas ninguém adivinha o endereço.
+ */
+export async function salvarAnexo(sb: ClienteServico, conversaId: string, arquivo: File): Promise<Anexo | { erro: string }> {
+  const tipo = tipoBase(arquivo.type);
+  const ext = TIPOS_DE_ANEXO[tipo];
+  if (!ext) return { erro: "Esse tipo de arquivo não é aceito. Envie foto, PDF, documento, planilha, áudio ou vídeo." };
+  if (arquivo.size > ANEXO_MAXIMO) return { erro: "Arquivo grande demais (máximo 15 MB)." };
+  const base =
+    (arquivo.name || "arquivo")
+      .replace(/\.[^.]+$/, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "arquivo";
+  const caminho = `${conversaId}/${crypto.randomUUID()}-${base}.${ext}`;
+  const { error } = await sb.storage
+    .from("site-chat")
+    .upload(caminho, Buffer.from(await arquivo.arrayBuffer()), { contentType: tipo, upsert: false });
+  if (error) return { erro: error.message };
+  return {
+    anexo_url: sb.storage.from("site-chat").getPublicUrl(caminho).data.publicUrl,
+    anexo_tipo: tipo,
+    anexo_nome: (arquivo.name || `${base}.${ext}`).slice(0, 120),
+    anexo_tamanho: arquivo.size,
+  };
+}
+
+/** Texto curto para a lista de conversas: "📷 Foto", "🎤 Áudio", "📎 orcamento.pdf". */
+export function resumoDoAnexo(a: Pick<Anexo, "anexo_tipo" | "anexo_nome">): string {
+  if (a.anexo_tipo.startsWith("image/")) return "📷 Foto";
+  if (a.anexo_tipo.startsWith("audio/")) return "🎤 Áudio";
+  if (a.anexo_tipo.startsWith("video/")) return "🎬 Vídeo";
+  return `📎 ${a.anexo_nome}`;
 }

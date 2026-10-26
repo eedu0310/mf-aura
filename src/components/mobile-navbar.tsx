@@ -5,8 +5,10 @@ import { Menu, X, Home, FileText, Users, BarChart3, MessageCircle, Calendar, Fil
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { AvatarUsuario } from "@/components/avatar-usuario";
 import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
+import { useAvisoMissoes } from "@/lib/use-aviso-missoes";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
@@ -31,7 +33,8 @@ export function MobileNavbar() {
       /* navegador sem armazenamento: mantém ligado */
     }
   }, []);
-  const notificacoes = avisarFollowUp ? todasNotificacoes : [];
+  const avisoMissoes = useAvisoMissoes();
+  const notificacoes = [...(avisoMissoes ? [avisoMissoes] : []), ...(avisarFollowUp ? todasNotificacoes : [])];
 
   // Avisos gravados pelo sistema (lead novo, lead sem resposta, pipeline).
   const [avisos, setAvisos] = useState<Notificacao[]>([]);
@@ -74,7 +77,7 @@ export function MobileNavbar() {
             </button>
             {notificacoesAbertas && <div className="absolute right-12 top-12 z-[80] w-72 overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-xl">
               <p className="border-b border-aura-mist px-4 py-3 text-sm font-medium text-aura-graphite">Notificações</p>
-              {totalAvisos === 0 ? <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">Nada pendente agora.</p> : <ul className="max-h-64 overflow-y-auto">{avisos.map((a) => <li key={a.id} className="border-b border-aura-mist last:border-0"><Link href={a.acaoUrl || "/meu-dia"} onClick={() => { setNotificacoesAbertas(false); setAvisos((atual) => atual.filter((x) => x.id !== a.id)); void marcarComoLida(a.id); }} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{a.titulo}</p><p className="mt-1 text-xs text-aura-graphite-soft">{a.mensagem}</p></Link></li>)}{notificacoes.map((n) => <li key={n.id} className="border-b border-aura-mist last:border-0"><Link href={`/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`} onClick={() => setNotificacoesAbertas(false)} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{n.titulo}</p><p className={`mt-1 text-xs ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p></Link></li>)}</ul>}
+              {totalAvisos === 0 ? <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">Nada pendente agora.</p> : <ul className="max-h-64 overflow-y-auto">{avisos.map((a) => <li key={a.id} className="border-b border-aura-mist last:border-0"><Link href={a.acaoUrl || "/meu-dia"} onClick={() => { setNotificacoesAbertas(false); setAvisos((atual) => atual.filter((x) => x.id !== a.id)); void marcarComoLida(a.id); }} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{a.titulo}</p><p className="mt-1 text-xs text-aura-graphite-soft">{a.mensagem}</p></Link></li>)}{notificacoes.map((n) => <li key={n.id} className="border-b border-aura-mist last:border-0"><Link href={n.href ?? `/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`} onClick={() => setNotificacoesAbertas(false)} className="block px-4 py-3 hover:bg-aura-bg"><p className="text-sm font-medium text-aura-graphite">{n.titulo}</p><p className={`mt-1 text-xs ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p></Link></li>)}</ul>}
             </div>}
             <button
               type="button"
@@ -93,7 +96,7 @@ export function MobileNavbar() {
             <nav aria-label="Menu principal mobile" className="flex flex-col divide-y divide-aura-mist">
               <div className="border-b border-aura-mist px-4 py-3">
                 <button type="button" onClick={() => setPerfilAberto((v) => !v)} aria-expanded={perfilAberto} className="flex w-full items-center gap-3 text-left text-white">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-aura-petrol-700 text-xs font-semibold">{profile.avatarIniciais || "??"}</span>
+                  <AvatarUsuario foto={profile.fotoUrl} iniciais={profile.avatarIniciais} className="h-9 w-9 bg-aura-petrol-700 text-xs font-semibold" />
                   <span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{profile.nome || "Meu perfil"}</span><span className="block truncate text-xs text-white/60">{profile.cargo} · {profile.empresa}</span></span>
                   <ChevronDown size={18} className={`transition-transform ${perfilAberto ? "rotate-180" : ""}`} />
                 </button>

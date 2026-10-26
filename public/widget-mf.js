@@ -122,7 +122,23 @@
     cubo: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z|M3.3 7 12 12l8.7-5|M12 22V12",
     documento: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z|M14 2v6h6|M16 13H8|M16 17H8",
     relogio: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M12 6v6l4 2",
+    clipe: "m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48",
+    emoji: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|M8 14s1.5 2 4 2 4-2 4-2|M9 9h.01|M15 9h.01",
+    mic: "M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z|M19 10v2a7 7 0 0 1-14 0v-2|M12 19v3",
+    lixo: "M3 6h18|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
   };
+  function avatarEl(nome, foto, classe) {
+    if (foto) return el("img", { classe: (classe || "avatar") + " com-foto", src: foto, alt: "" });
+    return el("div", { classe: classe || "avatar", texto: iniciais(nome) });
+  }
+  function fotoAtendente() {
+    return (cfg && cfg.atendente && cfg.atendente.foto) || null;
+  }
+  function tamanhoLegivel(b) {
+    if (!b) return "";
+    return b > 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
+  }
+  var EMOJIS = "\ud83d\ude00 \ud83d\ude03 \ud83d\ude04 \ud83d\ude01 \ud83d\ude0a \ud83d\ude42 \ud83d\ude09 \ud83d\ude0d \ud83e\udd70 \ud83d\ude18 \ud83d\ude0e \ud83e\udd29 \ud83e\udd14 \ud83d\ude05 \ud83d\ude02 \ud83d\ude4f \ud83d\udc4d \ud83d\udc4f \ud83d\ude4c \ud83d\udcaa \ud83e\udd1d \ud83d\udc4b \u270c\ufe0f \ud83d\udc4c \u2705 \u274c \u2b50 \ud83d\udd25 \u2764\ufe0f \ud83d\udc99 \ud83c\udf89 \ud83c\udfe0 \ud83e\udeb5 \u2615 \ud83d\udcde \ud83d\udccd \ud83d\udcf7 \ud83d\udcc4 \u23f0 \ud83d\udcac".split(" ");
   function iniciais(nome) {
     var p = String(nome || "MF").trim().split(/\s+/);
     return ((p[0] || "")[0] + ((p[1] || "")[0] || "")).toUpperCase() || "MF";
@@ -221,7 +237,26 @@
       ".dado{background:#fff;border:1px solid #e6e6e2;border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.5}" +
       ".dado .linhas{white-space:pre-line}" +
       ".dado b{display:block;font-size:12px;color:#777;font-weight:600;margin-bottom:2px}.dado a{color:" + COR + ";text-decoration:none;font-weight:600}" +
-      ".vazio{display:none}";
+      ".vazio{display:none}" +
+      "img.avatar,img.avatar.pequeno{object-fit:cover;background:#fff;padding:0}" +
+      ".avatar-caixa{position:relative;flex-shrink:0}.avatar-caixa .ponto{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#22c55e;border:2px solid " + COR + "}" +
+      ".avatar.ia{background:#1f1f1d;color:#fff;font-size:10px}" +
+      ".balao .texto{white-space:pre-wrap}.balao.com-anexo{padding:6px}.balao.com-anexo .texto,.balao.com-anexo .hora{padding:0 6px}" +
+      ".foto img{display:block;max-width:220px;max-height:260px;border-radius:12px;object-fit:cover}" +
+      ".balao audio{width:220px;max-width:100%;display:block}.balao video{max-width:220px;border-radius:12px;display:block}" +
+      ".arquivo{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.06);color:inherit;text-decoration:none;max-width:230px}" +
+      ".meu .arquivo{background:rgba(255,255,255,.18)}.arquivo b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px}.arquivo small{font-size:11px;opacity:.75}" +
+      ".escrever{position:relative;align-items:center;gap:4px;padding:8px 8px}" +
+      ".ferramenta{width:36px;height:36px;border:0;background:transparent;border-radius:10px;color:#666;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}" +
+      ".ferramenta:hover{background:#f1f1ef;color:" + COR + "}" +
+      ".escrever .botao{height:40px;width:40px}" +
+      ".emojis{position:absolute;bottom:58px;left:8px;right:8px;background:#fff;border:1px solid #e6e6e2;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:8px;display:grid;grid-template-columns:repeat(8,1fr);gap:2px;z-index:2}" +
+      ".emojis[hidden],.gravando[hidden]{display:none}" +
+      ".emoji{border:0;background:transparent;font-size:22px;line-height:1;padding:6px 0;border-radius:8px;cursor:pointer}.emoji:hover{background:#f4f4f2}" +
+      ".gravando{position:absolute;inset:0;background:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:14px;color:#1f1f1d;z-index:3}" +
+      ".gravando span:nth-child(3){font-variant-numeric:tabular-nums;flex:1}" +
+      ".bolinha{width:10px;height:10px;border-radius:50%;background:#e11d48;animation:pisca 1s infinite}" +
+      "@keyframes pisca{50%{opacity:.3}}";
   }
   css();
 
@@ -245,7 +280,7 @@
   function montarConvite() {
     if (aberto || ler(CHAVE + ":convite", window.sessionStorage) || (conversa && conversa.c)) return;
     convite = el("div", { classe: "convite", role: "button", tabindex: "0", onclick: function () { fecharConvite(); abrir("inicio"); } }, [
-      el("div", { classe: "avatar pequeno", texto: iniciais(nomeAtendente()) }),
+      avatarEl(nomeAtendente(), fotoAtendente(), "avatar pequeno"),
       el("p", null, [el("b", { texto: nomeAtendente() }), (cfg && cfg.saudacao) || "Ol\u00e1! Posso ajudar?"]),
       el("button", {
         classe: "icone x",
@@ -293,11 +328,11 @@
   function topo() {
     var voltar =
       tela !== "inicio"
-        ? el("button", { classe: "icone", type: "button", "aria-label": "Voltar ao in\u00edcio", onclick: function () { tela = "inicio"; desenhar(); agendar(); } }, [svg(ICONES.voltar, 22)])
+        ? el("button", { classe: "icone", type: "button", "aria-label": "Voltar ao in\u0edcio", onclick: function () { tela = "inicio"; desenhar(); agendar(); } }, [svg(ICONES.voltar, 22)])
         : null;
     return el("div", { classe: "topo" }, [
       voltar,
-      el("div", { classe: "avatar" }, [iniciais(nomeAtendente()), el("span", { classe: "ponto" })]),
+      el("div", { classe: "avatar-caixa" }, [avatarEl(nomeAtendente(), fotoAtendente(), "avatar"), el("span", { classe: "ponto" })]),
       el("div", { classe: "meio" }, [
         el("div", { classe: "nome", texto: nomeAtendente() }),
         el("div", { classe: "estado", texto: "Online \u00b7 responde em minutos" }),
@@ -308,7 +343,7 @@
 
   function balaoDeles(texto) {
     return el("div", { classe: "linha" }, [
-      el("div", { classe: "avatar pequeno", texto: iniciais(nomeAtendente()) }),
+      avatarEl(nomeAtendente(), fotoAtendente(), "avatar pequeno"),
       el("div", { classe: "balao deles", texto: texto }),
     ]);
   }
@@ -358,7 +393,7 @@
     });
     if (atalhos.length) itens.push(el("p", { classe: "titulo", texto: "Fale com a gente" }));
     itens.push(opcao(ICONES.whats, "Falar no WhatsApp", (cfg && cfg.contato && cfg.contato.telefone) || "(51) 3536-1422", linkWhats("Ol\u00e1! Vim pelo site da MF."), " verde"));
-    itens.push(opcao(ICONES.local, "Contato e endere\u00e7o", "Onde estamos e como falar com a f\u00e1brica", function () { tela = "contato"; desenhar(); }));
+    itens.push(opcao(ICONES.local, "Contato e endere\u00e7o", "Onde estamos e como falar com a f\u0e1brica", function () { tela = "contato"; desenhar(); }));
     return [el("div", { classe: "corpo" }, itens)];
   }
 
@@ -447,15 +482,31 @@
     ];
   }
 
+  function anexoEl(m) {
+    if (!m.anexo_url) return null;
+    var t = m.anexo_tipo || "";
+    if (t.indexOf("image/") === 0)
+      return el("a", { href: m.anexo_url, target: "_blank", rel: "noopener", classe: "foto", "aria-label": "Abrir a foto" }, [el("img", { src: m.anexo_url, alt: m.anexo_nome || "Foto", loading: "lazy" })]);
+    if (t.indexOf("audio/") === 0) return el("audio", { controls: true, preload: "metadata", src: m.anexo_url });
+    if (t.indexOf("video/") === 0) return el("video", { controls: true, preload: "metadata", src: m.anexo_url, classe: "video" });
+    return el("a", { href: m.anexo_url, target: "_blank", rel: "noopener", classe: "arquivo" }, [
+      svg(ICONES.documento, 20),
+      el("span", null, [el("b", { texto: m.anexo_nome || "Arquivo" }), el("small", { texto: tamanhoLegivel(m.anexo_tamanho) + " \u00b7 abrir" })]),
+    ]);
+  }
+  function conteudo(m) {
+    return [anexoEl(m), m.texto ? el("div", { classe: "texto", texto: m.texto }) : null, el("div", { classe: "hora", texto: hora(m.created_at) })];
+  }
   function balaoMensagem(m) {
     if (m.autor === "sistema") return el("div", { classe: "sistema", texto: m.texto });
-    if (m.autor === "visitante")
-      return el("div", { classe: "balao meu" }, [m.texto, el("div", { classe: "hora", texto: hora(m.created_at) })]);
+    if (m.autor === "visitante") return el("div", { classe: "balao meu" + (m.anexo_url ? " com-anexo" : "") }, conteudo(m));
+    var ia = m.autor === "assistente";
+    var nome = m.autor_nome || (ia ? "Assistente virtual MF" : nomeAtendente());
     return el("div", null, [
-      el("div", { classe: "autor", texto: m.autor_nome || nomeAtendente() }),
+      el("div", { classe: "autor", texto: nome }),
       el("div", { classe: "linha" }, [
-        el("div", { classe: "avatar pequeno", texto: iniciais(m.autor_nome || nomeAtendente()) }),
-        el("div", { classe: "balao deles" }, [m.texto, el("div", { classe: "hora", texto: hora(m.created_at) })]),
+        ia ? el("div", { classe: "avatar pequeno ia", texto: "IA" }) : avatarEl(nome, m.autor_foto || null, "avatar pequeno"),
+        el("div", { classe: "balao deles" + (m.anexo_url ? " com-anexo" : "") }, conteudo(m)),
       ]),
     ]);
   }
@@ -467,6 +518,97 @@
     });
     var caixa = el("textarea", { rows: "1", placeholder: "Escreva a sua mensagem\u2026", "aria-label": "Mensagem", maxlength: "1000" });
     var botao = el("button", { classe: "botao", type: "submit", "aria-label": "Enviar" }, [svg(ICONES.enviar, 20)]);
+    var arquivoEntrada = el("input", { type: "file", accept: "image/*,audio/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip", style: "display:none" });
+    arquivoEntrada.addEventListener("change", function () {
+      var f = arquivoEntrada.files && arquivoEntrada.files[0];
+      arquivoEntrada.value = "";
+      if (f) enviarArquivo(f);
+    });
+    var painelEmoji = el("div", { classe: "emojis", role: "listbox", "aria-label": "Emojis", hidden: true },
+      EMOJIS.map(function (e) {
+        return el("button", { type: "button", classe: "emoji", texto: e, "aria-label": e, onclick: function () {
+          var ini = caixa.selectionStart || caixa.value.length;
+          caixa.value = caixa.value.slice(0, ini) + e + caixa.value.slice(caixa.selectionEnd || ini);
+          caixa.focus();
+          caixa.selectionStart = caixa.selectionEnd = ini + e.length;
+        } });
+      }),
+    );
+    var botaoEmoji = el("button", { classe: "ferramenta", type: "button", "aria-label": "Emoji", onclick: function () { painelEmoji.hidden = !painelEmoji.hidden; } }, [svg(ICONES.emoji, 20)]);
+    var botaoClipe = el("button", { classe: "ferramenta", type: "button", "aria-label": "Enviar arquivo ou foto", onclick: function () { arquivoEntrada.click(); } }, [svg(ICONES.clipe, 20)]);
+    var botaoMic = el("button", { classe: "ferramenta", type: "button", "aria-label": "Gravar \u00e1udio", onclick: function () { gravar(); } }, [svg(ICONES.mic, 20)]);
+    var gravacao = el("div", { classe: "gravando", hidden: true });
+
+    function aviso(texto) {
+      receber([{ id: "aviso-" + Date.now(), autor: "sistema", texto: texto, created_at: new Date().toISOString(), local: true }]);
+    }
+    function enviarArquivo(f) {
+      if (!conversa) return;
+      if (f.size > 15 * 1024 * 1024) return aviso("Arquivo grande demais (m\u00e1ximo 15 MB).");
+      var fd = new FormData();
+      fd.append("c", conversa.c);
+      fd.append("t", conversa.t);
+      fd.append("arquivo", f);
+      var aguarde = el("div", { classe: "sistema", texto: "Enviando " + (f.type.indexOf("audio/") === 0 ? "\u00e1udio" : f.name || "arquivo") + "\u2026" });
+      corpoEl.appendChild(aguarde);
+      rolar();
+      fetch(API + "/anexo", { method: "POST", body: fd, credentials: "omit" })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.__status = r.status; return j; }); })
+        .then(function (j) {
+          aguarde.remove();
+          if (j.__status === 404) return esquecerConversa();
+          if (!j.ok) throw new Error(j.erro || "N\u00e3o consegui enviar o arquivo.");
+          receber([j.mensagem]);
+        })
+        .catch(function (e) {
+          aguarde.remove();
+          aviso(e.message || "N\u00e3o consegui enviar o arquivo.");
+        });
+    }
+
+    var gravador = null;
+    function gravar() {
+      if (gravador) return;
+      if (!navigator.mediaDevices || !window.MediaRecorder) return aviso("Este navegador n\u00e3o grava \u00e1udio. Mande por escrito ou pelo WhatsApp.");
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        var tipos = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+        var tipo = tipos.filter(function (t) { return MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t); })[0] || "";
+        var rec = new MediaRecorder(stream, tipo ? { mimeType: tipo } : undefined);
+        var partes = [];
+        var cancelado = false;
+        var inicio = Date.now();
+        gravador = rec;
+        rec.ondataavailable = function (e) { if (e.data && e.data.size) partes.push(e.data); };
+        rec.onstop = function () {
+          stream.getTracks().forEach(function (t) { t.stop(); });
+          clearInterval(relogioGravacao);
+          gravador = null;
+          gravacao.hidden = true;
+          form.classList.remove("gravando-agora");
+          if (cancelado || !partes.length) return;
+          var mime = (rec.mimeType || tipo || "audio/webm").split(";")[0];
+          var ext = mime.indexOf("mp4") >= 0 ? "m4a" : mime.indexOf("ogg") >= 0 ? "ogg" : "webm";
+          enviarArquivo(new File(partes, "audio." + ext, { type: mime }));
+        };
+        var tempo = el("span", { texto: "0:00" });
+        gravacao.innerHTML = "";
+        gravacao.appendChild(el("span", { classe: "bolinha" }));
+        gravacao.appendChild(el("span", { texto: "Gravando " }));
+        gravacao.appendChild(tempo);
+        gravacao.appendChild(el("button", { type: "button", classe: "ferramenta", "aria-label": "Cancelar o \u00e1udio", onclick: function () { cancelado = true; rec.stop(); } }, [svg(ICONES.lixo, 18)]));
+        gravacao.appendChild(el("button", { type: "button", classe: "botao", "aria-label": "Enviar o \u00e1udio", onclick: function () { rec.stop(); } }, [svg(ICONES.enviar, 18)]));
+        gravacao.hidden = false;
+        form.classList.add("gravando-agora");
+        var relogioGravacao = setInterval(function () {
+          var seg = Math.floor((Date.now() - inicio) / 1000);
+          tempo.textContent = Math.floor(seg / 60) + ":" + ("0" + (seg % 60)).slice(-2);
+          if (seg >= 180) rec.stop();
+        }, 500);
+        rec.start();
+      }).catch(function () {
+        aviso("N\u00e3o consegui usar o microfone. Libere o acesso no navegador ou mande por escrito.");
+      });
+    }
     function mandar() {
       var texto = caixa.value.trim();
       if (!texto || enviando || !conversa) return;
@@ -476,6 +618,7 @@
         .then(function (j) {
           if (j.__status === 404) return esquecerConversa();
           if (!j.ok) throw new Error(j.erro || "N\u00e3o consegui enviar.");
+          painelEmoji.hidden = true;
           caixa.value = "";
           caixa.style.height = "";
           receber([j.mensagem]);
@@ -499,7 +642,16 @@
       caixa.style.height = "auto";
       caixa.style.height = Math.min(caixa.scrollHeight, 110) + "px";
     });
-    var form = el("form", { classe: "escrever", onsubmit: function (ev) { ev.preventDefault(); mandar(); } }, [caixa, botao]);
+    var form = el("form", { classe: "escrever", onsubmit: function (ev) { ev.preventDefault(); painelEmoji.hidden = true; mandar(); } }, [
+      painelEmoji,
+      gravacao,
+      botaoEmoji,
+      botaoClipe,
+      caixa,
+      botaoMic,
+      botao,
+      arquivoEntrada,
+    ]);
     setTimeout(function () {
       rolar();
       try {
@@ -515,7 +667,7 @@
 
   function telaMaterial() {
     var slug = atalhoAberto ? atalhoAberto.slug : "";
-    return [el("iframe", { classe: "quadro", src: BASE + "/f/" + encodeURIComponent(slug), title: "Formul\u00e1rio do cat\u00e1logo" })];
+    return [el("iframe", { classe: "quadro", src: BASE + "/f/" + encodeURIComponent(slug) + "?embed=1", title: "Formul\u00e1rio do cat\u00e1logo" })];
   }
 
   function telaContato() {
@@ -527,7 +679,7 @@
           : null,
         el("div", { classe: "dado" }, [el("b", { texto: "WhatsApp e telefone" }), el("a", { href: linkWhats(""), target: "_blank", rel: "noopener", texto: c.telefone || "(51) 3536-1422" })]),
         el("div", { classe: "dado" }, [
-          el("b", { texto: "F\u00e1brica" }),
+          el("b", { texto: "F\u0e1brica" }),
           el("a", { href: "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent("MF International " + (c.endereco || "S\u00e3o Sebasti\u00e3o do Ca\u00ed RS")), target: "_blank", rel: "noopener", texto: c.endereco || "ERS-122, Km 08 \u00b7 S\u00e3o Sebasti\u00e3o do Ca\u00ed/RS" }),
         ]),
         el("div", { classe: "dado" }, [el("b", { texto: "Site" }), el("a", { href: c.site || "https://mfinternational.com.br", target: "_blank", rel: "noopener", texto: "mfinternational.com.br" })]),
@@ -594,8 +746,9 @@
     return chamar("GET", "/mensagens" + q)
       .then(function (j) {
         if (j.__status === 404) return esquecerConversa();
-        if (j.atendente && j.atendente.nome && cfg && cfg.atendente && cfg.atendente.nome !== j.atendente.nome) {
+        if (j.atendente && j.atendente.nome && cfg && cfg.atendente && (cfg.atendente.nome !== j.atendente.nome || cfg.atendente.foto !== j.atendente.foto)) {
           cfg.atendente.nome = j.atendente.nome;
+          cfg.atendente.foto = j.atendente.foto || null;
           if (aberto && tela !== "chat") desenhar();
         }
         var antes = primeiraBusca;

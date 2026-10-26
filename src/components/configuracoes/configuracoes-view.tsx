@@ -7,6 +7,7 @@ import { ToggleSwitch } from "./toggle-switch";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { FotoDePerfil } from "./foto-de-perfil";
 
 export function ConfiguracoesView() {
   const router = useRouter();
@@ -121,9 +122,6 @@ export function ConfiguracoesView() {
           <>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-aura-petrol-700/10 font-display text-lg font-semibold text-aura-petrol-700">
-                  {profile.avatarIniciais}
-                </div>
                 <div>
                   <p className="font-display text-base font-semibold text-aura-graphite">
                     {profile.nome}
@@ -143,7 +141,11 @@ export function ConfiguracoesView() {
               </button>
             </div>
 
-            <div className="mt-5 flex flex-col divide-y divide-aura-mist border-t border-aura-mist">
+            <div className="mt-5 border-t border-aura-mist pt-4">
+              <FotoDePerfil />
+            </div>
+
+            <div className="mt-4 flex flex-col divide-y divide-aura-mist border-t border-aura-mist">
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm text-aura-graphite-soft">E-mail</span>
                 <span className="text-sm text-aura-graphite">{email || "—"}</span>
@@ -234,8 +236,8 @@ export function ConfiguracoesView() {
             }}
           />
           <ToggleSwitch
-            label="Novas missões"
-            descricao="Avisar quando uma nova missão estiver disponível"
+            label="Missões do dia"
+            descricao="Mostrar as missões do dia no Meu Dia e avisar no sininho as que ainda faltam"
             checked={notifMissoes}
             onChange={(valor) => {
               setNotifMissoes(valor);

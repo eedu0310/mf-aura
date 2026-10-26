@@ -34,6 +34,8 @@ interface Resumo {
     whatsapp: string | null;
     horario: Horario;
     mensagem_fora_horario: string;
+    ia_ativa?: boolean;
+    ia_sem_ninguem?: boolean;
   } | null;
   equipe: { id: string; nome: string }[];
 }
@@ -132,6 +134,8 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
   const [whatsapp, setWhatsapp] = useState(c.whatsapp ?? "");
   const [horario, setHorario] = useState<Horario>(c.horario ?? {});
   const [foraHorario, setForaHorario] = useState(c.mensagem_fora_horario ?? "");
+  const [iaAtiva, setIaAtiva] = useState(c.ia_ativa !== false);
+  const [iaSemNinguem, setIaSemNinguem] = useState(c.ia_sem_ninguem === true);
   const [formularios, setFormularios] = useState<{ slug: string; nome: string; titulo: string | null; destino: string }[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -183,7 +187,7 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
       const r = await fetch("/api/site/chat/equipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "config", ativo, saudacao, atendentePadraoId: atendente || null, atalhos, whatsapp, horario: limpo, mensagemForaHorario: foraHorario }),
+        body: JSON.stringify({ acao: "config", ativo, saudacao, atendentePadraoId: atendente || null, atalhos, whatsapp, horario: limpo, mensagemForaHorario: foraHorario, iaAtiva, iaSemNinguem }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro || "Não consegui salvar.");
@@ -321,6 +325,21 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
             <label className="flex flex-col gap-1.5 text-sm font-medium text-aura-graphite">
               Aviso fora do horário
               <textarea rows={2} maxLength={300} value={foraHorario} onChange={(e) => setForaHorario(e.target.value)} className={`${entrada} py-2`} />
+            </label>
+          </section>
+
+          <section className="flex flex-col gap-2 rounded-xl border border-aura-mist p-3">
+            <p className="text-sm font-medium text-aura-graphite">Assistente virtual (IA)</p>
+            <p className="text-xs text-aura-graphite-soft">
+              Responde o cliente no chat com o manual de vendas, a ficha técnica e as regras da MF que estão na AURA. Ele se apresenta como assistente virtual, não fala preço nem condição de pagamento e deixa tudo anotado para o consultor. Para assim que alguém da equipe responder.
+            </p>
+            <label className="flex items-center gap-2.5 text-sm text-aura-graphite">
+              <input type="checkbox" checked={iaAtiva} onChange={(e) => setIaAtiva(e.target.checked)} className="h-4 w-4" />
+              Responder fora do horário de atendimento
+            </label>
+            <label className={`flex items-center gap-2.5 text-sm ${iaAtiva ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
+              <input type="checkbox" checked={iaSemNinguem} disabled={!iaAtiva} onChange={(e) => setIaSemNinguem(e.target.checked)} className="h-4 w-4" />
+              Também dentro do horário, quando ninguém da equipe estiver online
             </label>
           </section>
 

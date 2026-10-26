@@ -14,6 +14,8 @@ export interface UserProfile {
   empresa: string;
   cargo: string;
   avatarIniciais: string;
+  /** Foto de perfil (null = mostra as iniciais). */
+  fotoUrl: string | null;
 }
 
 const PERFIL_VAZIO: UserProfile = {
@@ -21,6 +23,7 @@ const PERFIL_VAZIO: UserProfile = {
   empresa: "",
   cargo: "Vendedor",
   avatarIniciais: "",
+  fotoUrl: null,
 };
 
 interface UserProfileContextValue {
@@ -29,6 +32,8 @@ interface UserProfileContextValue {
   carregando: boolean;
   setProfile: (nome: string, empresa: string, cargo?: string) => Promise<void>;
   clearProfile: () => Promise<void>;
+  /** Atualiza a foto na tela depois de trocar em Configurações. */
+  setFotoUrl: (url: string | null) => void;
 }
 
 function calcularIniciais(nome: string) {
@@ -58,6 +63,7 @@ function perfilDaSessao(session: {
     empresa,
     cargo: cargo || "Vendedor",
     avatarIniciais: calcularIniciais(nome) || "??",
+    fotoUrl: null,
   };
 }
 
@@ -69,12 +75,13 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
 
   async function setProfile(nome: string, empresa: string, cargo = "Vendedor") {
     const nomeLimpo = nome.trim();
-    setProfileState({
+    setProfileState((atual) => ({
       nome: nomeLimpo,
       empresa: empresa.trim(),
       cargo: cargo.trim() || "Vendedor",
       avatarIniciais: calcularIniciais(nomeLimpo) || "??",
-    });
+      fotoUrl: atual.fotoUrl,
+    }));
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
@@ -156,8 +163,17 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
               empresa,
               cargo: cargo || "Vendedor",
               avatarIniciais: calcularIniciais(nome) || "??",
+              fotoUrl: null,
             };
           }
+          // A foto vem numa consulta à parte: se a coluna ainda não existir
+          // (banco atrasado em relação ao código), o resto do perfil não cai.
+          const { data: comFoto } = await supabaseClient
+            .from("profiles")
+            .select("foto_url")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          if (comFoto?.foto_url) perfilFinal = { ...perfilFinal, fotoUrl: String(comFoto.foto_url) };
         } catch (perfilError) {
           console.warn(
             "Falha ao consultar profiles; usando a sessão:",
@@ -206,6 +222,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         carregando,
         setProfile,
         clearProfile,
+        setFotoUrl: (url) => setProfileState((atual) => ({ ...atual, fotoUrl: url })),
       }}
     >
       {children}

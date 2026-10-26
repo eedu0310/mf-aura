@@ -8,6 +8,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ConversaSite } from "./conversa-site";
 import { PainelChat } from "./painel-chat";
 import { ClientesParceiros, type EnvioCliente } from "./clientes-parceiros";
+import { EditarContato } from "./editar-contato";
+import { usarMeuAcesso } from "@/lib/usar-permissoes";
+import { Pencil } from "lucide-react";
 
 interface Envio {
   id: string;
@@ -85,6 +88,9 @@ export function AtendimentoSite() {
   const [aberto, setAberto] = useState<Envio | null>(null);
   const [transferindo, setTransferindo] = useState<Envio | null>(null);
   const [conversando, setConversando] = useState<Envio | null>(null);
+  const [editandoContato, setEditandoContato] = useState<Envio | null>(null);
+  const acesso = usarMeuAcesso();
+  const podeExcluir = acesso.cargo === "Gestor" || acesso.cargo === "Diretor" || acesso.gestorMestre;
   const [ocupado, setOcupado] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -210,7 +216,11 @@ export function AtendimentoSite() {
             <Loader2 size={20} className="animate-spin" />
           </div>
         ) : (
-          <ClientesParceiros envios={deClientes as unknown as EnvioCliente[]} onMudou={() => void carregar()} />
+          <ClientesParceiros
+            envios={deClientes as unknown as EnvioCliente[]}
+            onMudou={() => void carregar()}
+            onEditar={(id) => setEditandoContato(envios.find((x) => x.id === id) ?? null)}
+          />
         )
       ) : (
       <>
@@ -342,6 +352,16 @@ export function AtendimentoSite() {
             </dl>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditandoContato(aberto);
+                  setAberto(null);
+                }}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+              >
+                <Pencil size={16} /> {podeExcluir ? "Editar ou excluir" : "Editar dados"}
+              </button>
               {aberto.telefone && (
                 <a
                   href={`https://wa.me/${aberto.telefone.replace(/\D/g, "")}`}
@@ -395,6 +415,22 @@ export function AtendimentoSite() {
           onTransferir={() => {
             setTransferindo(conversando);
             setConversando(null);
+          }}
+          onEditar={() => {
+            setEditandoContato(conversando);
+            setConversando(null);
+          }}
+        />
+      )}
+
+      {editandoContato && (
+        <EditarContato
+          contato={editandoContato}
+          podeExcluir={podeExcluir}
+          onFechar={() => setEditandoContato(null)}
+          onFeito={() => {
+            setEditandoContato(null);
+            void carregar();
           }}
         />
       )}

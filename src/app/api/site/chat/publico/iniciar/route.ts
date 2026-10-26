@@ -3,6 +3,7 @@ import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 import { abrirLeadDoSite, hashDoSegredo, impressaoDoIp, novoSegredo, primeiroNome, soDigitos, telefoneDoSite } from "@/lib/site-mf/servidor";
 import { atendenteDoWidget, avisarEquipe, preflight, respostaCors } from "@/lib/site-mf/chat";
 import { dentroDoHorario, limparHorario } from "@/lib/site-mf/horario";
+import { responderComAssistente } from "@/lib/site-mf/assistente";
 
 export const runtime = "nodejs";
 
@@ -153,6 +154,9 @@ export async function POST(request: Request) {
     "Novo chat no site da MF",
     `${nome} (${cidade}) começou uma conversa no site.${mensagem ? ` "${mensagem}"` : ""}`,
   );
+
+  // Fora do horário, o assistente já puxa a conversa.
+  if (mensagem) void responderComAssistente(sb, conversa.id).catch((e) => console.error("[chat] assistente:", e?.message ?? e));
 
   return respostaCors({ ok: true, conversa: conversa.id, token: segredo });
 }

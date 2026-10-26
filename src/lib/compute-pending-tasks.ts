@@ -5,6 +5,8 @@ export interface TarefaPendente {
   titulo: string;
   quando: string;
   urgente: boolean;
+  /** Para onde o aviso leva. Sem isto, abre o cliente pelo nome. */
+  href?: string;
 }
 
 /**

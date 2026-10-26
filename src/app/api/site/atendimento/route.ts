@@ -3,7 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { equipeDoSite } from "@/lib/site-mf/servidor";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 import { EMPRESAS } from "@/lib/companies";
-import { abrirLeadDoSite } from "@/lib/site-mf/servidor";
+import { abrirLeadDoSite, telefoneDoSite } from "@/lib/site-mf/servidor";
 
 export const runtime = "nodejs";
 
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Sistema indisponível." }, { status: 503 });
 
-  let corpo: { acao?: string; envioId?: string; empresa?: string; vendedorId?: string | null; recado?: string; etapa?: string; nota?: string };
+  let corpo: { acao?: string; envioId?: string; empresa?: string; vendedorId?: string | null; recado?: string; etapa?: string; nota?: string; nome?: string; telefone?: string; email?: string; cidade?: string };
   try {
     corpo = await request.json();
   } catch {
@@ -101,6 +101,55 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (!envio || envio.empresa !== EMPRESA_DO_SITE) {
     return NextResponse.json({ erro: "Contato não encontrado." }, { status: 404 });
+  }
+
+  /**
+   * Corrigir os dados do contato (nome, WhatsApp, e-mail, cidade). Vale para
+   * o envio, a conversa do chat e o lead, enquanto o lead ainda é da MF.
+   */
+  if (corpo.acao === "editar") {
+    const dados = corpo as unknown as Record<string, unknown>;
+    const txt = (k: string, max: number) => (typeof dados[k] === "string" ? String(dados[k]).trim().slice(0, max) : "");
+    const nome = txt("nome", 120) || null;
+    const telefoneBruto = txt("telefone", 30);
+    const telefone = telefoneBruto ? telefoneDoSite(telefoneBruto) : null;
+    const email = txt("email", 120).toLowerCase() || null;
+    const cidade = txt("cidade", 80) || null;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return NextResponse.json({ erro: "Confira o e-mail." }, { status: 400 });
+    if (telefone && telefone.length < 12) return NextResponse.json({ erro: "Confira o WhatsApp com DDD." }, { status: 400 });
+    await sb.from("site_envios").update({ nome, telefone, email, cidade }).eq("id", envio.id);
+    await sb.from("site_conversas").update({ nome, telefone, email, cidade }).eq("envio_id", envio.id);
+    if (envio.lead_id) {
+      await sb
+        .from("leads_recebidos")
+        .update({ nome, telefone, email, email_normalizado: email })
+        .eq("id", envio.lead_id)
+        .eq("empresa", EMPRESA_DO_SITE);
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  /**
+   * Excluir (spam, teste, contato repetido). Só gestor. Some do Atendimento,
+   * a conversa do chat vai junto e o lead também, se ainda não foi atendido
+   * nem transferido; lead que já virou negócio no pipeline fica.
+   */
+  if (corpo.acao === "excluir") {
+    if (!(auth.cargo === "Gestor" || auth.cargo === "Diretor" || auth.gestorMestre)) {
+      return NextResponse.json({ erro: "Só o gestor exclui contatos do site." }, { status: 403 });
+    }
+    let leadExcluido = false;
+    if (envio.lead_id) {
+      const { data: l } = await sb.from("leads_recebidos").select("id, empresa, status").eq("id", envio.lead_id).maybeSingle();
+      if (l && l.empresa === EMPRESA_DO_SITE && l.status !== "respondido") {
+        const { error } = await sb.from("leads_recebidos").delete().eq("id", l.id);
+        leadExcluido = !error;
+      }
+    }
+    await sb.from("site_conversas").delete().eq("envio_id", envio.id);
+    const { error } = await sb.from("site_envios").delete().eq("id", envio.id);
+    if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, leadExcluido });
   }
 
   /**

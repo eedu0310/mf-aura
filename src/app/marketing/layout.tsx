@@ -18,6 +18,7 @@ import {
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { AvatarUsuario } from "@/components/avatar-usuario";
 import { ABAS_MARKETING, AbaMarketingContext, type AbaMarketing, type AbaMarketingContextValue } from "@/components/marketing/aba-marketing";
 
 function PerfilMenu() {
@@ -52,9 +53,7 @@ function PerfilMenu() {
         onClick={() => setMenuAberto((v) => !v)}
         className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-white/5"
       >
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-aura-gold font-display text-xs font-semibold text-aura-navy-950">
-          {profile.avatarIniciais}
-        </div>
+        <AvatarUsuario foto={profile.fotoUrl} iniciais={profile.avatarIniciais} className="h-8 w-8 bg-aura-gold font-display text-xs font-semibold text-aura-navy-950" />
         <div className="min-w-0 flex-1 text-left">
           <p className="truncate text-sm font-medium leading-tight text-white">{profile.nome}</p>
           <p className="truncate text-xs leading-tight text-white/50">{profile.cargo}</p>

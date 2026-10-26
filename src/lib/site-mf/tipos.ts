@@ -46,6 +46,8 @@ export interface Formulario {
   ativo: boolean;
   /** lead: vira lead e vai para a fila de vendas. cliente: já é cliente/parceiro, não vira lead. */
   destino: "lead" | "cliente";
+  /** Foto de fundo da página do formulário (/f/endereço). */
+  imagem_fundo?: string | null;
   created_at?: string;
   updated_at?: string;
 }

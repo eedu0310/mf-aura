@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Loader2, MapPin, MessageCircle, Sparkles, UserCheck, X } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, MessageCircle, Pencil, Sparkles, UserCheck, X } from "lucide-react";
 import { EMPRESAS } from "@/lib/companies";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 
@@ -45,7 +45,7 @@ async function postar(corpo: Record<string, unknown>) {
  * venda. Funil curto: Novo → Em atendimento → Resolvido, com um responsável
  * que pode ser de qualquer loja (o pós-venda da LF, por exemplo).
  */
-export function ClientesParceiros({ envios, onMudou }: { envios: EnvioCliente[]; onMudou: () => void }) {
+export function ClientesParceiros({ envios, onMudou, onEditar }: { envios: EnvioCliente[]; onMudou: () => void; onEditar: (id: string) => void }) {
   const [aberto, setAberto] = useState<EnvioCliente | null>(null);
 
   return (
@@ -93,6 +93,11 @@ export function ClientesParceiros({ envios, onMudou }: { envios: EnvioCliente[];
       {aberto && (
         <DetalheCliente
           envio={aberto}
+          onEditar={() => {
+            const id = aberto.id;
+            setAberto(null);
+            onEditar(id);
+          }}
           onFechar={() => setAberto(null)}
           onMudou={() => {
             setAberto(null);
@@ -104,7 +109,7 @@ export function ClientesParceiros({ envios, onMudou }: { envios: EnvioCliente[];
   );
 }
 
-function DetalheCliente({ envio, onFechar, onMudou }: { envio: EnvioCliente; onFechar: () => void; onMudou: () => void }) {
+function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCliente; onFechar: () => void; onMudou: () => void; onEditar: () => void }) {
   const [empresa, setEmpresa] = useState(EMPRESA_DO_SITE);
   const [pessoas, setPessoas] = useState<{ id: string; nome: string; cargo: string }[]>([]);
   const [pessoa, setPessoa] = useState("");
@@ -179,6 +184,13 @@ function DetalheCliente({ envio, onFechar, onMudou }: { envio: EnvioCliente; onF
               <MessageCircle size={15} /> WhatsApp
             </a>
           )}
+          <button
+            type="button"
+            onClick={onEditar}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+          >
+            <Pencil size={15} /> Editar
+          </button>
           {proxima && (
             <button
               type="button"

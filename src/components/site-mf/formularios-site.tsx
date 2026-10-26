@@ -76,6 +76,7 @@ export function FormulariosSite() {
               cor: "#CD1C1B",
               ativo: true,
               destino: "lead",
+              imagem_fundo: null,
             })
           }
           className="inline-flex min-h-10 items-center gap-2 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
@@ -190,6 +191,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
       cor: /^#[0-9A-Fa-f]{6}$/.test(f.cor) ? f.cor : "#CD1C1B",
       ativo: f.ativo,
       destino: f.destino === "cliente" ? "cliente" : "lead",
+      imagem_fundo: f.imagem_fundo?.trim() || null,
       updated_at: new Date().toISOString(),
     };
     const r = novo
@@ -212,7 +214,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
     onVoltar();
   }
 
-  const codigo = `<iframe src="${enderecoBase()}/f/${f.slug || paraSlug(f.nome)}" style="width:100%;max-width:520px;height:720px;border:0" title="${f.nome}"></iframe>`;
+  const codigo = `<iframe src="${enderecoBase()}/f/${f.slug || paraSlug(f.nome)}?embed=1" style="width:100%;max-width:520px;height:720px;border:0" title="${f.nome}"></iframe>`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -365,6 +367,22 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
             <UploadArquivo rotulo="Subir PDF do material" aceita="application/pdf" onPronto={(url) => mudar("material_url", url)} />
           </section>
 
+          <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-5">
+            <p className="font-medium text-aura-graphite">Página do formulário</p>
+            <p className="text-xs leading-relaxed text-aura-graphite-soft">
+              Aberto pelo link, o formulário vira uma página no visual dos materiais da MF: barra vermelha com o logo, foto de fundo, o título e o texto acima, e o cartão &quot;Preencha seus dados&quot;.
+            </p>
+            {f.imagem_fundo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={f.imagem_fundo} alt="" className="max-h-40 w-full rounded-xl object-cover" />
+            )}
+            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              Foto de fundo (link)
+              <input className={entrada} placeholder="https://" value={f.imagem_fundo ?? ""} onChange={(e) => mudar("imagem_fundo", e.target.value)} />
+            </label>
+            <UploadArquivo rotulo="Subir foto de fundo" aceita="image/jpeg,image/png,image/webp" onPronto={(url) => mudar("imagem_fundo", url)} />
+          </section>
+
           {erro && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
 
           <div className="flex flex-wrap gap-2">
@@ -403,16 +421,23 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
 
         <div className="lg:sticky lg:top-4 lg:self-start">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-aura-graphite-soft">Como o cliente vê</p>
-          <div className="rounded-2xl bg-aura-mist/60 p-4">
-            <FormularioPublico
-              slug={f.slug || "previa"}
-              titulo={f.titulo}
-              descricao={f.descricao}
-              campos={f.campos}
-              botao={f.botao_texto}
-              cor={/^#[0-9A-Fa-f]{6}$/.test(f.cor) ? f.cor : "#CD1C1B"}
-              previa
-            />
+          <div className="overflow-hidden rounded-2xl">
+            <div className="flex h-12 items-center justify-center bg-[#CD1C1B] text-sm font-bold tracking-widest text-white">MF</div>
+            <div
+              className="bg-neutral-700 bg-cover bg-center p-4"
+              style={f.imagem_fundo ? { backgroundImage: `linear-gradient(rgba(0,0,0,.45), rgba(0,0,0,.45)), url("${f.imagem_fundo}")` } : undefined}
+            >
+              {f.titulo && <p className="mb-1 text-lg font-bold uppercase leading-tight text-white">{f.titulo}</p>}
+              {f.descricao && <p className="mb-3 text-xs leading-relaxed text-white/90">{f.descricao}</p>}
+              <FormularioPublico
+                slug={f.slug || "previa"}
+                campos={f.campos}
+                botao={f.botao_texto}
+                cor={/^#[0-9A-Fa-f]{6}$/.test(f.cor) ? f.cor : "#CD1C1B"}
+                previa
+                variante="cartao"
+              />
+            </div>
           </div>
         </div>
       </div>

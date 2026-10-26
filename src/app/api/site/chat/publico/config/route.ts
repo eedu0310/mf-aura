@@ -49,7 +49,7 @@ export async function GET(request: Request) {
     empresa: "MF International",
     cor: config.cor,
     saudacao: config.saudacao,
-    atendente: { nome: atendente.nome, alguemOnline: atendente.online },
+    atendente: { nome: atendente.nome, alguemOnline: atendente.online, foto: atendente.foto },
     atalhos: atalhos.filter((a) => ativos.has(a.slug)),
     whatsapp: config.whatsapp || CONTATO_MF.whatsapp,
     contato: CONTATO_MF,
