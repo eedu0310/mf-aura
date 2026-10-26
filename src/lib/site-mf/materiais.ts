@@ -41,7 +41,36 @@ export const FUNDOS = {
   manuais: CDN_BITRIX + "8f2/8f285bee4d07077bede39419036f0b93/manuais_1x.jpeg",
   blocos: CDN_BITRIX + "625/6253575fa12d6cbf946cdc82ec101cf0/yy71hbcuu1_1x.jpeg",
   tutoriais: CDN_BITRIX + "482/482378a4b9f184683ea149929f774d29/design_sem_nome_11_1x.png",
+  tripla: CDN_BITRIX + "3ac/3ac8bdda4e7bd368ac1138676777b790/mf_vitro_esq_2x_1x.jpg",
+  realidade: CDN_BITRIX + "200/2000a4170d57d910311e297d04fbd060/home_1_v2_1x.png",
 };
+
+/** Infográfico "Nossa tecnologia" (tripla combustão), no Drive da MF. */
+export const TRIPLA_URL = "https://drive.google.com/file/d/1YAtFCfwHJUWl4ZoORxHRX47yCVIJfiSr/view";
+
+/** MF Preview: a realidade aumentada da MF. */
+export const MF_PREVIEW_URL = "https://mfpreview.com.br/";
+export const LOGO_MF_PREVIEW = CDN_BITRIX + "5c2/5c264aaee028cf6e58c49e58ee6ea99f/logo_mf_preview_1x.png";
+export const TELAS_MF_PREVIEW = [
+  CDN_BITRIX + "121/121d5c9aadad8cafaf1810a6bd12888e/home_5_1x.png",
+  CDN_BITRIX + "35e/35e542034fd454b5c88ce1f422526d4c/home_3_1_1x.png",
+  CDN_BITRIX + "ffe/ffe8810ea6bc5a172bedf711de6da216/home_4_1x.png",
+];
+
+/** Linhas com tripla combustão (as suspensas não têm). */
+export const LINHAS_TRIPLA = [
+  "Adatto",
+  "Prime",
+  "Wide",
+  "Duo",
+  "Vision",
+  "Vitro",
+  "Altezza",
+  "Efficienza",
+  "Forza",
+  "Delicatta",
+  "MF 150, 250 e 350",
+];
 
 type Linha = [GrupoModelo, string, string | null, string];
 const montar = (linhas: Linha[]): ModeloMaterial[] =>
@@ -156,7 +185,14 @@ export const TUTORIAIS: Tutorial[] = [
 
 /** Todas as fotos que vieram do Bitrix (para copiar para a AURA). */
 export function fotosDoBitrix(): string[] {
-  const todas = [LOGO_MF, ...Object.values(FUNDOS), ...MANUAIS.map((m) => m.imagem), ...BLOCOS.map((m) => m.imagem)];
+  const todas = [
+    LOGO_MF,
+    LOGO_MF_PREVIEW,
+    ...TELAS_MF_PREVIEW,
+    ...Object.values(FUNDOS),
+    ...MANUAIS.map((m) => m.imagem),
+    ...BLOCOS.map((m) => m.imagem),
+  ];
   return [...new Set(todas)];
 }
 
@@ -169,6 +205,6 @@ export function caminhoDaCopia(url: string): string | null {
   const partes = url.slice(CDN_BITRIX.length).split("/");
   if (partes.length < 3) return null;
   const nome = partes[2].replace(/\.[a-z0-9]+$/i, "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-  const ext = url === LOGO_MF ? "png" : "webp";
+  const ext = url === LOGO_MF || url === LOGO_MF_PREVIEW ? "png" : "webp";
   return `materiais/${partes[1].slice(0, 8)}-${nome}.${ext}`;
 }

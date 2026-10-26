@@ -667,7 +667,7 @@
 
   function telaMaterial() {
     var slug = atalhoAberto ? atalhoAberto.slug : "";
-    return [el("iframe", { classe: "quadro", src: BASE + "/f/" + encodeURIComponent(slug) + "?embed=1", title: "Formul\u00e1rio do cat\u00e1logo" })];
+    return [el("iframe", { classe: "quadro", src: BASE + "/f/" + encodeURIComponent(slug) + "?embed=1", title: "Formul\u00e1rio do material" })];
   }
 
   function telaContato() {

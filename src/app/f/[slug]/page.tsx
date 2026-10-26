@@ -61,7 +61,7 @@ export default async function FormularioDoSite({
   if (busca.embed === "1") {
     return (
       <div className="min-h-full bg-transparent p-2">
-        <FormularioPublico slug={f.slug} campos={campos} botao={f.botao_texto} cor={f.cor} variante="cartao" />
+        <FormularioPublico slug={f.slug} campos={campos} botao={f.botao_texto} cor={f.cor} variante="cartao" abrirMaterial="nova-aba" />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default async function FormularioDoSite({
             {f.titulo && <h1 className="text-3xl font-bold uppercase leading-tight tracking-wide sm:text-4xl">{f.titulo}</h1>}
             {f.descricao && <p className="mt-4 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">{f.descricao}</p>}
           </div>
-          <FormularioPublico slug={f.slug} campos={campos} botao={f.botao_texto} cor={f.cor} variante="cartao" />
+          <FormularioPublico slug={f.slug} campos={campos} botao={f.botao_texto} cor={f.cor} variante="cartao" abrirMaterial="aqui" />
         </div>
       </section>
 

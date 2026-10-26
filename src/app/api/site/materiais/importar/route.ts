@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { equipeDoSite } from "@/lib/site-mf/servidor";
-import { CDN_BITRIX, LOGO_MF, caminhoDaCopia, fotosDoBitrix } from "@/lib/site-mf/materiais";
+import { CDN_BITRIX, FUNDOS, LOGO_MF, LOGO_MF_PREVIEW, caminhoDaCopia, fotosDoBitrix } from "@/lib/site-mf/materiais";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -12,8 +12,8 @@ export const maxDuration = 300;
  * materiais (manuais, blocos, topo das páginas), o logo e as fotos de fundo
  * dos formulários. Assim nada quebra quando o Bitrix for cancelado.
  *
- * As fotos chegam com 1600 px; aqui viram WEBP de até 800 px (a página fica
- * muito mais leve). Pode rodar de novo quando quiser: o que já foi copiado
+ * As fotos chegam com 1600 px; aqui viram WEBP de até 800 px (as de fundo,
+ * até 1800 px). A página fica muito mais leve. Pode rodar de novo quando quiser: o que já foi copiado
  * é pulado. Só a equipe da MF chama.
  */
 export async function POST(request: Request) {
@@ -29,6 +29,8 @@ export async function POST(request: Request) {
   const { data: existentes } = await sb.storage.from("site").list("materiais", { limit: 1000 });
   const ja = new Set((existentes ?? []).map((a) => `materiais/${a.name}`));
 
+  // Fotos de fundo (largura da tela inteira) ficam maiores que as dos cartões.
+  const grandes = new Set<string>([...Object.values(FUNDOS), ...fundos]);
   let copiadas = 0;
   const falhas: string[] = [];
   const fila = urls.filter((u) => {
@@ -45,10 +47,13 @@ export async function POST(request: Request) {
           const r = await fetch(url);
           if (!r.ok) throw new Error(String(r.status));
           const original = Buffer.from(await r.arrayBuffer());
-          const logo = url === LOGO_MF;
+          const logo = url === LOGO_MF || url === LOGO_MF_PREVIEW;
           const pronto = logo
             ? await sharp(original).resize({ height: 160, withoutEnlargement: true }).png().toBuffer()
-            : await sharp(original).resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true }).webp({ quality: 80 }).toBuffer();
+            : await sharp(original)
+                .resize(grandes.has(url) ? { width: 1800, withoutEnlargement: true } : { width: 800, height: 800, fit: "inside", withoutEnlargement: true })
+                .webp({ quality: grandes.has(url) ? 72 : 80 })
+                .toBuffer();
           const { error } = await sb.storage
             .from("site")
             .upload(caminho, pronto, { contentType: logo ? "image/png" : "image/webp", upsert: true, cacheControl: "31536000" });

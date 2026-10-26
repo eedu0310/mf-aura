@@ -2,14 +2,20 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 import { TELEFONE_MF, WHATSAPP_MF } from "@/lib/site-mf/materiais";
 
-export type AbaMateriais = "inicio" | "manuais" | "blocos" | "tutoriais";
+export type AbaMateriais = "inicio" | "catalogo" | "tecnologia" | "realidade" | "blocos" | "manuais" | "tutoriais";
 
-const ABAS: { chave: AbaMateriais | "catalogo" | "ra"; rotulo: string; href: string }[] = [
+/**
+ * Menu dos materiais. Catálogo, tecnologia, realidade aumentada e blocos
+ * passam pelo formulário (é ali que a pessoa vira contato); depois de
+ * preencher, ela cai na página do material.
+ */
+const ABAS: { chave: AbaMateriais; rotulo: string; href: string }[] = [
   { chave: "catalogo", rotulo: "Catálogo", href: "/f/catalogo-mf" },
-  { chave: "manuais", rotulo: "Manuais", href: "/materiais/manuais" },
-  { chave: "blocos", rotulo: "Blocos 3D", href: "/materiais/blocos" },
+  { chave: "tecnologia", rotulo: "Tecnologia", href: "/f/tripla-combustao" },
+  { chave: "realidade", rotulo: "Realidade aumentada", href: "/f/realidade-aumentada" },
+  { chave: "blocos", rotulo: "Blocos 3D", href: "/f/blocos-3d" },
+  { chave: "manuais", rotulo: "Manuais", href: "/f/manuais" },
   { chave: "tutoriais", rotulo: "Tutoriais", href: "/materiais/tutoriais" },
-  { chave: "ra", rotulo: "Realidade aumentada", href: "/f/realidade-aumentada" },
 ];
 
 export const LINK_WHATSAPP = `https://wa.me/${WHATSAPP_MF}`;
@@ -49,9 +55,9 @@ export function PaginaMateriais({
             {ABAS.map((a) => (
               <a
                 key={a.chave}
-                href={a.href}
+                href={a.chave === ativa ? "#" : a.href}
                 aria-current={a.chave === ativa ? "page" : undefined}
-                className={`whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold uppercase tracking-wide transition-colors ${
+                className={`whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-semibold uppercase tracking-wide transition-colors ${
                   a.chave === ativa ? "bg-white text-[#CD1C1B]" : "text-white/90 hover:bg-white/15 hover:text-white"
                 }`}
               >

@@ -19,6 +19,13 @@ export interface FormularioPublicoProps {
    * O título e o texto do formulário ficam na página, fora do cartão.
    */
   variante?: "padrao" | "cartao";
+  /**
+   * Depois de enviar, abre a página do material sozinho. "aqui": o
+   * formulário aberto como página (/f/…) vira a página do material.
+   * "nova-aba": embutido (chat do site), abre numa aba nova; se o navegador
+   * bloquear, fica o botão no cartão de "Pronto!".
+   */
+  abrirMaterial?: "aqui" | "nova-aba";
 }
 
 /**
@@ -26,7 +33,7 @@ export interface FormularioPublicoProps {
  * (/f/…). Estilo próprio e neutro: fundo branco, cor do botão vinda do
  * formulário, para combinar com qualquer página onde for colado.
  */
-export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor, pagina, previa, variante = "padrao" }: FormularioPublicoProps) {
+export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor, pagina, previa, variante = "padrao", abrirMaterial }: FormularioPublicoProps) {
   const [valores, setValores] = useState<Record<string, string | boolean>>({});
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -63,6 +70,10 @@ export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor,
         setErro(j.erro || "Não consegui enviar agora. Tente de novo.");
       } else {
         setPronto({ mensagem: j.mensagem || "Recebemos seus dados!", material: j.material ?? null });
+        const destino = (j.material?.url as string | undefined) ?? null;
+        if (destino && abrirMaterial === "aqui") window.setTimeout(() => window.location.assign(destino), 1200);
+        // Ainda dentro do clique em "enviar": o navegador deixa abrir a aba.
+        if (destino && abrirMaterial === "nova-aba") window.open(destino, "_blank", "noopener");
       }
     } catch {
       setErro("Sem conexão. Tente de novo.");
@@ -81,6 +92,7 @@ export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor,
       <div className="rounded-md bg-white p-7 text-center text-neutral-900 shadow-xl sm:p-9">
         <p className="text-2xl font-semibold uppercase tracking-wide">Pronto!</p>
         <p className="mt-3 text-[15px] leading-relaxed text-neutral-700">{pronto.mensagem}</p>
+        {pronto.material && abrirMaterial === "aqui" && <p className="mt-4 text-sm text-neutral-500">Abrindo o material…</p>}
         {pronto.material && (
           <a
             href={pronto.material.url}
