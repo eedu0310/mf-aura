@@ -40,7 +40,7 @@ export default async function CatalogoMF() {
         <div className="grid grid-cols-2 gap-3">
           {destaque.map((m) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={m.imagem} src={foto(m.imagem)} alt={`Lareira ${m.nome}`} loading="lazy" className="aspect-square w-full rounded-md object-cover shadow-sm" />
+            <img key={m.nome} src={foto(m.imagem)} alt={`Lareira ${m.nome}`} loading="lazy" className="aspect-square w-full rounded-md object-cover shadow-sm" />
           ))}
         </div>
         <div>

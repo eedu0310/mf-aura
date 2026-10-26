@@ -63,7 +63,7 @@ export default async function RealidadeAumentadaMF() {
         <div className="grid grid-cols-3 gap-3">
           {TELAS_MF_PREVIEW.map((t, i) => (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={t} src={foto(t)} alt={`Tela ${i + 1} do MF Preview`} loading="lazy" className="w-full rounded-xl object-cover shadow-md" />
+            <img key={i} src={foto(t)} alt={`Tela ${i + 1} do MF Preview`} loading="lazy" className="w-full rounded-xl object-cover shadow-md" />
           ))}
         </div>
       </div>

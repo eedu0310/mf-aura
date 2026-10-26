@@ -85,7 +85,7 @@ export const MANUAIS = montar([
   ["Embutidas", "Prime", "https://drive.google.com/file/d/15wVo8fvPJdC7SrRnpnC8wAPLTdiPLRlh/view", "87b/87bc357f74bbd24ed41ae860f7411920/prime_100_1x.png"],
   ["Embutidas", "Wide 120", "https://drive.google.com/file/d/1YxCbszExTCt3e9hWmJFeuVDXQGCDOiWT/view", "4b5/4b5e9984fa9aa8ff3b0f6af4ccb34037/wide_120_1x.png"],
   ["Embutidas", "Altezza", "https://drive.google.com/file/d/1kbm4oF30AkurHJO5WxwSA-e9RFVc9Rs-/view", "ee6/ee6ca3db50f6e73a27ade243f7ac3bbd/altezza_1x.png"],
-  ["Embutidas", "Adatto", "https://drive.google.com/file/d/1mpkrT8lcaeRwDaJ8VqgthagiMPuHHDQO/view", "9b5/9b5ca803510ac9e79a717171bf553719/adaatto_1x.png"],
+  ["Embutidas", "Adatto", "https://drive.google.com/file/d/1mpkrT8lcaeRwDaJ8VqgthagiMPuHHDQO/view", "448/4486948875cadb5d37537be9ea0f159b/adatto_90_embutida_1x.png"],
   ["Embutidas", "Adatto Pro", "https://drive.google.com/drive/folders/1L1JjYKDDWZd3zDM4vh3dv9f46rgF_Rb0", "cfa/cfa8b2055792d596a57a7dbfe2292f20/adatto110_3l_embutida_1x.png"],
   ["Embutidas", "MF 1400", "https://drive.google.com/file/d/1DyCCMghx7X9rNOjtKn15XqUrX4XCJ2pq/view", "b7d/b7db37487ca18359fd7ec4b6538763d2/1400_1x.png"],
   ["Embutidas", "MF 1200", "https://drive.google.com/file/d/1GgW91kBBtBV7Dp5sBvUYx12kFsNm-u3Q/view", "84d/84d35ab4b142ed2f8b0aee50e9a1007c/1200_1x.png"],
