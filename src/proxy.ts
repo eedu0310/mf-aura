@@ -156,6 +156,9 @@ export async function proxy(request: NextRequest) {
     caminho.startsWith("/s/") ||
     caminho.startsWith("/f/") ||
     caminho === "/api/site/enviar" ||
+    // Materiais gratuitos da MF (manuais, blocos 3D, tutoriais): só leitura.
+    caminho === "/materiais" ||
+    caminho.startsWith("/materiais/") ||
     // Chat do site: o script do widget e as rotas que o visitante chama.
     // Cada rota confere a conversa pelo segredo que só o navegador dele tem.
     caminho === "/widget-mf.js" ||

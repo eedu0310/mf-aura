@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { FormularioPublico } from "@/components/site-mf/formulario-publico";
 import type { CampoFormulario } from "@/lib/site-mf/tipos";
+import { fotosCopiadas } from "@/lib/site-mf/materiais-servidor";
 
 export const dynamic = "force-dynamic";
 
@@ -65,14 +66,15 @@ export default async function FormularioDoSite({
     );
   }
 
-  const fundo = (f.imagem_fundo as string | null) || FUNDO_PADRAO;
+  const foto = await fotosCopiadas();
+  const fundo = foto((f.imagem_fundo as string | null) || FUNDO_PADRAO);
 
   return (
     <div className="min-h-screen bg-white font-sans text-neutral-900">
       <header className="flex h-24 items-center justify-center bg-[#CD1C1B] sm:h-28">
         <a href="https://mfinternational.com.br" aria-label="MF International">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logo} alt="MF International" className="h-12 w-auto sm:h-14" />
+          <img src={foto(logo)} alt="MF International" className="h-12 w-auto sm:h-14" />
         </a>
       </header>
 
@@ -111,6 +113,11 @@ export default async function FormularioDoSite({
           ·{" "}
           <a href="https://mfinternational.com.br" className="text-white underline">
             mfinternational.com.br
+          </a>
+        </p>
+        <p className="mt-3">
+          <a href="/materiais" className="font-semibold text-white underline">
+            Ver todos os materiais gratuitos
           </a>
         </p>
       </footer>
