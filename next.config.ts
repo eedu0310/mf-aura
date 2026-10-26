@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { execSync } from "node:child_process";
 
 /**
  * As variáveis NEXT_PUBLIC_ são assadas dentro do JavaScript do navegador na
@@ -54,8 +55,26 @@ conferirVariaveisDoNavegador();
  * Identidade deste build. Vai assada no JavaScript do navegador E na rota
  * /api/versao; quando as duas deixam de bater, o navegador está rodando uma
  * versão antiga e se atualiza (componente AtualizadorDeVersao).
+ *
+ * Precisa ser IGUAL em toda leitura deste arquivo. O build com webpack lê o
+ * next.config uma vez para o servidor e outra para o navegador; com a hora do
+ * relógio, cada lado ganhava uma data diferente, a faixa "Saiu uma versão
+ * nova" aparecia para todo mundo e a aba escondida recarregava a cada 5 min
+ * (26/10/2026). O commit do git é o mesmo nas duas leituras.
  */
-const VERSAO_DO_BUILD = new Date().toISOString();
+function versaoDoBuild(): string {
+  if (process.env.AURA_VERSAO_BUILD) return process.env.AURA_VERSAO_BUILD;
+  let versao = "";
+  try {
+    versao = execSync("git rev-parse --short=12 HEAD", { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+  } catch {
+    // Sem git (build fora do servidor): cai na hora, guardada abaixo.
+  }
+  if (!versao) versao = new Date().toISOString();
+  process.env.AURA_VERSAO_BUILD = versao;
+  return versao;
+}
+const VERSAO_DO_BUILD = versaoDoBuild();
 
 const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_VERSAO: VERSAO_DO_BUILD },
