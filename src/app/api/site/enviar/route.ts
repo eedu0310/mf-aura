@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { impressaoDoIp, soDigitos } from "@/lib/site-mf/servidor";
+import { abrirLeadDoSite, impressaoDoIp, soDigitos, telefoneDoSite } from "@/lib/site-mf/servidor";
 import { valorDoTipo, type CampoFormulario } from "@/lib/site-mf/tipos";
+import { avisarEquipe, quemAvisar } from "@/lib/site-mf/chat";
 
 export const runtime = "nodejs";
 
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
 
   const { data: form } = await sb
     .from("site_formularios")
-    .select("id, empresa, nome, campos, mensagem_sucesso, material_nome, material_url, ativo")
+    .select("id, empresa, nome, campos, mensagem_sucesso, material_nome, material_url, ativo, destino")
     .eq("slug", slug)
     .maybeSingle();
   if (!form || !form.ativo) return erro("Este formulário não está mais disponível.", 404);
@@ -104,8 +105,7 @@ export async function POST(request: Request) {
   const nomeBase = (typeof textos.nome === "string" && textos.nome) || valorDoTipo(campos, textos, "texto");
   const sobrenome = typeof textos.sobrenome === "string" ? textos.sobrenome : "";
   const nome = [nomeBase, sobrenome].filter(Boolean).join(" ").slice(0, 120) || null;
-  const telefoneDigitos = soDigitos(valorDoTipo(campos, textos, "telefone"));
-  const telefone = telefoneDigitos ? (telefoneDigitos.startsWith("55") ? telefoneDigitos : `55${telefoneDigitos}`) : null;
+  const telefone = telefoneDoSite(valorDoTipo(campos, textos, "telefone"));
   const email = valorDoTipo(campos, textos, "email")?.toLowerCase() ?? null;
   const cidade = valorDoTipo(campos, textos, "cidade");
   const perfil = valorDoTipo(campos, textos, "selecao");
@@ -123,42 +123,22 @@ export async function POST(request: Request) {
     .join("\n");
 
   /**
-   * Mesmo número ou e-mail com lead ainda aberto na loja: não abre outro.
-   * Duas LPs preenchidas pela mesma pessoa no mesmo dia viravam dois leads e
-   * dois vendedores ligando para ela.
+   * Formulário de quem já é cliente ou parceiro (manual, bloco 3D): não vira
+   * lead nem entra na fila de vendas. Fica em Site MF → Clientes e parceiros.
    */
+  const ehCliente = form.destino === "cliente";
   let leadId: string | null = null;
-  {
-    let q = sb
-      .from("leads_recebidos")
-      .select("id")
-      .eq("empresa", form.empresa)
-      .not("status", "in", "(respondido,perdido)")
-      .order("created_at", { ascending: false })
-      .limit(1);
-    q = telefone ? q.eq("telefone", telefone) : q.eq("email_normalizado", email as string);
-    const { data: aberto } = await q.maybeSingle();
-    leadId = aberto?.id ?? null;
-  }
-
-  if (!leadId) {
-    const { data: lead, error: erroLead } = await sb
-      .from("leads_recebidos")
-      .insert({
-        empresa: form.empresa,
-        nome,
-        telefone,
-        email,
-        email_normalizado: email,
-        mensagem_inicial: `Formulário do site: ${form.nome}\n${resumo}`.slice(0, 1500),
-        origem: `Site MF · ${form.nome}`,
-        relacionamento_id: null,
-        qualificacao_concluida: true,
-      })
-      .select("id")
-      .single();
-    if (erroLead || !lead) {
-      console.error("[site] criar lead:", erroLead?.message);
+  if (!ehCliente) {
+    const lead = await abrirLeadDoSite(sb, {
+      empresa: form.empresa,
+      nome,
+      telefone,
+      email,
+      mensagem: `Formulário do site: ${form.nome}\n${resumo}`,
+      origem: `Site MF · ${form.nome}`,
+    });
+    if (!lead.id) {
+      console.error("[site] criar lead:", lead.erro);
       return erro("Não consegui registrar agora. Tente de novo em instantes.", 500);
     }
     leadId = lead.id;
@@ -178,9 +158,15 @@ export async function POST(request: Request) {
     origem_url: typeof corpo.origem_url === "string" ? corpo.origem_url.slice(0, 500) : null,
     utm,
     lead_id: leadId,
+    destino: ehCliente ? "cliente" : "lead",
     ip_hash: ip,
   });
   if (erroEnvio) console.error("[site] gravar envio:", erroEnvio.message);
+
+  // Cliente/parceiro não passa pela distribuição de leads: avisa a equipe.
+  if (ehCliente) {
+    await avisarEquipe(sb, form.empresa, await quemAvisar(sb, form.empresa), `Site MF: ${form.nome}`, `${nome || "Alguém"}${cidade ? ` (${cidade})` : ""} pediu ${form.nome}. Está em Site MF → Clientes e parceiros.`);
+  }
 
   return cors(
     NextResponse.json({

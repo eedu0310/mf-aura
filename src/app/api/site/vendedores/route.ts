@@ -16,16 +16,14 @@ export async function GET(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Sistema indisponível." }, { status: 503 });
 
-  const empresa = new URL(request.url).searchParams.get("empresa") ?? "";
+  const url = new URL(request.url);
+  const empresa = url.searchParams.get("empresa") ?? "";
+  // ?todos=1: qualquer cargo (para cliente/parceiro, que pode ir ao pós-venda).
+  const todos = url.searchParams.get("todos") === "1";
   if (!EMPRESAS.some((e) => e.nome === empresa)) return NextResponse.json({ vendedores: [] });
 
-  const { data } = await sb
-    .from("profiles")
-    .select("id, nome, cargo")
-    .eq("empresa", empresa)
-    .eq("ativo", true)
-    .is("excluido_em", null)
-    .in("cargo", ["Vendedor", "Vendedor Interno", "SDR", "Gestor"])
-    .order("nome");
+  let q = sb.from("profiles").select("id, nome, cargo").eq("empresa", empresa).eq("ativo", true).is("excluido_em", null);
+  if (!todos) q = q.in("cargo", ["Vendedor", "Vendedor Interno", "SDR", "Gestor"]);
+  const { data } = await q.order("nome");
   return NextResponse.json({ vendedores: data ?? [] });
 }

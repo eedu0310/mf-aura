@@ -44,6 +44,8 @@ export interface Formulario {
   material_url: string | null;
   cor: string;
   ativo: boolean;
+  /** lead: vira lead e vai para a fila de vendas. cliente: já é cliente/parceiro, não vira lead. */
+  destino: "lead" | "cliente";
   created_at?: string;
   updated_at?: string;
 }

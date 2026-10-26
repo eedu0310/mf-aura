@@ -9,6 +9,7 @@ import { useAppData } from "@/lib/app-data-context";
 import { computePendingTasks } from "@/lib/compute-pending-tasks";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
+import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
 
 export function MobileNavbar() {
@@ -18,6 +19,7 @@ export function MobileNavbar() {
   const pathname = usePathname();
   const { profile } = useUserProfile();
   const acesso = usarMeuAcesso();
+  const naoLidasSite = useNaoLidasDoSite();
   const { relacionamentos } = useAppData();
   const todasNotificacoes = computePendingTasks(relacionamentos);
   // Respeita o interruptor "Follow-ups atrasados" das Configurações.
@@ -115,6 +117,9 @@ export function MobileNavbar() {
                   >
                     <Icon size={20} />
                     <span>{label}</span>
+                    {href === "/site-mf" && naoLidasSite > 0 && (
+                      <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-xs font-semibold text-white">{naoLidasSite}</span>
+                    )}
                   </Link>
                 );
               })}

@@ -7,6 +7,7 @@ import { AuraLogoFull } from "@/components/aura-logo";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
+import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 
 export function VendorSidebar() {
   const pathname = usePathname();
@@ -19,6 +20,7 @@ export function VendorSidebar() {
   const podeInstagram = acesso.permissoes.usar_instagram || ["Gestor", "Diretor"].includes(acesso.cargo);
   const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
   const itensGestao = menuDeGestao(profile.cargo);
+  const naoLidasSite = useNaoLidasDoSite();
 
   const classe = (ativo: boolean) =>
     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
@@ -42,6 +44,9 @@ export function VendorSidebar() {
             <Link key={item.href} href={item.href} className={classe(ativo)}>
               <Icon size={18} strokeWidth={ativo ? 2.25 : 1.75} />
               {item.label}
+              {item.href === "/site-mf" && naoLidasSite > 0 && (
+                <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.65rem] font-semibold text-white">{naoLidasSite}</span>
+              )}
             </Link>
           );
         })}

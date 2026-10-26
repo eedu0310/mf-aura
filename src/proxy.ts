@@ -155,7 +155,11 @@ export async function proxy(request: NextRequest) {
     // proteção (formulário ativo, armadilha de robô, limite por IP).
     caminho.startsWith("/s/") ||
     caminho.startsWith("/f/") ||
-    caminho === "/api/site/enviar";
+    caminho === "/api/site/enviar" ||
+    // Chat do site: o script do widget e as rotas que o visitante chama.
+    // Cada rota confere a conversa pelo segredo que só o navegador dele tem.
+    caminho === "/widget-mf.js" ||
+    caminho.startsWith("/api/site/chat/publico/");
 
   // Uma conta desativada pelo gestor não pode mais entrar. Antes o campo
   // "ativo" só escondia a pessoa das listas: ela continuava logando e

@@ -5,6 +5,9 @@ import { Loader2, MessageCircle, Send, X, CheckCircle2, MapPin, ArrowRightLeft }
 import { EMPRESAS } from "@/lib/companies";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ConversaSite } from "./conversa-site";
+import { PainelChat } from "./painel-chat";
+import { ClientesParceiros, type EnvioCliente } from "./clientes-parceiros";
 
 interface Envio {
   id: string;
@@ -21,6 +24,11 @@ interface Envio {
   transferido_para: string | null;
   transferido_em: string | null;
   lead: { status: string; empresa: string; respondido_em: string | null; prazo_resposta: string | null; dono: string | null } | null;
+  conversa: { id: string; status: string; nao_lidas: number; ultima_mensagem: string | null; ultima_em: string; visitante_visto_em: string | null } | null;
+  destino: "lead" | "cliente";
+  etapa: "novo" | "em_atendimento" | "resolvido";
+  responsavel: string | null;
+  nota: string | null;
 }
 
 type Filtro = "abertos" | "atendidos" | "transferidos" | "todos";
@@ -63,13 +71,20 @@ function situacao(e: Envio): { texto: string; classe: string } {
     : { texto: "Esperando resposta", classe: "bg-amber-100 text-amber-900" };
 }
 
+/** Precisa de alguém: lead ainda sem atendimento, ou cliente escreveu no chat e ninguém leu. */
+function esperando(e: Envio) {
+  return (!e.transferido_para && e.lead?.status !== "respondido") || (e.conversa?.status === "aberta" && e.conversa.nao_lidas > 0);
+}
+
 export function AtendimentoSite() {
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("abertos");
+  const [visao, setVisao] = useState<"leads" | "clientes">("leads");
   const [aberto, setAberto] = useState<Envio | null>(null);
   const [transferindo, setTransferindo] = useState<Envio | null>(null);
+  const [conversando, setConversando] = useState<Envio | null>(null);
   const [ocupado, setOcupado] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -77,7 +92,10 @@ export function AtendimentoSite() {
       const r = await fetch("/api/site/atendimento", { cache: "no-store" });
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro || "Não consegui carregar.");
-      setEnvios(j.envios ?? []);
+      const lista: Envio[] = j.envios ?? [];
+      // Chat com mensagem do cliente esperando vem primeiro.
+      lista.sort((a, b) => (b.conversa?.nao_lidas ? 1 : 0) - (a.conversa?.nao_lidas ? 1 : 0));
+      setEnvios(lista);
       setErro(null);
     } catch (e: any) {
       setErro(e?.message ?? "Não consegui carregar.");
@@ -95,29 +113,51 @@ export function AtendimentoSite() {
       .on("postgres_changes", { event: "*", schema: "public", table: "leads_recebidos" }, () => void carregar())
       .subscribe();
     const t = setInterval(() => void carregar(), 60_000);
+    // Mensagem nova no chat do site (o vigia da AURA avisa).
+    const recarregar = () => void carregar();
+    window.addEventListener("aura:chat-site-mensagem", recarregar);
+    window.addEventListener("aura:chat-site-mudou", recarregar);
     return () => {
       clearInterval(t);
+      window.removeEventListener("aura:chat-site-mensagem", recarregar);
+      window.removeEventListener("aura:chat-site-mudou", recarregar);
       if (sb && canal) sb.removeChannel(canal);
     };
   }, [carregar]);
 
+  // Veio do aviso "Responder agora": abre a conversa direto.
+  useEffect(() => {
+    if (carregando) return;
+    const id = new URLSearchParams(window.location.search).get("conversa");
+    if (!id) return;
+    const alvo = envios.find((e) => e.conversa?.id === id);
+    if (alvo) setConversando(alvo);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("conversa");
+    window.history.replaceState(null, "", url);
+  }, [carregando, envios]);
+
+
+  const deLeads = useMemo(() => envios.filter((e) => e.destino !== "cliente"), [envios]);
+  const deClientes = useMemo(() => envios.filter((e) => e.destino === "cliente"), [envios]);
+
   const lista = useMemo(() => {
-    return envios.filter((e) => {
+    return deLeads.filter((e) => {
       if (filtro === "todos") return true;
       if (filtro === "transferidos") return !!e.transferido_para;
       if (filtro === "atendidos") return !e.transferido_para && e.lead?.status === "respondido";
-      return !e.transferido_para && e.lead?.status !== "respondido";
+      return esperando(e);
     });
-  }, [envios, filtro]);
+  }, [deLeads, filtro]);
 
   const contagem = useMemo(
     () => ({
-      abertos: envios.filter((e) => !e.transferido_para && e.lead?.status !== "respondido").length,
-      atendidos: envios.filter((e) => !e.transferido_para && e.lead?.status === "respondido").length,
-      transferidos: envios.filter((e) => !!e.transferido_para).length,
-      todos: envios.length,
+      abertos: deLeads.filter(esperando).length,
+      atendidos: deLeads.filter((e) => !e.transferido_para && e.lead?.status === "respondido").length,
+      transferidos: deLeads.filter((e) => !!e.transferido_para).length,
+      todos: deLeads.length,
     }),
-    [envios],
+    [deLeads],
   );
 
   async function marcarAtendido(e: Envio) {
@@ -132,6 +172,7 @@ export function AtendimentoSite() {
       if (!r.ok) throw new Error(j.erro);
       await carregar();
       setAberto(null);
+      setConversando(null);
     } catch (err: any) {
       alert(err?.message || "Não consegui marcar.");
     } finally {
@@ -141,6 +182,38 @@ export function AtendimentoSite() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PainelChat />
+
+      <div role="tablist" aria-label="Tipo de contato" className="flex w-fit gap-1 rounded-full border border-aura-mist bg-white p-1">
+        {(
+          [
+            ["leads", `Novos clientes · ${contagem.abertos}`],
+            ["clientes", `Clientes e parceiros · ${deClientes.filter((e) => (e.etapa ?? "novo") !== "resolvido").length}`],
+          ] as const
+        ).map(([id, rotulo]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={visao === id}
+            onClick={() => setVisao(id)}
+            className={`min-h-9 rounded-full px-4 text-sm font-medium transition ${visao === id ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:bg-aura-bg"}`}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {visao === "clientes" ? (
+        carregando ? (
+          <div className="flex justify-center py-16 text-aura-graphite-soft">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : (
+          <ClientesParceiros envios={deClientes as unknown as EnvioCliente[]} onMudou={() => void carregar()} />
+        )
+      ) : (
+      <>
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -164,7 +237,7 @@ export function AtendimentoSite() {
       </div>
 
       <p className="text-xs text-aura-graphite-soft">
-        Quem preenche um formulário do site entra aqui e na fila de leads da MF, já distribuído para um vendedor. O chat ao vivo do site entra nesta mesma tela na próxima etapa.
+        Quem preenche um formulário ou começa o chat no site entra aqui e na fila de leads da MF, já distribuído para um vendedor. Clique num chat para responder: a resposta aparece na hora para o cliente no site.
       </p>
 
       {carregando ? (
@@ -185,16 +258,31 @@ export function AtendimentoSite() {
               <li key={e.id}>
                 <button
                   type="button"
-                  onClick={() => setAberto(e)}
+                  onClick={() => (e.conversa ? setConversando(e) : setAberto(e))}
                   className="flex w-full flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate font-medium text-aura-graphite">{e.nome || e.telefone || e.email || "Sem nome"}</p>
                     <span className="shrink-0 text-xs text-aura-graphite-soft">{quando(e.created_at)}</span>
                   </div>
-                  <span className="w-fit rounded-full bg-aura-petrol-700/10 px-2 py-0.5 text-[0.7rem] font-medium text-aura-petrol-700">
-                    {e.formulario ?? "Formulário do site"}
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`w-fit rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${
+                        e.conversa ? "bg-[#CD1C1B]/10 text-[#9b1515]" : "bg-aura-petrol-700/10 text-aura-petrol-700"
+                      }`}
+                    >
+                      {e.formulario ?? "Formulário do site"}
+                    </span>
+                    {e.conversa && e.conversa.nao_lidas > 0 && (
+                      <span className="rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.7rem] font-semibold text-white">
+                        {e.conversa.nao_lidas} nova{e.conversa.nao_lidas > 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {e.conversa?.visitante_visto_em && Date.now() - new Date(e.conversa.visitante_visto_em).getTime() < 60_000 && (
+                      <span className="text-[0.7rem] font-medium text-emerald-700">● no site agora</span>
+                    )}
                   </span>
+                  {e.conversa?.ultima_mensagem && <p className="line-clamp-2 text-xs text-aura-graphite">{e.conversa.ultima_mensagem}</p>}
                   <p className="flex items-center gap-1 text-xs text-aura-graphite-soft">
                     <MapPin size={12} /> {e.cidade || "Cidade não informada"}
                     {e.perfil ? ` · ${e.perfil}` : ""}
@@ -289,6 +377,26 @@ export function AtendimentoSite() {
             </div>
           </div>
         </div>
+      )}
+
+      </>
+      )}
+
+      {conversando?.conversa && (
+        <ConversaSite
+          conversaId={conversando.conversa.id}
+          podeAgir={!conversando.transferido_para && conversando.lead?.status !== "respondido" && conversando.lead?.empresa === EMPRESA_DO_SITE}
+          ocupado={ocupado}
+          onFechar={() => {
+            setConversando(null);
+            void carregar();
+          }}
+          onAtendido={() => void marcarAtendido(conversando)}
+          onTransferir={() => {
+            setTransferindo(conversando);
+            setConversando(null);
+          }}
+        />
       )}
 
       {transferindo && (

@@ -3,6 +3,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { equipeDoSite } from "@/lib/site-mf/servidor";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 import { EMPRESAS } from "@/lib/companies";
+import { abrirLeadDoSite } from "@/lib/site-mf/servidor";
 
 export const runtime = "nodejs";
 
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
   const { data: envios, error } = await sb
     .from("site_envios")
-    .select("id, created_at, dados, nome, telefone, email, cidade, perfil, origem_url, utm, lead_id, transferido_para, transferido_em, formulario_id, pagina_id")
+    .select("id, created_at, dados, nome, telefone, email, cidade, perfil, origem_url, utm, lead_id, transferido_para, transferido_em, formulario_id, pagina_id, destino, etapa, responsavel_id, nota")
     .eq("empresa", EMPRESA_DO_SITE)
     .order("created_at", { ascending: false })
     .limit(300);
@@ -34,13 +35,20 @@ export async function GET(request: Request) {
 
   const leadIds = [...new Set((envios ?? []).map((e) => e.lead_id).filter(Boolean))] as string[];
   const formIds = [...new Set((envios ?? []).map((e) => e.formulario_id).filter(Boolean))] as string[];
-  const [{ data: leads }, { data: forms }] = await Promise.all([
+  const envioIds = (envios ?? []).map((e) => e.id);
+  const [{ data: leads }, { data: forms }, { data: conversas }] = await Promise.all([
     leadIds.length
       ? sb.from("leads_recebidos").select("id, status, empresa, vendedor_id, sdr_id, respondido_em, prazo_resposta").in("id", leadIds)
       : Promise.resolve({ data: [] as any[] }),
     formIds.length ? sb.from("site_formularios").select("id, nome").in("id", formIds) : Promise.resolve({ data: [] as any[] }),
+    envioIds.length
+      ? sb.from("site_conversas").select("id, envio_id, status, nao_lidas, ultima_mensagem, ultima_em, visitante_visto_em").in("envio_id", envioIds)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
-  const donos = [...new Set((leads ?? []).map((l) => l.vendedor_id ?? l.sdr_id).filter(Boolean))] as string[];
+  const conversaPorEnvio = new Map((conversas ?? []).map((c) => [c.envio_id as string, c]));
+  const donos = [
+    ...new Set([...(leads ?? []).map((l) => l.vendedor_id ?? l.sdr_id), ...(envios ?? []).map((e) => e.responsavel_id)].filter(Boolean)),
+  ] as string[];
   const { data: perfis } = donos.length
     ? await sb.from("profiles").select("id, nome").in("id", donos)
     : { data: [] as { id: string; nome: string }[] };
@@ -55,7 +63,9 @@ export async function GET(request: Request) {
       const dono = l ? l.vendedor_id ?? l.sdr_id : null;
       return {
         ...e,
-        formulario: e.formulario_id ? formPorId.get(e.formulario_id) ?? null : null,
+        formulario: e.formulario_id ? formPorId.get(e.formulario_id) ?? null : conversaPorEnvio.has(e.id) ? "Chat do site" : null,
+        conversa: conversaPorEnvio.get(e.id) ?? null,
+        responsavel: e.responsavel_id ? nomePorId.get(e.responsavel_id) ?? null : null,
         lead: l
           ? {
               status: l.status,
@@ -77,7 +87,7 @@ export async function POST(request: Request) {
   const sb = getSupabaseServiceClient();
   if (!sb) return NextResponse.json({ erro: "Sistema indisponível." }, { status: 503 });
 
-  let corpo: { acao?: string; envioId?: string; empresa?: string; vendedorId?: string | null; recado?: string };
+  let corpo: { acao?: string; envioId?: string; empresa?: string; vendedorId?: string | null; recado?: string; etapa?: string; nota?: string };
   try {
     corpo = await request.json();
   } catch {
@@ -86,12 +96,68 @@ export async function POST(request: Request) {
 
   const { data: envio } = await sb
     .from("site_envios")
-    .select("id, empresa, lead_id, nome, cidade")
+    .select("id, empresa, lead_id, nome, cidade, telefone, email, destino, dados, formulario_id, responsavel_id")
     .eq("id", String(corpo.envioId ?? ""))
     .maybeSingle();
-  if (!envio || envio.empresa !== EMPRESA_DO_SITE || !envio.lead_id) {
+  if (!envio || envio.empresa !== EMPRESA_DO_SITE) {
     return NextResponse.json({ erro: "Contato não encontrado." }, { status: 404 });
   }
+
+  /**
+   * Clientes e parceiros (manual, bloco 3D): funil curto Novo → Em
+   * atendimento → Resolvido, com um responsável. Se a conversa mostrar que é
+   * venda nova, "virar_lead" manda para a fila de leads da MF.
+   */
+  if (envio.destino === "cliente") {
+    if (corpo.acao === "etapa") {
+      const etapa = String(corpo.etapa ?? "");
+      if (!["novo", "em_atendimento", "resolvido"].includes(etapa)) return NextResponse.json({ erro: "Etapa inválida." }, { status: 400 });
+      const nota = typeof corpo.nota === "string" ? corpo.nota.trim().slice(0, 1000) : undefined;
+      const { error } = await sb
+        .from("site_envios")
+        .update({ etapa, ...(nota !== undefined ? { nota } : {}), ...(etapa !== "novo" && !envio.responsavel_id ? { responsavel_id: auth.userId } : {}) })
+        .eq("id", envio.id);
+      if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+    if (corpo.acao === "responsavel") {
+      const id = String(corpo.vendedorId ?? "");
+      const { data: p } = await sb.from("profiles").select("id, nome, ativo").eq("id", id).maybeSingle();
+      if (!p || p.ativo === false) return NextResponse.json({ erro: "Escolha uma pessoa ativa." }, { status: 400 });
+      const recado = (corpo.recado ?? "").trim().slice(0, 600);
+      await sb.from("site_envios").update({ responsavel_id: p.id, etapa: "em_atendimento" }).eq("id", envio.id);
+      if (p.id !== auth.userId) {
+        await sb.from("notificacoes").insert({
+          vendedor_id: p.id,
+          titulo: "Cliente do site da MF para você",
+          mensagem: `${envio.nome || "Um cliente"}${envio.cidade ? ` (${envio.cidade})` : ""} pediu ajuda pelo site.${recado ? ` Recado: ${recado}` : ""}${envio.telefone ? ` WhatsApp: +${envio.telefone}` : ""}`,
+          tipo: "lead",
+          acao_url: "/site-mf",
+        });
+      }
+      return NextResponse.json({ ok: true, responsavel: p.nome });
+    }
+    if (corpo.acao === "virar_lead") {
+      const { data: form } = envio.formulario_id ? await sb.from("site_formularios").select("nome").eq("id", envio.formulario_id).maybeSingle() : { data: null };
+      const resumo = Object.entries((envio.dados ?? {}) as Record<string, unknown>)
+        .map(([k, v]) => `${k}: ${v === true ? "sim" : v === false ? "não" : String(v)}`)
+        .join("\n");
+      const lead = await abrirLeadDoSite(sb, {
+        empresa: EMPRESA_DO_SITE,
+        nome: envio.nome,
+        telefone: envio.telefone,
+        email: envio.email,
+        mensagem: `Site MF · ${form?.nome ?? "formulário"} (era cliente/parceiro, virou venda nova)\n${resumo}`,
+        origem: `Site MF · ${form?.nome ?? "Formulário"}`,
+      });
+      if (!lead.id) return NextResponse.json({ erro: "Não consegui criar o lead." }, { status: 500 });
+      await sb.from("site_envios").update({ destino: "lead", lead_id: lead.id, etapa: "resolvido" }).eq("id", envio.id);
+      return NextResponse.json({ ok: true });
+    }
+    return NextResponse.json({ erro: "Ação inválida para cliente/parceiro." }, { status: 400 });
+  }
+
+  if (!envio.lead_id) return NextResponse.json({ erro: "Contato sem lead." }, { status: 404 });
   const { data: lead } = await sb
     .from("leads_recebidos")
     .select("id, empresa, status, mensagem_inicial, vendedor_id, sdr_id")
@@ -173,6 +239,19 @@ export async function POST(request: Request) {
       .from("site_envios")
       .update({ transferido_para: destino, transferido_em: new Date().toISOString(), transferido_por: auth.userId })
       .eq("id", envio.id);
+
+    // Quem estava no chat do site fica sabendo para onde foi.
+    const { data: conversa } = await sb.from("site_conversas").select("id").eq("envio_id", envio.id).maybeSingle();
+    if (conversa) {
+      await sb.from("site_mensagens").insert({
+        conversa_id: conversa.id,
+        autor: "sistema",
+        texto:
+          destino === EMPRESA_DO_SITE
+            ? `Passamos o seu atendimento para ${vendedorNome ? vendedorNome.split(" - ")[0] : "um dos nossos consultores"}, que vai falar com você pelo WhatsApp.`
+            : `Passamos o seu atendimento para a ${destino}, a loja do Grupo MF que atende a sua região. ${vendedorNome ? vendedorNome.split(" - ")[0] : "Um consultor de lá"} vai falar com você pelo WhatsApp.`,
+      });
+    }
 
     if (vendedorId) {
       await sb.from("notificacoes").insert({

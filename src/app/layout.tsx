@@ -12,6 +12,7 @@ import { UserProfileProvider } from "@/lib/user-profile-context";
 import { AppDataProvider } from "@/lib/app-data-context";
 import { PwaRegister } from "@/components/pwa-register";
 import { AtualizadorDeVersao } from "@/components/atualizador-de-versao";
+import { VigiaChatSite } from "@/components/site-mf/vigia-chat-site";
 
 /**
  * O endereço do sistema. Sem ele, as imagens de compartilhamento viajam com
@@ -185,6 +186,8 @@ export default function RootLayout({
         <AtualizadorDeVersao />
         <UserProfileProvider>
           <AppDataProvider>{children}</AppDataProvider>
+          {/* Chat do site da MF: aviso de mensagem nova. Só age para a equipe da MF. */}
+          <VigiaChatSite />
         </UserProfileProvider>
       </body>
     </html>

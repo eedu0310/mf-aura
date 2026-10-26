@@ -75,6 +75,7 @@ export function FormulariosSite() {
               material_url: null,
               cor: "#CD1C1B",
               ativo: true,
+              destino: "lead",
             })
           }
           className="inline-flex min-h-10 items-center gap-2 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
@@ -102,7 +103,8 @@ export function FormulariosSite() {
                 </span>
               </div>
               <p className="text-xs text-aura-graphite-soft">
-                {f.campos.length} campos{f.material_url ? " · entrega material" : ""}
+                {f.campos.length} campos{f.material_url ? " · entrega material" : ""} ·{" "}
+                {f.destino === "cliente" ? "cliente/parceiro (não vira lead)" : "vira lead"}
               </p>
               <div className="mt-1 flex flex-wrap gap-2">
                 <button
@@ -187,6 +189,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
       material_url: f.material_url?.trim() || null,
       cor: /^#[0-9A-Fa-f]{6}$/.test(f.cor) ? f.cor : "#CD1C1B",
       ativo: f.ativo,
+      destino: f.destino === "cliente" ? "cliente" : "lead",
       updated_at: new Date().toISOString(),
     };
     const r = novo
@@ -258,6 +261,26 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
                 </div>
               </label>
             </div>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm text-aura-graphite">Quem preenche este formulário</legend>
+              {(
+                [
+                  ["lead", "Possível cliente novo", "Vira lead da MF e vai para a fila de vendas e o pipeline (catálogo, tripla combustão, realidade aumentada)."],
+                  ["cliente", "Quem já é cliente ou parceiro", "Não vira lead. Vai para Atendimento → Clientes e parceiros (manuais, blocos 3D)."],
+                ] as const
+              ).map(([valor, titulo, ajuda]) => (
+                <label
+                  key={valor}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm ${f.destino === valor ? "border-aura-petrol-600 bg-aura-petrol-700/5" : "border-aura-mist"}`}
+                >
+                  <input type="radio" name="destino" className="mt-1" checked={(f.destino ?? "lead") === valor} onChange={() => mudar("destino", valor)} />
+                  <span>
+                    <span className="block font-medium text-aura-graphite">{titulo}</span>
+                    <span className="block text-xs text-aura-graphite-soft">{ajuda}</span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
             <label className="flex items-center gap-2 text-sm text-aura-graphite">
               <input type="checkbox" checked={f.ativo} onChange={(e) => mudar("ativo", e.target.checked)} /> Formulário ligado
             </label>
