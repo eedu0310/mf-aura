@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowLeft, LayoutDashboard } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
-import { useAbaMarketing, ABAS_MARKETING } from "./layout";
+import { useAbaMarketing, ABAS_MARKETING } from "@/components/marketing/aba-marketing";
 import { VisaoGeralMarketing } from "@/components/marketing/visao-geral-marketing";
 import { LeadsMarketing } from "@/components/marketing/leads-marketing";
 import { CampanhasMarketing } from "@/components/marketing/campanhas-marketing";

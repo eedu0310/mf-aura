@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, createContext, useContext } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -18,29 +18,7 @@ import {
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
 import { useUserProfile } from "@/lib/user-profile-context";
-
-export const ABAS_MARKETING = [
-  { id: "visao-geral", label: "Visão Geral", icon: LayoutGrid },
-  { id: "leads", label: "Leads", icon: UserPlus },
-  { id: "campanhas", label: "Campanhas", icon: Megaphone },
-  { id: "postagens", label: "Postagens", icon: Calendar },
-  { id: "indicadores", label: "Indicadores", icon: Table2 },
-] as const;
-
-export type AbaMarketing = (typeof ABAS_MARKETING)[number]["id"];
-
-interface AbaMarketingContextValue {
-  aba: AbaMarketing;
-  setAba: (aba: AbaMarketing) => void;
-}
-
-const AbaMarketingContext = createContext<AbaMarketingContextValue | null>(null);
-
-export function useAbaMarketing() {
-  const ctx = useContext(AbaMarketingContext);
-  if (!ctx) throw new Error("useAbaMarketing precisa estar dentro do MarketingLayout");
-  return ctx;
-}
+import { ABAS_MARKETING, AbaMarketingContext, type AbaMarketing, type AbaMarketingContextValue } from "@/components/marketing/aba-marketing";
 
 function PerfilMenu() {
   const router = useRouter();

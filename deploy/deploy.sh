@@ -49,7 +49,11 @@ echo "== 3/6 build"
 for pasta in .next node_modules .backups; do
   [ -d "$PASTA/$pasta" ] && chown -R "$USUARIO:$USUARIO" "$PASTA/$pasta"
 done
-sudo -u "$USUARIO" npm run build
+# Build com webpack e teto de memória. O Turbopack (padrão do Next 16) passou
+# de 3,6 GB e foi morto pelo kernel nesta VPS de 3,8 GB em 26/10/2026, e o
+# build morto apaga o .next: o site fica sem estilo até um build passar.
+# O webpack fica abaixo de 2 GB com o mesmo código.
+sudo -u "$USUARIO" env NODE_OPTIONS=--max-old-space-size=3072 npx next build --webpack
 
 echo "== 4/6 crons"
 if [ -f "$CRON_DESTINO" ]; then

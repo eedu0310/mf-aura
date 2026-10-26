@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * Cada chave é um ajuste SOBRE o padrão do cargo. Ausente significa o
  * padrão — assim ninguém precisa configurar nada para o sistema funcionar.
  */
-export const PERMISSOES = [
+const PERMISSOES = [
   { chave: "definir_propria_meta", rotulo: "Definir a própria meta", ajuda: "Desligado, só o gestor arbitra a meta desta pessoa.", padrao: true },
   { chave: "ver_ranking", rotulo: "Ver o ranking", ajuda: "Desligado, a pessoa não vê a disputa do grupo.", padrao: true },
   { chave: "exportar_relatorios", rotulo: "Exportar relatórios", ajuda: "Baixar relatório em arquivo.", padrao: true },

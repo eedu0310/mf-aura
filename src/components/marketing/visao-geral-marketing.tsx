@@ -7,7 +7,7 @@ import { listarLeads, type Lead } from "@/lib/supabase/leads";
 import { listarCampanhas, type Campanha } from "@/lib/supabase/campanhas-marketing";
 import { listarPostagens, type PostagemMarketing } from "@/lib/supabase/postagens-marketing";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { AbaMarketing } from "@/app/marketing/layout";
+import type { AbaMarketing } from "@/components/marketing/aba-marketing";
 
 interface ItemAtividade {
   id: string;
