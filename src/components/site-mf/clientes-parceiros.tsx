@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Loader2, MapPin, MessageCircle, Pencil, Sparkles, UserCheck, X } from "lucide-react";
+import { ArrowRight, Loader2, MapPin, MessageCircle, Pencil, Sparkles, Trash2, UserCheck, X } from "lucide-react";
 import { EMPRESAS } from "@/lib/companies";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 
@@ -45,7 +45,18 @@ async function postar(corpo: Record<string, unknown>) {
  * venda. Funil curto: Novo → Em atendimento → Resolvido, com um responsável
  * que pode ser de qualquer loja (o pós-venda da LF, por exemplo).
  */
-export function ClientesParceiros({ envios, onMudou, onEditar }: { envios: EnvioCliente[]; onMudou: () => void; onEditar: (id: string) => void }) {
+export function ClientesParceiros({
+  envios,
+  onMudou,
+  onEditar,
+  onExcluir,
+}: {
+  envios: EnvioCliente[];
+  onMudou: () => void;
+  onEditar: (id: string) => void;
+  /** Lixeira no cartão (só para gestor). */
+  onExcluir?: (id: string) => void;
+}) {
   const [aberto, setAberto] = useState<EnvioCliente | null>(null);
 
   return (
@@ -66,13 +77,13 @@ export function ClientesParceiros({ envios, onMudou, onEditar }: { envios: Envio
                 <p className="px-1 py-6 text-center text-xs text-aura-graphite-soft">Nada aqui.</p>
               ) : (
                 lista.map((e) => (
+                  <div key={e.id} className="relative">
                   <button
-                    key={e.id}
                     type="button"
                     onClick={() => setAberto(e)}
-                    className="flex flex-col gap-1.5 rounded-xl border border-aura-mist bg-white p-3 text-left transition hover:border-aura-petrol-500/40"
+                    className="flex w-full flex-col gap-1.5 rounded-xl border border-aura-mist bg-white p-3 text-left transition hover:border-aura-petrol-500/40"
                   >
-                    <span className="flex items-start justify-between gap-2">
+                    <span className={`flex items-start justify-between gap-2 ${onExcluir ? "pr-7" : ""}`}>
                       <span className="truncate text-sm font-medium text-aura-graphite">{e.nome || e.telefone || "Sem nome"}</span>
                       <span className="shrink-0 text-xs text-aura-graphite-soft">{quando(e.created_at)}</span>
                     </span>
@@ -83,6 +94,18 @@ export function ClientesParceiros({ envios, onMudou, onEditar }: { envios: Envio
                     </span>
                     {e.responsavel && <span className="text-xs text-aura-graphite">com {e.responsavel.split(" - ")[0]}</span>}
                   </button>
+                  {onExcluir && (
+                    <button
+                      type="button"
+                      onClick={() => onExcluir(e.id)}
+                      aria-label={`Excluir ${e.nome || "contato"}`}
+                      title="Excluir"
+                      className="absolute right-1.5 top-1.5 rounded-full p-1.5 text-aura-graphite-soft transition hover:bg-red-50 hover:text-red-700"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                  </div>
                 ))
               )}
             </section>

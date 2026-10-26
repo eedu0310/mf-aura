@@ -10,7 +10,7 @@ import { PainelChat } from "./painel-chat";
 import { ClientesParceiros, type EnvioCliente } from "./clientes-parceiros";
 import { EditarContato } from "./editar-contato";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface Envio {
   id: string;
@@ -84,7 +84,6 @@ export function AtendimentoSite() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("abertos");
-  const [visao, setVisao] = useState<"leads" | "clientes">("leads");
   const [aberto, setAberto] = useState<Envio | null>(null);
   const [transferindo, setTransferindo] = useState<Envio | null>(null);
   const [conversando, setConversando] = useState<Envio | null>(null);
@@ -166,6 +165,26 @@ export function AtendimentoSite() {
     [deLeads],
   );
 
+  /** Lixeira do cartão: tira o contato do Site MF (spam, teste, repetido). */
+  async function excluir(e: { id: string; nome: string | null }) {
+    if (!confirm(`Excluir ${e.nome || "este contato"}? Sai do Site MF, a conversa do chat é apagada e o lead também, se ainda não foi atendido. Não dá para desfazer.`)) return;
+    setOcupado(true);
+    try {
+      const r = await fetch("/api/site/atendimento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "excluir", envioId: e.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || "Não consegui excluir.");
+      await carregar();
+    } catch (err: any) {
+      alert(err?.message || "Não consegui excluir.");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
   async function marcarAtendido(e: Envio) {
     setOcupado(true);
     try {
@@ -190,40 +209,7 @@ export function AtendimentoSite() {
     <div className="flex flex-col gap-4">
       <PainelChat />
 
-      <div role="tablist" aria-label="Tipo de contato" className="flex w-fit gap-1 rounded-full border border-aura-mist bg-white p-1">
-        {(
-          [
-            ["leads", `Novos clientes · ${contagem.abertos}`],
-            ["clientes", `Clientes e parceiros · ${deClientes.filter((e) => (e.etapa ?? "novo") !== "resolvido").length}`],
-          ] as const
-        ).map(([id, rotulo]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={visao === id}
-            onClick={() => setVisao(id)}
-            className={`min-h-9 rounded-full px-4 text-sm font-medium transition ${visao === id ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:bg-aura-bg"}`}
-          >
-            {rotulo}
-          </button>
-        ))}
-      </div>
-
-      {visao === "clientes" ? (
-        carregando ? (
-          <div className="flex justify-center py-16 text-aura-graphite-soft">
-            <Loader2 size={20} className="animate-spin" />
-          </div>
-        ) : (
-          <ClientesParceiros
-            envios={deClientes as unknown as EnvioCliente[]}
-            onMudou={() => void carregar()}
-            onEditar={(id) => setEditandoContato(envios.find((x) => x.id === id) ?? null)}
-          />
-        )
-      ) : (
-      <>
+      <h2 className="font-display text-base font-semibold text-aura-graphite">Novos clientes · catálogo, tecnologia, realidade aumentada e chat</h2>
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -265,13 +251,13 @@ export function AtendimentoSite() {
           {lista.map((e) => {
             const s = situacao(e);
             return (
-              <li key={e.id}>
+              <li key={e.id} className="relative">
                 <button
                   type="button"
                   onClick={() => (e.conversa ? setConversando(e) : setAberto(e))}
-                  className="flex w-full flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40"
+                  className="flex h-full w-full flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className={`flex items-start justify-between gap-2 ${podeExcluir ? "pr-8" : ""}`}>
                     <p className="truncate font-medium text-aura-graphite">{e.nome || e.telefone || e.email || "Sem nome"}</p>
                     <span className="shrink-0 text-xs text-aura-graphite-soft">{quando(e.created_at)}</span>
                   </div>
@@ -302,6 +288,18 @@ export function AtendimentoSite() {
                     {e.lead?.dono && !e.transferido_para && <span className="truncate text-xs text-aura-graphite-soft">com {e.lead.dono}</span>}
                   </div>
                 </button>
+                {podeExcluir && (
+                  <button
+                    type="button"
+                    disabled={ocupado}
+                    onClick={() => void excluir(e)}
+                    aria-label={`Excluir ${e.nome || "contato"}`}
+                    title="Excluir"
+                    className="absolute right-2 top-2 rounded-full p-2 text-aura-graphite-soft transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </li>
             );
           })}
@@ -399,8 +397,24 @@ export function AtendimentoSite() {
         </div>
       )}
 
-      </>
-      )}
+      <section className="mt-4 flex flex-col gap-3 border-t border-aura-mist pt-5" aria-label="Clientes e parceiros">
+        <h2 className="font-display text-base font-semibold text-aura-graphite">
+          Clientes e parceiros · manuais e blocos 3D ·{" "}
+          {deClientes.filter((e) => (e.etapa ?? "novo") !== "resolvido").length} em aberto
+        </h2>
+        {carregando ? (
+          <div className="flex justify-center py-10 text-aura-graphite-soft">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : (
+          <ClientesParceiros
+            envios={deClientes as unknown as EnvioCliente[]}
+            onMudou={() => void carregar()}
+            onEditar={(id) => setEditandoContato(envios.find((x) => x.id === id) ?? null)}
+            onExcluir={podeExcluir ? (id) => void excluir(envios.find((x) => x.id === id) ?? { id, nome: null }) : undefined}
+          />
+        )}
+      </section>
 
       {conversando?.conversa && (
         <ConversaSite

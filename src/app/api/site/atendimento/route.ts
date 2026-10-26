@@ -141,7 +141,14 @@ export async function POST(request: Request) {
     let leadExcluido = false;
     if (envio.lead_id) {
       const { data: l } = await sb.from("leads_recebidos").select("id, empresa, status").eq("id", envio.lead_id).maybeSingle();
-      if (l && l.empresa === EMPRESA_DO_SITE && l.status !== "respondido") {
+      // A mesma pessoa pode ter pedido mais de um material: o lead é um só.
+      // Só apaga o lead quando este é o último pedido ligado a ele.
+      const { count: outros } = await sb
+        .from("site_envios")
+        .select("id", { count: "exact", head: true })
+        .eq("lead_id", envio.lead_id)
+        .neq("id", envio.id);
+      if (l && l.empresa === EMPRESA_DO_SITE && l.status !== "respondido" && !outros) {
         const { error } = await sb.from("leads_recebidos").delete().eq("id", l.id);
         leadExcluido = !error;
       }
