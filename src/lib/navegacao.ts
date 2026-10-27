@@ -55,6 +55,8 @@ const POS_VENDA: ItemMenu[] = [
   { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
   { href: "/atividades", label: "Atividades", icon: Activity },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/academy", label: "Academy", icon: GraduationCap },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
 ];
 
 const SDR: ItemMenu[] = [
@@ -66,6 +68,8 @@ const SDR: ItemMenu[] = [
   { href: "/atividades", label: "Atividades", icon: Activity },
   { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/academy", label: "Academy", icon: GraduationCap },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
 ];
 
 const VENDEDOR_INTERNO: ItemMenu[] = [
@@ -79,6 +83,8 @@ const VENDEDOR_INTERNO: ItemMenu[] = [
   { href: "/relatorio", label: "Relatórios", icon: FileText },
   { href: "/ranking", label: "Ranking", icon: Trophy },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
+  { href: "/academy", label: "Academy", icon: GraduationCap },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
 ];
 
 /**
@@ -90,6 +96,11 @@ const VENDEDOR_INTERNO: ItemMenu[] = [
  * isso apareceu como "a agenda sumiu da AURA" — ela nunca esteve lá para o
  * cargo dela. Quem atende por dentro marca retorno e visita igual a quem está
  * na rua; o pós-venda marca assistência; o SDR marca callback.
+ *
+ * MATERIAIS VALEM PARA TODO MUNDO. Academy e Área do Vendedor (catálogo,
+ * planilhas, links e Mapa Comercial) estavam só no menu de Vendedor externo,
+ * então a vendedora interna da LF (e as da A&G e da Sole) não alcançava os
+ * materiais. Agora todos os cargos têm os dois itens.
  *
  * Meu Dia abre a lista de TODOS os cargos: é a tela onde a pessoa vê o que
  * tem para fazer hoje, e isso vale para quem atende no balcão, para o
