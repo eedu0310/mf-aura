@@ -52,7 +52,7 @@ import {
 } from "@/lib/funil";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { anuncioDaConversa, resolverCampanha, camposDoAnuncio } from "@/lib/whatsapp/marketing";
-import { pareceNaoLeadRecente } from "@/lib/whatsapp/nao-lead";
+import { anuncioVaiParaRelacionamentos, iaDescartou, pareceNaoLeadRecente } from "@/lib/whatsapp/nao-lead";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface LeadInfo {
@@ -1688,8 +1688,21 @@ export async function analisarConversa(
      * banco de leads da loja, com a campanha de origem marcada. O funil
      * continua só com quem a vendedora disse que é lead; se ela não decidir em
      * 3 dias, a varredura pergunta (perguntarSeEhLead).
+     *
+     * Quem não deu em nada fica de fora: só mandou a mensagem pronta do
+     * anúncio e não respondeu mais, ou a IA viu que foi engano. Se o cliente
+     * voltar a falar, a próxima análise olha de novo.
      */
-    if (!ehLead && !row?.relacionamento_id && !row?.carteira_em && (campanhaId || row?.anuncio_em)) {
+    if (
+      !ehLead &&
+      !row?.relacionamento_id &&
+      !row?.carteira_relacionamento_id &&
+      (campanhaId || row?.anuncio_em) &&
+      anuncioVaiParaRelacionamentos(msgs, {
+        lead_sugerido: sugerirLead,
+        confianca_lead: analise ? confiancaLead : (row?.confianca_lead ?? null),
+      })
+    ) {
       const r = await garantirRelacionamento(
         sb,
         userId,
@@ -2171,7 +2184,7 @@ const ANUNCIOS_POR_VARREDURA = 50;
 async function anunciosParaRelacionamentos(sb: SupabaseClient, userId: string) {
   const { data } = await sb
     .from("whatsapp_ia_leads")
-    .select("id, empresa, nome, telefone, categoria, campanha_id, natureza, ignorado")
+    .select("id, empresa, chat_jid, nome, telefone, categoria, campanha_id, natureza, ignorado, lead_sugerido, confianca_lead")
     .eq("owner_id", userId)
     .is("relacionamento_id", null)
     .is("carteira_em", null)
@@ -2180,16 +2193,29 @@ async function anunciosParaRelacionamentos(sb: SupabaseClient, userId: string) {
   for (const l of (data ?? []) as {
     id: string;
     empresa: string | null;
+    chat_jid: string;
     nome: string | null;
     telefone: string | null;
     categoria: string | null;
     campanha_id: string | null;
     natureza: string | null;
     ignorado: boolean | null;
+    lead_sugerido: boolean | null;
+    confianca_lead: number | null;
   }[]) {
     const agora = new Date().toISOString();
-    // "Não é lead" e "cliente antigo" já foram decididos pela vendedora.
-    if (l.ignorado || l.natureza === "nao_lead" || l.natureza === "cliente" || !l.empresa || !l.telefone) {
+    // "Não é lead" e "cliente antigo" já foram decididos pela vendedora; quem
+    // não deu em nada (não respondeu, engano) não é lead. Fica marcado como
+    // visto; se o cliente voltar a falar, a análise da conversa olha de novo.
+    const msgs = getMessages(userId, l.chat_jid);
+    if (
+      l.ignorado ||
+      l.natureza === "nao_lead" ||
+      l.natureza === "cliente" ||
+      !l.empresa ||
+      !l.telefone ||
+      !anuncioVaiParaRelacionamentos(msgs, l)
+    ) {
       await sb.from("whatsapp_ia_leads").update({ carteira_em: agora }).eq("id", l.id);
       continue;
     }
@@ -2227,7 +2253,7 @@ async function perguntarSeEhLead(sb: SupabaseClient, userId: string) {
 
   const { data } = await sb
     .from("whatsapp_ia_leads")
-    .select("id, nome, natureza, ignorado, oportunidade_id, anuncio_em, carteira_em")
+    .select("id, nome, natureza, ignorado, oportunidade_id, anuncio_em, carteira_em, lead_sugerido, confianca_lead")
     .eq("owner_id", userId)
     .not("carteira_relacionamento_id", "is", null)
     .is("relacionamento_id", null)
@@ -2241,8 +2267,11 @@ async function perguntarSeEhLead(sb: SupabaseClient, userId: string) {
     oportunidade_id: string | null;
     anuncio_em: string | null;
     carteira_em: string | null;
+    lead_sugerido: boolean | null;
+    confianca_lead: number | null;
   }[]).filter((l) => {
-    if (l.ignorado || l.natureza || l.oportunidade_id) return false;
+    // Entrou e depois a IA viu que era engano: não pergunta.
+    if (l.ignorado || l.natureza || l.oportunidade_id || iaDescartou(l)) return false;
     const desde = new Date(l.anuncio_em ?? l.carteira_em ?? agora.toISOString()).getTime();
     return agora.getTime() - desde >= TRES_DIAS_MS;
   });

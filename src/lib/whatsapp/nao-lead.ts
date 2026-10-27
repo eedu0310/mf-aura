@@ -64,3 +64,40 @@ export function pareceNaoLeadRecente(
   if (!ultima.fromMe && falaDeProduto(ultima.text)) return false;
   return true;
 }
+
+/**
+ * Contato de anúncio que não deu em nada não é lead e não entra em
+ * Relacionamentos (decisão do Elton, 27/10): quem clicou no anúncio e só
+ * mandou a mensagem pronta do anúncio, sem responder mais nada, ou quem disse
+ * que foi engano. Em Relacionamentos fica o banco de leads de verdade.
+ */
+export interface FalaDoChat {
+  fromMe: boolean;
+  text?: string | null;
+  hasMedia?: boolean;
+}
+
+/** Além da mensagem do anúncio, o cliente mandou mais alguma coisa. */
+export function clienteRespondeu(msgs: FalaDoChat[]): boolean {
+  return msgs.filter((m) => !m.fromMe && (!!m.text?.trim() || !!m.hasMedia)).length >= 2;
+}
+
+/** A IA leu a conversa e concluiu que não é lead (engano, número errado, outro assunto). */
+export function iaDescartou(row: Pick<LinhaDeLead, "lead_sugerido" | "confianca_lead">): boolean {
+  return !row.lead_sugerido && row.confianca_lead != null && row.confianca_lead < CONFIANCA_DE_NAO_LEAD;
+}
+
+/**
+ * O contato de anúncio vai para Relacionamentos?
+ * Com a conversa na memória, decide pela resposta do cliente. Sem ela (contato
+ * antigo, de antes da regra), vale o que a IA já tinha visto: se ela sugeriu
+ * lead, o cliente falou de produto.
+ */
+export function anuncioVaiParaRelacionamentos(
+  msgs: FalaDoChat[] | null,
+  row: Pick<LinhaDeLead, "lead_sugerido" | "confianca_lead">,
+): boolean {
+  if (iaDescartou(row)) return false;
+  if (msgs && msgs.length) return clienteRespondeu(msgs);
+  return !!row.lead_sugerido;
+}
