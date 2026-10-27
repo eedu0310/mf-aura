@@ -162,6 +162,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
           }`,
         },
         orcamento || undefined,
+        relato.trim(),
       );
 
       if (!venda) {

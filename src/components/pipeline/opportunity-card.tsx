@@ -9,6 +9,7 @@ import type { Oportunidade, Etapa } from "@/lib/types";
 import { calcularProximaMelhorAcao } from "@/lib/aura-prioridades";
 import { useAppData } from "@/lib/app-data-context";
 import { ehPerda, etapasVisiveis } from "@/lib/funil";
+import { pedirLaudoDoFechamento } from "@/lib/aura/pedir-laudo";
 
 
 function formatarMoeda(valor: number) {
@@ -67,6 +68,11 @@ export function OpportunityCard({
 
     if (ok) {
       setMarcandoPerdido(false);
+      // A perda pelo botão também ensina: o motivo que o vendedor escolheu vai
+      // junto para a AURA comparar com o que a conversa mostra.
+      if (!ehPerdido) {
+        pedirLaudoDoFechamento(oportunidade.id, "perdido", [motivo, descricao].filter(Boolean).join(" — "));
+      }
       onAtualizar?.();
     } else {
       alert("Não consegui marcar como perdido. Tente de novo.");

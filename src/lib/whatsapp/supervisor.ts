@@ -1455,7 +1455,10 @@ export async function analisarConversa(
      * pediu ("Tratar como lead" ou "Analisar agora"), ou se a última mensagem
      * do cliente fala de produto, preço ou orçamento — aí a IA pode ter errado.
      */
-    if (!opts.forcar && !opts.comoLead && row && pareceNaoLeadRecente(row, ultimo)) return;
+    // Conversa de anúncio é lead por definição (ver "três portas" abaixo):
+    // um palpite antigo de "não é lead" não pode deixá-la sem análise.
+    const temAnuncioGravado = !!row?.campanha_id || !!row?.anuncio_em;
+    if (!opts.forcar && !opts.comoLead && !temAnuncioGravado && row && pareceNaoLeadRecente(row, ultimo)) return;
 
     const empresa = await empresaDo(userId);
     // Sem loja no perfil, nada daqui para baixo tem onde ser gravado: o lead,
@@ -1552,9 +1555,18 @@ export async function analisarConversa(
      * um orçamento de tatuagem. Confiança alta também erra, e o erro cai na
      * carteira de alguém.
      *
-     * Agora ela só entra no CRM por duas portas: o vendedor tocou em
-     * "Tratar como lead", ou aquele contato já tem negócio aberto — nesse
-     * caso alguém já decidiu antes. Fora isso, ela sugere e espera.
+     * Agora ela só entra no CRM por três portas: o vendedor tocou em
+     * "Tratar como lead"; aquele contato já tem negócio aberto (alguém já
+     * decidiu antes); ou a conversa NASCEU DE ANÚNCIO. Fora isso, ela sugere
+     * e espera.
+     *
+     * Anúncio é lead por definição (decisão do Elton, 27/10): quem clicou no
+     * anúncio do Facebook/Instagram e chamou no WhatsApp veio comprar, e não
+     * cabe à IA julgar. Esperar o toque da vendedora deixou 300 conversas de
+     * campanha da LF paradas como "lead sugerido" em um mês, com só 2 no CRM —
+     * o funil vazio e o relatório de campanha sem os leads que o anúncio
+     * trouxe. Quem a vendedora marcou como "não é lead" ou "cliente antigo"
+     * continua fora: essa decisão dela já saiu lá em cima, antes daqui.
      */
     const CONFIANCA_MINIMA = 0.75;
     const jaEhNegocio = !!row?.oportunidade_id;
@@ -1563,7 +1575,8 @@ export async function analisarConversa(
     // Sem IA, palavra-chave também não cria nada: no máximo sugere.
     const soRegrasAchou = !analise && regras.comercial;
 
-    const ehLead = !!opts.comoLead || jaEhNegocio;
+    const veioDeAnuncio = !!row?.campanha_id || !!row?.anuncio_em || !!anuncioDaConversa(msgs);
+    const ehLead = !!opts.comoLead || jaEhNegocio || veioDeAnuncio;
     const sugerirLead = !ehLead && (!!analise?.e_lead || soRegrasAchou);
 
     /**
@@ -1697,6 +1710,15 @@ export async function analisarConversa(
         );
         relacionamentoId = r.id;
         if (r.aviso) aviso = r.aviso;
+        /*
+         * Lead de anúncio que entrou sozinho e já foi respondido no celular:
+         * a fila de leads tem prazo de 30 minutos e avisaria o gestor de um
+         * "lead sem resposta" que a vendedora já atendeu. Só fecha pelo envio
+         * da AURA quem responde por ela; aqui fechamos pela própria conversa.
+         */
+        if (r.id && veioDeAnuncio && !opts.comoLead && msgs.some((m) => m.fromMe)) {
+          await marcarLeadRespondidoPorTelefone(sb, empresa, chat.phone, userId);
+        }
       }
       patch.relacionamento_id = relacionamentoId;
 
@@ -2137,12 +2159,47 @@ export function agendarAnalise(
 
 // ---------------------------------------------------------------- vigilância
 
+/**
+ * Conversas de anúncio que ficaram de fora do CRM antes de "anúncio é lead"
+ * valer (ficaram como "lead sugerido" esperando a vendedora). A varredura
+ * agenda a reanálise delas aos poucos; a análise as coloca no CRM pela regra
+ * nova. Cada conversa é tentada uma vez por processo: se a conversa não está
+ * mais na memória do WhatsApp, a análise sai sem fazer nada e não insistimos.
+ */
+const anuncioJaTentado = ((globalThis as any).__auraAnuncioTentado ??= new Set<string>()) as Set<string>;
+const ANUNCIOS_POR_VARREDURA = 15;
+
+async function incluirAnunciosParados(sb: SupabaseClient, userId: string) {
+  const { data } = await sb
+    .from("whatsapp_ia_leads")
+    .select("chat_jid, natureza, ignorado")
+    .eq("owner_id", userId)
+    .is("relacionamento_id", null)
+    .or("anuncio_em.not.is.null,campanha_id.not.is.null")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  let agendadas = 0;
+  for (const l of (data ?? []) as { chat_jid: string; natureza: string | null; ignorado: boolean | null }[]) {
+    if (agendadas >= ANUNCIOS_POR_VARREDURA) break;
+    if (l.ignorado || l.natureza === "nao_lead" || l.natureza === "cliente") continue;
+    const chave = `${userId}|${l.chat_jid}`;
+    if (anuncioJaTentado.has(chave) || !getChat(userId, l.chat_jid)) continue;
+    anuncioJaTentado.add(chave);
+    // Espaçadas de 20 s: são chamadas de IA, e em fila não disputam com o atendimento.
+    agendarAnalise(userId, l.chat_jid, 5_000 + agendadas * 20_000, { forcar: true });
+    agendadas++;
+  }
+}
+
 /** A cada 5 minutos avisa o vendedor sobre leads sem resposta ou sem follow-up. */
 async function varredura() {
   const sb = db();
   if (!sb) return;
   for (const userId of connectedUserIds()) {
     try {
+      await incluirAnunciosParados(sb, userId).catch((e) =>
+        console.error("[supervisor] anúncios parados:", e?.message ?? e),
+      );
       const leads = await listarLeads(userId);
       for (const chat of getChats(userId)) {
         const info = leads[chat.id];

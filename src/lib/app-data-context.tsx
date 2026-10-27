@@ -23,6 +23,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { gravarExigindoLinha } from "@/lib/supabase/gravar";
+import { pedirLaudoDoFechamento } from "@/lib/aura/pedir-laudo";
 import {
   daLinha,
   ehGanho,
@@ -88,6 +89,8 @@ interface AppDataContextValue {
   addVenda: (
     dados: Omit<Venda, "id">,
     arquivoOrcamento?: File,
+    /** Relato do fechamento escrito pelo vendedor: vai para o laudo da AURA. */
+    relatoDoFechamento?: string,
   ) => Promise<Venda | null>;
   updateVenda: (id: string, patch: Partial<Venda>) => Promise<void>;
   deleteVenda: (id: string) => Promise<void>;
@@ -814,6 +817,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       integrarNovaOportunidade(nova);
 
+      // Card que já nasce decidido (criado direto em Fechamento ou Perdidos)
+      // também passa pelo laudo: não houve arrasto para disparar.
+      if (ehGanho(nova.etapa, funil)) pedirLaudoDoFechamento(nova.id, "fechado");
+      else if (ehPerda(nova.etapa, funil)) pedirLaudoDoFechamento(nova.id, "perdido", nova.motivoPerda ?? null);
+
       return nova;
     }
 
@@ -911,6 +919,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       throw e;
     }
+
+    // Etapa trocada pela edição do card, sem arrastar: mesmo laudo do arrasto.
+    if (patch.etapa !== undefined && anterior && patch.etapa !== anterior.etapa) {
+      if (ehGanho(patch.etapa, funil) && !ehGanho(anterior.etapa, funil)) {
+        pedirLaudoDoFechamento(id, "fechado");
+      } else if (ehPerda(patch.etapa, funil) && !ehPerda(anterior.etapa, funil)) {
+        pedirLaudoDoFechamento(id, "perdido", patch.motivoPerda ?? anterior.motivoPerda ?? null);
+      }
+    }
   }
 
   /** Exclui a oportunidade. Se o banco recusar, devolve o card para a tela. */
@@ -930,7 +947,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function addVenda(dados: Omit<Venda, "id">, arquivoOrcamento?: File) {
+  async function addVenda(dados: Omit<Venda, "id">, arquivoOrcamento?: File, relatoDoFechamento?: string) {
     if (supabase) {
       const {
         data: { user },
@@ -990,6 +1007,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
 
       setTodasVendas((prev) => [nova, ...prev]);
+
+      /*
+       * Venda lançada direto (Registrar Atividade → Venda): o banco move o
+       * card do cliente para Fechamento sozinho e devolve o id dele aqui.
+       * Era o caminho de quase toda venda do mês, e não pedia o laudo, então
+       * a AURA não aprendia nada com esses negócios. O relato que o vendedor
+       * escreveu vai junto: numa venda de balcão, sem WhatsApp, é a única
+       * história do negócio que a AURA tem para ler.
+       */
+      pedirLaudoDoFechamento(nova.oportunidadeId, "fechado", relatoDoFechamento ?? null);
+
       return nova;
     }
 
@@ -1348,19 +1376,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       (ehGanho(novaEtapa, funil) && !ehGanho(etapaAnterior, funil)) ||
       (ehPerda(novaEtapa, funil) && !ehPerda(etapaAnterior, funil))
     ) {
-      void fetch("/api/aura/fechamento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          oportunidadeId: oportunidade.id,
-          resultado: ehGanho(novaEtapa, funil) ? "fechado" : "perdido",
-          // O motivo da perda vem do próprio card, já gravado pelo modal que
-          // o vendedor preenche ao arrastar para Perdidos.
-          motivo: oportunidade.motivoPerda ?? null,
-        }),
-      }).catch(() => {
-        /* sem IA ou sem rede: o fechamento vale do mesmo jeito */
-      });
+      pedirLaudoDoFechamento(
+        oportunidade.id,
+        ehGanho(novaEtapa, funil) ? "fechado" : "perdido",
+        // O motivo da perda vem do próprio card, já gravado pelo modal que
+        // o vendedor preenche ao arrastar para Perdidos.
+        oportunidade.motivoPerda ?? null,
+      );
     }
   }
 
