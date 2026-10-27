@@ -69,23 +69,30 @@ export function AprendizadoCard() {
   });
   const [verAprovados, setVerAprovados] = useState(false);
   const [sugestoes, setSugestoes] = useState<ResumoSugestoes | null>(null);
+  // Todo gestor escolhe a loja; aprovar e recusar só na própria (ou mestre).
+  const [loja, setLoja] = useState<string | null>(null);
+  const [podeDecidir, setPodeDecidir] = useState(true);
+  const [lojas, setLojas] = useState<{ nome: string; esperando: number }[] | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      const r = await fetch("/api/gestor/aprendizado");
+      const r = await fetch(`/api/gestor/aprendizado${loja ? `?loja=${encodeURIComponent(loja)}` : ""}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d?.erro ?? "Não foi possível carregar.");
       setSugeridos(d.sugeridos ?? []);
       setAprovados(d.aprovados ?? []);
       setSugestoes(d.sugestoes ?? null);
+      setLojas(d.lojas ?? null);
+      setPodeDecidir(d.podeDecidir !== false);
+      if (!loja && d.loja) setLoja(d.loja);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar.");
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [loja]);
 
   useEffect(() => {
     void carregar();
@@ -151,6 +158,30 @@ export function AprendizadoCard() {
         )}
       </div>
 
+      {lojas && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {lojas.map((l) => (
+            <button
+              key={l.nome}
+              type="button"
+              onClick={() => setLoja(l.nome)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                loja === l.nome
+                  ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
+                  : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500"
+              }`}
+            >
+              {l.nome}
+              {l.esperando > 0 && (
+                <span className={`rounded-full px-1.5 text-[0.65rem] font-semibold ${loja === l.nome ? "bg-white/20" : "bg-aura-gold/25"}`}>
+                  {l.esperando}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       {erro && (
         <p className="mt-4 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
           {erro}
@@ -215,6 +246,9 @@ export function AprendizadoCard() {
                   </div>
                 )}
 
+                {!podeDecidir ? (
+                  <p className="mt-3 text-xs text-aura-graphite-soft">Quem aprova é o gestor desta loja.</p>
+                ) : (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -247,6 +281,7 @@ export function AprendizadoCard() {
                     </button>
                   )}
                 </div>
+                )}
               </li>
             );
           })}
@@ -275,7 +310,7 @@ export function AprendizadoCard() {
                       </span>
                     )}
                     <span className="text-xs">{placar(item)}</span>
-                    <button
+                    {podeDecidir && <button
                       type="button"
                       disabled={ocupado === item.id}
                       onClick={() => {
@@ -284,7 +319,7 @@ export function AprendizadoCard() {
                       className="ml-auto inline-flex items-center gap-1 rounded-lg border border-aura-mist bg-white px-2 py-1 text-xs font-medium text-aura-graphite transition hover:border-aura-danger hover:text-aura-danger disabled:opacity-50"
                     >
                       <X size={12} /> Tirar de uso
-                    </button>
+                    </button>}
                   </div>
                   <p className="mt-1">
                     &ldquo;{item.gatilho}&rdquo; → {item.resposta}

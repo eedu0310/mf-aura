@@ -15,6 +15,7 @@ import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { limparCacheAprendizado } from "@/lib/aura/aprendizado";
 import { resumoDasSugestoes } from "@/lib/aura/resultado-sugestoes";
+import { NOMES_EMPRESAS } from "@/lib/companies";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,9 +56,11 @@ export async function GET(req: NextRequest) {
   const { erro, sb, eu } = await somenteGestor();
   if (erro) return erro;
 
-  // Gestor mestre pode olhar outra loja; os demais só a própria.
+  // Todo gestor enxerga o aprendizado de todas as lojas (pedido do Elton,
+  // 27/10): o que funciona numa loja ensina as outras. Aprovar e recusar
+  // continua sendo do gestor da própria loja (e do mestre), no POST.
   const pedida = req.nextUrl.searchParams.get("loja");
-  const loja = eu!.gestor_mestre && pedida ? pedida : eu!.empresa;
+  const loja = pedida && NOMES_EMPRESAS.includes(pedida) ? pedida : eu!.empresa;
 
   const { data, error } = await sb!
     .from("aura_aprendizado")
@@ -77,8 +80,24 @@ export async function GET(req: NextRequest) {
   // Como a equipe usa as sugestões da AURA e se o cliente responde. Falhar
   // aqui não pode esconder a lista de aprendizado.
   const sugestoes = await resumoDasSugestoes(sb!, loja).catch(() => null);
+
+  // A lista das lojas com quantos itens cada uma tem esperando, para o gestor
+  // saber onde clicar. Sem isto o card só mostrava a loja do login e o
+  // aprendizado das outras ficava invisível.
+  const { data: pend } = await sb!
+    .from("aura_aprendizado")
+    .select("empresa")
+    .eq("status", "sugerido")
+    .limit(5000);
+  const lojas = NOMES_EMPRESAS.map((nome) => ({
+    nome,
+    esperando: (pend ?? []).filter((p: { empresa: string }) => p.empresa === nome).length,
+  }));
+
   return NextResponse.json({
     loja,
+    lojas,
+    podeDecidir: !!eu!.gestor_mestre || loja === eu!.empresa,
     sugeridos: itens.filter((i) => i.status === "sugerido"),
     aprovados: itens.filter((i) => i.status === "aprovado"),
     sugestoes,
