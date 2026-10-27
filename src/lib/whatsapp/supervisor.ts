@@ -1455,10 +1455,7 @@ export async function analisarConversa(
      * pediu ("Tratar como lead" ou "Analisar agora"), ou se a última mensagem
      * do cliente fala de produto, preço ou orçamento — aí a IA pode ter errado.
      */
-    // Conversa de anúncio é lead por definição (ver "três portas" abaixo):
-    // um palpite antigo de "não é lead" não pode deixá-la sem análise.
-    const temAnuncioGravado = !!row?.campanha_id || !!row?.anuncio_em;
-    if (!opts.forcar && !opts.comoLead && !temAnuncioGravado && row && pareceNaoLeadRecente(row, ultimo)) return;
+    if (!opts.forcar && !opts.comoLead && row && pareceNaoLeadRecente(row, ultimo)) return;
 
     const empresa = await empresaDo(userId);
     // Sem loja no perfil, nada daqui para baixo tem onde ser gravado: o lead,
@@ -1555,18 +1552,9 @@ export async function analisarConversa(
      * um orçamento de tatuagem. Confiança alta também erra, e o erro cai na
      * carteira de alguém.
      *
-     * Agora ela só entra no CRM por três portas: o vendedor tocou em
-     * "Tratar como lead"; aquele contato já tem negócio aberto (alguém já
-     * decidiu antes); ou a conversa NASCEU DE ANÚNCIO. Fora isso, ela sugere
-     * e espera.
-     *
-     * Anúncio é lead por definição (decisão do Elton, 27/10): quem clicou no
-     * anúncio do Facebook/Instagram e chamou no WhatsApp veio comprar, e não
-     * cabe à IA julgar. Esperar o toque da vendedora deixou 300 conversas de
-     * campanha da LF paradas como "lead sugerido" em um mês, com só 2 no CRM —
-     * o funil vazio e o relatório de campanha sem os leads que o anúncio
-     * trouxe. Quem a vendedora marcou como "não é lead" ou "cliente antigo"
-     * continua fora: essa decisão dela já saiu lá em cima, antes daqui.
+     * Agora ela só entra no CRM por duas portas: o vendedor tocou em
+     * "Tratar como lead", ou aquele contato já tem negócio aberto — nesse
+     * caso alguém já decidiu antes. Fora isso, ela sugere e espera.
      */
     const CONFIANCA_MINIMA = 0.75;
     const jaEhNegocio = !!row?.oportunidade_id;
@@ -1575,8 +1563,7 @@ export async function analisarConversa(
     // Sem IA, palavra-chave também não cria nada: no máximo sugere.
     const soRegrasAchou = !analise && regras.comercial;
 
-    const veioDeAnuncio = !!row?.campanha_id || !!row?.anuncio_em || !!anuncioDaConversa(msgs);
-    const ehLead = !!opts.comoLead || jaEhNegocio || veioDeAnuncio;
+    const ehLead = !!opts.comoLead || jaEhNegocio;
     const sugerirLead = !ehLead && (!!analise?.e_lead || soRegrasAchou);
 
     /**
@@ -1694,6 +1681,29 @@ export async function analisarConversa(
     }
     if (analise?.sugestao_resposta) sugestoes.set(key, analise.sugestao_resposta);
 
+    /*
+     * Contato de anúncio vai para Relacionamentos assim que aparece, mas não
+     * para o funil (decisão do Elton, 27/10). Vem muito lead desqualificado de
+     * campanha; no Pipeline isso viraria poluição, e em Relacionamentos é o
+     * banco de leads da loja, com a campanha de origem marcada. O funil
+     * continua só com quem a vendedora disse que é lead; se ela não decidir em
+     * 3 dias, a varredura pergunta (perguntarSeEhLead).
+     */
+    if (!ehLead && !row?.relacionamento_id && !row?.carteira_em && (campanhaId || row?.anuncio_em)) {
+      const r = await garantirRelacionamento(
+        sb,
+        userId,
+        empresa,
+        chat.name,
+        chat.phone,
+        ehCategoria(row?.categoria) ? row.categoria : analise?.categoria_sugerida ?? null,
+        campanhaId,
+        false, // não entra na fila de leads: ainda não é lead
+      );
+      patch.carteira_relacionamento_id = r.id;
+      patch.carteira_em = new Date().toISOString();
+    }
+
     const historico: any[] = Array.isArray(row?.historico) ? [...row.historico] : [];
 
     if (ehLead) {
@@ -1710,15 +1720,6 @@ export async function analisarConversa(
         );
         relacionamentoId = r.id;
         if (r.aviso) aviso = r.aviso;
-        /*
-         * Lead de anúncio que entrou sozinho e já foi respondido no celular:
-         * a fila de leads tem prazo de 30 minutos e avisaria o gestor de um
-         * "lead sem resposta" que a vendedora já atendeu. Só fecha pelo envio
-         * da AURA quem responde por ela; aqui fechamos pela própria conversa.
-         */
-        if (r.id && veioDeAnuncio && !opts.comoLead && msgs.some((m) => m.fromMe)) {
-          await marcarLeadRespondidoPorTelefone(sb, empresa, chat.phone, userId);
-        }
       }
       patch.relacionamento_id = relacionamentoId;
 
@@ -2160,34 +2161,106 @@ export function agendarAnalise(
 // ---------------------------------------------------------------- vigilância
 
 /**
- * Conversas de anúncio que ficaram de fora do CRM antes de "anúncio é lead"
- * valer (ficaram como "lead sugerido" esperando a vendedora). A varredura
- * agenda a reanálise delas aos poucos; a análise as coloca no CRM pela regra
- * nova. Cada conversa é tentada uma vez por processo: se a conversa não está
- * mais na memória do WhatsApp, a análise sai sem fazer nada e não insistimos.
+ * Contatos de anúncio que chegaram antes da regra "anúncio vai para
+ * Relacionamentos" (ficaram como "lead sugerido", fora de tudo). Não precisa
+ * de IA nem da conversa na memória: nome, telefone e campanha já estão
+ * gravados. Vai aos poucos para não pesar a varredura.
  */
-const anuncioJaTentado = ((globalThis as any).__auraAnuncioTentado ??= new Set<string>()) as Set<string>;
-const ANUNCIOS_POR_VARREDURA = 15;
+const ANUNCIOS_POR_VARREDURA = 50;
 
-async function incluirAnunciosParados(sb: SupabaseClient, userId: string) {
+async function anunciosParaRelacionamentos(sb: SupabaseClient, userId: string) {
   const { data } = await sb
     .from("whatsapp_ia_leads")
-    .select("chat_jid, natureza, ignorado")
+    .select("id, empresa, nome, telefone, categoria, campanha_id, natureza, ignorado")
     .eq("owner_id", userId)
     .is("relacionamento_id", null)
+    .is("carteira_em", null)
     .or("anuncio_em.not.is.null,campanha_id.not.is.null")
-    .order("updated_at", { ascending: false })
-    .limit(200);
-  let agendadas = 0;
-  for (const l of (data ?? []) as { chat_jid: string; natureza: string | null; ignorado: boolean | null }[]) {
-    if (agendadas >= ANUNCIOS_POR_VARREDURA) break;
-    if (l.ignorado || l.natureza === "nao_lead" || l.natureza === "cliente") continue;
-    const chave = `${userId}|${l.chat_jid}`;
-    if (anuncioJaTentado.has(chave) || !getChat(userId, l.chat_jid)) continue;
-    anuncioJaTentado.add(chave);
-    // Espaçadas de 20 s: são chamadas de IA, e em fila não disputam com o atendimento.
-    agendarAnalise(userId, l.chat_jid, 5_000 + agendadas * 20_000, { forcar: true });
-    agendadas++;
+    .limit(ANUNCIOS_POR_VARREDURA);
+  for (const l of (data ?? []) as {
+    id: string;
+    empresa: string | null;
+    nome: string | null;
+    telefone: string | null;
+    categoria: string | null;
+    campanha_id: string | null;
+    natureza: string | null;
+    ignorado: boolean | null;
+  }[]) {
+    const agora = new Date().toISOString();
+    // "Não é lead" e "cliente antigo" já foram decididos pela vendedora.
+    if (l.ignorado || l.natureza === "nao_lead" || l.natureza === "cliente" || !l.empresa || !l.telefone) {
+      await sb.from("whatsapp_ia_leads").update({ carteira_em: agora }).eq("id", l.id);
+      continue;
+    }
+    const r = await garantirRelacionamento(
+      sb,
+      userId,
+      l.empresa,
+      l.nome ?? "",
+      l.telefone,
+      ehCategoria(l.categoria) ? l.categoria : null,
+      l.campanha_id,
+      false,
+    );
+    await sb
+      .from("whatsapp_ia_leads")
+      .update({ carteira_relacionamento_id: r.id, carteira_em: agora })
+      .eq("id", l.id);
+  }
+}
+
+/**
+ * A pergunta dos 3 dias: contato de anúncio que está em Relacionamentos há 3
+ * dias sem a vendedora dizer se é lead. Vai UM aviso por dia por vendedora,
+ * com a lista, em horário de loja — um aviso por contato encheria o sino (só
+ * a fila antiga da LF tem duas centenas). Cada contato é perguntado uma vez.
+ */
+const TRES_DIAS_MS = 3 * 24 * 60 * 60 * 1000;
+const perguntouHoje = ((globalThis as any).__auraPerguntaLead ??= new Map<string, string>()) as Map<string, string>;
+
+async function perguntarSeEhLead(sb: SupabaseClient, userId: string) {
+  const agora = new Date();
+  const hoje = agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const hora = Number(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
+  if (hora < 8 || hora >= 19 || perguntouHoje.get(userId) === hoje) return;
+
+  const { data } = await sb
+    .from("whatsapp_ia_leads")
+    .select("id, nome, natureza, ignorado, oportunidade_id, anuncio_em, carteira_em")
+    .eq("owner_id", userId)
+    .not("carteira_relacionamento_id", "is", null)
+    .is("relacionamento_id", null)
+    .is("pergunta_lead_em", null)
+    .limit(1000);
+  const vencidos = ((data ?? []) as {
+    id: string;
+    nome: string | null;
+    natureza: string | null;
+    ignorado: boolean | null;
+    oportunidade_id: string | null;
+    anuncio_em: string | null;
+    carteira_em: string | null;
+  }[]).filter((l) => {
+    if (l.ignorado || l.natureza || l.oportunidade_id) return false;
+    const desde = new Date(l.anuncio_em ?? l.carteira_em ?? agora.toISOString()).getTime();
+    return agora.getTime() - desde >= TRES_DIAS_MS;
+  });
+  perguntouHoje.set(userId, hoje);
+  if (!vencidos.length) return;
+
+  const nomes = vencidos.slice(0, 5).map((l) => l.nome || "sem nome").join(", ");
+  const resto = vencidos.length > 5 ? ` e mais ${vencidos.length - 5}` : "";
+  await notificar(
+    sb,
+    userId,
+    "📋 Contatos de anúncio: é lead?",
+    `${vencidos.length} ${vencidos.length === 1 ? "contato que veio" : "contatos que vieram"} de anúncio há mais de 3 dias ainda sem decisão: ${nomes}${resto}. Abra a conversa no WhatsApp da AURA e toque em "Tratar como lead" (vai para o funil) ou "Não é lead" (fica só em Relacionamentos).`,
+    "/whatsapp",
+  );
+  const ids = vencidos.map((l) => l.id);
+  for (let i = 0; i < ids.length; i += 200) {
+    await sb.from("whatsapp_ia_leads").update({ pergunta_lead_em: agora.toISOString() }).in("id", ids.slice(i, i + 200));
   }
 }
 
@@ -2197,8 +2270,11 @@ async function varredura() {
   if (!sb) return;
   for (const userId of connectedUserIds()) {
     try {
-      await incluirAnunciosParados(sb, userId).catch((e) =>
-        console.error("[supervisor] anúncios parados:", e?.message ?? e),
+      await anunciosParaRelacionamentos(sb, userId).catch((e) =>
+        console.error("[supervisor] anúncios para Relacionamentos:", e?.message ?? e),
+      );
+      await perguntarSeEhLead(sb, userId).catch((e) =>
+        console.error("[supervisor] pergunta dos 3 dias:", e?.message ?? e),
       );
       const leads = await listarLeads(userId);
       for (const chat of getChats(userId)) {
