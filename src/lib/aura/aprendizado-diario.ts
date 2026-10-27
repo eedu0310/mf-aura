@@ -30,7 +30,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { connectedUserIds, getMessages, type WaMessage } from "@/lib/whatsapp/live-manager";
 import { modeloDeRaciocinio } from "./modelos";
 import { podeChamarIA, registrarUsoIA } from "./custo-ia";
-import { guardarAprendizado, limparCacheAprendizado, textoDoAprendizado, type TipoAprendizado } from "./aprendizado";
+import { guardarAprendizado, ligarOrigem, limparCacheAprendizado, textoDoAprendizado, type TipoAprendizado } from "./aprendizado";
+import { casosDeSugestoes } from "./resultado-sugestoes";
 import { nucleoDoManual } from "./trechos";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
@@ -53,6 +54,9 @@ export interface ResultadoDaLoja {
 interface Conversa {
   empresa: string;
   ownerId: string;
+  chatJid: string;
+  oportunidadeId: string | null;
+  relacionamentoId: string | null;
   nome: string;
   etapa: string | null;
   andouHoje: boolean;
@@ -103,8 +107,14 @@ const FERRAMENTA = {
               type: "boolean",
               description: "true quando a resposta escrita é a que o vendedor usou e o cliente avançou.",
             },
+            conversas: {
+              type: "array",
+              items: { type: "integer" },
+              description:
+                "Números das CONVERSAS (=== CONVERSA N ===) de onde isto saiu. Vazio quando saiu só dos casos de sugestão.",
+            },
           },
-          required: ["tipo", "gatilho", "resposta", "funcionou"],
+          required: ["tipo", "gatilho", "resposta", "funcionou", "conversas"],
         },
       },
     },
@@ -129,7 +139,7 @@ async function conversasDoDia(sb: SupabaseClient, inicio: Date): Promise<Map<str
 
   const { data: linhas } = await sb
     .from("whatsapp_ia_leads")
-    .select("owner_id, empresa, chat_jid, nome, etapa, natureza, ignorado, oportunidade_id, historico")
+    .select("owner_id, empresa, chat_jid, nome, etapa, natureza, ignorado, oportunidade_id, relacionamento_id, carteira_relacionamento_id, historico")
     .in("owner_id", donos)
     .gte("ultima_analise_em", inicio.toISOString());
 
@@ -158,6 +168,8 @@ async function conversasDoDia(sb: SupabaseClient, inicio: Date): Promise<Map<str
     nome: string | null;
     etapa: string | null;
     oportunidade_id: string | null;
+    relacionamento_id: string | null;
+    carteira_relacionamento_id: string | null;
     historico: { em?: string; de?: string | null }[] | null;
   }[]) {
     if (!l.empresa || (l.oportunidade_id && comLaudo.has(l.oportunidade_id))) continue;
@@ -176,6 +188,9 @@ async function conversasDoDia(sb: SupabaseClient, inicio: Date): Promise<Map<str
     lista.push({
       empresa: l.empresa,
       ownerId: l.owner_id,
+      chatJid: l.chat_jid,
+      oportunidadeId: l.oportunidade_id,
+      relacionamentoId: l.relacionamento_id ?? l.carteira_relacionamento_id,
       nome: l.nome ?? "Cliente",
       etapa: l.etapa,
       andouHoje,
@@ -190,15 +205,6 @@ async function conversasDoDia(sb: SupabaseClient, inicio: Date): Promise<Map<str
     porLoja.set(empresa, lista.slice(0, MAX_CONVERSAS_POR_LOJA));
   }
   return porLoja;
-}
-
-async function contarSugeridos(sb: SupabaseClient, empresa: string): Promise<number> {
-  const { count } = await sb
-    .from("aura_aprendizado")
-    .select("id", { count: "exact", head: true })
-    .eq("empresa", empresa)
-    .eq("status", "sugerido");
-  return count ?? 0;
 }
 
 /** O que a loja já tem (aprovado, esperando ou recusado), para a IA não repetir. */
@@ -243,6 +249,7 @@ export async function aprenderDaLoja(
   empresa: string,
   conversas: Conversa[],
   dia: string,
+  casos = "",
 ): Promise<ResultadoDaLoja> {
   const [manual, aprovado, conhecidos] = await Promise.all([
     nucleoDoManual(sb, empresa).catch(() => ""),
@@ -257,6 +264,7 @@ O QUE PROCURAR
 - Perguntas que clientes fazem e que merecem resposta padrão.
 - Abordagens que fizeram o cliente avançar (mandar planta ou medida, pedir orçamento, marcar visita).
 - Quando a resposta dada não funcionou, escreva a resposta que o manual pede.
+- Nos CASOS DE SUGESTÃO você vê as suas próprias sugestões de resposta e o que aconteceu: se o vendedor usou, adaptou ou escreveu outra coisa, e se o cliente respondeu ou sumiu. Aprenda com isso: o jeito de escrever que faz o cliente responder, e o que o vendedor escreveu no lugar quando a sua sugestão não servia. Isso vira "abordagem".
 
 REGRAS
 - Só o que serve para outros clientes. Nada de nome, endereço, medida ou valor de um orçamento específico.
@@ -270,10 +278,14 @@ ${manual || "(sem núcleo do manual cadastrado: use boas práticas de venda cons
 ${aprovado ? `\nJÁ APROVADO PELO GESTOR:\n${aprovado}` : ""}
 ${conhecidos ? `\nJÁ REGISTRADO (não repita):\n${conhecidos}` : ""}`;
 
-  const user = `Conversas de ${dia} (mais recentes por último em cada uma):\n\n${conversas.map(transcrever).join("\n\n")}`;
+  const partesDoUser: string[] = [];
+  if (conversas.length) {
+    partesDoUser.push(`Conversas de ${dia} (mais recentes por último em cada uma):\n\n${conversas.map(transcrever).join("\n\n")}`);
+  }
+  if (casos) partesDoUser.push(`CASOS DE SUGESTÃO (suas sugestões de resposta e o que aconteceu depois):\n${casos}`);
+  const user = partesDoUser.join("\n\n");
 
-  const antes = await contarSugeridos(sb, empresa);
-  let itens: { tipo: TipoAprendizado; gatilho: string; resposta: string; funcionou: boolean }[] = [];
+  let itens: { tipo: TipoAprendizado; gatilho: string; resposta: string; funcionou: boolean; conversas: number[] }[] = [];
   try {
     const resp = await client.messages.create({
       model: modeloDeRaciocinio(),
@@ -304,15 +316,19 @@ ${conhecidos ? `\nJÁ REGISTRADO (não repita):\n${conhecidos}` : ""}`;
         gatilho: (a.gatilho as string).trim(),
         resposta: (a.resposta as string).trim(),
         funcionou: a.funcionou === true,
+        conversas: Array.isArray(a.conversas)
+          ? (a.conversas as unknown[]).map(Number).filter((n) => Number.isInteger(n) && n >= 1 && n <= conversas.length)
+          : [],
       }));
   } catch (e) {
     console.error("[aprendizado-diario]", empresa, e instanceof Error ? e.message : e);
     return { empresa, conversasLidas: conversas.length, sugeridos: 0, novos: 0, pulou: "a IA não respondeu" };
   }
 
+  let novos = 0;
   for (const a of itens) {
     try {
-      await guardarAprendizado(sb, {
+      const guardado = await guardarAprendizado(sb, {
         empresa,
         canal: "whatsapp",
         tipo: a.tipo,
@@ -322,13 +338,26 @@ ${conhecidos ? `\nJÁ REGISTRADO (não repita):\n${conhecidos}` : ""}`;
         fechou: false,
         fonte: `rotina-diaria:${dia}`,
       });
+      if (!guardado) continue;
+      if (guardado.novo) novos++;
+      // De onde saiu: quando aquele negócio fechar ou perder, o placar sabe.
+      for (const n of a.conversas) {
+        const c = conversas[n - 1];
+        await ligarOrigem(sb, {
+          aprendizadoId: guardado.id,
+          empresa,
+          ownerId: c.ownerId,
+          chatJid: c.chatJid,
+          oportunidadeId: c.oportunidadeId,
+          relacionamentoId: c.relacionamentoId,
+        });
+      }
     } catch (e) {
       console.error("[aprendizado-diario] guardar:", e);
     }
   }
   limparCacheAprendizado(empresa);
 
-  const novos = Math.max((await contarSugeridos(sb, empresa)) - antes, 0);
   if (novos > 0) await avisarGestores(sb, empresa, novos);
   return { empresa, conversasLidas: conversas.length, sugeridos: itens.length, novos };
 }
@@ -345,11 +374,22 @@ export async function colherAprendizadoDoDia(sb: SupabaseClient): Promise<Result
   const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   const porLoja = await conversasDoDia(sb, inicio);
 
+  // Lojas com conversa do dia ou com sugestões da AURA medidas desde ontem.
+  const desdeCasos = new Date(inicio.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: comSugestao } = await sb
+    .from("aura_sugestoes_resultado")
+    .select("empresa")
+    .gte("enviado_em", desdeCasos)
+    .limit(5000);
+  const lojas = new Set<string>([...porLoja.keys(), ...(comSugestao ?? []).map((l: { empresa: string }) => l.empresa)]);
+
   const resultados: ResultadoDaLoja[] = [];
   // Uma loja de cada vez: são poucas, e em série o uso de IA fica previsível.
-  for (const [empresa, conversas] of porLoja) {
-    if (!conversas.length) continue;
-    resultados.push(await aprenderDaLoja(sb, client, empresa, conversas, dia));
+  for (const empresa of lojas) {
+    const conversas = porLoja.get(empresa) ?? [];
+    const casos = await casosDeSugestoes(sb, empresa, desdeCasos).catch(() => "");
+    if (!conversas.length && !casos) continue;
+    resultados.push(await aprenderDaLoja(sb, client, empresa, conversas, dia, casos));
   }
   return resultados;
 }

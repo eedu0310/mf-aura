@@ -53,6 +53,7 @@ import {
 import { carregarFunil } from "@/lib/funil-servidor";
 import { anuncioDaConversa, resolverCampanha, camposDoAnuncio } from "@/lib/whatsapp/marketing";
 import { anuncioVaiParaRelacionamentos, iaDescartou, pareceNaoLeadRecente } from "@/lib/whatsapp/nao-lead";
+import { registrarEnvio, registrarRespostaDoCliente } from "@/lib/aura/resultado-sugestoes";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface LeadInfo {
@@ -1187,6 +1188,8 @@ function linhaParaLead(row: any, extra: Partial<LeadInfo> = {}): LeadInfo {
 }
 
 const sugestoes = ((globalThis as any).__auraSupSugestoes ??= new Map<string, string>()) as Map<string, string>;
+/** Quando cada sugestão foi feita: só mensagem do vendedor DEPOIS dela conta como resposta a ela. */
+const sugestaoFeitaEm = ((globalThis as any).__auraSupSugestaoEm ??= new Map<string, number>()) as Map<string, number>;
 const avisos = ((globalThis as any).__auraSupAvisos ??= new Map<string, string>()) as Map<string, string>;
 
 export async function obterLead(userId: string, chatJid: string): Promise<LeadInfo> {
@@ -1393,8 +1396,13 @@ async function talvezResponderSozinha(
   if (!reservou?.length) return;
 
   try {
+    // A sugestão pendente sai antes do envio: esta mensagem é da AURA, não
+    // do vendedor, e não pode ser medida como "o vendedor ignorou a sugestão".
+    sugestoes.delete(`${userId}|${chatJid}`);
+    sugestaoFeitaEm.delete(`${userId}|${chatJid}`);
     await sendText(userId, chatJid, texto);
     autoEnviados.push({ empresa, em: Date.now() });
+    void registrarEnvio(sb, { empresa, ownerId: userId, chatJid, sugestao: texto, enviado: texto, automatica: true });
   } catch (e: any) {
     // Não saiu: devolve a vaga, senão este contato nunca mais receberia.
     await sb
@@ -1679,7 +1687,15 @@ export async function analisarConversa(
       patch.lead_sugerido = false;
       patch.motivo_sugestao = null;
     }
-    if (analise?.sugestao_resposta) sugestoes.set(key, analise.sugestao_resposta);
+    if (analise?.sugestao_resposta) {
+      sugestoes.set(key, analise.sugestao_resposta);
+      sugestaoFeitaEm.set(key, Date.now());
+    } else if (analise) {
+      // A IA disse que não há o que sugerir agora: a sugestão velha não vale
+      // mais e não pode ser comparada com a próxima mensagem do vendedor.
+      sugestoes.delete(key);
+      sugestaoFeitaEm.delete(key);
+    }
 
     /*
      * Contato de anúncio vai para Relacionamentos assim que aparece, mas não
@@ -2377,6 +2393,26 @@ async function registrarAtividadeWhats(userId: string, chatJid: string) {
   if (error) console.error("[supervisor] atividade WhatsApp:", error.message);
 }
 
+/**
+ * O vendedor mandou mensagem: se havia sugestão da AURA, mede o que ele fez
+ * com ela (usou, adaptou, ignorou). Só a primeira mensagem depois da sugestão
+ * conta — as seguintes já não respondem àquela sugestão.
+ */
+async function medirSugestao(userId: string, chatJid: string, msg: WaMessage) {
+  const key = `${userId}|${chatJid}`;
+  const sugestao = sugestoes.get(key);
+  const texto = msg.text?.trim();
+  if (!sugestao || !texto) return;
+  const feitaEm = sugestaoFeitaEm.get(key) ?? 0;
+  if (msg.timestamp && msg.timestamp + 5_000 < feitaEm) return;
+  sugestoes.delete(key);
+  sugestaoFeitaEm.delete(key);
+  const sb = db();
+  const empresa = await empresaDo(userId);
+  if (!sb || !empresa) return;
+  await registrarEnvio(sb, { empresa, ownerId: userId, chatJid, sugestao, enviado: texto });
+}
+
 export function alertasDoChat(userId: string, chatJid: string) {
   return calcularAlertas(getMessages(userId, chatJid));
 }
@@ -2385,7 +2421,17 @@ if (!g.__auraSupStarted) {
   g.__auraSupStarted = true;
   onMessage((userId, chatJid, msg) => {
     agendarAnalise(userId, chatJid);
-    if (msg.fromMe) registrarAtividadeWhats(userId, chatJid).catch((e) => console.error("[supervisor]", e));
+    if (msg.fromMe) {
+      registrarAtividadeWhats(userId, chatJid).catch((e) => console.error("[supervisor]", e));
+      medirSugestao(userId, chatJid, msg).catch((e) => console.error("[supervisor] medir sugestão:", e));
+    } else if (msg.text?.trim() || msg.hasMedia) {
+      const sb = db();
+      if (sb) {
+        registrarRespostaDoCliente(sb, userId, chatJid, msg.text?.trim() || "[mídia]").catch((e) =>
+          console.error("[supervisor] resposta do cliente:", e),
+        );
+      }
+    }
   });
   setInterval(() => {
     varredura().catch(() => {});

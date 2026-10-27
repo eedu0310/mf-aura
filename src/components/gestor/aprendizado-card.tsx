@@ -3,9 +3,11 @@
 /**
  * O que a AURA aprendeu nas conversas, esperando a palavra do gestor.
  *
- * A IA extrai o padrão de cada negócio fechado ou perdido, mas nada entra em
- * uso sozinho: o item nasce "sugerido" e só passa a ser injetado nos prompts
- * depois que o gestor aprova. É o mesmo princípio que já vale para lead e para
+ * A IA extrai o padrão de cada negócio fechado ou perdido e das conversas do
+ * dia. O item nasce "sugerido" e só passa a ser injetado nos prompts depois
+ * que o gestor aprova — com uma exceção: o que se repetiu, já fechou venda e
+ * não tem número nenhum entra sozinho (selo "entrou sozinho"), e o gestor
+ * tira de uso com um clique. É o mesmo princípio que já vale para lead e para
  * venda — a IA propõe, a pessoa decide. Aqui é ainda mais necessário: se a AURA
  * reforçasse sozinha um preço errado que apareceu numa conversa, passaria a
  * repetir esse preço para todos os clientes.
@@ -24,8 +26,28 @@ interface Item {
   resposta: string;
   vezes_visto: number;
   vezes_fechou: number;
+  vezes_perdeu?: number;
+  aprovado_auto?: boolean;
   status: string;
   criado_em: string;
+}
+
+interface ResumoSugestoes {
+  dias: number;
+  total: number;
+  usou: number;
+  adaptou: number;
+  ignorou: number;
+  automatica: number;
+  respondeuQuandoUsou: number | null;
+  respondeuQuandoIgnorou: number | null;
+}
+
+function placar(item: Item): string {
+  const partes = [`visto ${item.vezes_visto}×`];
+  if (item.vezes_fechou > 0) partes.push(`fechou ${item.vezes_fechou}×`);
+  if ((item.vezes_perdeu ?? 0) > 0) partes.push(`perdeu ${item.vezes_perdeu}×`);
+  return partes.join(" · ");
 }
 
 const ROTULO: Record<string, string> = {
@@ -46,6 +68,7 @@ export function AprendizadoCard() {
     resposta: "",
   });
   const [verAprovados, setVerAprovados] = useState(false);
+  const [sugestoes, setSugestoes] = useState<ResumoSugestoes | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -56,6 +79,7 @@ export function AprendizadoCard() {
       if (!r.ok) throw new Error(d?.erro ?? "Não foi possível carregar.");
       setSugeridos(d.sugeridos ?? []);
       setAprovados(d.aprovados ?? []);
+      setSugestoes(d.sugestoes ?? null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar.");
     } finally {
@@ -86,6 +110,7 @@ export function AprendizadoCard() {
       // Tira da lista na hora, sem recarregar tudo: o gestor costuma revisar
       // vários seguidos e uma recarga por clique deixaria a tela piscando.
       setSugeridos((atual) => atual.filter((i) => i.id !== item.id));
+      if (acao === "recusar") setAprovados((atual) => atual.filter((i) => i.id !== item.id));
       if (acao === "aprovar") {
         const texto = editando === item.id ? rascunho : {};
         setAprovados((atual) => [{ ...item, ...texto, status: "aprovado" }, ...atual]);
@@ -113,8 +138,9 @@ export function AprendizadoCard() {
               O que a AURA aprendeu
             </h3>
             <p className="mt-1 text-sm text-aura-graphite-soft">
-              Tirado das conversas de negócios fechados e perdidos. Nada disto
-              chega à AURA antes de você aprovar.
+              Tirado dos negócios fechados e perdidos e das conversas de cada
+              dia. Só entra sozinho o que se repetiu, já fechou venda e não tem
+              preço, prazo nem número; o resto espera você.
             </p>
           </div>
         </div>
@@ -137,8 +163,8 @@ export function AprendizadoCard() {
         </p>
       ) : sugeridos.length === 0 ? (
         <p className="mt-6 text-sm text-aura-graphite-soft">
-          Nada esperando revisão. Conforme os vendedores fecharem e perderem
-          negócios, a AURA vai trazendo o que aprendeu para cá.
+          Nada esperando revisão. Toda noite a AURA relê as conversas do dia e
+          traz para cá o que aprendeu.
         </p>
       ) : (
         <ul className="mt-5 space-y-3">
@@ -153,10 +179,7 @@ export function AprendizadoCard() {
                   <span className="rounded-full bg-aura-petrol-700 px-2.5 py-0.5 text-xs font-medium text-white">
                     {ROTULO[item.tipo] ?? item.tipo}
                   </span>
-                  <span className="text-xs text-aura-graphite-soft">
-                    visto {item.vezes_visto}×
-                    {item.vezes_fechou > 0 && ` · fechou ${item.vezes_fechou}×`}
-                  </span>
+                  <span className="text-xs text-aura-graphite-soft">{placar(item)}</span>
                 </div>
 
                 {emEdicao ? (
@@ -241,16 +264,64 @@ export function AprendizadoCard() {
             AURA
           </button>
           {verAprovados && (
-            <ul className="mt-3 space-y-2">
+            <ul className="mt-3 space-y-3">
               {aprovados.map((item) => (
                 <li key={item.id} className="text-sm text-aura-graphite-soft">
-                  <span className="font-medium text-aura-graphite">
-                    {ROTULO[item.tipo] ?? item.tipo}:
-                  </span>{" "}
-                  &ldquo;{item.gatilho}&rdquo; → {item.resposta}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-aura-graphite">{ROTULO[item.tipo] ?? item.tipo}</span>
+                    {item.aprovado_auto && (
+                      <span className="rounded-full bg-aura-gold/20 px-2 py-0.5 text-[0.7rem] font-semibold text-aura-graphite">
+                        entrou sozinho
+                      </span>
+                    )}
+                    <span className="text-xs">{placar(item)}</span>
+                    <button
+                      type="button"
+                      disabled={ocupado === item.id}
+                      onClick={() => {
+                        if (confirm("Tirar este aprendizado de uso? Ele não volta a ser sugerido.")) void decidir(item, "recusar");
+                      }}
+                      className="ml-auto inline-flex items-center gap-1 rounded-lg border border-aura-mist bg-white px-2 py-1 text-xs font-medium text-aura-graphite transition hover:border-aura-danger hover:text-aura-danger disabled:opacity-50"
+                    >
+                      <X size={12} /> Tirar de uso
+                    </button>
+                  </div>
+                  <p className="mt-1">
+                    &ldquo;{item.gatilho}&rdquo; → {item.resposta}
+                  </p>
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+
+      {sugestoes && sugestoes.total > 0 && (
+        <div className="mt-6 border-t border-aura-mist pt-4">
+          <p className="text-sm font-medium text-aura-graphite">
+            Sugestões de resposta da AURA · últimos {sugestoes.dias} dias
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["Usadas como estavam", sugestoes.usou],
+              ["Adaptadas", sugestoes.adaptou],
+              ["Ignoradas", sugestoes.ignorou],
+              ["Automáticas", sugestoes.automatica],
+            ].map(([rotulo, n]) => (
+              <div key={rotulo as string} className="rounded-xl bg-aura-bg/60 px-3 py-2">
+                <p className="text-lg font-semibold text-aura-graphite">{n as number}</p>
+                <p className="text-xs text-aura-graphite-soft">{rotulo as string}</p>
+              </div>
+            ))}
+          </div>
+          {(sugestoes.respondeuQuandoUsou != null || sugestoes.respondeuQuandoIgnorou != null) && (
+            <p className="mt-3 text-xs text-aura-graphite-soft">
+              O cliente respondeu
+              {sugestoes.respondeuQuandoUsou != null && ` em ${sugestoes.respondeuQuandoUsou}% das vezes em que o vendedor usou a sugestão`}
+              {sugestoes.respondeuQuandoUsou != null && sugestoes.respondeuQuandoIgnorou != null && " e"}
+              {sugestoes.respondeuQuandoIgnorou != null && ` em ${sugestoes.respondeuQuandoIgnorou}% das vezes em que escreveu outra coisa`}
+              . A AURA estuda estes casos toda noite.
+            </p>
           )}
         </div>
       )}

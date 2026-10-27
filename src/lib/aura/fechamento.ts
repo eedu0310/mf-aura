@@ -22,7 +22,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { modeloDeRaciocinio } from "./modelos";
 import { registrarUsoIA } from "./custo-ia";
-import { guardarAprendizado, type TipoAprendizado } from "./aprendizado";
+import { guardarAprendizado, registrarResultadoDasOrigens, type TipoAprendizado } from "./aprendizado";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export type Resultado = "fechado" | "perdido";
@@ -311,6 +311,19 @@ export async function registrarLaudo(
     }
   }
 
+  // O que a rodada da noite aprendeu nas conversas deste negócio ganha agora
+  // o resultado: fechou ou perdeu. É isso que torna o placar de verdade.
+  let entraramEmUso = 0;
+  try {
+    entraramEmUso = await registrarResultadoDasOrigens(sb, {
+      oportunidadeId: dados.oportunidadeId,
+      relacionamentoId: dados.relacionamentoId,
+      resultado: dados.resultado,
+    });
+  } catch (e) {
+    console.error("[aura/fechamento] resultado das origens:", e);
+  }
+
   const valorTexto =
     dados.valor != null ? ` (R$ ${dados.valor.toLocaleString("pt-BR")})` : "";
 
@@ -335,7 +348,11 @@ export async function registrarLaudo(
       vendedor_id: g,
       titulo: `${fechou ? "Fechou" : "Perdeu"}: ${dados.vendedorNome} · ${dados.cliente}${valorTexto}`,
       mensagem:
-        (l.pontoFraco ? `Ponto fraco: ${l.pontoFraco}. ` : "") + l.resumo.slice(0, 300),
+        (l.pontoFraco ? `Ponto fraco: ${l.pontoFraco}. ` : "") +
+        l.resumo.slice(0, 300) +
+        (entraramEmUso > 0
+          ? ` · ${entraramEmUso} ${entraramEmUso === 1 ? "aprendizado comprovado entrou" : "aprendizados comprovados entraram"} em uso sozinho.`
+          : ""),
       tipo: "fechamento",
       acao_url: "/gestor",
     });

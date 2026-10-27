@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { limparCacheAprendizado } from "@/lib/aura/aprendizado";
+import { resumoDasSugestoes } from "@/lib/aura/resultado-sugestoes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await sb!
     .from("aura_aprendizado")
-    .select("id, canal, tipo, gatilho, resposta, vezes_visto, vezes_fechou, status, criado_em")
+    .select("id, canal, tipo, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu, aprovado_auto, status, criado_em")
     .eq("empresa", loja)
     .in("status", ["sugerido", "aprovado"])
     // Sugeridos primeiro: é o que exige ação. Dentro de cada grupo, o que mais
@@ -73,10 +74,14 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
 
   const itens = data ?? [];
+  // Como a equipe usa as sugestões da AURA e se o cliente responde. Falhar
+  // aqui não pode esconder a lista de aprendizado.
+  const sugestoes = await resumoDasSugestoes(sb!, loja).catch(() => null);
   return NextResponse.json({
     loja,
     sugeridos: itens.filter((i) => i.status === "sugerido"),
     aprovados: itens.filter((i) => i.status === "aprovado"),
+    sugestoes,
   });
 }
 
