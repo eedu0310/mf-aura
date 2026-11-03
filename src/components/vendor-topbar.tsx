@@ -6,59 +6,24 @@ import Link from "next/link";
 import { Search, Bell, ChevronDown, Settings, LogOut, User } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
-import { useAppData } from "@/lib/app-data-context";
-import { computePendingTasks } from "@/lib/compute-pending-tasks";
-import { useAvisoMissoes } from "@/lib/use-aviso-missoes";
 import { saudacaoDoDia } from "@/lib/date-local";
-import { listarNotificacoes, marcarComoLida, type Notificacao } from "@/lib/supabase/notificacoes";
+import { numeroDoSino, useSino } from "@/lib/use-sino";
+import { PainelDoSino } from "@/components/notificacoes/painel-sino";
 
 export function VendorTopbar() {
   const router = useRouter();
   const { profile, clearProfile } = useUserProfile();
-  const { relacionamentos } = useAppData();
   const nome = profile.nome;
   const cargo = `${profile.cargo} · ${profile.empresa}`;
   const avatarIniciais = profile.avatarIniciais;
   const [busca, setBusca] = useState("");
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
-  const [notificacoesLidas, setNotificacoesLidas] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
   const [saindo, setSaindo] = useState(false);
   const painelRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const todasNotificacoes = computePendingTasks(relacionamentos);
-  // Respeita o interruptor "Follow-ups atrasados" das Configurações.
-  const [avisarFollowUp, setAvisarFollowUp] = useState(true);
-  useEffect(() => {
-    try {
-      setAvisarFollowUp(localStorage.getItem("aura:avisoFollowUp") !== "false");
-    } catch {
-      /* navegador sem armazenamento: mantém ligado */
-    }
-  }, []);
-  const avisoMissoes = useAvisoMissoes();
-  const notificacoes = [...(avisoMissoes ? [avisoMissoes] : []), ...(avisarFollowUp ? todasNotificacoes : [])];
-
-  // Avisos gravados pelo sistema (lead novo, lead sem resposta, negócio que
-  // entrou no pipeline, alertas do WhatsApp). Antes eram gravados no banco e
-  // não apareciam em lugar nenhum.
-  const [avisos, setAvisos] = useState<Notificacao[]>([]);
-  useEffect(() => {
-    let vivo = true;
-    async function carregar() {
-      const lista = await listarNotificacoes();
-      if (vivo) setAvisos(lista.filter((a) => !a.lida));
-    }
-    void carregar();
-    const t = setInterval(() => void carregar(), 60_000);
-    return () => {
-      vivo = false;
-      clearInterval(t);
-    };
-  }, []);
-
-  const naoLidas = notificacoesLidas ? 0 : notificacoes.length + avisos.length;
+  const sino = useSino();
 
   useEffect(() => {
     function aoClicarFora(e: MouseEvent) {
@@ -121,67 +86,25 @@ export function VendorTopbar() {
             type="button"
             onClick={() => {
               setNotificacoesAbertas((v) => !v);
-              setNotificacoesLidas(true);
+              sino.abrir();
             }}
             aria-label="Notificações"
             className="relative flex h-10 w-10 items-center justify-center rounded-full text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
           >
             <Bell size={19} />
-            {naoLidas > 0 && (
-              <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-aura-danger text-[0.6rem] font-semibold text-white">
-                {naoLidas}
+            {sino.numero > 0 && (
+              <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-aura-danger px-1 text-[0.6rem] font-semibold text-white">
+                {numeroDoSino(sino.numero)}
               </span>
             )}
           </button>
 
           {notificacoesAbertas && (
-            <div className="absolute right-0 z-20 mt-2 w-72 overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-lg shadow-black/10">
-              <p className="border-b border-aura-mist px-4 py-3 text-sm font-medium text-aura-graphite">
-                Notificações
-              </p>
-              {notificacoes.length === 0 && avisos.length === 0 ? (
-                <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">
-                  Nada pendente agora.
-                </p>
-              ) : (
-                <ul className="max-h-72 overflow-y-auto">
-                  {avisos.map((a) => (
-                    <li key={a.id} className="border-b border-aura-mist last:border-b-0">
-                      <Link
-                        href={a.acaoUrl || "/meu-dia"}
-                        onClick={() => {
-                          setNotificacoesAbertas(false);
-                          setAvisos((atual) => atual.filter((x) => x.id !== a.id));
-                          void marcarComoLida(a.id);
-                        }}
-                        className="block px-4 py-3 hover:bg-aura-bg"
-                      >
-                        <p className="text-sm font-medium text-aura-graphite">{a.titulo}</p>
-                        <p className="mt-1 text-xs text-aura-graphite-soft">{a.mensagem}</p>
-                      </Link>
-                    </li>
-                  ))}
-                  {notificacoes.map((n) => (
-                    <li key={n.id} className="border-b border-aura-mist last:border-b-0">
-                      <Link
-                        href={n.href ?? `/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`}
-                        onClick={() => setNotificacoesAbertas(false)}
-                        className="block px-4 py-3 hover:bg-aura-bg"
-                      >
-                        <p className="text-sm font-medium text-aura-graphite">{n.titulo}</p>
-                        <p
-                          className={`mt-1 text-xs font-medium ${
-                            n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"
-                          }`}
-                        >
-                          {n.quando}
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <PainelDoSino
+              sino={sino}
+              aoFechar={() => setNotificacoesAbertas(false)}
+              className="absolute right-0 z-20 mt-2 w-80 overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-lg shadow-black/10"
+            />
           )}
         </div>
 
