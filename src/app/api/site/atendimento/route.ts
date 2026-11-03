@@ -194,7 +194,8 @@ export async function POST(request: Request) {
           titulo: "Cliente do site da MF para você",
           mensagem: `${envio.nome || "Um cliente"}${envio.cidade ? ` (${envio.cidade})` : ""} pediu ajuda pelo site.${recado ? ` Recado: ${recado}` : ""}${envio.telefone ? ` WhatsApp: +${envio.telefone}` : ""}`,
           tipo: "lead",
-          acao_url: "/site-mf",
+          // Toque abre a conversa do cliente no WhatsApp da AURA.
+          acao_url: envio.telefone ? `/whatsapp?numero=${String(envio.telefone).replace(/\D/g, "")}` : "/site-mf",
         });
       }
       return NextResponse.json({ ok: true, responsavel: p.nome });
@@ -315,15 +316,13 @@ export async function POST(request: Request) {
       });
     }
 
-    if (vendedorId) {
-      await sb.from("notificacoes").insert({
-        vendedor_id: vendedorId,
-        titulo: "Lead transferido pela MF",
-        mensagem: `${envio.nome || "Um cliente"}${envio.cidade ? ` (${envio.cidade})` : ""} veio do site da MF para você.${recado ? ` Recado: ${recado}` : ""}`,
-        tipo: "lead",
-        acao_url: "/leads",
-      });
-    }
+    /*
+     * O aviso para quem recebe o lead sai do gatilho do banco
+     * (aura_avisar_dono_do_lead, migration 101), que dispara em todo lead que
+     * ganha dono — com o WhatsApp do cliente, o recado (que vai na mensagem
+     * inicial, acima) e o toque que abre a conversa. Gravar outro aqui fazia
+     * a vendedora receber dois avisos por cliente.
+     */
 
     return NextResponse.json({ ok: true, vendedor: vendedorNome });
   }

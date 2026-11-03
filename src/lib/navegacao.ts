@@ -33,8 +33,18 @@ function normalizar(texto?: string | null) {
   return (texto ?? "").trim().toLowerCase();
 }
 
+/**
+ * MENU ÚNICO para vendedor externo e vendedor interno (decisão do Elton,
+ * 03/11). Antes o interno via "Atendimento", "Orçamentos" e "Follow-ups"
+ * onde o externo via "Relacionamentos", "Vendas" e "Atividades" — as mesmas
+ * telas com nomes diferentes — e o externo não tinha a aba Leads, embora
+ * também receba lead (do site, transferido de outra loja). Leads e WhatsApp
+ * vêm logo depois do Meu Dia porque são o que a pessoa abre primeiro.
+ */
 const VENDEDOR: ItemMenu[] = [
   { href: "/meu-dia", label: "Meu Dia", icon: Home },
+  { href: "/leads", label: "Leads", icon: UserPlus },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/agenda", label: "Agenda", icon: Calendar },
   { href: "/relacionamentos", label: "Relacionamentos", icon: Users },
   { href: "/pipeline", label: "Pipeline", icon: Filter },
@@ -42,7 +52,6 @@ const VENDEDOR: ItemMenu[] = [
   { href: "/registrar-atividade", label: "Atividades", icon: ClipboardCheck },
   { href: "/relatorio", label: "Relatórios", icon: FileText },
   { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { href: "/academy", label: "Academy", icon: GraduationCap },
   { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
 ];
@@ -72,20 +81,7 @@ const SDR: ItemMenu[] = [
   { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
 ];
 
-const VENDEDOR_INTERNO: ItemMenu[] = [
-  { href: "/meu-dia", label: "Meu Dia", icon: Home },
-  { href: "/leads", label: "Leads", icon: UserPlus },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/relacionamentos", label: "Atendimento", icon: Users },
-  { href: "/pipeline", label: "Pipeline", icon: Filter },
-  { href: "/vendas", label: "Orçamentos", icon: ShoppingBag },
-  { href: "/registrar-atividade", label: "Follow-ups", icon: ClipboardCheck },
-  { href: "/relatorio", label: "Relatórios", icon: FileText },
-  { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/academy", label: "Academy", icon: GraduationCap },
-  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
-];
+const VENDEDOR_INTERNO: ItemMenu[] = VENDEDOR;
 
 /**
  * Menu principal do cargo.

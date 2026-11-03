@@ -261,7 +261,18 @@ export default function LeadsPage() {
                             {restante}
                           </span>
                         )}
-                        <div className="ml-auto flex gap-2">
+                        <div className="ml-auto flex flex-wrap justify-end gap-2">
+                          {/* O primeiro passo com o lead é chamar no WhatsApp,
+                              pela AURA, para a conversa ficar registrada. */}
+                          {lead.telefone && (
+                            <a
+                              href={`/whatsapp?numero=${lead.telefone.replace(/\D/g, "")}`}
+                              className="flex items-center gap-1.5 rounded-full bg-[#00a884] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                            >
+                              <MessageSquare size={12} />
+                              Chamar no WhatsApp
+                            </a>
+                          )}
                           <button
                             type="button"
                             onClick={() => perder(lead)}

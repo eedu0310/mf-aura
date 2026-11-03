@@ -455,6 +455,37 @@ export default function WhatsAppPage() {
     setNovaAberta(true);
   }
 
+  /*
+   * Link direto para um cliente: /whatsapp?numero=5551999999999.
+   *
+   * É o que o aviso de lead novo usa: a vendedora toca no sino e cai na
+   * conversa daquele cliente (ou no "Nova conversa" já com o número), em vez
+   * de copiar o telefone de um lugar e colar no outro. Espera o WhatsApp
+   * conectar e a lista de conversas chegar, abre uma vez e tira o número da
+   * barra de endereço, para o F5 não reabrir.
+   */
+  const numeroDoLink = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      numeroDoLink.current = new URLSearchParams(window.location.search).get("numero");
+    } catch {
+      numeroDoLink.current = null;
+    }
+  }, []);
+  useEffect(() => {
+    const numero = numeroDoLink.current;
+    if (!numero || !connected || !state) return;
+    numeroDoLink.current = null;
+    abrirNumero(numero);
+    try {
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch {
+      /* sem history: o número fica na barra, sem problema */
+    }
+    // abrirNumero muda a cada render; o que importa é abrir uma vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, state]);
+
   /** Leva a mensagem que foi citada, e pisca para a pessoa achar. */
   function irParaMensagem(id: string) {
     const el = document.getElementById(`msg-${id}`);

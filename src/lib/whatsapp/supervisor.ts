@@ -2413,6 +2413,32 @@ async function medirSugestao(userId: string, chatJid: string, msg: WaMessage) {
   await registrarEnvio(sb, { empresa, ownerId: userId, chatJid, sugestao, enviado: texto });
 }
 
+/**
+ * O vendedor respondeu o cliente — pelo celular ou pela AURA — e o lead
+ * daquele número sai da fila como respondido.
+ *
+ * Antes só a resposta enviada pela tela da AURA fechava o lead. Quem
+ * respondia pelo celular (o normal para a vendedora interna) deixava o lead
+ * "aguardando", o prazo vencia, o gestor recebia "lead sem resposta" de quem
+ * já tinha sido atendido e o negócio não entrava no pipeline. Uma consulta
+ * por conversa a cada 10 minutos basta: o lead só precisa fechar uma vez.
+ */
+const leadFechadoEm = ((globalThis as any).__auraLeadFechadoEm ??= new Map<string, number>()) as Map<string, number>;
+
+async function fecharLeadRespondido(userId: string, chatJid: string) {
+  if (chatJid.endsWith("@g.us")) return; // grupo não é cliente
+  const key = `${userId}|${chatJid}`;
+  const ultimo = leadFechadoEm.get(key) ?? 0;
+  if (Date.now() - ultimo < 10 * 60_000) return;
+  leadFechadoEm.set(key, Date.now());
+  const chat = getChat(userId, chatJid);
+  const sb = db();
+  if (!sb || !chat?.phone) return;
+  const empresa = await empresaDo(userId);
+  if (!empresa) return;
+  await marcarLeadRespondidoPorTelefone(sb, empresa, chat.phone, userId);
+}
+
 export function alertasDoChat(userId: string, chatJid: string) {
   return calcularAlertas(getMessages(userId, chatJid));
 }
@@ -2423,6 +2449,7 @@ if (!g.__auraSupStarted) {
     agendarAnalise(userId, chatJid);
     if (msg.fromMe) {
       registrarAtividadeWhats(userId, chatJid).catch((e) => console.error("[supervisor]", e));
+      fecharLeadRespondido(userId, chatJid).catch((e) => console.error("[supervisor] fechar lead:", e));
       medirSugestao(userId, chatJid, msg).catch((e) => console.error("[supervisor] medir sugestão:", e));
     } else if (msg.text?.trim() || msg.hasMedia) {
       const sb = db();
