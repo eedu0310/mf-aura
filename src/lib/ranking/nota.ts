@@ -1,5 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { ehGanho, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
+import { ehGanho, FUNIL_PADRAO, nomeDaChave, type EtapaFunil } from "@/lib/funil";
 import { participaDaVenda, somaDoVendedor } from "@/lib/parceria";
 
 /**
@@ -52,6 +52,8 @@ export interface Insumos {
     valor_fechado: number | null;
     valor: number | null;
     relacionamento_id: string | null;
+    /** De onde veio o cliente: "marketing" é lead de anúncio/campanha. */
+    origem_lead?: string | null;
     /** Atendimento em dupla. Ver src/lib/parceria.ts. */
     parceiro_id: string | null;
     percentual_parceiro: number | null;
@@ -65,9 +67,16 @@ export interface Insumos {
     proximo_contato_em: string | null;
     ultimo_contato_em: string | null;
     created_at: string;
+    /** "marketing" = lead de anúncio/campanha, que o vendedor recebeu e não trouxe. */
+    origem_lead?: string | null;
   }[];
-  atividades: { owner_id: string | null }[];
-  avaliacoes: { vendedor_id: string | null; aberto_em: string | null; confirmado_em: string | null }[];
+  atividades: { owner_id: string | null; titulo?: string | null; relacionamento_id?: string | null }[];
+  avaliacoes: {
+    vendedor_id: string | null;
+    enviado_em?: string | null;
+    aberto_em: string | null;
+    confirmado_em: string | null;
+  }[];
   oportunidades: { owner_id: string | null; relacionamento_id: string | null; etapa: string }[];
   /**
    * O funil da loja. Sem ele a nota não saberia qual etapa significa venda
@@ -91,6 +100,9 @@ export function calcularCrmEmDia(
   }
   return Math.round((pontos / rels.length) * 100);
 }
+
+/** Lead de anúncio/campanha: chegou para o vendedor, não foi ele que trouxe. */
+const deMarketing = (origem: string | null | undefined) => origem === "marketing";
 
 /** Quanto a pessoa fez, na unidade de cada medida. */
 function quantoFez(
@@ -121,9 +133,11 @@ function quantoFez(
     }
 
     case "prospeccao_fechada": {
+      // Só o contato que o vendedor trouxe: lead de anúncio fechado conta em
+      // "venda_lead", não aqui.
       const nasceramNoPeriodo = new Set(
         d.relacionamentos
-          .filter((r) => r.owner_id === pessoaId && r.created_at >= desdeIso)
+          .filter((r) => r.owner_id === pessoaId && r.created_at >= desdeIso && !deMarketing(r.origem_lead))
           .map((r) => r.id),
       );
       return d.oportunidades.filter(
@@ -147,13 +161,44 @@ function quantoFez(
       return somaDoVendedor(d.vendas, pessoaId);
 
     case "prospeccao": {
+      // Prospecção é o contato que o vendedor TROUXE. Os leads de anúncio
+      // entram sozinhos em Relacionamentos (desde 27/10) e, contados aqui,
+      // davam 200 "prospecções" para quem só recebeu o lead.
       const alvos = categoriaAlvo ? categoriaAlvo.split(",").map((c) => c.trim()) : [];
       return d.relacionamentos.filter(
         (r) =>
           r.owner_id === pessoaId &&
           r.created_at >= desdeIso &&
+          !deMarketing(r.origem_lead) &&
           (!alvos.length || alvos.includes(r.categoria ?? "")),
       ).length;
+    }
+
+    case "lead_recebido":
+      // Leads de anúncio/campanha que chegaram para a pessoa no período.
+      return d.relacionamentos.filter(
+        (r) => r.owner_id === pessoaId && r.created_at >= desdeIso && deMarketing(r.origem_lead),
+      ).length;
+
+    case "venda_lead":
+      // Venda fechada de cliente que veio de anúncio/campanha.
+      return d.vendas.filter((v) => participaDaVenda(v, pessoaId) && deMarketing(v.origem_lead)).length;
+
+    case "avaliacao_enviada":
+      return d.avaliacoes.filter((a) => a.vendedor_id === pessoaId && !!a.enviado_em).length;
+
+    case "negociacao": {
+      // Negócio que chegou em Negociação no período, pelo registro da
+      // movimentação (arrasto do vendedor ou avanço da AURA). Um por cliente:
+      // o card que foi e voltou não conta duas vezes.
+      const etapa = (nomeDaChave("negociacao", d.funil ?? FUNIL_PADRAO) ?? "Negociação").toLowerCase();
+      const clientes = new Set<string>();
+      for (const a of d.atividades) {
+        if (a.owner_id !== pessoaId || !a.titulo) continue;
+        const destino = a.titulo.split("→")[1]?.trim().toLowerCase();
+        if (destino === etapa) clientes.add(a.relacionamento_id ?? a.titulo);
+      }
+      return clientes.size;
     }
 
     case "atividades":

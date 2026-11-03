@@ -20,6 +20,27 @@ export const dynamic = "force-dynamic";
 
 const MF = "MF International";
 
+/**
+ * Lê TODAS as linhas, de 1000 em 1000.
+ *
+ * O banco devolve no máximo 1000 linhas por consulta, calado. Com 1268
+ * atividades e 1084 contatos nos últimos 90 dias, o ranking estava contando
+ * só uma parte — e qual parte dependia da ordem que o banco escolhesse.
+ */
+async function todasAsLinhas<T>(
+  montar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[]; error: unknown }> {
+  const PAGINA = 1000;
+  const linhas: T[] = [];
+  for (let de = 0; de < 50_000; de += PAGINA) {
+    const { data, error } = await montar(de, de + PAGINA - 1);
+    if (error) return { data: linhas, error };
+    linhas.push(...(data ?? []));
+    if (!data || data.length < PAGINA) break;
+  }
+  return { data: linhas, error: null };
+}
+
 export async function GET(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Usuário não autenticado." }, { status: 401 });
@@ -57,23 +78,43 @@ export async function GET(request: Request) {
       .in("cargo", CARGOS_QUE_VENDEM)
       .eq("ativo", true)
       .is("excluido_em", null),
-    supabase
-      .from("vendas")
-      .select(
-        "owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro",
-      )
-      .gte("data", desdeDia),
-    supabase.from("vendas").select("relacionamento_id").lt("data", desdeDia),
-    supabase
-      .from("relacionamentos")
-      .select("id,owner_id,categoria,proximo_contato_em,ultimo_contato_em,created_at")
-      .limit(5000),
-    supabase.from("atividades").select("owner_id").gte("created_at", desdeIso),
-    supabase
-      .from("pedidos_avaliacao")
-      .select("vendedor_id,aberto_em,confirmado_em")
-      .gte("criado_em", desdeIso),
-    supabase.from("oportunidades").select("owner_id,relacionamento_id,etapa"),
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("vendas")
+        .select("id,owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro,origem_lead")
+        .gte("data", desdeDia)
+        .order("id")
+        .range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase.from("vendas").select("id,relacionamento_id").lt("data", desdeDia).order("id").range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("relacionamentos")
+        .select("id,owner_id,categoria,proximo_contato_em,ultimo_contato_em,created_at,origem_lead")
+        .order("id")
+        .range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("atividades")
+        .select("id,owner_id,titulo,relacionamento_id")
+        .gte("created_at", desdeIso)
+        .order("id")
+        .range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("pedidos_avaliacao")
+        .select("id,vendedor_id,enviado_em,aberto_em,confirmado_em")
+        .gte("criado_em", desdeIso)
+        .order("id")
+        .range(de, ate),
+    ),
+    todasAsLinhas((de, ate) =>
+      supabase.from("oportunidades").select("id,owner_id,relacionamento_id,etapa").order("id").range(de, ate),
+    ),
   ]);
 
   if (erroPessoas) {

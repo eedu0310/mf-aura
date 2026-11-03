@@ -174,6 +174,27 @@ export function RankingConfigTab() {
                   />
                 </label>
 
+                {/*
+                  O que o critério CONTA, ao lado do nome. Antes só o nome era
+                  editável: renomear "Avaliações" para "Venda lead fechada"
+                  deixava a aba com um nome e contando outra coisa, e o
+                  ranking parecia ter números absurdos.
+                */}
+                <label className="min-w-48 flex-1 text-xs text-aura-graphite-soft">
+                  O que conta
+                  <select
+                    value={c.medida}
+                    onChange={(e) => void editarCriterio(c.id, { medida: e.target.value })}
+                    className="mt-1 w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite focus:border-aura-petrol-500 focus:outline-none"
+                  >
+                    {medidas.map((m) => (
+                      <option key={m.valor} value={m.valor}>
+                        {m.rotulo}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
                 <label className="w-24 text-xs text-aura-graphite-soft">
                   Peso
                   <input

@@ -7,12 +7,16 @@ export const dynamic = "force-dynamic";
 
 /** As medidas que o sistema sabe calcular, para a tela montar o seletor. */
 const MEDIDAS = [
-  { valor: "avaliacao_conquistada", rotulo: "Avaliações conquistadas", ajuda: "Conta quando o cliente abre o link ou o gestor confirma — não quando o vendedor manda." },
+  { valor: "avaliacao_conquistada", rotulo: "Avaliações recebidas", ajuda: "Conta quando o cliente abre o link ou o gestor confirma — não quando o vendedor manda." },
+  { valor: "avaliacao_enviada", rotulo: "Avaliações enviadas", ajuda: "Pedidos de avaliação que o vendedor mandou ao cliente no período." },
   { valor: "recompra", rotulo: "Recompra", ajuda: "Venda para cliente que já havia comprado antes do período." },
-  { valor: "prospeccao_fechada", rotulo: "Prospecção que fechou", ajuda: "Contato novo trazido no período que chegou a Fechados." },
+  { valor: "prospeccao_fechada", rotulo: "Prospecção que fechou", ajuda: "Contato novo trazido pelo vendedor no período (sem lead de anúncio) que chegou a Fechados." },
+  { valor: "venda_lead", rotulo: "Venda de lead fechada", ajuda: "Venda fechada de cliente que veio de anúncio ou campanha de marketing." },
+  { valor: "lead_recebido", rotulo: "Leads recebidos", ajuda: "Leads de anúncio ou campanha que chegaram para a pessoa no período." },
+  { valor: "negociacao", rotulo: "Negócios em Negociação", ajuda: "Negócios que chegaram na etapa Negociação no período (um por cliente)." },
   { valor: "venda_nova", rotulo: "Vendas fechadas", ajuda: "Quantidade de negócios fechados no período." },
   { valor: "faturamento", rotulo: "Faturamento", ajuda: "Soma vendida no período, em reais." },
-  { valor: "prospeccao", rotulo: "Prospecção por categoria", ajuda: "Contatos novos. Escolha a categoria no campo ao lado." },
+  { valor: "prospeccao", rotulo: "Prospecção por categoria", ajuda: "Contatos novos que o vendedor trouxe (sem lead de anúncio). Escolha a categoria no campo ao lado." },
   { valor: "atividades", rotulo: "Atividades registradas", ajuda: "Quantidade de atividades lançadas no período." },
   { valor: "crm_em_dia", rotulo: "CRM em dia", ajuda: "Percentual de preenchimento: próximo contato, categoria e último contato. Meta 100." },
 ];
@@ -115,7 +119,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Edita peso, meta, título ou liga/desliga um critério. */
+/** Edita peso, meta, título, o que conta (medida) ou liga/desliga um critério. */
 export async function PUT(request: Request) {
   const { erro } = await somenteGestor();
   if (erro) return erro;
@@ -130,6 +134,12 @@ export async function PUT(request: Request) {
   if (c.metaMes !== undefined) patch.meta_mes = Math.max(Number(c.metaMes) || 1, 0.01);
   if (c.categoriaAlvo !== undefined) patch.categoria_alvo = c.categoriaAlvo || null;
   if (c.ativo !== undefined) patch.ativo = Boolean(c.ativo);
+  if (c.medida !== undefined) {
+    if (!MEDIDAS.some((m) => m.valor === c.medida)) {
+      return NextResponse.json({ erro: "Essa medida não existe." }, { status: 400 });
+    }
+    patch.medida = c.medida;
+  }
 
   if (!Object.keys(patch).length) {
     return NextResponse.json({ erro: "Nada para atualizar." }, { status: 400 });
