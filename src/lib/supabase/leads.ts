@@ -204,3 +204,66 @@ export async function definirConfigDistribuicao(empresa: string, minutos: number
   }
   return true;
 }
+
+/** Nome de cada vendedor/SDR pelo id, para filtros e relatórios. */
+export async function buscarNomesDosVendedores(ids: string[]): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  const supabase = getSupabaseBrowserClient();
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (!supabase || unicos.length === 0) return mapa;
+  const { data, error } = await supabase.from("profiles").select("id, nome").in("id", unicos);
+  if (error) console.error("Erro ao buscar nomes dos vendedores:", error);
+  for (const p of data ?? []) mapa.set(p.id as string, String(p.nome ?? "").trim() || "Vendedor sem nome");
+  return mapa;
+}
+
+/**
+ * Atividades registradas com os clientes dos leads, da mais antiga para a
+ * mais nova, para saber quando cada lead foi atendido. Ficam de fora as que a
+ * IA cria sozinha ao abrir a oportunidade (origem whatsapp_ia): não são
+ * atendimento de ninguém. Busca em blocos para não estourar o tamanho do
+ * endereço nem o limite de 1000 linhas por consulta.
+ */
+export async function buscarAtividadesDosLeads(
+  relacionamentoIds: string[],
+): Promise<Map<string, { em: number; tipo: string; origem: string | null }[]>> {
+  const mapa = new Map<string, { em: number; tipo: string; origem: string | null }[]>();
+  const supabase = getSupabaseBrowserClient();
+  const unicos = [...new Set(relacionamentoIds.filter(Boolean))];
+  if (!supabase || unicos.length === 0) return mapa;
+
+  const BLOCO = 40;
+  const blocos: string[][] = [];
+  for (let i = 0; i < unicos.length; i += BLOCO) blocos.push(unicos.slice(i, i + BLOCO));
+
+  const respostas = await Promise.all(
+    blocos.map((ids) =>
+      supabase
+        .from("atividades")
+        .select("relacionamento_id, created_at, tipo, origem")
+        .in("relacionamento_id", ids)
+        .or("origem.is.null,origem.neq.whatsapp_ia")
+        .order("created_at", { ascending: true })
+        .limit(1000),
+    ),
+  );
+  for (const { data, error } of respostas) {
+    if (error) {
+      console.error("Erro ao buscar atividades dos leads:", error);
+      continue;
+    }
+    for (const linha of data ?? []) {
+      const id = linha.relacionamento_id as string;
+      const item = {
+        em: new Date(linha.created_at as string).getTime(),
+        tipo: String(linha.tipo ?? ""),
+        origem: (linha.origem as string) ?? null,
+      };
+      const lista = mapa.get(id);
+      if (lista) lista.push(item);
+      else mapa.set(id, [item]);
+    }
+  }
+  for (const lista of mapa.values()) lista.sort((a, b) => a.em - b.em);
+  return mapa;
+}

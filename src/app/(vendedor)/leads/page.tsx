@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Phone, MessageSquare, CheckCircle2, Clock, XCircle, Users, AlertTriangle, Trash2 } from "lucide-react";
+import { Loader2, Phone, MessageSquare, CheckCircle2, Clock, XCircle, Users, AlertTriangle, Trash2, ListChecks, FileBarChart } from "lucide-react";
 import {
   listarLeads,
   marcarLeadRespondido,
   marcarLeadPerdido,
   excluirLead,
   buscarDiasSemAtividade,
+  buscarNomesDosVendedores,
   type Lead,
   type StatusLead,
 } from "@/lib/supabase/leads";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { donoDoLead, SEM_VENDEDOR } from "@/lib/leads/atendimento";
+import { RelatorioAtendimento } from "@/components/leads/relatorio-atendimento";
 
 const STATUS_LABEL: Record<StatusLead, string> = {
   aguardando_sdr: "Aguardando distribuição",
@@ -49,6 +52,9 @@ export default function LeadsPage() {
   const [diasSemAtividade, setDiasSemAtividade] = useState<Map<string, number>>(new Map());
   const [carregando, setCarregando] = useState(true);
   const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas");
+  const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
+  const [aba, setAba] = useState<"fila" | "relatorio">("fila");
+  const [nomes, setNomes] = useState<Map<string, string>>(new Map());
 
   async function carregar() {
     const lista = await listarLeads();
@@ -56,6 +62,9 @@ export default function LeadsPage() {
       setLeads(lista);
       const ids = lista.map((l) => l.relacionamentoId).filter((id): id is string => Boolean(id));
       buscarDiasSemAtividade(ids).then(setDiasSemAtividade);
+      buscarNomesDosVendedores(
+        lista.map(donoDoLead).filter((id) => id !== SEM_VENDEDOR),
+      ).then(setNomes);
     }
     setCarregando(false);
   }
@@ -100,9 +109,27 @@ export default function LeadsPage() {
 
   const lojas = useMemo(() => [...new Set(leads.map((l) => l.empresa))], [leads]);
   const multiLoja = lojas.length > 1;
-  const leadsDaLoja = useMemo(
+  const leadsDaLojaToda = useMemo(
     () => (empresaFiltro === "todas" ? leads : leads.filter((l) => l.empresa === empresaFiltro)),
     [leads, empresaFiltro]
+  );
+
+  // Vendedores que têm lead na loja escolhida, para o filtro por vendedor.
+  const nomeDoVendedor = (id: string) =>
+    id === SEM_VENDEDOR ? "Sem vendedor" : nomes.get(id) ?? "Carregando...";
+  const vendedores = useMemo(() => {
+    const ids = [...new Set(leadsDaLojaToda.map(donoDoLead))];
+    return ids
+      .map((id) => ({ id, nome: id === SEM_VENDEDOR ? "Sem vendedor" : nomes.get(id) ?? "Vendedor" }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [leadsDaLojaToda, nomes]);
+  const multiVendedor = vendedores.length > 1;
+  const vendedorValido = vendedorFiltro === "todos" || vendedores.some((v) => v.id === vendedorFiltro);
+  const vendedorAtivo = vendedorValido ? vendedorFiltro : "todos";
+
+  const leadsDaLoja = useMemo(
+    () => (vendedorAtivo === "todos" ? leadsDaLojaToda : leadsDaLojaToda.filter((l) => donoDoLead(l) === vendedorAtivo)),
+    [leadsDaLojaToda, vendedorAtivo]
   );
 
   const ordemUrgencia: Record<string, number> = { alta: 0, media: 1, baixa: 2 };
@@ -113,16 +140,46 @@ export default function LeadsPage() {
   const respondidos = leadsDaLoja.filter((l) => l.status === "respondido");
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">Leads Recebidos</p>
-        <p className="text-sm text-aura-graphite-soft">
-          Novos contatos chegando automaticamente — responda antes do prazo esgotar.
-        </p>
+    <div className={`mx-auto flex w-full flex-col gap-6 pb-24 ${aba === "relatorio" ? "max-w-6xl" : "max-w-3xl"}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
+        <div>
+          <p className="font-display text-xl font-semibold text-aura-graphite">Leads Recebidos</p>
+          <p className="text-sm text-aura-graphite-soft">
+            {aba === "fila"
+              ? "Novos contatos chegando automaticamente — responda antes do prazo esgotar."
+              : "Quantos leads chegaram, quem atendeu, em quanto tempo e quem ficou sem resposta."}
+          </p>
+        </div>
+        <div className="flex rounded-full border border-aura-mist bg-white p-0.5" role="tablist" aria-label="Fila ou relatório">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === "fila"}
+            onClick={() => setAba("fila")}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              aba === "fila" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:text-aura-petrol-700"
+            }`}
+          >
+            <ListChecks size={13} />
+            Fila de leads
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={aba === "relatorio"}
+            onClick={() => setAba("relatorio")}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              aba === "relatorio" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:text-aura-petrol-700"
+            }`}
+          >
+            <FileBarChart size={13} />
+            Relatório de atendimento
+          </button>
+        </div>
       </div>
 
       {multiLoja && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 print:hidden">
           <button
             type="button"
             onClick={() => setEmpresaFiltro("todas")}
@@ -151,7 +208,38 @@ export default function LeadsPage() {
         </div>
       )}
 
-      {carregando ? (
+      {multiVendedor && (
+        <label className="flex w-fit items-center gap-2 text-xs text-aura-graphite-soft print:hidden">
+          Vendedor
+          <select
+            value={vendedorAtivo}
+            onChange={(e) => setVendedorFiltro(e.target.value)}
+            className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
+          >
+            <option value="todos">Todos os vendedores</option>
+            {vendedores.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
+      {aba === "relatorio" ? (
+        carregando ? (
+          <div className="flex justify-center py-16 text-aura-graphite-soft">
+            <Loader2 size={20} className="animate-spin" />
+          </div>
+        ) : (
+          <RelatorioAtendimento
+            leads={leadsDaLoja}
+            nomes={nomes}
+            lojaTexto={empresaFiltro === "todas" ? (multiLoja ? "Todas as lojas" : lojas[0] ?? "—") : empresaFiltro}
+            vendedorTexto={vendedorAtivo === "todos" ? "Todos os vendedores" : nomeDoVendedor(vendedorAtivo)}
+          />
+        )
+      ) : carregando ? (
         <div className="flex justify-center py-16 text-aura-graphite-soft">
           <Loader2 size={20} className="animate-spin" />
         </div>
@@ -192,6 +280,11 @@ export default function LeadsPage() {
                           {lead.origem?.startsWith("Site MF") && (
                             <span className="mt-1 inline-block w-fit rounded-full bg-[#CD1C1B]/10 px-2 py-0.5 text-[0.65rem] font-medium text-[#9b1515]">
                               {lead.origem.replace(/^Site MF · /, "Site MF: ")}
+                            </span>
+                          )}
+                          {multiVendedor && vendedorAtivo === "todos" && (
+                            <span className="mt-1 mr-1 inline-block w-fit rounded-full bg-aura-graphite-soft/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-graphite">
+                              {nomeDoVendedor(donoDoLead(lead))}
                             </span>
                           )}
                           {multiLoja && empresaFiltro === "todas" && (
