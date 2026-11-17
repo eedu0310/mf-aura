@@ -80,7 +80,14 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_VERSAO: VERSAO_DO_BUILD },
   // Pacotes de servidor que não devem ser empacotados pelo Next (o Baileys é
   // ESM puro e usa módulos nativos do Node; empacotado ele quebra em runtime).
-  serverExternalPackages: ["@whiskeysockets/baileys", "pino", "qrcode", "jimp", "sharp"],
+  //
+  // A pdf.js (leitura dos PDFs que o gestor envia para a AURA estudar) também
+  // fica de fora: no servidor ela roda sem worker de verdade e, para isso,
+  // carrega o arquivo pdf.worker.mjs que fica AO LADO dela. Empacotada, ela
+  // passava a procurar esse arquivo dentro de .next/server/chunks, onde ele
+  // não existe, e todo PDF falhava com "Setting up fake worker failed"
+  // (17/11/2026). Fora do pacote, ela acha o worker em node_modules.
+  serverExternalPackages: ["@whiskeysockets/baileys", "pino", "qrcode", "jimp", "sharp", "pdfjs-dist"],
 };
 
 export default nextConfig;
