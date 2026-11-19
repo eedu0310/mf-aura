@@ -21,6 +21,7 @@ import { BriefingDoDia } from "@/components/meu-dia/briefing-do-dia";
 
 import { useAppData } from "@/lib/app-data-context";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
+import { CobrancaSupervisora } from "@/components/meu-dia/cobranca-supervisora";
 import { computeDnaScore } from "@/lib/compute-dna-score";
 import { quandoAconteceu } from "@/lib/date-local";
 import { computeMissoesDoDia } from "@/lib/compute-missoes";
@@ -221,6 +222,8 @@ export default function MeuDiaPage() {
       <div className="grid items-start gap-6 pb-28 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
         <BriefingDoDia />
+
+        <CobrancaSupervisora />
 
         <AuraInsightCard pagina="meu-dia" />
 

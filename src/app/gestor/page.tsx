@@ -8,6 +8,7 @@ import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
 import { MarketingTab } from "@/components/gestor/marketing-tab";
 import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
 import { GestorPainelAura } from "@/components/aura/gestor-painel-aura";
+import { JustificativasEquipe } from "@/components/gestor/justificativas-equipe";
 import { CustoIAPainel } from "@/components/gestor/custo-ia-painel";
 import { AvaliacoesTab } from "@/components/gestor/avaliacoes-tab";
 import { RankingConfigTab } from "@/components/gestor/ranking-config-tab";
@@ -276,7 +277,12 @@ export default function GestorPage() {
         })}
       </nav>
 
-      {aba === "aura" && <GestorPainelAura />}
+      {aba === "aura" && (
+        <div className="space-y-5">
+          <JustificativasEquipe />
+          <GestorPainelAura />
+        </div>
+      )}
       {aba === "equipe" && <EquipeTab />}
       {aba === "movimentacao" && <MovimentacaoTab />}
       {aba === "atendimento" && <AtendimentoTab />}
