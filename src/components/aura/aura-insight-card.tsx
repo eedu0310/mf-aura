@@ -27,7 +27,7 @@ interface RespostaAura {
   manchete: string;
   foco: string;
   insights: Insight[];
-  kpis: { label: string; valor: string; tom?: Tom }[];
+  kpis: { label: string; valor: string; tom?: Tom; href?: string }[];
   fonte: "ia" | "regras";
   geradoEm: string;
   iaDisponivel: boolean;
@@ -189,15 +189,33 @@ export function AuraInsightCard({
           {/* Números-chave (exatos, vindos do banco) */}
           {dados?.kpis?.length ? (
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {dados.kpis.map((k) => (
-                <div key={k.label} className="rounded-xl border border-aura-mist bg-aura-bg/50 px-3 py-2">
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-aura-graphite-soft">
-                    <span className={`h-1.5 w-1.5 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
-                    {k.label}
-                  </p>
-                  <p className={`mt-0.5 text-xl font-bold tabular-nums ${COR_TOM[k.tom ?? "neutro"]}`}>{k.valor}</p>
-                </div>
-              ))}
+              {dados.kpis.map((k) => {
+                const miolo = (
+                  <>
+                    <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-aura-graphite-soft">
+                      <span className={`h-1.5 w-1.5 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
+                      {k.label}
+                    </p>
+                    <p className={`mt-0.5 text-xl font-bold tabular-nums ${COR_TOM[k.tom ?? "neutro"]}`}>{k.valor}</p>
+                  </>
+                );
+                // Cartão com destino vira link: a vendedora tocava em
+                // "Follow-ups vencidos" e nada abria.
+                return k.href ? (
+                  <Link
+                    key={k.label}
+                    href={k.href}
+                    className="rounded-xl border border-aura-mist bg-aura-bg/50 px-3 py-2 transition hover:border-aura-petrol-500 hover:bg-white"
+                    title={`Ver ${k.label.toLowerCase()}`}
+                  >
+                    {miolo}
+                  </Link>
+                ) : (
+                  <div key={k.label} className="rounded-xl border border-aura-mist bg-aura-bg/50 px-3 py-2">
+                    {miolo}
+                  </div>
+                );
+              })}
             </div>
           ) : carregando ? (
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">

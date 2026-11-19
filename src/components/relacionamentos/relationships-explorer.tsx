@@ -10,6 +10,12 @@ import { SeloOrigem } from "@/components/origem/selo-origem";
 import { RelacionamentoDetailsModal } from "./relacionamento-details-modal";
 import { NewRelationshipModal } from "./new-relationship-modal";
 import type { Relacionamento } from "@/lib/types";
+import {
+  TEXTO_FILTRO_ATENCAO,
+  lerFiltroAtencao,
+  passaNoFiltroAtencao,
+  type FiltroAtencao,
+} from "@/lib/relacionamento-atencao";
 
 export function RelationshipsExplorer() {
   const { relacionamentos, deleteRelacionamento, nomesPorOwnerId } = useAppData();
@@ -32,6 +38,12 @@ export function RelationshipsExplorer() {
   const [filtroLoja, setFiltroLoja] = useState<string>("todos");
   const [filtroVendedor, setFiltroVendedor] = useState<string>("todos");
   const [showNovaModal, setShowNovaModal] = useState(false);
+  /**
+   * Recorte que vem do Meu Dia (cartões e recados "follow-ups vencidos" e
+   * "esfriando"). Antes o botão levava à carteira inteira e a vendedora não
+   * achava quem estava atrasado: parecia que não tinha aberto nada.
+   */
+  const [filtroAtencao, setFiltroAtencao] = useState<FiltroAtencao | null>(null);
 
   /**
    * Abre direto no cliente quando alguém chega por um link de outra tela.
@@ -44,6 +56,7 @@ export function RelationshipsExplorer() {
   useEffect(() => {
     const id = searchParams.get("id");
     const buscar = searchParams.get("buscar");
+    setFiltroAtencao(lerFiltroAtencao(searchParams.get("filtro")));
 
     if (id) {
       const achado = (relacionamentos ?? []).find((r) => r.id === id);
@@ -57,6 +70,11 @@ export function RelationshipsExplorer() {
 
   const relacionamentosFiltrados = useMemo(() => {
     let resultado = relacionamentos;
+
+    if (filtroAtencao) {
+      const agora = Date.now();
+      resultado = resultado.filter((r) => passaNoFiltroAtencao(r, filtroAtencao, agora));
+    }
 
     // Filtro de busca
     if (searchQuery.trim()) {
@@ -88,7 +106,7 @@ export function RelationshipsExplorer() {
     }
 
     return resultado;
-  }, [relacionamentos, searchQuery, filtroTemperatura, filtroLoja, filtroVendedor]);
+  }, [relacionamentos, searchQuery, filtroTemperatura, filtroLoja, filtroVendedor, filtroAtencao]);
 
   /** Lojas e vendedores que realmente aparecem na carteira carregada. */
   const lojas = useMemo(
@@ -171,6 +189,24 @@ export function RelationshipsExplorer() {
               className="w-full rounded-lg border border-aura-mist bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
             />
           </div>
+
+          {filtroAtencao && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
+              <span>
+                Mostrando: <strong>{TEXTO_FILTRO_ATENCAO[filtroAtencao]}</strong> ({relacionamentosFiltrados.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroAtencao(null);
+                  window.history.replaceState(null, "", "/relacionamentos");
+                }}
+                className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
+              >
+                Ver todos os clientes
+              </button>
+            </div>
+          )}
 
           {/* Filtros */}
           <div className="flex flex-wrap gap-2">

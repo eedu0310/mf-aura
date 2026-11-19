@@ -106,6 +106,30 @@ const FERRAMENTA_RECADOS = {
   },
 };
 
+/**
+ * Tira emoji dos recados. A equipe reclamou de emoji "no meio das escritas";
+ * no cartão da AURA ele só atrapalha a leitura.
+ */
+export function semEmoji(texto: string): string {
+  return texto
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * Recado que fala de follow-up atrasado ou de cliente esfriando abre a lista
+ * certa, mesmo quando a IA mandou só "/relacionamentos". Senão o botão abria
+ * a carteira inteira e a vendedora não achava de quem o recado falava.
+ */
+export function destinoDoRecado(href: string, texto: string): string {
+  if (href !== "/relacionamentos") return href;
+  const t = texto.toLowerCase();
+  if (/follow[- ]?up|retorno|atrasad|vencid/.test(t)) return "/relacionamentos?filtro=vencidos";
+  if (/esfri|sem contato/.test(t)) return "/relacionamentos?filtro=esfriando";
+  return href;
+}
+
 export function limparCache(prefixo?: string) {
   for (const k of cache.keys()) if (!prefixo || k.startsWith(prefixo)) cache.delete(k);
 }
@@ -155,7 +179,8 @@ REGRAS DE ESCRITA (muito importante — vendedor não lê texto longo):
 - "insights": de 2 a 4 itens. "titulo" com no máximo 9 palavras; "detalhe" com no máximo 18 palavras e sempre com nome de cliente/valor/número quando houver.
 - Use SOMENTE os números e nomes das MÉTRICAS. Nunca invente cliente, valor ou prazo.
 - Cada insight é: "alerta" (risco de perder), "oportunidade" (dinheiro a ganhar), "dica" (como fazer melhor, baseada no manual) ou "conquista" (algo bom para comemorar).
-- Quando fizer sentido, inclua "acao" com um destes links: /meu-dia, /agenda, /relacionamentos, /pipeline, /vendas, /atividades, /registrar-atividade, /relatorio, /ranking, /whatsapp${gestor ? ", /gestor" : ""}.
+- Sem emoji em nenhum texto.
+- Quando fizer sentido, inclua "acao" com um destes links: /meu-dia, /agenda, /relacionamentos, /relacionamentos?filtro=vencidos (lista dos follow-ups vencidos), /relacionamentos?filtro=esfriando (lista de quem está esfriando), /pipeline, /vendas, /atividades, /registrar-atividade, /relatorio, /ranking, /whatsapp${gestor ? ", /gestor" : ""}.
 
 Entregue a resposta chamando a ferramenta "recados".
 
@@ -212,19 +237,19 @@ ${JSON.stringify(opts.recadosBase)}`;
     const tipos = ["alerta", "oportunidade", "dica", "conquista"];
     const insights: Insight[] = (Array.isArray(j.insights) ? j.insights : [])
       .slice(0, 4)
-      .map((i: any) => ({
-        tipo: tipos.includes(i?.tipo) ? i.tipo : "dica",
-        titulo: String(i?.titulo ?? "").slice(0, 90),
-        detalhe: i?.detalhe ? String(i.detalhe).slice(0, 180) : undefined,
-        acao:
+      .map((i: any) => {
+        const titulo = semEmoji(String(i?.titulo ?? "")).slice(0, 90);
+        const detalhe = i?.detalhe ? semEmoji(String(i.detalhe)).slice(0, 180) : undefined;
+        const acao =
           i?.acao?.href && typeof i.acao.href === "string" && i.acao.href.startsWith("/")
-            ? { label: String(i.acao.label ?? "Abrir").slice(0, 30), href: i.acao.href }
-            : undefined,
-      }))
+            ? { label: semEmoji(String(i.acao.label ?? "Abrir")).slice(0, 30), href: destinoDoRecado(i.acao.href, `${titulo} ${detalhe ?? ""}`) }
+            : undefined;
+        return { tipo: tipos.includes(i?.tipo) ? i.tipo : "dica", titulo, detalhe, acao };
+      })
       .filter((i: Insight) => i.titulo);
     const valor: RespostaAura = {
-      manchete: String(j.manchete ?? regras.manchete).slice(0, 80),
-      foco: String(j.foco ?? regras.foco).slice(0, 180),
+      manchete: semEmoji(String(j.manchete ?? regras.manchete)).slice(0, 80),
+      foco: semEmoji(String(j.foco ?? regras.foco)).slice(0, 180),
       insights: insights.length ? insights : regras.insights,
       fonte: "ia",
       geradoEm: new Date().toISOString(),

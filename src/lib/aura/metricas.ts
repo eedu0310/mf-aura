@@ -104,6 +104,10 @@ export interface ResumoVendedor {
   pipelineAbertoQtd: number;
   oportunidadesParadas: { cliente: string; etapa: string; dias: number; valor: number }[];
   followupsVencidos: { nome: string; dias: number }[];
+  /** Total de vencidos; a lista acima leva só os 8 primeiros. */
+  qtdFollowupsVencidos?: number;
+  /** Total esfriando; a lista leva só os 8 primeiros. */
+  qtdEsfriando?: number;
   esfriando: { nome: string; dias: number }[];
   semProximoContato: number;
   totalClientes: number;
@@ -224,6 +228,8 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     pipelineAbertoQtd: abertas.length,
     oportunidadesParadas: paradas.slice(0, 8),
     followupsVencidos: vencidos.slice(0, 8),
+    qtdFollowupsVencidos: vencidos.length,
+    qtdEsfriando: esfriando.length,
     esfriando: esfriando.slice(0, 8),
     semProximoContato: rels.filter((r) => !r.proximo_contato_em).length,
     totalClientes: rels.length,
@@ -263,7 +269,13 @@ export interface Kpi {
   label: string;
   valor: string;
   tom?: "bom" | "atencao" | "ruim" | "neutro";
+  /** Para onde o cartão leva ao ser tocado: a lista por trás do número. */
+  href?: string;
 }
+
+/** Links que abrem a carteira já no recorte de que o recado fala. */
+export const LINK_FOLLOWUPS_VENCIDOS = "/relacionamentos?filtro=vencidos";
+export const LINK_ESFRIANDO = "/relacionamentos?filtro=esfriando";
 
 export interface Insight {
   tipo: "alerta" | "oportunidade" | "dica" | "conquista";
@@ -278,16 +290,17 @@ export function kpisDaPagina(p: Pagina, r: ResumoVendedor): Kpi[] {
     valor: r.pctMeta != null ? `${r.pctMeta}%` : "sem meta",
     tom: r.pctMeta == null ? "neutro" : r.pctMeta >= 100 ? "bom" : r.pctMeta >= 60 ? "atencao" : "ruim",
   };
-  const vendido: Kpi = { label: "Vendido no mês", valor: moeda(r.vendasMes.valor), tom: "neutro" };
-  const pipe: Kpi = { label: "Pipeline aberto", valor: moeda(r.pipelineAbertoValor), tom: "neutro" };
+  meta.href = "/vendas";
+  const vendido: Kpi = { label: "Vendido no mês", valor: moeda(r.vendasMes.valor), tom: "neutro", href: "/vendas" };
+  const pipe: Kpi = { label: "Pipeline aberto", valor: moeda(r.pipelineAbertoValor), tom: "neutro", href: "/pipeline" };
   const ativ: Kpi = {
     label: "Atividades na semana",
     valor: r.metaAtividadesSemana ? `${r.atividadesSemana}/${r.metaAtividadesSemana}` : String(r.atividadesSemana),
     tom: r.metaAtividadesSemana ? (r.atividadesSemana >= r.metaAtividadesSemana ? "bom" : "atencao") : "neutro",
   };
-  const follow: Kpi = { label: "Follow-ups vencidos", valor: String(r.followupsVencidos.length), tom: r.followupsVencidos.length ? "ruim" : "bom" };
-  const paradas: Kpi = { label: "Negócios parados", valor: String(r.oportunidadesParadas.length), tom: r.oportunidadesParadas.length ? "atencao" : "bom" };
-  const whats: Kpi = { label: "WhatsApp esperando", valor: String(r.whatsAlertas.length), tom: r.whatsAlertas.length ? "ruim" : "bom" };
+  const follow: Kpi = { label: "Follow-ups vencidos", valor: String(r.qtdFollowupsVencidos ?? r.followupsVencidos.length), tom: r.followupsVencidos.length ? "ruim" : "bom", href: LINK_FOLLOWUPS_VENCIDOS };
+  const paradas: Kpi = { label: "Negócios parados", valor: String(r.oportunidadesParadas.length), tom: r.oportunidadesParadas.length ? "atencao" : "bom", href: "/pipeline" };
+  const whats: Kpi = { label: "WhatsApp esperando", valor: String(r.whatsAlertas.length), tom: r.whatsAlertas.length ? "ruim" : "bom", href: "/whatsapp" };
   const rank: Kpi = {
     label: "Posição no ranking",
     valor: r.ranking.posicao ? `${r.ranking.posicao}º de ${r.ranking.total}` : "—",
@@ -297,7 +310,7 @@ export function kpisDaPagina(p: Pagina, r: ResumoVendedor): Kpi[] {
 
   switch (p) {
     case "meu-dia":
-      return [meta, follow, whats, { label: "Compromissos hoje", valor: String(r.compromissosHoje.length), tom: "neutro" }];
+      return [meta, follow, whats, { label: "Compromissos hoje", valor: String(r.compromissosHoje.length), tom: "neutro", href: "/agenda" }];
     case "agenda":
       return [
         { label: "Hoje", valor: String(r.compromissosHoje.length), tom: "neutro" },
@@ -308,7 +321,7 @@ export function kpisDaPagina(p: Pagina, r: ResumoVendedor): Kpi[] {
     case "relacionamentos":
       return [
         { label: "Clientes", valor: String(r.totalClientes), tom: "neutro" },
-        { label: "Esfriando (15+ dias)", valor: String(r.esfriando.length), tom: r.esfriando.length ? "atencao" : "bom" },
+        { label: "Esfriando (15+ dias)", valor: String(r.qtdEsfriando ?? r.esfriando.length), tom: r.esfriando.length ? "atencao" : "bom", href: LINK_ESFRIANDO },
         follow,
         { label: "Sem próximo contato", valor: String(r.semProximoContato), tom: r.semProximoContato ? "atencao" : "bom" },
       ];
@@ -343,9 +356,9 @@ export function insightsRegras(p: Pagina, r: ResumoVendedor): Insight[] {
   if (r.followupsVencidos.length && p !== "pipeline" && p !== "vendas") {
     add({
       tipo: "alerta",
-      titulo: `${r.followupsVencidos.length} follow-up(s) atrasado(s)`,
+      titulo: `${r.qtdFollowupsVencidos ?? r.followupsVencidos.length} follow-up(s) atrasado(s)`,
       detalhe: r.followupsVencidos.slice(0, 3).map((f) => f.nome).join(", "),
-      acao: { label: "Ver clientes", href: "/relacionamentos" },
+      acao: { label: "Ver os atrasados", href: LINK_FOLLOWUPS_VENCIDOS },
     });
   }
   if (r.oportunidadesParadas.length && ["pipeline", "meu-dia", "vendas", "relatorio"].includes(p)) {
@@ -363,15 +376,15 @@ export function insightsRegras(p: Pagina, r: ResumoVendedor): Insight[] {
   if (r.esfriando.length && ["relacionamentos", "agenda", "meu-dia"].includes(p)) {
     add({
       tipo: "dica",
-      titulo: `${r.esfriando.length} cliente(s) esfriando`,
+      titulo: `${r.qtdEsfriando ?? r.esfriando.length} cliente(s) esfriando`,
       detalhe: `${r.esfriando[0].nome} está há ${r.esfriando[0].dias} dias sem contato.`,
-      acao: { label: "Chamar no WhatsApp", href: "/whatsapp" },
+      acao: { label: "Ver quem esfriou", href: LINK_ESFRIANDO },
     });
   }
   if (r.metaMes && r.faltaParaMeta && ["vendas", "meu-dia", "ranking", "relatorio"].includes(p)) {
     add({
       tipo: r.pctMeta! >= 100 ? "conquista" : "dica",
-      titulo: r.pctMeta! >= 100 ? "Meta do mês batida! 🎉" : `Faltam ${moeda(r.faltaParaMeta)} para a meta`,
+      titulo: r.pctMeta! >= 100 ? "Meta do mês batida!" : `Faltam ${moeda(r.faltaParaMeta)} para a meta`,
       detalhe: r.pctMeta! >= 100 ? undefined : `Ritmo: ${moeda(r.ritmoNecessarioDia ?? 0)} por dia nos próximos ${r.diasRestantesMes} dias.`,
     });
   }
@@ -389,7 +402,7 @@ export function insightsRegras(p: Pagina, r: ResumoVendedor): Insight[] {
       acao: { label: "Registrar atividade", href: "/registrar-atividade" },
     });
   }
-  if (!out.length) add({ tipo: "conquista", titulo: "Tudo em dia por aqui 👏", detalhe: "Nenhum cliente esperando e nenhum negócio parado." });
+  if (!out.length) add({ tipo: "conquista", titulo: "Tudo em dia por aqui", detalhe: "Nenhum cliente esperando e nenhum negócio parado." });
   return out.slice(0, 4);
 }
 
