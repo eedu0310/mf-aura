@@ -1,5 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
+import { mesEmBrasilia } from "@/lib/meta-mensal";
 
 export type StatusCompromisso = "rascunho" | "pendente_aprovacao" | "aprovado" | "ajuste_solicitado" | "rejeitado";
 
@@ -29,9 +30,8 @@ export interface CompromissoMensalComVendedor extends CompromissoMensal {
   vendedorNome: string;
 }
 
-function mesAtual() {
-  return new Date().toISOString().slice(0, 7);
-}
+// Mês de Brasília: em UTC a noite do último dia já contava como mês seguinte.
+const mesAtual = () => mesEmBrasilia();
 
 function doBanco(linha: Record<string, any>): CompromissoMensal {
   return {

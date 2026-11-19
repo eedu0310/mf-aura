@@ -10,6 +10,7 @@ import {
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CampoMoeda } from "@/components/shared/campo-moeda";
+import { mesEmBrasilia } from "@/lib/meta-mensal";
 
 interface FormState {
   metaFaturamento: string;
@@ -32,11 +33,13 @@ const CAMPOS_NUMERICOS: { chave: keyof FormState; label: string; grupo: string }
   { chave: "metaLigacoes", label: "Ligações", grupo: "Prospecção" },
 ];
 
-function mesAtual() {
-  return new Date().toISOString().slice(0, 7);
-}
+const mesAtual = () => mesEmBrasilia();
 
-export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
+/**
+ * `obrigatorio`: aberto pela trava do mês (TravaMetaMensal). Sem fechar e sem
+ * cancelar, e dentro da tela da trava em vez de por cima da página.
+ */
+export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClose: () => void; obrigatorio?: boolean }) {
   const { profile } = useUserProfile();
   const [form, setForm] = useState<FormState>({
     metaFaturamento: "",
@@ -156,19 +159,28 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
   }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-2xl rounded-2xl bg-white">
+    <div
+      className={
+        obrigatorio
+          ? "flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-6"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      }
+    >
+      <div className={`w-full max-w-2xl rounded-2xl bg-white ${obrigatorio ? "self-start" : ""}`}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-aura-mist px-6 py-4">
           <h2 className="font-display text-xl font-bold text-aura-graphite">
             Compromisso do Mês — {mesAtual()}
           </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 transition hover:bg-aura-bg"
-          >
-            <X size={20} className="text-aura-graphite-soft" />
-          </button>
+          {!obrigatorio && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1 transition hover:bg-aura-bg"
+              aria-label="Fechar"
+            >
+              <X size={20} className="text-aura-graphite-soft" />
+            </button>
+          )}
         </div>
 
         {/* Conteúdo */}
@@ -234,12 +246,14 @@ export function CompromissoMensalModal({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div className="flex gap-3 border-t border-aura-mist px-6 py-4">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-aura-mist px-4 py-2.5 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
-          >
-            Cancelar
-          </button>
+          {!obrigatorio && (
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-aura-mist px-4 py-2.5 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+            >
+              Cancelar
+            </button>
+          )}
           <button
             onClick={handleSalvarRascunho}
             disabled={salvando || enviando}
