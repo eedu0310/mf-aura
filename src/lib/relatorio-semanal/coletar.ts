@@ -27,6 +27,22 @@ export interface ProspeccaoDaCategoria {
   clientesNovos: number;
 }
 
+/**
+ * Uma prospecção que o vendedor lançou, para o gestor ver QUEM foi
+ * prospectado e não só quantos. Vem das atividades do tipo Prospecção.
+ */
+export interface ProspeccaoFeita {
+  /** Dia em que aconteceu (AAAA-MM-DD), pelo horário de Brasília. */
+  dia: string;
+  cliente: string;
+  /** Tipo de cliente: arquiteto, construtora, obra, cliente final... */
+  categoria: string;
+  cidade: string;
+  /** Como foi, do jeito que o vendedor marcou: Boa, Regular, Sem sucesso. */
+  resultado: string;
+  observacao: string;
+}
+
 export interface EtapaDoPipeline {
   etapa: string;
   negocios: number;
@@ -108,6 +124,13 @@ export interface SemanaDoVendedor {
   prospeccao: {
     clientesNovos: number;
     porCategoria: ProspeccaoDaCategoria[];
+    /**
+     * Cada prospecção do período, da mais nova para a mais antiga. Opcional
+     * porque os relatórios guardados antes de 19/11/2026 não têm a lista.
+     */
+    lista?: ProspeccaoFeita[];
+    /** Quantas foram Boa, Regular, Sem sucesso... */
+    porResultado?: { resultado: string; n: number }[];
   };
   pipeline: {
     criados: number;
@@ -208,11 +231,11 @@ export async function coletarSemanaDaLoja(
     sb.from("profiles").select("id, nome, cargo").eq("empresa", empresa).eq("ativo", true),
     sb
       .from("atividades")
-      .select("owner_id, tipo, subtipo, cliente_categoria, relacionamento_id, ocorrida_em")
+      .select("owner_id, tipo, subtipo, cliente_categoria, cliente_nome, resultado, observacao, relacionamento_id, ocorrida_em")
       .eq("empresa", empresa)
       .gte("ocorrida_em", inicioISO)
       .lt("ocorrida_em", fimISO),
-    sb.from("relacionamentos").select("id, owner_id, categoria, created_at").eq("empresa", empresa),
+    sb.from("relacionamentos").select("id, owner_id, categoria, nome, cidade, created_at").eq("empresa", empresa).limit(10000),
     sb
       .from("oportunidades")
       .select("owner_id, etapa, valor, created_at, motivo_perda, data_perda")
@@ -303,6 +326,12 @@ export async function coletarSemanaDaLoja(
   const categoriaDoRelacionamento = new Map(
     relacionamentos.map((r) => [String(r.id), String(r.categoria ?? "")]),
   );
+  const clienteDoRelacionamento = new Map(
+    relacionamentos.map((r) => [
+      String(r.id),
+      { nome: String(r.nome ?? "").trim(), cidade: String(r.cidade ?? "").trim() },
+    ]),
+  );
 
   /**
    * Quem entra no relatório: o cargo que vende, mais qualquer pessoa com
@@ -331,6 +360,7 @@ export async function coletarSemanaDaLoja(
       metas,
       funil,
       categoriaDoRelacionamento,
+      clienteDoRelacionamento,
       inicioISO,
       fimISO,
       vendasMes,
@@ -399,8 +429,23 @@ interface Fontes {
   ultimoDiaCoberto: string;
   funil: EtapaFunil[];
   categoriaDoRelacionamento: Map<string, string>;
+  clienteDoRelacionamento?: Map<string, { nome: string; cidade: string }>;
   inicioISO: string;
   fimISO: string;
+}
+
+/** Dia em Brasília de um instante ISO (a atividade das 22h de domingo é de domingo). */
+function diaEmBrasilia(iso: string): string {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+/** Observação curta e sem o ponto solto que alguns vendedores digitam para passar. */
+function limparObservacao(texto: string): string {
+  const t = texto.replace(/\s+/g, " ").trim();
+  if (!t || /^[.\-_,;:!?]+$/.test(t)) return "";
+  return t.length > 160 ? `${t.slice(0, 157).trimEnd()}…` : t;
 }
 
 function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): SemanaDoVendedor {
@@ -445,6 +490,29 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     ...novasRelacoes.map((r) => String(r.categoria ?? "")),
   ]);
   categorias.delete("");
+
+  /**
+   * A lista de quem foi prospectado. O gestor pediu para ver QUAL prospecção
+   * cada vendedor fez, não só o total por tipo de cliente.
+   */
+  const listaDeProspeccao: ProspeccaoFeita[] = minhasAtividades
+    .filter((a) => String(a.tipo ?? "").toLowerCase().startsWith("prospec"))
+    .map((a) => {
+      const rel = f.clienteDoRelacionamento?.get(String(a.relacionamento_id ?? ""));
+      return {
+        dia: diaEmBrasilia(String(a.ocorrida_em ?? "")),
+        cliente: rel?.nome || String(a.cliente_nome ?? "").trim() || "Sem nome",
+        categoria: categoriaDaAtividade(a) || "Sem tipo",
+        cidade: rel?.cidade ?? "",
+        resultado: String(a.resultado ?? "").trim(),
+        observacao: limparObservacao(String(a.observacao ?? "")),
+      };
+    })
+    .sort((a, b) => (a.dia < b.dia ? 1 : a.dia > b.dia ? -1 : a.cliente.localeCompare(b.cliente, "pt-BR")));
+  const porResultado = contar(listaDeProspeccao, (p) => p.resultado || "Sem resultado").map((r) => ({
+    resultado: r.texto,
+    n: r.n,
+  }));
 
   const porCategoria: ProspeccaoDaCategoria[] = [...categorias]
     .map((categoria) => ({
@@ -609,6 +677,8 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     prospeccao: {
       clientesNovos: novasRelacoes.length,
       porCategoria,
+      lista: listaDeProspeccao,
+      porResultado,
     },
     pipeline: {
       criados: criadasNoPeriodo.length,

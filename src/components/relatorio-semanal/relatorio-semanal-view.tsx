@@ -402,6 +402,67 @@ function ProgressoNoMes({ v }: { v: VendedorNoRelatorio }) {
  * marcou dez visitas e fez dez e quem marcou dez e fez duas — que é
  * exatamente a conversa que o gestor precisa ter.
  */
+/**
+ * Quem o vendedor prospectou, um por um. O total por tipo de cliente dizia
+ * QUANTO; o gestor precisava ver QUEM, para cobrar o retorno de cada um.
+ */
+function ProspeccoesDoVendedor({ v }: { v: VendedorNoRelatorio }) {
+  const lista = v.prospeccao.lista;
+  if (!lista) return null; // relatório guardado antes desta lista existir
+  const corDoResultado = (r: string) => {
+    const t = r.toLowerCase();
+    if (t.startsWith("boa") || t.startsWith("ótima") || t.startsWith("otima")) return "text-emerald-700";
+    if (t.startsWith("sem")) return "text-red-700";
+    return "text-aura-graphite";
+  };
+  return (
+    <div className="rounded-lg border border-aura-mist p-3 print:break-inside-avoid">
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+        Quem ele prospectou ({lista.length})
+      </p>
+      {lista.length === 0 ? (
+        <p className="text-xs text-aura-graphite-soft">Nenhuma prospecção lançada no período.</p>
+      ) : (
+        <>
+          {v.prospeccao.porResultado?.length ? (
+            <p className="mb-2 text-[11px] text-aura-graphite-soft">
+              {v.prospeccao.porResultado.map((r) => `${r.resultado}: ${r.n}`).join(" · ")}
+            </p>
+          ) : null}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[560px] text-xs">
+              <thead>
+                <tr className="border-b border-aura-mist text-left text-aura-graphite-soft">
+                  <th className="py-1.5 pr-3 font-medium">Dia</th>
+                  <th className="py-1.5 pr-3 font-medium">Cliente</th>
+                  <th className="py-1.5 pr-3 font-medium">Tipo</th>
+                  <th className="py-1.5 pr-3 font-medium">Cidade</th>
+                  <th className="py-1.5 pr-3 font-medium">Como foi</th>
+                  <th className="py-1.5 font-medium">Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lista.map((p, i) => (
+                  <tr key={`${p.dia}-${p.cliente}-${i}`} className="border-b border-aura-mist/60 align-top">
+                    <td className="whitespace-nowrap py-1.5 pr-3 tabular-nums">{p.dia ? dataBR(p.dia) : "—"}</td>
+                    <td className="py-1.5 pr-3 font-medium text-aura-graphite">{p.cliente}</td>
+                    <td className="py-1.5 pr-3">{p.categoria}</td>
+                    <td className="py-1.5 pr-3">{p.cidade || "—"}</td>
+                    <td className={`whitespace-nowrap py-1.5 pr-3 font-medium ${corDoResultado(p.resultado)}`}>
+                      {p.resultado || "—"}
+                    </td>
+                    <td className="py-1.5 text-aura-graphite-soft">{p.observacao || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AgendaDoVendedor({ v }: { v: VendedorNoRelatorio }) {
   const a = v.agenda;
   if (!a) return null;
@@ -616,6 +677,8 @@ function BlocoDoVendedor({
               <ProgressoNoMes v={v} />
             </div>
           </div>
+
+          <ProspeccoesDoVendedor v={v} />
 
           <div className="rounded-lg border border-aura-mist bg-aura-bg p-3">
             <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">

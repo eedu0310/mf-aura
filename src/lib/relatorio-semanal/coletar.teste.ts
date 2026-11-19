@@ -40,11 +40,13 @@ const TABELAS: Record<string, Record<string, unknown>[]> = {
     // Fora da janela: não conta.
     { owner_id: ANA, tipo: "Visita", relacionamento_id: "r-arq", ocorrida_em: "2026-09-30T23:59:00Z" },
     { owner_id: ANA, tipo: "Visita", relacionamento_id: "r-arq", ocorrida_em: "2026-10-08T00:00:00Z" },
-    { owner_id: CHEFE, tipo: "Prospecção", relacionamento_id: "r-fin", ocorrida_em: "2026-10-02T09:00:00Z" },
+    { owner_id: CHEFE, tipo: "Prospecção", relacionamento_id: "r-fin", resultado: "Boa", observacao: " . ", ocorrida_em: "2026-10-02T09:00:00Z" },
+    // Prospecção solta, sem cliente cadastrado: vale o nome digitado. 01h UTC de 04/10 é 22h de 03/10 em Brasília.
+    { owner_id: CHEFE, tipo: "Prospecção", cliente_nome: "Construtora Alfa", cliente_categoria: "Construtora", resultado: "Sem sucesso", observacao: "Já tem fornecedor", ocorrida_em: "2026-10-04T01:00:00Z" },
   ],
   relacionamentos: [
     { id: "r-arq", owner_id: ANA, categoria: "Arquiteto", created_at: "2026-10-02T12:00:00Z" },
-    { id: "r-fin", owner_id: ANA, categoria: "Cliente Final", created_at: "2026-05-01T12:00:00Z" },
+    { id: "r-fin", owner_id: ANA, categoria: "Cliente Final", nome: "Fernanda Lima", cidade: "Garibaldi", created_at: "2026-05-01T12:00:00Z" },
     { id: "r-des", owner_id: BRUNO, categoria: "Designer de Interiores", created_at: "2026-10-05T09:00:00Z" },
   ],
   oportunidades: [
@@ -159,6 +161,18 @@ conferir(
   bruno.prospeccao.porCategoria.map((c) => c.categoria),
   ["Designer de Interiores"],
 );
+
+const chefe = loja.vendedores.find((v) => v.nome === "Chefe")!;
+conferir(
+  "lista de prospecção: quem, tipo, cidade, como foi, do mais novo ao mais antigo",
+  chefe.prospeccao.lista,
+  [
+    { dia: "2026-10-03", cliente: "Construtora Alfa", categoria: "Construtora", cidade: "", resultado: "Sem sucesso", observacao: "Já tem fornecedor" },
+    { dia: "2026-10-02", cliente: "Fernanda Lima", categoria: "Cliente Final", cidade: "Garibaldi", resultado: "Boa", observacao: "" },
+  ],
+);
+conferir("contagem por resultado", chefe.prospeccao.porResultado?.map((r) => `${r.resultado}:${r.n}`).sort(), ["Boa:1", "Sem sucesso:1"]);
+conferir("quem não prospectou tem lista vazia", ana.prospeccao.lista, []);
 
 // ------------------------------------------------------ pipeline
 conferir("negócios criados pela Ana no período", ana.pipeline.criados, 2);
