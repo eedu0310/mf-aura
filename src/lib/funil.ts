@@ -31,6 +31,12 @@ export type Etapa = string;
 export type TipoEtapa = "aberta" | "ganho" | "perda" | "posvenda";
 
 export type ChaveEtapa =
+  /**
+   * Lead frio ou curioso (19/11/2026): fica numa coluna antes da Prospecção.
+   * Só o vendedor coloca um negócio aqui; a IA nunca move para ela e negócio
+   * novo nunca nasce nela.
+   */
+  | "lead_frio"
   | "prospeccao"
   | "qualificacao"
   | "apresentacao"
@@ -91,9 +97,11 @@ const CHAVE_DOS_NOMES_ANTIGOS: Record<string, ChaveEtapa> = {
   "Follow-up": "followup",
   "Fechamento": "fechamento",
   "Pós-venda": "posvenda",
+  "Leads frios": "lead_frio",
 };
 
 const TIPO_DA_CHAVE: Record<ChaveEtapa, TipoEtapa> = {
+  lead_frio: "aberta",
   prospeccao: "aberta",
   qualificacao: "aberta",
   apresentacao: "aberta",
@@ -250,8 +258,14 @@ export function nomesDasEtapas(funil: EtapaFunil[]): string[] {
  * etapa, e um negócio tem de nascer em algum lugar de qualquer jeito.
  */
 export function primeiraEtapa(funil: EtapaFunil[]): string {
-  const abertas = etapasVisiveis(funil).filter((e) => e.tipo === "aberta");
+  // A coluna de leads frios vem antes, mas negócio novo não nasce frio.
+  const abertas = etapasVisiveis(funil).filter((e) => e.tipo === "aberta" && e.chave !== "lead_frio");
   return abertas[0]?.nome ?? FUNIL_PADRAO[0].nome;
+}
+
+/** A etapa é a coluna de leads frios / curiosos? */
+export function ehLeadFrio(nome: string | null | undefined, funil: EtapaFunil[]): boolean {
+  return acharEtapa(nome, funil)?.chave === "lead_frio";
 }
 
 /**

@@ -19,6 +19,8 @@ import type { ChaveEtapa } from "@/lib/funil";
  * vale a mais adiantada. Perda fica fora porque perder não é avançar.
  */
 const AVANCO: Record<ChaveEtapa, number> = {
+  // Nenhuma regra detecta "lead frio": quem marca é o vendedor.
+  lead_frio: -0.5,
   prospeccao: 0,
   qualificacao: 1,
   apresentacao: 2,

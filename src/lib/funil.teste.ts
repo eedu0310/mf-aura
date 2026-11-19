@@ -1,5 +1,5 @@
 import {
-  colunaDoNegocio, contaNoPipeline, ehFechada, ehGanho, ehPerda,
+  colunaDoNegocio, contaNoPipeline, ehFechada, ehGanho, ehLeadFrio, ehPerda,
   etapasVisiveis, FUNIL_PADRAO, nomeDaChave, ordemDe, primeiraEtapa, probabilidadeDe,
 } from "./funil";
 
@@ -68,6 +68,16 @@ console.log("\n--- etapa inventada pelo gestor, sem papel ---");
 const comNova = [...FUNIL_PADRAO, { nome: "Visita técnica", ordem: 9, tipo: "aberta" as const, contaNoPipeline: false, probabilidade: "Média" as const, cor: "#555555", ativa: true, chave: null }];
 ok("aparece no quadro", colunaDoNegocio("Visita técnica", comNova), "Visita técnica");
 ok("não é ganho nem perda", ehFechada("Visita técnica", comNova), false);
+
+console.log("\n--- coluna de leads frios antes da Prospecção ---");
+const comFrio = [{ nome: "Leads frios", ordem: 0, tipo: "aberta" as const, contaNoPipeline: false, probabilidade: "Baixa" as const, cor: "#94a3b8", ativa: true, chave: "lead_frio" as const }, ...FUNIL_PADRAO];
+ok("negócio novo continua nascendo em Prospecção", primeiraEtapa(comFrio), "Prospecção");
+ok("é a coluna de leads frios", ehLeadFrio("Leads frios", comFrio), true);
+ok("Prospecção não é lead frio", ehLeadFrio("Prospecção", comFrio), false);
+ok("lead frio fica antes da Prospecção", ordemDe("Leads frios", comFrio) < ordemDe("Prospecção", comFrio), true);
+ok("lead frio não soma no pipeline", contaNoPipeline("Leads frios", comFrio), false);
+ok("lead frio não é decidido", ehFechada("Leads frios", comFrio), false);
+ok("loja sem a linha ainda reconhece o nome", ehLeadFrio("Leads frios", FUNIL_PADRAO), true);
 
 console.log(falhas === 0 ? "\nTUDO PASSOU" : `\n${falhas} FALHA(S)`);
 process.exit(falhas ? 1 : 0);

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Phone, MessageSquare, CheckCircle2, Clock, XCircle, Users, AlertTriangle, Trash2, ListChecks, FileBarChart } from "lucide-react";
+import { Loader2, Phone, MessageSquare, CheckCircle2, Clock, XCircle, Users, AlertTriangle, Trash2, ListChecks, FileBarChart, Snowflake } from "lucide-react";
+import Link from "next/link";
 import {
   listarLeads,
   marcarLeadRespondido,
   marcarLeadPerdido,
+  marcarLeadFrio,
   excluirLead,
   buscarDiasSemAtividade,
   buscarNomesDosVendedores,
@@ -22,6 +24,7 @@ const STATUS_LABEL: Record<StatusLead, string> = {
   respondido: "Respondido",
   repassado_vendedor: "Com o vendedor",
   perdido: "Perdido",
+  lead_frio: "Lead frio",
 };
 
 const STATUS_COR: Record<StatusLead, string> = {
@@ -30,6 +33,7 @@ const STATUS_COR: Record<StatusLead, string> = {
   respondido: "bg-aura-success/10 text-aura-success",
   repassado_vendedor: "bg-aura-petrol-700/10 text-aura-petrol-700",
   perdido: "bg-aura-danger/10 text-aura-danger",
+  lead_frio: "bg-sky-100 text-sky-800",
 };
 
 const URGENCIA_LABEL: Record<string, { texto: string; cor: string }> = {
@@ -97,6 +101,16 @@ export default function LeadsPage() {
     await marcarLeadPerdido(lead.id, motivo);
   }
 
+  async function esfriar(lead: Lead) {
+    const anterior = lead.status;
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: "lead_frio" } : l)));
+    const ok = await marcarLeadFrio(lead.id, lead.respondidoEm);
+    if (!ok) {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: anterior } : l)));
+      window.alert("Não consegui marcar como lead frio. Tente de novo.");
+    }
+  }
+
   async function excluir(lead: Lead) {
     if (!window.confirm(`Excluir o lead ${lead.nome || lead.telefone}? Esta ação não pode ser desfeita.`)) return;
     try {
@@ -137,6 +151,7 @@ export default function LeadsPage() {
     .filter((l) => ["aguardando_sdr", "atribuido_sdr", "repassado_vendedor"].includes(l.status))
     .sort((a, b) => (ordemUrgencia[a.urgencia ?? "media"] ?? 1) - (ordemUrgencia[b.urgencia ?? "media"] ?? 1));
   const perdidos = leadsDaLoja.filter((l) => l.status === "perdido");
+  const frios = leadsDaLoja.filter((l) => l.status === "lead_frio");
   const respondidos = leadsDaLoja.filter((l) => l.status === "respondido");
 
   return (
@@ -368,6 +383,15 @@ export default function LeadsPage() {
                           )}
                           <button
                             type="button"
+                            onClick={() => esfriar(lead)}
+                            title="Curioso ou ainda sem interesse de compra: vai para a coluna Leads frios do Pipeline"
+                            className="flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite-soft hover:border-sky-300 hover:text-sky-800"
+                          >
+                            <Snowflake size={12} />
+                            Lead frio / curioso
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => perder(lead)}
                             className="flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite-soft hover:border-aura-danger/40 hover:text-aura-danger"
                           >
@@ -395,6 +419,39 @@ export default function LeadsPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {frios.length > 0 && (
+            <div>
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+                <Snowflake size={14} className="text-sky-700" />
+                Leads frios / curiosos
+                <Link href="/pipeline" className="ml-auto text-xs font-normal text-aura-petrol-700 hover:underline">
+                  Ver no Pipeline
+                </Link>
+              </p>
+              <div className="flex flex-col gap-2">
+                {frios.slice(0, 20).map((lead) => (
+                  <div key={lead.id} className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-aura-graphite">{lead.nome || "Contato novo"}</p>
+                      <div className="flex items-center gap-3">
+                        {lead.telefone && (
+                          <a
+                            href={`/whatsapp?numero=${lead.telefone.replace(/\D/g, "")}`}
+                            className="text-xs font-medium text-[#008f6f] hover:underline"
+                          >
+                            Chamar de novo
+                          </a>
+                        )}
+                        <button type="button" onClick={() => excluir(lead)} className="text-aura-danger" title="Excluir lead"><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-aura-graphite-soft">{lead.telefone}</p>
+                  </div>
+                ))}
               </div>
             </div>
           )}

@@ -38,6 +38,7 @@ import {
   acharEtapa,
   ehFechada,
   ehGanho,
+  ehLeadFrio,
   exigeValor,
   ehPerda,
   etapasVisiveis,
@@ -492,6 +493,7 @@ async function materiaisDaEmpresa(empresa: string): Promise<string> {
  * sem instrução do que ela significa, o que é melhor do que inventar uma.
  */
 const EXPLICACAO_DA_CHAVE: Record<ChaveEtapa, string> = {
+  lead_frio: "lead frio ou curioso, marcado pelo vendedor.",
   prospeccao: "cliente demonstrou interesse, vendedor ainda qualificando.",
   qualificacao: "vendedor está levantando a necessidade, o ambiente, o prazo e quem decide.",
   apresentacao: "vendedor mostrou produtos (fotos, vídeos, catálogo) ou agendou visita/showroom/medição.",
@@ -503,7 +505,9 @@ const EXPLICACAO_DA_CHAVE: Record<ChaveEtapa, string> = {
 };
 
 function descricaoDasEtapas(funil: EtapaFunil[]): string {
+  // A coluna de leads frios fica fora: só o vendedor coloca um card ali.
   return etapasVisiveis(funil)
+    .filter((e) => e.chave !== "lead_frio")
     .map((e) => `- ${e.nome}${e.chave ? `: ${EXPLICACAO_DA_CHAVE[e.chave]}` : ""}`)
     .join("\n");
 }
@@ -1587,7 +1591,7 @@ export async function analisarConversa(
     let detectada: Etapa | null = regras.chave ? nomeDaChave(regras.chave, funil) : null;
     let evidencia = regras.evidencias.filter((e) => e.chave === regras.chave).slice(-1)[0]?.texto ?? "";
     let fonte = "regras";
-    if (analise?.etapa && !ehFechada(analise.etapa, funil) && analise.confianca >= 0.7) {
+    if (analise?.etapa && !ehFechada(analise.etapa, funil) && !ehLeadFrio(analise.etapa, funil) && analise.confianca >= 0.7) {
       if (!detectada || ordemDe(analise.etapa, funil) > ordemDe(detectada, funil)) {
         detectada = analise.etapa;
         evidencia = analise.evidencia || evidencia;

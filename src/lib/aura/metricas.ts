@@ -10,6 +10,7 @@ import {
   etapasVisiveis,
   ehFechada,
   ehGanho,
+  ehLeadFrio,
   ehPerda,
   nomesDasEtapas,
   type EtapaFunil,
@@ -150,7 +151,9 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
   const falta = meta != null ? Math.max(0, meta - valorMes) : null;
 
   const ops = noEscopo(d.oportunidades, e);
-  const abertas = ops.filter((o) => !ehFechada(o.etapa, d.funil));
+  // Lead frio não é negócio parado nem pipeline aberto: é contato para
+  // reaquecer mais adiante, e cobrar "parado há 9 dias" por ele seria ruído.
+  const abertas = ops.filter((o) => !ehFechada(o.etapa, d.funil) && !ehLeadFrio(o.etapa, d.funil));
   const pipeline = nomesDasEtapas(d.funil).map((etapa) => {
     const l = ops.filter((o) => colunaDoNegocio(o.etapa, d.funil) === etapa);
     return { etapa, qtd: l.length, valor: l.reduce((s, o) => s + (o.valor || 0), 0) };

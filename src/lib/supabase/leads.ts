@@ -1,6 +1,13 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export type StatusLead = "aguardando_sdr" | "atribuido_sdr" | "respondido" | "repassado_vendedor" | "perdido";
+export type StatusLead =
+  | "aguardando_sdr"
+  | "atribuido_sdr"
+  | "respondido"
+  | "repassado_vendedor"
+  | "perdido"
+  /** Curioso / frio: sai da fila e vira card na coluna "Leads frios" (migração 102). */
+  | "lead_frio";
 
 export interface Lead {
   id: string;
@@ -94,6 +101,31 @@ export async function marcarLeadRespondido(id: string) {
     .eq("id", id);
 
   if (error) console.error("Erro ao marcar lead como respondido:", error);
+}
+
+/**
+ * Lead frio / curioso: não é para descartar, mas também não está pronto. Sai
+ * da fila e o banco (gatilho da migração 102) cria ou move o card para a
+ * coluna "Leads frios" e marca o cliente como frio. Conta como atendido no
+ * relatório: a vendedora olhou e decidiu.
+ */
+export async function marcarLeadFrio(id: string, jaRespondidoEm?: string | null): Promise<boolean> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return false;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const patch: Record<string, unknown> = { status: "lead_frio" };
+  if (!jaRespondidoEm) {
+    patch.respondido_em = new Date().toISOString();
+    patch.respondido_por = user?.id ?? null;
+  }
+  const { error } = await supabase.from("leads_recebidos").update(patch).eq("id", id);
+  if (error) {
+    console.error("Erro ao marcar lead como frio:", error);
+    return false;
+  }
+  return true;
 }
 
 export async function marcarLeadPerdido(id: string, motivo: string) {

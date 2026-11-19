@@ -97,7 +97,7 @@ export function montarLinhas(
       const r = new Date(lead.respondidoEm).getTime();
       if (Number.isFinite(r)) {
         em = Math.max(r, t0);
-        como = "Marcado como respondido";
+        como = lead.status === "lead_frio" ? "Classificado como lead frio" : "Marcado como respondido";
       }
     }
     const lista = lead.relacionamentoId ? atividades.get(lead.relacionamentoId) ?? [] : [];
