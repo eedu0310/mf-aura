@@ -55,6 +55,10 @@ export interface WaMessage {
   status?: number;
   /** Reações nesta mensagem, por emoji. `minha` deixa o botão marcado. */
   reacoes?: { emoji: string; total: number; minha: boolean }[];
+  /** O texto foi editado depois de enviado. */
+  editada?: boolean;
+  /** Apagada para todos. */
+  apagada?: boolean;
   /**
    * Presente só na mensagem que abriu a conversa a partir de um anúncio.
    * Fica na mensagem porque é ela que é persistida em disco: o `raw` só guarda
@@ -183,3 +187,7 @@ export async function postJson(payload: Record<string, unknown>) {
   if (!res.ok) throw new Error(data.error ?? `Erro ${res.status}`);
   return data;
 }
+
+/** Prazos do WhatsApp (os mesmos do servidor, em live-manager.ts). */
+export const PRAZO_EDITAR_MS = 15 * 60 * 1000;
+export const PRAZO_APAGAR_MS = 48 * 60 * 60 * 1000;

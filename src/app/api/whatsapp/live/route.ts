@@ -16,6 +16,8 @@ import {
   marcarNaoLida,
   reagir,
   encaminhar,
+  editarMensagem,
+  apagarParaTodos,
 } from "@/lib/whatsapp/live-manager";
 import {
   agendarAnalise,
@@ -274,6 +276,29 @@ export async function POST(request: NextRequest) {
         // Limite curto de proposito: reacao e um emoji, nao um recado.
         const emoji = String(body.emoji ?? "").slice(0, 8);
         await reagir(userId, chat, msgId, emoji);
+        return NextResponse.json({ ok: true });
+      }
+
+      /** Editar uma mensagem de texto nossa (até 15 min depois do envio). */
+      case "edit": {
+        const chat = String(body.chat ?? "").trim();
+        const msgId = String(body.msgId ?? "").trim();
+        const texto = String(body.text ?? "");
+        if (!chat || !msgId) {
+          return NextResponse.json({ error: "Informe a conversa e a mensagem." }, { status: 400 });
+        }
+        await editarMensagem(userId, chat, msgId, texto);
+        return NextResponse.json({ ok: true });
+      }
+
+      /** Apagar para todos uma mensagem nossa. */
+      case "delete": {
+        const chat = String(body.chat ?? "").trim();
+        const msgId = String(body.msgId ?? "").trim();
+        if (!chat || !msgId) {
+          return NextResponse.json({ error: "Informe a conversa e a mensagem." }, { status: 400 });
+        }
+        await apagarParaTodos(userId, chat, msgId);
         return NextResponse.json({ ok: true });
       }
 

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Check, CheckCheck, Clock, Download, FileText, Forward, ImageOff, MapPin, Mic, Pause, Play, Reply, SmilePlus } from "lucide-react";
+import { Ban, Check, CheckCheck, Clock, Download, FileText, Forward, ImageOff, MapPin, Mic, Pause, Pencil, Play, Reply, SmilePlus, Trash2 } from "lucide-react";
 import { Avatar } from "./avatar";
-import { API, formatHour, type WaMessage, type WaQuote } from "./types";
+import { API, formatHour, PRAZO_APAGAR_MS, PRAZO_EDITAR_MS, type WaMessage, type WaQuote } from "./types";
 
 export const mediaUrl = (id: string) => `${API}?media=${encodeURIComponent(id)}`;
 
@@ -291,6 +291,8 @@ interface Props {
   onResponder?: (msg: WaMessage) => void;
   onReagir?: (msg: WaMessage, emoji: string) => void;
   onEncaminhar?: (msg: WaMessage) => void;
+  onEditar?: (msg: WaMessage) => void;
+  onApagar?: (msg: WaMessage) => void;
   onIrPara?: (id: string) => void;
   onAbrirNumero?: (numero: string) => void;
   nomeDoOutro?: string;
@@ -305,18 +307,51 @@ export function MessageBubble({
   onResponder,
   onReagir,
   onEncaminhar,
+  onEditar,
+  onApagar,
   onIrPara,
   onAbrirNumero,
   nomeDoOutro,
 }: Props) {
   const [abrindoEmoji, setAbrindoEmoji] = useState(false);
+  // A idade da mensagem decide se os botões aparecem; o relógio só é lido
+  // quando o mouse passa, para não ler Date.now() durante a renderização.
+  const [idade, setIdade] = useState<number | null>(null);
+  const podeEditar = !!onEditar && msg.fromMe && !msg.apagada && msg.type === "text" && idade !== null && idade < PRAZO_EDITAR_MS;
+  const podeApagar = !!onApagar && msg.fromMe && !msg.apagada && idade !== null && idade < PRAZO_APAGAR_MS;
   const sticker = msg.type === "sticker";
   const cor = msg.fromMe ? "bg-[#005c4b]" : "bg-[#202c33]";
   const corCauda = msg.fromMe ? "#005c4b" : "#202c33";
   return (
-    <div id={`msg-${msg.id}`} className={`group flex items-center gap-1 ${msg.fromMe ? "justify-end" : "justify-start"} ${primeiraDoGrupo ? "mt-3" : "mt-0.5"} px-[4%] md:px-[6%]`}>
-      {msg.fromMe && (onResponder || onReagir || onEncaminhar) && (
+    <div
+      id={`msg-${msg.id}`}
+      onMouseEnter={() => msg.fromMe && setIdade(Date.now() - msg.timestamp)}
+      onFocus={() => msg.fromMe && setIdade(Date.now() - msg.timestamp)}
+      className={`group flex items-center gap-1 ${msg.fromMe ? "justify-end" : "justify-start"} ${primeiraDoGrupo ? "mt-3" : "mt-0.5"} px-[4%] md:px-[6%]`}>
+      {msg.fromMe && !msg.apagada && (onResponder || onReagir || onEncaminhar || onEditar || onApagar) && (
         <div className={`relative flex shrink-0 items-center gap-0.5 order-2 ml-1`}>
+          {podeEditar && (
+            <button
+              type="button"
+              onClick={() => onEditar!(msg)}
+              aria-label="Editar esta mensagem"
+              title="Editar (até 15 min depois do envio)"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {podeApagar && (
+            <button
+              type="button"
+              onClick={() => onApagar!(msg)}
+              aria-label="Apagar para todos"
+              title="Apagar para todos"
+              className="rounded-full p-1.5 text-[#8696a0] opacity-0 transition hover:bg-white/10 hover:text-[#f15c6d] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
           {onResponder && (
             <button
               type="button"
@@ -397,7 +432,13 @@ export function MessageBubble({
             onIr={msg.quoted.id && onIrPara ? () => onIrPara(msg.quoted!.id) : undefined}
           />
         )}
-        {msg.type === "audio" ? (
+        {msg.apagada ? (
+          <p className="flex items-center gap-1.5 px-1.5 text-[14px] italic leading-[19px] text-[#8696a0]">
+            <Ban className="h-4 w-4" />
+            {msg.fromMe ? "Você apagou esta mensagem" : "Esta mensagem foi apagada"}
+            <span className="inline-block w-[60px]" aria-hidden />
+          </p>
+        ) : msg.type === "audio" ? (
           <NotaDeVoz msg={msg} avatarJid={avatarJid} avatarNome={avatarNome} />
         ) : (
           msg.hasMedia && <Midia msg={msg} onAbrir={() => onAbrirMidia(msg.id)} />
@@ -406,10 +447,11 @@ export function MessageBubble({
         {msg.text && (
           <p className="whitespace-pre-wrap break-words px-1.5 text-[14.2px] leading-[19px] text-[#e9edef]">
             {linkify(msg.text, onAbrirNumero)}
-            <span className="inline-block w-[68px]" aria-hidden />
+            <span className={`inline-block ${msg.editada ? "w-[116px]" : "w-[68px]"}`} aria-hidden />
           </p>
         )}
-        <div className={`flex items-center justify-end gap-1 px-1.5 ${msg.text ? "-mt-3.5" : msg.type === "audio" ? "-mt-4" : ""}`}>
+        <div className={`flex items-center justify-end gap-1 px-1.5 ${msg.text || msg.apagada ? "-mt-3.5" : msg.type === "audio" ? "-mt-4" : ""}`}>
+          {msg.editada && !msg.apagada && <span className="text-[11px] italic text-[#ffffff99]">Editada</span>}
           <span className="text-[11px] text-[#ffffff99]">{formatHour(msg.timestamp)}</span>
           {msg.fromMe && <Ticks status={msg.status} />}
         </div>

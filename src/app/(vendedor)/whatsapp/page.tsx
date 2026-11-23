@@ -22,6 +22,7 @@ import {
   Smartphone,
   X,
   ArrowLeft,
+  Trash2,
 } from "lucide-react";
 import { Avatar } from "@/components/whatsapp-web/avatar";
 import { Composer } from "@/components/whatsapp-web/composer";
@@ -146,6 +147,13 @@ export default function WhatsAppPage() {
   const [textoParaInserir, setTextoParaInserir] = useState<{ texto: string; n: number } | null>(null);
   /** Mensagem escolhida para encaminhar, e para quais conversas. */
   const [encaminhando, setEncaminhando] = useState<WaMessage | null>(null);
+  // Editar e apagar para todos (pedido do Elton em 23/11: o celular não
+  // deixa editar o que saiu pela AURA).
+  const [editando, setEditando] = useState<WaMessage | null>(null);
+  const [textoEditado, setTextoEditado] = useState("");
+  const [apagando, setApagando] = useState<WaMessage | null>(null);
+  const [salvandoAcao, setSalvandoAcao] = useState(false);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [destinos, setDestinos] = useState<string[]>([]);
   const [buscaDestino, setBuscaDestino] = useState("");
   const [enviandoEncaminhar, setEnviandoEncaminhar] = useState(false);
@@ -348,6 +356,37 @@ export default function WhatsAppPage() {
    * entram por cima e a conversa salta debaixo do dedo.
    */
   /** Reage a uma mensagem. Emoji vazio desfaz. */
+  async function salvarEdicao() {
+    if (!editando) return;
+    setSalvandoAcao(true);
+    setErroAcao(null);
+    try {
+      await postJson({ action: "edit", chat: editando.chatId, msgId: editando.id, text: textoEditado });
+      setEditando(null);
+      if (selectedChatId) loadMessages(selectedChatId);
+    } catch (e: any) {
+      setErroAcao(e?.message ?? "Não consegui editar.");
+    } finally {
+      setSalvandoAcao(false);
+    }
+  }
+
+  async function confirmarApagar() {
+    if (!apagando) return;
+    setSalvandoAcao(true);
+    setErroAcao(null);
+    try {
+      await postJson({ action: "delete", chat: apagando.chatId, msgId: apagando.id });
+      setApagando(null);
+      if (selectedChatId) loadMessages(selectedChatId);
+      loadState();
+    } catch (e: any) {
+      setErroAcao(e?.message ?? "Não consegui apagar.");
+    } finally {
+      setSalvandoAcao(false);
+    }
+  }
+
   async function reagirMensagem(msg: WaMessage, emoji: string) {
     setAvisoAcao(null);
     try {
@@ -908,6 +947,15 @@ export default function WhatsAppPage() {
                     setDestinos([]);
                     setBuscaDestino("");
                   }}
+                  onEditar={(m) => {
+                    setEditando(m);
+                    setTextoEditado(m.text);
+                    setErroAcao(null);
+                  }}
+                  onApagar={(m) => {
+                    setApagando(m);
+                    setErroAcao(null);
+                  }}
                   onIrPara={irParaMensagem}
                   onAbrirNumero={abrirNumero}
                   nomeDoOutro={selectedChat.name}
@@ -1054,6 +1102,77 @@ export default function WhatsAppPage() {
       )}
 
       {/* ===================== Encaminhar ===================== */}
+      {editando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="editar-titulo">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-[#111b21] shadow-xl">
+            <div className="flex items-center gap-3 bg-[#202c33] px-4 py-3">
+              <button type="button" onClick={() => setEditando(null)} className="text-[#aebac1]" aria-label="Fechar">
+                <X className="h-5 w-5" />
+              </button>
+              <p id="editar-titulo" className="text-[16px] text-[#e9edef]">Editar mensagem</p>
+            </div>
+            <div className="p-4">
+              <textarea
+                autoFocus
+                rows={4}
+                value={textoEditado}
+                onChange={(e) => setTextoEditado(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    salvarEdicao();
+                  }
+                }}
+                className="w-full resize-none rounded-lg bg-[#2a3942] px-3 py-2 text-[15px] leading-5 text-[#e9edef] outline-none"
+              />
+              <p className="mt-2 text-xs text-[#8696a0]">O cliente vê o texto novo com a marca &quot;Editada&quot;. O WhatsApp só deixa editar até 15 minutos depois do envio.</p>
+              {erroAcao && <p className="mt-2 text-sm text-[#f15c6d]">{erroAcao}</p>}
+              <div className="mt-4 flex justify-end gap-2">
+                <button type="button" onClick={() => setEditando(null)} className="rounded-full px-4 py-2 text-sm text-[#00a884] hover:bg-white/5">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={salvarEdicao}
+                  disabled={salvandoAcao || !textoEditado.trim() || textoEditado.trim() === editando.text}
+                  className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] disabled:opacity-40"
+                >
+                  {salvandoAcao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {apagando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="apagar-titulo">
+          <div className="w-full max-w-sm rounded-lg bg-[#111b21] p-5 shadow-xl">
+            <p id="apagar-titulo" className="text-[16px] text-[#e9edef]">Apagar para todos?</p>
+            <p className="mt-2 line-clamp-3 rounded bg-[#202c33] px-3 py-2 text-sm text-[#aebac1]">
+              {apagando.text || (apagando.type === "audio" ? "Áudio" : apagando.type === "image" ? "Foto" : apagando.type === "video" ? "Vídeo" : apagando.fileName ?? "Mensagem")}
+            </p>
+            <p className="mt-2 text-xs text-[#8696a0]">Some para você e para o cliente. No lugar fica &quot;Esta mensagem foi apagada&quot;. Não dá para desfazer.</p>
+            {erroAcao && <p className="mt-2 text-sm text-[#f15c6d]">{erroAcao}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setApagando(null)} className="rounded-full px-4 py-2 text-sm text-[#00a884] hover:bg-white/5">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarApagar}
+                disabled={salvandoAcao}
+                className="flex items-center gap-2 rounded-full bg-[#f15c6d] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {salvandoAcao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Apagar para todos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {encaminhando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-[#111b21] shadow-xl">

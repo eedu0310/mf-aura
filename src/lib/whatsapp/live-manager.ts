@@ -60,7 +60,16 @@ export interface WaMessage {
    * seja: o cliente reagia e o vendedor nunca via.
    */
   reacoes?: { emoji: string; total: number; minha: boolean }[];
+  /** O texto foi editado depois de enviado (por nós ou pelo cliente). */
+  editada?: boolean;
+  /** Apagada para todos. O texto some e a bolha mostra o aviso. */
+  apagada?: boolean;
 }
+
+/** O WhatsApp só aceita editar até 15 minutos depois do envio. */
+export const PRAZO_EDITAR_MS = 15 * 60 * 1000;
+/** "Apagar para todos" vale por cerca de 2 dias; deixamos 48 h de margem. */
+export const PRAZO_APAGAR_MS = 48 * 60 * 60 * 1000;
 
 export interface WaChat {
   id: string;
@@ -1148,6 +1157,24 @@ export async function startSession(
       let mudou = false;
       for (const { key, update } of updates ?? []) {
         if (typeof update?.status === "number" && marcarStatus(key, update.status)) mudou = true;
+        // Editada no celular, no WhatsApp Web ou pelo cliente.
+        const editada = update?.message?.editedMessage?.message;
+        if (editada && key?.id) {
+          const achado = acharMensagem(s, key.remoteJid, key.id);
+          const novo = parseMessage(editada);
+          if (achado && novo && novo.text !== achado.msg.text) {
+            aplicarEdicao(s, achado.jid, achado.msg, novo.text);
+            mudou = true;
+          }
+        }
+        // Apagada para todos (REVOKE = 1).
+        if (update?.messageStubType === 1 && update?.message === null && key?.id) {
+          const achado = acharMensagem(s, key.remoteJid, key.id);
+          if (achado && !achado.msg.apagada) {
+            aplicarApagada(s, achado.jid, achado.msg);
+            mudou = true;
+          }
+        }
       }
       if (mudou) markDirty(s);
     });
@@ -1344,6 +1371,79 @@ export async function reagir(userId: string, chatId: string, msgId: string, emoj
   // O aparelho nao devolve a nossa propria reacao, entao carimbamos aqui para
   // a tela responder na hora em vez de esperar um eco que nao vem.
   aplicarReacao(s, chatId, { key: { id: msgId }, text: emoji }, true);
+  return { ok: true };
+}
+
+function ehUltimaDaConversa(s: WaSession, jid: string, msg: WaMessage) {
+  const lista = s.messages.get(jid) ?? [];
+  return lista[lista.length - 1]?.id === msg.id;
+}
+
+function aplicarEdicao(s: WaSession, jid: string, msg: WaMessage, texto: string) {
+  msg.text = texto;
+  msg.editada = true;
+  const chat = s.chats.get(jid);
+  if (chat && ehUltimaDaConversa(s, jid, msg)) chat.lastMessage = previewOf(msg);
+}
+
+function aplicarApagada(s: WaSession, jid: string, msg: WaMessage) {
+  msg.apagada = true;
+  msg.text = "";
+  msg.hasMedia = false;
+  msg.reacoes = undefined;
+  s.raw.delete(msg.id);
+  const chat = s.chats.get(jid);
+  if (chat && ehUltimaDaConversa(s, jid, msg)) chat.lastMessage = "Mensagem apagada";
+}
+
+/**
+ * Edita uma mensagem de texto que nós enviamos, como no WhatsApp.
+ *
+ * O WhatsApp só deixa editar no aparelho que enviou: mensagem que saiu pela
+ * AURA não aparece com "Editar" no celular. Por isso a edição tem de existir
+ * aqui. O cliente vê o texto novo com a marca "Editada".
+ */
+export async function editarMensagem(userId: string, chatId: string, msgId: string, texto: string) {
+  const s = requireConnected(userId);
+  const achado = acharMensagem(s, chatId, msgId);
+  if (!achado) throw new Error("Mensagem não encontrada nesta conversa.");
+  const { msg, jid } = achado;
+  if (!msg.fromMe) throw new Error("Só dá para editar mensagem enviada por você.");
+  if (msg.apagada) throw new Error("Essa mensagem já foi apagada.");
+  if (msg.type !== "text") throw new Error("Só dá para editar mensagem de texto.");
+  if (Date.now() - msg.timestamp > PRAZO_EDITAR_MS) {
+    throw new Error("O WhatsApp só deixa editar até 15 minutos depois do envio.");
+  }
+  const novo = texto.trim();
+  if (!novo) throw new Error("A mensagem não pode ficar vazia. Para tirar, use Apagar.");
+  if (novo === msg.text) return { ok: true };
+
+  await s.sock.sendMessage(msg.jidOriginal ?? jid, {
+    text: novo,
+    edit: { remoteJid: msg.jidOriginal ?? jid, fromMe: true, id: msgId },
+  });
+  // O aparelho não devolve a nossa própria edição como atualização.
+  aplicarEdicao(s, jid, msg, novo);
+  markDirty(s);
+  return { ok: true };
+}
+
+/** Apaga para todos uma mensagem que nós enviamos (texto, foto, áudio...). */
+export async function apagarParaTodos(userId: string, chatId: string, msgId: string) {
+  const s = requireConnected(userId);
+  const achado = acharMensagem(s, chatId, msgId);
+  if (!achado) throw new Error("Mensagem não encontrada nesta conversa.");
+  const { msg, jid } = achado;
+  if (!msg.fromMe) throw new Error("Só dá para apagar para todos mensagem enviada por você.");
+  if (msg.apagada) return { ok: true };
+  if (Date.now() - msg.timestamp > PRAZO_APAGAR_MS) {
+    throw new Error("Passou do prazo do WhatsApp para apagar para todos (cerca de 2 dias).");
+  }
+  await s.sock.sendMessage(msg.jidOriginal ?? jid, {
+    delete: { remoteJid: msg.jidOriginal ?? jid, fromMe: true, id: msgId },
+  });
+  aplicarApagada(s, jid, msg);
+  markDirty(s);
   return { ok: true };
 }
 
