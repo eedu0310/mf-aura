@@ -76,3 +76,37 @@ export async function paraVozOpus(buffer: Buffer, mimetype: string): Promise<Buf
     ff.stdin.end(buffer);
   });
 }
+
+/**
+ * Áudio recebido do WhatsApp vem em Opus dentro de OGG. O Chrome toca, mas o
+ * Safari (Mac e iPhone) não: a nota de voz aparecia como "Áudio
+ * indisponível". Para ouvir na AURA, a mesma voz vira MP3, que todo
+ * navegador toca. Devolve null quando não há ffmpeg ou a conversão falha —
+ * aí a tela recebe o arquivo original.
+ */
+export async function paraTocarNoNavegador(buffer: Buffer): Promise<Buffer | null> {
+  if (!(await temFfmpeg())) return null;
+  return new Promise<Buffer | null>((resolve) => {
+    const ff = spawn("ffmpeg", [
+      "-hide_banner",
+      "-loglevel", "error",
+      "-i", "pipe:0",
+      "-vn",
+      "-c:a", "libmp3lame",
+      "-b:a", "64k",
+      "-ac", "1",
+      "-f", "mp3",
+      "pipe:1",
+    ]);
+    const pedacos: Buffer[] = [];
+    ff.stdout.on("data", (d) => pedacos.push(d as Buffer));
+    ff.stderr.on("data", () => {});
+    ff.on("error", () => resolve(null));
+    ff.on("close", (code) => {
+      const saida = Buffer.concat(pedacos);
+      resolve(code === 0 && saida.length ? saida : null);
+    });
+    ff.stdin.on("error", () => {});
+    ff.stdin.end(buffer);
+  });
+}

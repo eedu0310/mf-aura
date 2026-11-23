@@ -11,6 +11,7 @@ import fs from "fs";
 import QRCode from "qrcode";
 import pino from "pino";
 import { extrairAnuncio, type AnuncioDeOrigem } from "@/lib/whatsapp/anuncio";
+import { paraTocarNoNavegador } from "@/lib/whatsapp/voz";
 
 export type WaStatus = "disconnected" | "connecting" | "qr" | "connected";
 export type WaMsgType = "text" | "image" | "video" | "audio" | "document" | "sticker" | "location" | "contact";
@@ -1465,7 +1466,15 @@ export async function getMedia(userId: string, msgId: string) {
   const info = { mimetype: meta?.mimetype ?? "application/octet-stream", fileName: meta?.fileName };
 
   const cachePath = mediaPath(userId, msgId);
-  if (fs.existsSync(cachePath)) return { buffer: fs.readFileSync(cachePath), ...info };
+  if (fs.existsSync(cachePath)) {
+    const buffer = fs.readFileSync(cachePath);
+    // Depois de reiniciar, a mensagem pode não estar mais na memória e o tipo
+    // se perde; o áudio do WhatsApp começa sempre com "OggS".
+    if (info.mimetype === "application/octet-stream" && buffer.subarray(0, 4).toString("latin1") === "OggS") {
+      info.mimetype = "audio/ogg; codecs=opus";
+    }
+    return { buffer, ...info };
+  }
   if (!s || !raw) return null;
 
   const B = await loadBaileys();
@@ -1482,6 +1491,25 @@ export async function getMedia(userId: string, msgId: string) {
   }
   saveMediaCache(userId, msgId, buffer);
   return { buffer, ...info };
+}
+
+/**
+ * O áudio da mensagem num formato que todo navegador toca (MP3), convertido
+ * uma vez e guardado ao lado do original. Sem ffmpeg, devolve o original.
+ */
+export async function getMediaParaTocar(userId: string, msgId: string) {
+  const original = await getMedia(userId, msgId);
+  if (!original || !/^audio\//i.test(original.mimetype) || /mpeg|mp3|mp4|aac|m4a/i.test(original.mimetype)) return original;
+  const mp3Path = `${mediaPath(userId, msgId)}.mp3`;
+  if (fs.existsSync(mp3Path)) return { buffer: fs.readFileSync(mp3Path), mimetype: "audio/mpeg", fileName: undefined };
+  const mp3 = await paraTocarNoNavegador(original.buffer);
+  if (!mp3) return original;
+  try {
+    fs.writeFileSync(mp3Path, mp3);
+  } catch (e) {
+    console.error("[whatsapp] cache do mp3:", e);
+  }
+  return { buffer: mp3, mimetype: "audio/mpeg", fileName: undefined };
 }
 
 /** Resolve um número digitado (ex.: 54 99999-1234) para o JID do WhatsApp. */

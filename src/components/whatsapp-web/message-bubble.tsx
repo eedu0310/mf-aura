@@ -135,7 +135,7 @@ function NotaDeVoz({ msg, avatarJid, avatarNome }: { msg: WaMessage; avatarJid: 
       </div>
       <audio
         ref={ref}
-        src={mediaUrl(msg.id)}
+        src={`${mediaUrl(msg.id)}&tocar=1`}
         preload="metadata"
         onLoadedMetadata={(e) => setDuracao(e.currentTarget.duration)}
         onTimeUpdate={(e) => setAtual(e.currentTarget.currentTime)}

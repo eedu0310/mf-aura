@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getAvatar,
   getMedia,
+  getMediaParaTocar,
   getMessages,
   getState,
   loadOlder,
@@ -80,16 +81,38 @@ export async function GET(request: NextRequest) {
   const media = sp.get("media");
   if (media) {
     try {
-      const file = await getMedia(userId, media);
+      const file = sp.get("tocar") ? await getMediaParaTocar(userId, media) : await getMedia(userId, media);
       if (!file) return NextResponse.json({ error: "Arquivo não disponível." }, { status: 404 });
       const headers: Record<string, string> = {
         "Content-Type": file.mimetype,
         "Cache-Control": "private, max-age=86400",
+        "Accept-Ranges": "bytes",
       };
       if (file.fileName) {
         const disp = sp.get("download") ? "attachment" : "inline";
         headers["Content-Disposition"] = `${disp}; filename*=UTF-8''${encodeURIComponent(file.fileName)}`;
       }
+      // O Safari só toca áudio e vídeo se o servidor responder a pedaços
+      // (Range → 206); sem isso a nota de voz fica "indisponível" no Mac.
+      const total = file.buffer.length;
+      const faixa = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get("range") ?? "");
+      if (faixa && total > 0) {
+        let inicio = faixa[1] ? Number(faixa[1]) : NaN;
+        let fim = faixa[2] ? Number(faixa[2]) : total - 1;
+        if (Number.isNaN(inicio)) {
+          // "bytes=-500" = os últimos 500 bytes
+          inicio = Math.max(0, total - fim);
+          fim = total - 1;
+        }
+        fim = Math.min(fim, total - 1);
+        if (inicio > fim || inicio >= total) {
+          return new NextResponse(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${total}` } });
+        }
+        headers["Content-Range"] = `bytes ${inicio}-${fim}/${total}`;
+        headers["Content-Length"] = String(fim - inicio + 1);
+        return new NextResponse(new Uint8Array(file.buffer.subarray(inicio, fim + 1)), { status: 206, headers });
+      }
+      headers["Content-Length"] = String(total);
       return new NextResponse(new Uint8Array(file.buffer), { headers });
     } catch (e: any) {
       console.error("[api/whatsapp/live] media:", e?.message ?? e);
