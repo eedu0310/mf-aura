@@ -30,7 +30,7 @@ export function VendorSidebar() {
   return (
     <aside
       data-imprimir="esconder"
-      className="hidden w-64 shrink-0 flex-col bg-aura-navy-950 px-4 py-6 lg:flex"
+      className="hidden w-64 shrink-0 flex-col bg-aura-navy-950 px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:overflow-y-auto"
     >
       <div className="px-2">
         <AuraLogoFull />

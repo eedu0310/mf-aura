@@ -56,6 +56,26 @@ function formatoDeGravacao() {
 
 const EMOJIS = "😀 😃 😄 😁 😅 😂 🙂 😉 😊 😍 🥰 😘 🤩 🤗 🤔 😎 🙏 👍 👎 👏 🙌 🤝 💪 👌 ✌️ 👋 ❤️ 🔥 ✨ 🎉 ✅ ❌ ⭐ 📍 📞 📅 ⏰ 💰 🏠 🪵".split(" ");
 
+
+/**
+ * O que foi colado é um arquivo para enviar, ou é texto?
+ *
+ * No Mac, copiar um trecho do Notas, Pages, Word, Mail ou de uma página põe
+ * na área de transferência o texto E uma imagem do trecho. Antes, qualquer
+ * arquivo junto vencia e o vendedor mandava a "foto" do texto em vez do
+ * texto. Agora o texto ganha; só vira anexo quando não há texto (print,
+ * "Copiar imagem") ou quando o texto é só o nome do próprio arquivo (copiar
+ * um arquivo no Finder ou no Explorer).
+ */
+export function arquivoColado(dados: Pick<DataTransfer, "files" | "getData">): File | null {
+  const arquivo = Array.from(dados.files)[0];
+  if (!arquivo) return null;
+  const texto = (dados.getData("text/plain") || "").trim();
+  if (!texto) return arquivo;
+  const ultimo = texto.split(/[\\/]/).pop() ?? texto;
+  return ultimo === arquivo.name ? arquivo : null;
+}
+
 export function Composer({
   chatId,
   sugestao,
@@ -496,7 +516,7 @@ export function Composer({
               }
             }}
             onPaste={(e) => {
-              const f = Array.from(e.clipboardData.files)[0];
+              const f = arquivoColado(e.clipboardData);
               if (f) {
                 e.preventDefault();
                 escolher(f);
