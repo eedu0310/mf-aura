@@ -226,6 +226,151 @@
 }
 
 /* ---------------------------------------------------------------------------
+   PEÇAS DO VISUAL (design system)
+   ---------------------------------------------------------------------------
+   As mesmas peças em toda tela: cartão, botão, campo, selo, filtro. Os
+   componentes de src/components/ui usam estas classes; telas que montam
+   HTML na mão também podem usá-las direto. Guia: docs/design-system.md.
+   --------------------------------------------------------------------------- */
+@layer components {
+  /* Cartão: superfície, linha fina, sombra quase nula. */
+  .aura-card {
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--aura-mist);
+    background: var(--aura-surface);
+    box-shadow: var(--shadow-sm);
+  }
+  .aura-card-interativo {
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  }
+  .aura-card-interativo:hover {
+    border-color: color-mix(in srgb, var(--aura-petrol-500) 35%, var(--aura-mist));
+    box-shadow: var(--shadow);
+  }
+
+  /* Botões */
+  .aura-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 2.25rem;
+    padding: 0 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .aura-btn:focus-visible { outline: 2px solid var(--aura-petrol-500); outline-offset: 2px; }
+  .aura-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .aura-btn-sm { height: 1.875rem; padding: 0 0.625rem; font-size: 0.75rem; border-radius: 0.4375rem; }
+  .aura-btn-lg { height: 2.75rem; padding: 0 1.125rem; font-size: 0.875rem; }
+  .aura-btn-primario { background: var(--aura-petrol-600); color: #fff; box-shadow: var(--shadow-sm); }
+  .aura-btn-primario:hover:not(:disabled) { background: var(--aura-petrol-700); }
+  .aura-btn-secundario { background: var(--aura-surface); color: var(--aura-graphite); border: 1px solid var(--aura-mist); box-shadow: var(--shadow-sm); }
+  .aura-btn-secundario:hover:not(:disabled) { background: var(--aura-sunken); }
+  .aura-btn-fantasma { background: transparent; color: var(--aura-graphite-soft); }
+  .aura-btn-fantasma:hover:not(:disabled) { background: var(--aura-sunken); color: var(--aura-graphite); }
+  .aura-btn-perigo { background: var(--aura-danger); color: #fff; }
+  .aura-btn-perigo:hover:not(:disabled) { filter: brightness(0.94); }
+  .aura-btn-perigo-suave { background: transparent; color: var(--aura-danger); border: 1px solid color-mix(in srgb, var(--aura-danger) 30%, transparent); }
+  .aura-btn-perigo-suave:hover:not(:disabled) { background: color-mix(in srgb, var(--aura-danger) 8%, transparent); }
+
+  /* Campos */
+  .aura-input {
+    height: 2.375rem;
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--aura-mist);
+    background: var(--aura-surface);
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    color: var(--aura-graphite);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  textarea.aura-input { height: auto; padding: 0.5rem 0.75rem; line-height: 1.5; }
+  .aura-input::placeholder { color: var(--aura-graphite-soft); opacity: 0.8; }
+  .aura-input:focus {
+    border-color: var(--aura-petrol-500);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--aura-petrol-500) 15%, transparent);
+  }
+  .aura-label { display: block; margin-bottom: 0.375rem; font-size: 0.8125rem; font-weight: 500; color: var(--aura-graphite); }
+
+  /* Selos (status, categoria) */
+  .aura-selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.375rem;
+    padding: 0.125rem 0.4375rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .aura-selo-neutro { background: var(--aura-sunken); color: var(--aura-graphite-soft); }
+  .aura-selo-marca { background: color-mix(in srgb, var(--aura-petrol-500) 12%, transparent); color: var(--aura-petrol-600); }
+  .aura-selo-sucesso { background: color-mix(in srgb, var(--aura-success) 12%, transparent); color: var(--aura-success); }
+  .aura-selo-atencao { background: color-mix(in srgb, var(--aura-warning) 14%, transparent); color: var(--aura-gold-700); }
+  .aura-selo-perigo { background: color-mix(in srgb, var(--aura-danger) 12%, transparent); color: var(--aura-danger); }
+  .aura-selo-ouro { background: color-mix(in srgb, var(--aura-gold) 16%, transparent); color: var(--aura-gold-700); }
+
+  /* Filtros: trilho segmentado (opções exclusivas) */
+  .aura-segmentado {
+    display: inline-flex;
+    gap: 0.125rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--aura-mist);
+    background: var(--aura-sunken);
+    padding: 0.125rem;
+  }
+  .aura-segmento {
+    border-radius: 0.375rem;
+    padding: 0.3125rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--aura-graphite-soft);
+    white-space: nowrap;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .aura-segmento:hover { color: var(--aura-graphite); }
+  .aura-segmento[aria-pressed="true"],
+  .aura-segmento[aria-selected="true"],
+  .aura-segmento[aria-current="page"],
+  .aura-segmento[data-ativo="true"] {
+    background: var(--aura-surface);
+    color: var(--aura-graphite);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Rótulo pequeno em caixa alta (cabeçalho de seção, legenda de número) */
+  .aura-rotulo {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--aura-graphite-soft);
+  }
+
+  /* Tabela de dados */
+  .aura-tabela { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8125rem; }
+  .aura-tabela thead th {
+    position: sticky; top: 0;
+    background: var(--aura-sunken);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-size: 0.6875rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--aura-graphite-soft);
+    border-bottom: 1px solid var(--aura-mist);
+  }
+  .aura-tabela tbody td { padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--aura-mist); color: var(--aura-graphite); }
+  .aura-tabela tbody tr:hover td { background: color-mix(in srgb, var(--aura-sunken) 60%, transparent); }
+}
+
+/* ---------------------------------------------------------------------------
    PWA instalado na tela de início: a webview desenha por baixo da barra de
    status do celular, porque o layout usa viewportFit "cover" junto com
    statusBarStyle "black-translucent". Sem reservar essa faixa, o cabeçalho

@@ -208,21 +208,39 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const { data: eu } = await supabase!.auth.getUser();
       if (ativo) setMeuId(eu.user?.id ?? null);
 
+      /**
+       * Lê a tabela inteira, de mil em mil.
+       *
+       * O Supabase devolve no máximo 1000 linhas por pedido e não avisa que
+       * cortou. A carteira passou de mil clientes e a tela mostrava "Clientes:
+       * 1000", "Todas (1000)": o resto simplesmente não existia para o sistema
+       * — nem na busca, nem nos follow-ups, nem nos totais (24/11/2026).
+       * O id entra como desempate da ordem para as páginas não repetirem nem
+       * pularem linhas.
+       */
+      async function lerTudo(tabela: string, filtrar?: (q: any) => any) {
+        const PAGINA = 1000;
+        const linhas: any[] = [];
+        for (let de = 0; de < 200_000; de += PAGINA) {
+          let consulta: any = supabase!.from(tabela).select("*");
+          if (filtrar) consulta = filtrar(consulta);
+          const { data, error } = await consulta
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(de, de + PAGINA - 1);
+          if (error) return { data: linhas.length ? linhas : null, error };
+          linhas.push(...(data ?? []));
+          if ((data ?? []).length < PAGINA) break;
+        }
+        return { data: linhas, error: null };
+      }
+
       const limiteAtividades = vejoTudoInicial ? 400 : 50;
       const [relRes, opRes, vendaRes, ativRes, playbookRes, leadsRes] =
         await Promise.all([
-          supabase!
-            .from("relacionamentos")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase!
-            .from("oportunidades")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase!
-            .from("vendas")
-            .select("*")
-            .order("created_at", { ascending: false }),
+          lerTudo("relacionamentos"),
+          lerTudo("oportunidades"),
+          lerTudo("vendas"),
           supabase!
             .from("atividades")
             .select("*")
@@ -233,12 +251,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             .select("conteudo")
             .eq("empresa", empresaAtual)
             .maybeSingle(),
-          supabase!
-            .from("leads_recebidos")
-            .select("*")
-            // Cliente antigo e não-lead não são lead (ver SO_LEADS_DE_VERDADE).
-            .or("natureza.is.null,natureza.eq.lead")
-            .order("created_at", { ascending: false }),
+          // Cliente antigo e não-lead não são lead (ver SO_LEADS_DE_VERDADE).
+          lerTudo("leads_recebidos", (q) => q.or("natureza.is.null,natureza.eq.lead")),
         ]);
 
       if (!ativo) return;
