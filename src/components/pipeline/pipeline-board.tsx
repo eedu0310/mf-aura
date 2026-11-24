@@ -89,7 +89,7 @@ function OportunidadeCard({
       ref={setNodeRef}
       style={style}
       onClick={() => onDetailsClick(oportunidade)}
-      className={`rounded-lg border border-aura-mist bg-white p-3 cursor-pointer transition hover:shadow-md hover:border-aura-petrol-300 ${
+      className={`group cursor-pointer rounded-xl border border-aura-mist bg-aura-surface p-3 shadow-sm transition hover:-translate-y-px hover:border-aura-petrol-300 hover:shadow ${
         isDragging ? "shadow-lg ring-2 ring-aura-petrol-500" : ""
       }`}
     >
@@ -99,7 +99,7 @@ function OportunidadeCard({
           {...listeners}
           className="mt-0.5 cursor-grab active:cursor-grabbing"
         >
-          <GripVertical size={16} className="text-aura-graphite-soft" />
+          <GripVertical size={15} className="text-aura-graphite-soft/50 transition group-hover:text-aura-graphite-soft" />
         </div>
         <div className="flex-1 min-w-0">
           {/*
@@ -160,20 +160,24 @@ function EtapaColuna({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-aura-bg ${
-        ehPerdidos ? "border-aura-danger/20" : "border-aura-mist"
+      className={`flex min-w-0 flex-col overflow-hidden rounded-xl bg-aura-sunken ${
+        ehPerdidos ? "ring-1 ring-aura-danger/20" : ""
       }`}
     >
-      <div className="h-1 w-full" style={{ backgroundColor: definicao.cor }} />
-
-      <div className="border-b border-aura-mist bg-white px-3 py-2.5">
-        <p className="text-sm font-medium text-aura-graphite">{etapa}</p>
-        <p className="text-xs text-aura-graphite-soft">
-          {oportunidades.length} · {formatarMoeda(valorEtapa)}
-        </p>
+      {/* Cabeçalho da coluna: bolinha da cor da etapa, nome, contagem e total
+          — o padrão dos funis dos CRMs de alto padrão. */}
+      <div className="px-3 pb-2 pt-3">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: definicao.cor }} />
+          <p className="truncate text-[0.8125rem] font-semibold text-aura-graphite">{etapa}</p>
+          <span className="ml-auto rounded-md bg-aura-surface px-1.5 py-px text-[0.7rem] font-medium tabular-nums text-aura-graphite-soft">
+            {oportunidades.length}
+          </span>
+        </div>
+        <p className="mt-1 pl-4 text-xs tabular-nums text-aura-graphite-soft">{formatarMoeda(valorEtapa)}</p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-3 min-h-96 overflow-y-auto">
+      <div className="flex min-h-96 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         {oportunidades.length === 0 ? (
           <div className="rounded-xl border border-dashed border-aura-mist px-3 py-6 text-center">
             <p className="text-xs text-aura-graphite-soft">

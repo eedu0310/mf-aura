@@ -8,6 +8,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FotoDePerfil } from "./foto-de-perfil";
+import { SeletorTema } from "@/components/tema";
 
 export function ConfiguracoesView() {
   const router = useRouter();
@@ -220,6 +221,17 @@ export function ConfiguracoesView() {
             {erroPerfil && <p className="text-sm text-aura-danger">{erroPerfil}</p>}
           </div>
         )}
+      </div>
+
+      {/* Aparência */}
+      <div className="rounded-2xl border border-aura-mist bg-white p-5">
+        <p className="text-sm font-medium text-aura-graphite">Aparência</p>
+        <p className="mt-0.5 text-xs text-aura-graphite-soft">
+          Claro, escuro ou automático (segue o tema do aparelho). Fica salvo neste aparelho.
+        </p>
+        <div className="mt-3">
+          <SeletorTema />
+        </div>
       </div>
 
       {/* Notificações */}
