@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { contasLiberadas } from "@/lib/meta/conectar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -84,13 +85,40 @@ export async function POST(request: Request) {
 
   // O token de longa duração da Meta vale 60 dias. Guardamos o vencimento
   // para a tela avisar antes de a conta cair sozinha num sábado.
-  const expira = new Date(Date.now() + 60 * 86400_000).toISOString();
+  // Token do login unificado (usuário do sistema) não vence.
+  const expira = null;
+
+  // O id da conta é o que liga o aviso de mensagem à loja; sem ele as DMs
+  // chegavam e não achavam dono. Pergunta à Meta com o próprio token.
+  let igUserId: string | null = null;
+  let usuarioMeta: string | null = null;
+  try {
+    const contas = await contasLiberadas(token);
+    if (contas.length === 1) {
+      igUserId = contas[0].igUserId;
+      usuarioMeta = contas[0].usuario;
+    } else if (contas.length > 1) {
+      const pedido = (usuario ?? "").replace(/^@/, "").toLowerCase();
+      const certa = contas.find((c) => (c.usuario ?? "").toLowerCase() === pedido);
+      if (!certa) {
+        return NextResponse.json(
+          { erro: `Esse token dá acesso a ${contas.length} contas. Informe o @ certo da loja.` },
+          { status: 400 },
+        );
+      }
+      igUserId = certa.igUserId;
+      usuarioMeta = certa.usuario;
+    }
+  } catch (e) {
+    return NextResponse.json({ erro: `A Meta recusou esse token: ${(e as Error).message}` }, { status: 400 });
+  }
 
   const { error } = await sb!.from("meta_contas").upsert(
     {
       empresa,
       token,
-      nome_usuario: usuario,
+      ig_user_id: igUserId,
+      nome_usuario: usuarioMeta ?? usuario,
       token_expira_em: expira,
       conectado_em: new Date().toISOString(),
       conectado_por: auth!.userId,
