@@ -2,6 +2,7 @@
 
 import { Plus, MessageSquare, Trash2 } from "lucide-react";
 import type { ConversaSalva } from "@/lib/supabase/coach-messages";
+import { classeBotao } from "@/components/ui";
 
 export function ConversationSidebar({
   conversas,
@@ -17,12 +18,12 @@ export function ConversationSidebar({
   onApagar: (id: string) => void;
 }) {
   return (
-    <div className="hidden w-60 shrink-0 flex-col rounded-2xl border border-aura-mist bg-white sm:flex">
+    <div className="aura-card hidden w-60 shrink-0 flex-col sm:flex">
       <div className="border-b border-aura-mist p-3">
         <button
           type="button"
           onClick={onNovaConversa}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-aura-petrol-700 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600"
+          className={classeBotao("primario", "md", "w-full")}
         >
           <Plus size={15} />
           Nova conversa
@@ -43,13 +44,13 @@ export function ConversationSidebar({
                   <button
                     type="button"
                     onClick={() => onSelecionar(c.id)}
-                    className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 pr-8 text-left text-sm transition ${
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 pr-8 text-left text-[0.8125rem] transition ${
                       ativa
-                        ? "bg-aura-petrol-700/8 text-aura-graphite"
-                        : "text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
+                        ? "bg-aura-sunken font-medium text-aura-graphite"
+                        : "text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
                     }`}
                   >
-                    <MessageSquare size={14} className="shrink-0" />
+                    <MessageSquare size={14} className={`shrink-0 ${ativa ? "text-aura-petrol-600" : ""}`} />
                     <span className="truncate">{c.titulo}</span>
                   </button>
                   <button

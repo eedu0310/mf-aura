@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, Square, Loader2, AlertCircle, Keyboard } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { juntarResultados, resultadosDoEvento } from "@/lib/voz/resultados";
 
 type Estado = "ocioso" | "ditando" | "gravando" | "transcrevendo" | "erro";
@@ -166,7 +167,7 @@ export function ObservationField({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-aura-graphite">
+        <p className="text-[0.8125rem] font-medium text-aura-graphite">
           {label} {obrigatorio && <span className="text-aura-danger">*</span>}
         </p>
 
@@ -174,16 +175,16 @@ export function ObservationField({
           <button
             type="button"
             onClick={() => (temDitado ? iniciarDitado() : void gravarParaTranscrever())}
-            className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-aura-petrol-600"
+            className={classeBotao("secundario", "sm")}
           >
-            <Mic size={13} />
+            <Mic size={13} className="text-aura-petrol-600" />
             Falar o relato
           </button>
         ) : gravando ? (
           <button
             type="button"
             onClick={() => (estado === "ditando" ? pararDitado() : mediaRecorderRef.current?.stop())}
-            className="flex items-center gap-1.5 rounded-full bg-aura-danger px-3 py-1.5 text-xs font-semibold text-white"
+            className={classeBotao("perigo", "sm")}
           >
             <Square size={11} />
             Parar e usar
@@ -220,7 +221,7 @@ export function ObservationField({
         onChange={(e) => onChange(e.target.value)}
         rows={4}
         placeholder="Fale pelo microfone ou escreva aqui o que aconteceu no atendimento..."
-        className="w-full resize-none rounded-xl border border-aura-mist bg-white px-4 py-3 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+        className="aura-input resize-none"
       />
 
       {!temDitado && (

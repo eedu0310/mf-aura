@@ -9,6 +9,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
 import { ehGanho } from "@/lib/funil";
 import { NOMES_EMPRESAS } from "@/lib/companies";
+import { EstadoVazio, PageContainer, PageHeader, Segmentado, StatCard, classeBotao } from "@/components/ui";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -152,43 +153,24 @@ export function VendasView() {
   // ============================================
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-aura-navy-950 px-6 pb-10 pt-8 sm:px-8">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-aura-gold/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-aura-petrol-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">Vendas</h1>
-          <p className="mt-1 text-sm text-white/50">
-            {isGestor
-              ? "Acompanhe todas as vendas realizadas e oportunidades fechadas."
-              : `Suas vendas e oportunidades de ${empresaUsuario}`}
-          </p>
-        </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-        <AuraInsightCard pagina="vendas" />
-      </div>
-
-      {/* Filtro por Empresa (apenas se gestor ou múltiplas empresas) */}
-      {(isGestor || empresasDisponiveis.length > 1) && (
-        <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <label className="block text-sm font-medium text-aura-graphite mb-2">
-                Filtrar por empresa:
-              </label>
+    <PageContainer>
+      <PageHeader
+        titulo="Vendas"
+        icone={TrendingUp}
+        descricao={
+          isGestor
+            ? "Acompanhe todas as vendas realizadas e oportunidades fechadas."
+            : `Suas vendas e oportunidades de ${empresaUsuario}`
+        }
+        acoes={
+          /* Filtro por Empresa (apenas se gestor ou múltiplas empresas) */
+          (isGestor || empresasDisponiveis.length > 1) && (
+            <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+              <span className="whitespace-nowrap">Filtrar por empresa:</span>
               <select
                 value={filtroEmpresa}
                 onChange={(e) => setFiltroEmpresa(e.target.value)}
-                className="w-full sm:w-64 rounded-lg border border-aura-mist bg-white px-4 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input w-full sm:w-56"
               >
                 {isGestor && <option value="todas">Todas as empresas</option>}
                 {empresasDisponiveis.map((empresa) => (
@@ -197,66 +179,45 @@ export function VendasView() {
                   </option>
                 ))}
               </select>
-            </div>
-          </div>
-        </div>
-      )}
+            </label>
+          )
+        }
+      />
+
+      <div className="space-y-6">
+      <AuraInsightCard pagina="vendas" />
 
       {/* Cards de Resumo */}
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={16} className="text-aura-success" />
-              <p className="text-sm text-aura-graphite-soft">Vendido (Realizado)</p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(totalVendido)}
-            </p>
-            <p className="mt-1 text-xs text-aura-graphite-soft">
-              {quantidadeVendas} venda{quantidadeVendas !== 1 ? "s" : ""}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <AlertCircle size={16} className="text-aura-warning" />
-              <p className="text-sm text-aura-graphite-soft">Fechado (Pipeline)</p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(totalFechado)}
-            </p>
-            <p className="mt-1 text-xs text-aura-graphite-soft">
-              {quantidadeFechadas} oportunidade{quantidadeFechadas !== 1 ? "s" : ""}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <Layers size={16} className="text-aura-petrol-600" />
-              <p className="text-sm text-aura-graphite-soft">Total Geral</p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(totalGeral)}
-            </p>
-            <p className="mt-1 text-xs text-aura-graphite-soft">
-              {quantidadeGeral} negócio{quantidadeGeral !== 1 ? "s" : ""}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <Layers size={16} className="text-aura-petrol-600" />
-              <p className="text-sm text-aura-graphite-soft">Ticket Médio</p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(ticketMedio || 0)}
-            </p>
-            {/* O rótulo dizia "Realizado" embaixo do ticket das oportunidades
-                FECHADAS, o oposto do que os cards ao lado chamam de realizado.
-                Na tela aparecia "Ticket Médio R$ 0 / Realizado: R$ 12.712" —
-                dois números que se desmentiam no mesmo cartão. */}
-            <p className="mt-1 text-xs text-aura-graphite-soft">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icone={TrendingUp}
+          tom="sucesso"
+          rotulo="Vendido (Realizado)"
+          valor={formatarMoeda(totalVendido)}
+          detalhe={`${quantidadeVendas} venda${quantidadeVendas !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          icone={AlertCircle}
+          rotulo="Fechado (Pipeline)"
+          valor={formatarMoeda(totalFechado)}
+          detalhe={`${quantidadeFechadas} oportunidade${quantidadeFechadas !== 1 ? "s" : ""}`}
+        />
+        <StatCard
+          icone={Layers}
+          rotulo="Total Geral"
+          valor={formatarMoeda(totalGeral)}
+          detalhe={`${quantidadeGeral} negócio${quantidadeGeral !== 1 ? "s" : ""}`}
+        />
+        {/* O rótulo dizia "Realizado" embaixo do ticket das oportunidades
+            FECHADAS, o oposto do que os cards ao lado chamam de realizado.
+            Na tela aparecia "Ticket Médio R$ 0 / Realizado: R$ 12.712" —
+            dois números que se desmentiam no mesmo cartão. */}
+        <StatCard
+          icone={Layers}
+          rotulo="Ticket Médio"
+          valor={formatarMoeda(ticketMedio || 0)}
+          detalhe={
+            <>
               {quantidadeVendas > 0 ? "por venda registrada" : "nenhuma venda registrada ainda"}
               {quantidadeFechadas > 0 && (
                 <>
@@ -264,119 +225,91 @@ export function VendasView() {
                   Fechado: {formatarMoeda(ticketMedioFechado || 0)}
                 </>
               )}
-            </p>
-          </div>
-        </div>
+            </>
+          }
+        />
       </div>
 
       {/* Abas */}
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-        <div className="flex gap-4 border-b border-aura-mist">
-          <button
-            onClick={() => setAbaSelecionada("realizadas")}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
-              abaSelecionada === "realizadas"
-                ? "border-b-2 border-aura-petrol-700 text-aura-petrol-700"
-                : "text-aura-graphite-soft hover:text-aura-graphite"
-            }`}
-          >
-            Vendas Realizadas ({quantidadeVendas})
-          </button>
-          <button
-            onClick={() => setAbaSelecionada("fechadas")}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
-              abaSelecionada === "fechadas"
-                ? "border-b-2 border-aura-petrol-700 text-aura-petrol-700"
-                : "text-aura-graphite-soft hover:text-aura-graphite"
-            }`}
-          >
-            Oportunidades Fechadas ({quantidadeFechadas})
-          </button>
-          <button
-            onClick={() => setAbaSelecionada("resumo")}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${
-              abaSelecionada === "resumo"
-                ? "border-b-2 border-aura-petrol-700 text-aura-petrol-700"
-                : "text-aura-graphite-soft hover:text-aura-graphite"
-            }`}
-          >
-            Resumo
-          </button>
-        </div>
-      </div>
+      <Segmentado
+        rotulo="Vendas"
+        valor={abaSelecionada}
+        aoMudar={setAbaSelecionada}
+        opcoes={[
+          { valor: "realizadas", rotulo: "Vendas Realizadas", contagem: quantidadeVendas },
+          { valor: "fechadas", rotulo: "Oportunidades Fechadas", contagem: quantidadeFechadas },
+          { valor: "resumo", rotulo: "Resumo" },
+        ]}
+      />
 
       {/* Conteúdo das Abas */}
-      <div className="mx-auto w-full max-w-7xl px-6 pb-24 sm:px-8">
+      <div>
         {/* Aba: Vendas Realizadas */}
         {abaSelecionada === "realizadas" && (
           <div>
             {vendasFiltradas.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-aura-mist bg-aura-bg px-6 py-12 text-center">
-                <p className="text-sm text-aura-graphite-soft">
-                  Nenhuma venda realizada encontrada.
-                </p>
-              </div>
+              <EstadoVazio icone={TrendingUp} titulo="Nenhuma venda realizada encontrada." />
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-aura-mist">
-                <table className="w-full">
+              <div className="aura-card overflow-x-auto">
+                <table className="aura-tabela">
                   <thead>
-                    <tr className="border-b border-aura-mist bg-aura-bg">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                    <tr>
+                      <th>
                         Cliente
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Produto
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Valor
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Data
                       </th>
                       {isGestor && (
-                        <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                        <th>
                           Empresa
                         </th>
                       )}
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Loja
                       </th>
-                      <th className="px-4 py-3 text-right text-sm font-medium text-aura-graphite">
+                      <th className="text-right">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-aura-mist">
+                  <tbody>
                     {vendasFiltradas.map((venda) => (
-                      <tr key={venda.id} className="hover:bg-aura-bg/50">
-                        <td className="px-4 py-3 text-sm text-aura-graphite">
+                      <tr key={venda.id}>
+                        <td>
                           {venda.cliente}
                         </td>
-                        <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                        <td className="text-aura-graphite-soft">
                           {venda.produto || "-"}
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-aura-graphite">
+                        <td className="font-medium tabular-nums">
                           {formatarMoeda(venda.valor)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                        <td className="text-aura-graphite-soft">
                           {formatarData(venda.data)}
                         </td>
                         {isGestor && (
-                          <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                          <td className="text-aura-graphite-soft">
                             {venda.empresa || "Sem empresa"}
                           </td>
                         )}
-                        <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                        <td className="text-aura-graphite-soft">
                           {venda.loja || "-"}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
                               onClick={() => setVendaEditando(venda)}
                               title="Corrigir esta venda"
                               aria-label={`Corrigir a venda de ${venda.cliente}`}
-                              className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
+                              className={classeBotao("fantasma", "sm", "w-[1.875rem] px-0")}
                             >
                               <Pencil size={15} />
                             </button>
@@ -386,7 +319,7 @@ export function VendasView() {
                               disabled={excluindo === venda.id}
                               title="Excluir esta venda"
                               aria-label={`Excluir a venda de ${venda.cliente}`}
-                              className="rounded-lg p-2 text-aura-danger hover:bg-red-50 disabled:opacity-40"
+                              className={classeBotao("fantasma", "sm", "w-[1.875rem] px-0 text-aura-danger hover:text-aura-danger")}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -405,60 +338,56 @@ export function VendasView() {
         {abaSelecionada === "fechadas" && (
           <div>
             {oportunidadeFechadosFiltradas.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-aura-mist bg-aura-bg px-6 py-12 text-center">
-                <p className="text-sm text-aura-graphite-soft">
-                  Nenhuma oportunidade fechada encontrada.
-                </p>
-              </div>
+              <EstadoVazio icone={Layers} titulo="Nenhuma oportunidade fechada encontrada." />
             ) : (
-              <div className="overflow-x-auto rounded-2xl border border-aura-mist">
-                <table className="w-full">
+              <div className="aura-card overflow-x-auto">
+                <table className="aura-tabela">
                   <thead>
-                    <tr className="border-b border-aura-mist bg-aura-bg">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                    <tr>
+                      <th>
                         Cliente
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Produto
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Valor
                       </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Probabilidade
                       </th>
                       {isGestor && (
-                        <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                        <th>
                           Empresa
                         </th>
                       )}
-                      <th className="px-4 py-3 text-left text-sm font-medium text-aura-graphite">
+                      <th>
                         Status
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-aura-mist">
+                  <tbody>
                     {oportunidadeFechadosFiltradas.map((opp) => (
-                      <tr key={opp.id} className="hover:bg-aura-bg/50">
-                        <td className="px-4 py-3 text-sm text-aura-graphite">
+                      <tr key={opp.id}>
+                        <td>
                           {opp.cliente}
                         </td>
-                        <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                        <td className="text-aura-graphite-soft">
                           {opp.produto || "-"}
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-aura-graphite">
+                        <td className="font-medium tabular-nums">
                           {formatarMoeda(opp.valor)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                        <td className="text-aura-graphite-soft">
                           {opp.probabilidade}
                         </td>
                         {isGestor && (
-                          <td className="px-4 py-3 text-sm text-aura-graphite-soft">
+                          <td className="text-aura-graphite-soft">
                             {opp.empresa || "Sem empresa"}
                           </td>
                         )}
-                        <td className="px-4 py-3">
-                          <span className="inline-block rounded-full bg-aura-success/10 px-3 py-1 text-xs font-medium text-aura-success">
+                        <td>
+                          <span className="aura-selo aura-selo-sucesso">
                             {opp.etapa}
                           </span>
                         </td>
@@ -475,52 +404,52 @@ export function VendasView() {
         {abaSelecionada === "resumo" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-aura-mist bg-white p-6">
-                <h3 className="text-sm font-medium text-aura-graphite mb-4">
+              <div className="aura-card p-5">
+                <h3 className="mb-4 text-sm font-semibold text-aura-graphite">
                   Resumo de Vendas Realizadas
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Total Vendido:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {formatarMoeda(totalVendido)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Quantidade:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {quantidadeVendas}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Ticket Médio:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {formatarMoeda(ticketMedio)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-aura-mist bg-white p-6">
-                <h3 className="text-sm font-medium text-aura-graphite mb-4">
+              <div className="aura-card p-5">
+                <h3 className="mb-4 text-sm font-semibold text-aura-graphite">
                   Resumo de Oportunidades Fechadas
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Total Fechado:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {formatarMoeda(totalFechado)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Quantidade:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {quantidadeFechadas}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-aura-graphite-soft">Ticket Médio:</span>
-                    <span className="font-semibold text-aura-graphite">
+                    <span className="font-semibold tabular-nums text-aura-graphite">
                       {formatarMoeda(ticketMedioFechado)}
                     </span>
                   </div>
@@ -528,20 +457,20 @@ export function VendasView() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-aura-mist bg-white p-6">
-              <h3 className="text-sm font-medium text-aura-graphite mb-4">
+            <div className="aura-card p-5">
+              <h3 className="mb-4 text-sm font-semibold text-aura-graphite">
                 Resumo Geral
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-aura-graphite-soft">Total Geral:</span>
-                  <span className="font-display text-xl font-bold text-aura-graphite">
+                  <span className="font-display text-xl font-semibold tabular-nums text-aura-graphite">
                     {formatarMoeda(totalGeral)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-aura-graphite-soft">Taxa de Realização:</span>
-                  <span className="font-semibold text-aura-graphite">
+                  <span className="font-semibold tabular-nums text-aura-graphite">
                     {totalGeral > 0
                       ? `${((totalVendido / totalGeral) * 100).toFixed(1)}%`
                       : "0%"}
@@ -564,6 +493,7 @@ export function VendasView() {
           onClose={() => setVendaEditando(null)}
         />
       )}
-    </div>
+      </div>
+    </PageContainer>
   );
 }

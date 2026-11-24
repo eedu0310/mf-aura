@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { listarUsuariosPorEmpresa, type Usuario } from "@/lib/supabase/usuarios-management";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { Card, CardHeader, classeBotao } from "@/components/ui";
 
 /** O que a transferência moveu, para o gestor conferir item por item. */
 export interface CarteiraMovida {
@@ -90,23 +91,19 @@ export function TransferirCarteiraCard({ aoTransferir }: { aoTransferir?: () => 
   );
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
-      <div className="flex items-start gap-3">
-        <ArrowRightLeft size={18} className="mt-0.5 text-aura-petrol-600" />
-        <div>
-          <p className="font-medium text-aura-graphite">Transferir carteira</p>
-          <p className="text-xs text-aura-graphite-soft">
-            Move clientes, negócios em aberto, conversas, tarefas, compromissos e pós-venda de uma
-            pessoa para outra. Negócio já fechado ou perdido fica com quem fechou.
-          </p>
-        </div>
-      </div>
+    <Card>
+      <CardHeader
+        icone={ArrowRightLeft}
+        titulo="Transferir carteira"
+        descricao="Move clientes, negócios em aberto, conversas, tarefas, compromissos e pós-venda de uma pessoa para outra. Negócio já fechado ou perdido fica com quem fechou."
+        className="mb-0!"
+      />
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <select
           value={origem}
           onChange={(e) => setOrigem(e.target.value)}
-          className="rounded-xl border border-aura-mist px-3 py-2 text-sm"
+          className="aura-input"
         >
           <option value="">Quem entrega</option>
           {vendedores.map((usuario) => (
@@ -119,7 +116,7 @@ export function TransferirCarteiraCard({ aoTransferir }: { aoTransferir?: () => 
         <select
           value={destino}
           onChange={(e) => setDestino(e.target.value)}
-          className="rounded-xl border border-aura-mist px-3 py-2 text-sm"
+          className="aura-input"
         >
           <option value="">Quem recebe</option>
           {vendedores
@@ -136,16 +133,16 @@ export function TransferirCarteiraCard({ aoTransferir }: { aoTransferir?: () => 
         type="button"
         onClick={transferir}
         disabled={processando}
-        className="mt-3 flex items-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+        className={classeBotao("primario", "md", "mt-3")}
       >
         {processando && <Loader2 size={15} className="animate-spin" />}
         Transferir carteira
       </button>
       {mensagem && (
-        <p className={`mt-3 text-xs ${erro ? "text-red-700" : "text-aura-graphite-soft"}`}>
+        <p className={`mt-3 text-xs ${erro ? "text-aura-danger" : "text-aura-graphite-soft"}`}>
           {mensagem}
         </p>
       )}
-    </div>
+    </Card>
   );
 }

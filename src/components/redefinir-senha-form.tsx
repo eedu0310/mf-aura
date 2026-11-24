@@ -198,7 +198,7 @@ export function RedefinirSenhaForm() {
   if (pronto) {
     return (
       <div className="flex flex-col gap-3">
-        <p className="flex items-center gap-2 rounded-lg bg-aura-success/10 px-3 py-2.5 text-sm text-aura-success">
+        <p className="flex items-center gap-2 rounded-lg border border-aura-success/25 bg-aura-success/10 px-3 py-2.5 text-sm text-aura-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           Senha trocada. Levando você para a tela de entrar...
         </p>
@@ -209,12 +209,12 @@ export function RedefinirSenhaForm() {
   if (!liberado) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="rounded-lg bg-aura-danger/10 px-3 py-2.5 text-sm leading-relaxed text-aura-danger">
+        <p className="rounded-lg border border-aura-danger/25 bg-aura-danger/10 px-3 py-2.5 text-sm leading-relaxed text-aura-danger">
           {erro}
         </p>
         <a
           href="/login"
-          className="inline-flex items-center justify-center rounded-xl bg-aura-petrol-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-aura-petrol-600"
+          className="aura-btn aura-btn-primario aura-btn-lg w-full"
         >
           Voltar para a tela de entrar
         </a>
@@ -225,13 +225,13 @@ export function RedefinirSenhaForm() {
   return (
     <form onSubmit={salvar} className="flex flex-col gap-4" noValidate>
       {email && (
-        <p className="rounded-lg bg-aura-mist/40 px-3 py-2 text-sm text-aura-graphite-soft">
+        <p className="rounded-lg bg-aura-sunken px-3 py-2 text-sm text-aura-graphite-soft">
           Trocando a senha de <strong className="text-aura-graphite">{email}</strong>
         </p>
       )}
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="senha" className="text-sm font-medium text-aura-graphite">
+        <label htmlFor="senha" className="aura-label mb-0">
           Nova senha
         </label>
         <div className="relative">
@@ -241,7 +241,7 @@ export function RedefinirSenhaForm() {
             autoComplete="new-password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 pr-11 text-[0.95rem] text-aura-graphite outline-none transition focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            className="aura-input h-11 px-3.5 pr-11 text-[0.95rem]"
           />
           <button
             type="button"
@@ -256,7 +256,7 @@ export function RedefinirSenhaForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="confirmacao" className="text-sm font-medium text-aura-graphite">
+        <label htmlFor="confirmacao" className="aura-label mb-0">
           Repita a nova senha
         </label>
         <input
@@ -265,12 +265,12 @@ export function RedefinirSenhaForm() {
           autoComplete="new-password"
           value={confirmacao}
           onChange={(e) => setConfirmacao(e.target.value)}
-          className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-[0.95rem] text-aura-graphite outline-none transition focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input h-11 px-3.5 text-[0.95rem]"
         />
       </div>
 
       {erro && (
-        <p className="rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
+        <p className="rounded-lg border border-aura-danger/25 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
           {erro}
         </p>
       )}
@@ -278,7 +278,7 @@ export function RedefinirSenhaForm() {
       <button
         type="submit"
         disabled={salvando}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-500 px-4 py-3 text-sm font-medium text-white transition hover:bg-aura-petrol-600 disabled:opacity-60"
+        className="aura-btn aura-btn-primario aura-btn-lg w-full"
       >
         {salvando && <Loader2 className="h-4 w-4 animate-spin" />}
         Salvar nova senha

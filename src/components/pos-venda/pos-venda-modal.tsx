@@ -98,8 +98,8 @@ export function PosVendaModal({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card max-h-[90vh] w-full max-w-md overflow-y-auto p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <p className="font-display text-lg font-semibold text-aura-graphite">{pv.cliente}</p>
@@ -109,24 +109,25 @@ export function PosVendaModal({
                 : `${pv.produto} · ${formatarMoeda(pv.valor)}`}
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-aura-graphite-soft hover:text-aura-graphite">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Status</label>
+            <label className="aura-label">Status</label>
             <div className="flex flex-wrap gap-2">
               {STATUS_ORDEM.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setStatus(s)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                  aria-pressed={status === s}
+                  className={`rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
                     status === s
-                      ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                      : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
+                      ? "border-aura-petrol-500/40 bg-aura-petrol-500/10 text-aura-petrol-600"
+                      : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
                   }`}
                 >
                   {STATUS_LABEL[s]}
@@ -137,33 +138,33 @@ export function PosVendaModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Data instalação</label>
+              <label className="aura-label">Data instalação</label>
               <input
                 type="date"
                 value={dataAgendamento}
                 onChange={(e) => setDataAgendamento(e.target.value)}
-                className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                className="aura-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Hora</label>
+              <label className="aura-label">Hora</label>
               <input
                 type="time"
                 value={horaAgendamento}
                 onChange={(e) => setHoraAgendamento(e.target.value)}
-                className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                className="aura-input"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Observação</label>
+            <label className="aura-label">Observação</label>
             <textarea
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               rows={2}
               placeholder="Ex.: instalador João, cliente prefere período da manhã"
-              className="w-full resize-none rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+              className="aura-input resize-none"
             />
           </div>
 
@@ -177,7 +178,7 @@ export function PosVendaModal({
               onChange={(e) => setReclamacao(e.target.value)}
               rows={2}
               placeholder="Descreva a reclamação do cliente"
-              className="w-full resize-none rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+              className="aura-input resize-none"
             />
             {reclamacao.trim() && (
               <label className="mt-2 flex items-center gap-2 text-sm text-aura-graphite">
@@ -185,20 +186,20 @@ export function PosVendaModal({
                   type="checkbox"
                   checked={reclamacaoResolvida}
                   onChange={(e) => setReclamacaoResolvida(e.target.checked)}
-                  className="h-4 w-4 rounded border-aura-mist text-aura-petrol-700"
+                  className="h-4 w-4 rounded border-aura-mist accent-aura-petrol-600"
                 />
                 Reclamação já resolvida
               </label>
             )}
           </div>
 
-          <div className="rounded-xl border border-aura-mist bg-aura-bg p-3.5">
+          <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3.5">
             <label className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
               <input
                 type="checkbox"
                 checked={avaliouLoja}
                 onChange={(e) => setAvaliouLoja(e.target.checked)}
-                className="h-4 w-4 rounded border-aura-mist text-aura-petrol-700"
+                className="h-4 w-4 rounded border-aura-mist accent-aura-petrol-600"
               />
               Cliente avaliou a loja
             </label>
@@ -215,7 +216,7 @@ export function PosVendaModal({
                     >
                       <Star
                         size={20}
-                        className={n <= notaAvaliacao ? "fill-aura-gold text-aura-gold" : "text-aura-mist"}
+                        className={n <= notaAvaliacao ? "fill-aura-gold text-aura-gold" : "text-aura-graphite-soft/30"}
                       />
                     </button>
                   ))}
@@ -225,7 +226,7 @@ export function PosVendaModal({
                   value={comentarioAvaliacao}
                   onChange={(e) => setComentarioAvaliacao(e.target.value)}
                   placeholder="Comentário da avaliação (opcional)"
-                  className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                  className="aura-input"
                 />
               </div>
             )}
@@ -234,7 +235,7 @@ export function PosVendaModal({
               <button
                 type="button"
                 onClick={copiarLinkAvaliacao}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-aura-mist bg-white py-2 text-xs font-medium text-aura-petrol-600 hover:bg-aura-petrol-700/5"
+                className="aura-btn aura-btn-secundario aura-btn-sm flex-1"
               >
                 {linkCopiado ? <Check size={13} /> : <Link2 size={13} />}
                 {linkCopiado ? "Copiado!" : "Copiar link"}
@@ -242,7 +243,7 @@ export function PosVendaModal({
               <button
                 type="button"
                 onClick={enviarPorWhatsApp}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-aura-success/30 bg-aura-success/10 py-2 text-xs font-medium text-aura-success hover:bg-aura-success/20"
+                className="aura-btn aura-btn-secundario aura-btn-sm flex-1 text-aura-success"
               >
                 <MessageCircle size={13} />
                 {telefoneCliente ? "Enviar por WhatsApp" : "WhatsApp (sem número salvo)"}
@@ -256,7 +257,7 @@ export function PosVendaModal({
             type="button"
             onClick={salvar}
             disabled={salvando}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-aura-petrol-700 py-2.5 text-sm font-semibold text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+            className="aura-btn aura-btn-primario aura-btn-lg w-full"
           >
             <Check size={15} />
             {salvando ? "Salvando..." : "Salvar"}

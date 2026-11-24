@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { useAppData } from "@/lib/app-data-context";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
@@ -116,7 +117,7 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
       />
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-aura-graphite">
+        <label className="aura-label">
           Assunto *
         </label>
         <input
@@ -124,37 +125,37 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
           value={assunto}
           onChange={(event) => setAssunto(event.target.value)}
           placeholder="Qual foi o assunto da reunião?"
-          className="w-full rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-2 block text-sm font-medium text-aura-graphite">
+          <label className="aura-label">
             Data
           </label>
           <input
             type="date"
             value={dataReuniao}
             onChange={(event) => setDataReuniao(event.target.value)}
-            className="w-full rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            className="aura-input"
           />
         </div>
         <div>
-          <label className="mb-2 block text-sm font-medium text-aura-graphite">
+          <label className="aura-label">
             Hora
           </label>
           <input
             type="time"
             value={horaReuniao}
             onChange={(event) => setHoraReuniao(event.target.value)}
-            className="w-full rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            className="aura-input"
           />
         </div>
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-aura-graphite">
+        <label className="aura-label">
           Local informado
         </label>
         <input
@@ -162,18 +163,18 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
           value={local}
           onChange={(event) => setLocal(event.target.value)}
           placeholder="Ex.: escritório, loja ou obra"
-          className="w-full rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input"
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-aura-graphite">
+        <label className="aura-label">
           Resultado
         </label>
         <select
           value={resultado}
           onChange={(event) => setResultado(event.target.value)}
-          className="w-full rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input"
         >
           {RESULTADOS.map((item) => (
             <option key={item} value={item}>
@@ -221,7 +222,7 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
         type="button"
         onClick={() => void handleSalvar()}
         disabled={!podeConcluir}
-        className="flex items-center justify-center gap-2 rounded-lg bg-aura-petrol-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className={classeBotao("primario", "lg", "w-full")}
       >
         {salvando ? (
           <>

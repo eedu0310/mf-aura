@@ -10,6 +10,7 @@ import {
   type DadosDoLink,
   type LinkUtil,
 } from "@/lib/supabase/links";
+import { Selo, classeBotao } from "@/components/ui";
 
 /**
  * O gestor cadastra, edita e apaga os links da loja (Gestor → Configurações).
@@ -63,11 +64,11 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
     }
   }
 
-  const campo = "w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500";
+  const campo = "aura-input";
 
   function formulario() {
     return (
-      <div className="flex flex-col gap-2 rounded-2xl border border-aura-petrol-200 bg-aura-petrol-700/5 p-4">
+      <div className="flex flex-col gap-2 rounded-lg border border-aura-mist bg-aura-sunken/50 p-4">
         <input className={campo} placeholder="Título (ex.: Catálogo dos Produtos)" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
         <input className={campo} placeholder="Endereço (https://...)" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} />
         <div className="flex gap-2">
@@ -77,7 +78,7 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
             ))}
           </select>
           <input
-            className={`${campo} w-24`}
+            className={`${campo} w-24 shrink-0`}
             type="number"
             title="Ordem na lista (menor primeiro)"
             value={form.ordem ?? 0}
@@ -93,10 +94,10 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
         />
         {erro && <p className="text-xs text-aura-danger">{erro}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => setEditando(null)} className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs text-aura-graphite-soft hover:bg-white">
+          <button type="button" onClick={() => setEditando(null)} className={classeBotao("fantasma", "sm")}>
             <X size={14} /> Cancelar
           </button>
-          <button type="button" onClick={salvar} disabled={salvando} className="flex items-center gap-1 rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">
+          <button type="button" onClick={salvar} disabled={salvando} className={classeBotao("primario", "sm")}>
             {salvando ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Salvar
           </button>
         </div>
@@ -105,8 +106,8 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-4">
-      <div className="flex items-center justify-between">
+    <section className="aura-card flex flex-col gap-3 p-5">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-aura-graphite">Links úteis e atalhos do WhatsApp</p>
           <p className="text-xs text-aura-graphite-soft">
@@ -114,7 +115,7 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
           </p>
         </div>
         {editando !== "novo" && (
-          <button type="button" onClick={comecarNovo} className="flex items-center gap-1 rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-semibold text-white">
+          <button type="button" onClick={comecarNovo} className={classeBotao("primario", "sm", "shrink-0")}>
             <Plus size={14} /> Novo link
           </button>
         )}
@@ -132,11 +133,11 @@ export function LinksGestor({ empresa, links, aoMudar }: { empresa: string; link
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-aura-graphite">
                     {l.titulo}
-                    {l.mensagemWhatsapp && <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800">WhatsApp</span>}
+                    {l.mensagemWhatsapp && <Selo tom="sucesso" className="ml-2">WhatsApp</Selo>}
                   </p>
                   <p className="truncate text-xs text-aura-graphite-soft">{l.mensagemWhatsapp || l.url}</p>
                 </div>
-                <button type="button" onClick={() => comecarEdicao(l)} aria-label="Editar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                <button type="button" onClick={() => comecarEdicao(l)} aria-label="Editar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
                   <Pencil size={14} />
                 </button>
                 <button type="button" onClick={() => apagar(l)} aria-label="Apagar" className="rounded-lg p-2 text-aura-danger hover:bg-aura-danger/10">

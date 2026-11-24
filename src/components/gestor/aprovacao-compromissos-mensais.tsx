@@ -21,13 +21,14 @@ import {
 } from "@/lib/supabase/compromisso-mensal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatarReais } from "@/lib/formato/moeda";
+import { Alerta, CardHeader, Selo, classeBotao, type Tom } from "@/components/ui";
 
-const ROTULO_STATUS: Record<string, { texto: string; classe: string }> = {
-  rascunho: { texto: "Rascunho (não enviada)", classe: "bg-gray-100 text-gray-700" },
-  pendente_aprovacao: { texto: "Aguardando você", classe: "bg-yellow-100 text-yellow-700" },
-  ajuste_solicitado: { texto: "Ajuste pedido", classe: "bg-orange-100 text-orange-700" },
-  aprovado: { texto: "Aprovada", classe: "bg-green-100 text-green-700" },
-  rejeitado: { texto: "Rejeitada", classe: "bg-red-100 text-red-700" },
+const ROTULO_STATUS: Record<string, { texto: string; tom: Tom }> = {
+  rascunho: { texto: "Rascunho (não enviada)", tom: "neutro" },
+  pendente_aprovacao: { texto: "Aguardando você", tom: "atencao" },
+  ajuste_solicitado: { texto: "Ajuste pedido", tom: "ouro" },
+  aprovado: { texto: "Aprovada", tom: "sucesso" },
+  rejeitado: { texto: "Rejeitada", tom: "perigo" },
 };
 
 function mesDeHoje() {
@@ -116,45 +117,39 @@ export function AprovacaoCompromissosMensais() {
   const aguardando = linhas.filter((l) => l.compromisso?.status === "pendente_aprovacao");
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ClipboardCheck size={18} className="text-aura-petrol-600" />
-          <p className="font-medium text-aura-graphite">Metas do mês</p>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setMes(deslocarMes(mes, -1))}
-            className="rounded-lg border border-aura-mist p-1.5 hover:bg-aura-bg"
-            aria-label="Mês anterior"
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span className="min-w-[9rem] text-center text-sm font-medium capitalize text-aura-graphite">
-            {rotuloDoMes(mes)}
-          </span>
-          <button
-            type="button"
-            onClick={() => setMes(deslocarMes(mes, 1))}
-            className="rounded-lg border border-aura-mist p-1.5 hover:bg-aura-bg"
-            aria-label="Mês seguinte"
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
+    <div className="aura-card p-5">
+      <CardHeader
+        titulo="Metas do mês"
+        icone={ClipboardCheck}
+        className="flex-wrap"
+        acoes={
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setMes(deslocarMes(mes, -1))}
+              className={classeBotao("secundario", "sm", "w-[1.875rem] px-0")}
+              aria-label="Mês anterior"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="min-w-[9rem] text-center text-sm font-medium capitalize text-aura-graphite">
+              {rotuloDoMes(mes)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMes(deslocarMes(mes, 1))}
+              className={classeBotao("secundario", "sm", "w-[1.875rem] px-0")}
+              aria-label="Mês seguinte"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        }
+      />
 
-      {erro && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <span>{erro}</span>
-        </div>
-      )}
+      {erro && <Alerta tom="perigo" titulo={erro} icone={AlertTriangle} className="mb-3" />}
       {recado && (
-        <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-xs text-orange-800">
-          Feito, mas o vendedor não foi avisado: {recado}
-        </div>
+        <Alerta tom="atencao" titulo={`Feito, mas o vendedor não foi avisado: ${recado}`} className="mb-3" />
       )}
 
       {carregando ? (
@@ -167,12 +162,12 @@ export function AprovacaoCompromissosMensais() {
         <>
           <p className="mb-3 text-xs text-aura-graphite-soft">
             {aguardando.length > 0 && (
-              <span className="font-medium text-yellow-700">
+              <span className="font-medium text-aura-gold-700">
                 {aguardando.length} aguardando sua aprovação.{" "}
               </span>
             )}
             {semMeta.length > 0 ? (
-              <span className="font-medium text-red-700">
+              <span className="font-medium text-aura-danger">
                 {semMeta.length} sem meta nenhuma: {semMeta.map((l) => l.vendedorNome).join(", ")}.
               </span>
             ) : (
@@ -180,7 +175,7 @@ export function AprovacaoCompromissosMensais() {
             )}
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {linhas.map((linha) => {
               const comp = linha.compromisso;
               const chave = comp?.id ?? linha.vendedorId;
@@ -191,8 +186,8 @@ export function AprovacaoCompromissosMensais() {
                   key={chave}
                   className={`rounded-lg border p-4 transition ${
                     comp
-                      ? "border-aura-mist bg-aura-bg hover:border-aura-petrol-300"
-                      : "border-red-200 bg-red-50/40"
+                      ? "border-aura-mist hover:bg-aura-sunken/60"
+                      : "border-dashed border-aura-danger/40"
                   }`}
                 >
                   <button
@@ -202,7 +197,7 @@ export function AprovacaoCompromissosMensais() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <p className="font-medium text-aura-graphite">{linha.vendedorNome}</p>
+                        <p className="text-sm font-medium text-aura-graphite">{linha.vendedorNome}</p>
                         <p className="text-xs text-aura-graphite-soft">
                           {linha.empresa}
                           {comp
@@ -211,15 +206,13 @@ export function AprovacaoCompromissosMensais() {
                         </p>
                       </div>
                       {status ? (
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${status.classe}`}
-                        >
+                        <Selo tom={status.tom} className="shrink-0">
                           {status.texto}
-                        </span>
+                        </Selo>
                       ) : (
-                        <span className="shrink-0 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
+                        <Selo tom="perigo" className="shrink-0">
                           Sem meta
-                        </span>
+                        </Selo>
                       )}
                     </div>
                   </button>
@@ -236,8 +229,8 @@ export function AprovacaoCompromissosMensais() {
                           ["Ligações", comp.metaLigacoes],
                         ].map(([rotulo, valor]) => (
                           <div key={String(rotulo)}>
-                            <p className="text-aura-graphite-soft">{rotulo}</p>
-                            <p className="font-medium text-aura-graphite">{valor}</p>
+                            <p className="aura-rotulo">{rotulo}</p>
+                            <p className="mt-0.5 text-sm font-medium tabular-nums text-aura-graphite">{valor}</p>
                           </div>
                         ))}
                       </div>
@@ -267,7 +260,7 @@ export function AprovacaoCompromissosMensais() {
                               })
                             }
                             disabled={ocupado}
-                            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-100 px-3 py-2 text-sm font-medium text-green-700 transition hover:bg-green-200 disabled:opacity-50"
+                            className={classeBotao("primario", "md", "flex-1")}
                           >
                             {ocupado ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                             Aprovar
@@ -284,7 +277,7 @@ export function AprovacaoCompromissosMensais() {
                             });
                           }}
                           disabled={ocupado}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-orange-100 px-3 py-2 text-sm font-medium text-orange-700 transition hover:bg-orange-200 disabled:opacity-50"
+                          className={classeBotao("secundario", "md", "flex-1")}
                         >
                           {ocupado ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
                           Pedir ajuste
@@ -304,7 +297,7 @@ export function AprovacaoCompromissosMensais() {
                             });
                           }}
                           disabled={ocupado}
-                          className="flex items-center justify-center gap-2 rounded-lg bg-red-100 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200 disabled:opacity-50"
+                          className={classeBotao("perigo-suave", "md")}
                         >
                           {ocupado ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                           Excluir meta

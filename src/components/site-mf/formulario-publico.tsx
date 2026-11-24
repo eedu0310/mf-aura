@@ -98,7 +98,7 @@ export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor,
             href={pronto.material.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 flex min-h-[52px] items-center justify-center rounded-[4px] bg-neutral-950 px-6 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#CD1C1B]"
+            className="mt-6 flex min-h-[52px] items-center justify-center rounded-[4px] bg-neutral-950 px-6 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#CD1C1B] dark:ring-1 dark:ring-white/15"
           >
             {pronto.material.nome}
           </a>
@@ -171,7 +171,7 @@ export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor,
           <button
             type="submit"
             disabled={enviando}
-            className="mt-1 min-h-[52px] rounded-[4px] bg-neutral-950 px-6 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#CD1C1B] disabled:opacity-60"
+            className="mt-1 min-h-[52px] rounded-[4px] bg-neutral-950 px-6 text-sm font-bold uppercase tracking-wider text-white transition hover:bg-[#CD1C1B] dark:ring-1 dark:ring-white/15 disabled:opacity-60"
           >
             {enviando ? "Enviando…" : botao}
           </button>
@@ -228,7 +228,7 @@ export function FormularioPublico({ slug, titulo, descricao, campos, botao, cor,
           }
           return (
             <div key={c.chave} className="flex flex-col gap-1.5">
-              <label htmlFor={id} className="text-sm font-medium text-neutral-800">
+              <label htmlFor={id} className="text-sm font-medium text-neutral-800 dark:text-aura-graphite">
                 {rotulo}
               </label>
               {c.tipo === "selecao" ? (

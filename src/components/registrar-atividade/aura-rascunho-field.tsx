@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Sparkles, WandSparkles } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 
 export interface RascunhoAtividadeAura {
   resumo: string;
@@ -49,33 +50,33 @@ export function AuraRascunhoField({
   }
 
   return (
-    <div className="rounded-2xl border border-aura-gold/30 bg-aura-gold/5 p-4">
-      <div className="flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aura-gold/20 text-aura-gold"><Sparkles size={16} /></span>
+    <div className="rounded-xl border border-aura-mist bg-aura-sunken/60 p-4">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15 text-aura-gold-700"><Sparkles size={15} /></span>
         <div>
           <p className="text-sm font-semibold text-aura-graphite">Registrar com ajuda da AURA</p>
           <p className="text-xs text-aura-graphite-soft">Descreva o contato. A AURA prepara um rascunho para você revisar.</p>
         </div>
       </div>
-      <textarea value={relato} onChange={(event) => setRelato(event.target.value)} rows={3} maxLength={6000} placeholder="Ex.: Visitei o arquiteto João. Ele gostou da lareira, mas vai conversar com o cliente e pediu retorno em cinco dias." className="mt-3 w-full resize-none rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none focus:border-aura-gold" />
+      <textarea value={relato} onChange={(event) => setRelato(event.target.value)} rows={3} maxLength={6000} placeholder="Ex.: Visitei o arquiteto João. Ele gostou da lareira, mas vai conversar com o cliente e pediu retorno em cinco dias." className="aura-input mt-3 resize-none" />
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-xs text-aura-graphite-soft">{relato.length}/6000</span>
-        <button type="button" onClick={() => void gerarRascunho()} disabled={carregando || relato.trim().length < 12} className="inline-flex items-center gap-2 rounded-xl bg-aura-navy-950 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
-          {carregando ? <Loader2 size={14} className="animate-spin" /> : <WandSparkles size={14} />}
+        <span className="text-xs tabular-nums text-aura-graphite-soft">{relato.length}/6000</span>
+        <button type="button" onClick={() => void gerarRascunho()} disabled={carregando || relato.trim().length < 12} className={classeBotao("secundario", "sm")}>
+          {carregando ? <Loader2 size={13} className="animate-spin" /> : <WandSparkles size={13} className="text-aura-petrol-600" />}
           {carregando ? "Analisando..." : "Preparar rascunho"}
         </button>
       </div>
       {erro && <p className="mt-2 text-xs text-aura-danger">{erro}</p>}
       {rascunho && (
-        <div className="mt-3 rounded-xl border border-aura-mist bg-white p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-aura-petrol-700">Rascunho para revisar</p>
+        <div className="aura-card mt-3 p-3">
+          <p className="aura-rotulo text-aura-petrol-600">Rascunho para revisar</p>
           <p className="mt-1 text-sm text-aura-graphite">{rascunho.resumo}</p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-aura-graphite-soft sm:grid-cols-3">
-            <span>Resultado: <b className="text-aura-graphite">{rascunho.resultado || "—"}</b></span>
-            <span>Próximo passo: <b className="text-aura-graphite">{rascunho.proximoPasso || "—"}</b></span>
-            <span>Confiança: <b className="text-aura-graphite">{Math.round(rascunho.confianca * 100)}%</b></span>
+            <span>Resultado: <b className="font-medium text-aura-graphite">{rascunho.resultado || "—"}</b></span>
+            <span>Próximo passo: <b className="font-medium text-aura-graphite">{rascunho.proximoPasso || "—"}</b></span>
+            <span>Confiança: <b className="font-medium tabular-nums text-aura-graphite">{Math.round(rascunho.confianca * 100)}%</b></span>
           </div>
-          <button type="button" onClick={() => onAplicar(rascunho)} className="mt-3 w-full rounded-xl bg-aura-petrol-700 px-3 py-2 text-xs font-semibold text-white hover:bg-aura-petrol-600">Usar dados no formulário e revisar</button>
+          <button type="button" onClick={() => onAplicar(rascunho)} className={classeBotao("primario", "sm", "mt-3 w-full")}>Usar dados no formulário e revisar</button>
         </div>
       )}
     </div>

@@ -43,11 +43,11 @@ export function UploadArquivo({ rotulo, aceita, onPronto }: { rotulo: string; ac
         type="button"
         onClick={() => ref.current?.click()}
         disabled={subindo}
-        className="inline-flex min-h-10 w-fit items-center gap-2 rounded-full border border-aura-mist bg-white px-3.5 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+        className="aura-btn aura-btn-secundario w-fit"
       >
         {subindo ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} {rotulo}
       </button>
-      {erro && <p className="text-xs text-red-700">{erro}</p>}
+      {erro && <p className="text-xs text-aura-danger">{erro}</p>}
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { listarFaq, type Faq } from "@/lib/supabase/faq";
 import { extrairYoutubeId } from "@/lib/youtube";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { ModoAcademia } from "@/components/academy/modo-academia";
+import { Alerta, EstadoVazio, PageContainer, PageHeader, Segmentado, classeBotao } from "@/components/ui";
 
 const SEM_CATEGORIA = "Outros materiais";
 
@@ -87,50 +88,50 @@ export default function AcademyPage() {
   const concluidos = treinamentos.filter((t) => t.concluido).length;
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">Academy</p>
-        <p className="text-sm text-aura-graphite-soft">
-          {treinamentos.length === 0
+    <PageContainer largura="estreita" className="flex flex-col gap-6">
+      <PageHeader
+        titulo="Academy"
+        icone={GraduationCap}
+        className="mb-0"
+        descricao={
+          treinamentos.length === 0
             ? "Materiais de treinamento da sua loja"
-            : `${concluidos} de ${treinamentos.length} aulas concluídas`}
-        </p>
-      </div>
+            : `${concluidos} de ${treinamentos.length} aulas concluídas`
+        }
+      />
 
       {!usandoSupabase && (
-        <p className="rounded-xl bg-aura-warning/10 px-4 py-2.5 text-xs text-aura-warning">
-          A Academy está indisponível no momento. Avise seu gestor.
-        </p>
+        <Alerta tom="atencao" titulo="A Academy está indisponível no momento. Avise seu gestor." />
       )}
 
       <ModoAcademia />
 
-      <div className="flex gap-2 border-b border-aura-mist">
-        <button
-          type="button"
-          onClick={() => setAba("treinamentos")}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition ${
-            aba === "treinamentos"
-              ? "border-aura-petrol-700 text-aura-petrol-700"
-              : "border-transparent text-aura-graphite-soft hover:text-aura-graphite"
-          }`}
-        >
-          <GraduationCap size={15} />
-          Treinamentos
-        </button>
-        <button
-          type="button"
-          onClick={() => setAba("faq")}
-          className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition ${
-            aba === "faq"
-              ? "border-aura-petrol-700 text-aura-petrol-700"
-              : "border-transparent text-aura-graphite-soft hover:text-aura-graphite"
-          }`}
-        >
-          <HelpCircle size={15} />
-          Perguntas Frequentes
-        </button>
-      </div>
+      <Segmentado<"treinamentos" | "faq">
+        rotulo="Seção da Academy"
+        valor={aba}
+        aoMudar={setAba}
+        className="self-start"
+        opcoes={[
+          {
+            valor: "treinamentos",
+            rotulo: (
+              <span className="inline-flex items-center gap-1.5">
+                <GraduationCap size={14} />
+                Treinamentos
+              </span>
+            ),
+          },
+          {
+            valor: "faq",
+            rotulo: (
+              <span className="inline-flex items-center gap-1.5">
+                <HelpCircle size={14} />
+                Perguntas Frequentes
+              </span>
+            ),
+          },
+        ]}
+      />
 
       {carregando ? (
         <div className="flex justify-center py-16 text-aura-graphite-soft">
@@ -138,12 +139,10 @@ export default function AcademyPage() {
         </div>
       ) : aba === "treinamentos" ? (
         modulos.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-16 text-center">
-            <GraduationCap size={24} className="text-aura-graphite-soft" />
-            <p className="text-sm text-aura-graphite-soft">
-              Seu gestor ainda não cadastrou nenhum treinamento nesta loja.
-            </p>
-          </div>
+          <EstadoVazio
+            icone={GraduationCap}
+            titulo="Seu gestor ainda não cadastrou nenhum treinamento nesta loja."
+          />
         ) : (
           <div className="flex flex-col gap-3">
             {modulos.map(([modulo, aulas]) => {
@@ -154,11 +153,11 @@ export default function AcademyPage() {
               const youtubeId = aulaAtiva?.link ? extrairYoutubeId(aulaAtiva.link) : null;
 
               return (
-                <div key={modulo} className="overflow-hidden rounded-2xl border border-aura-mist bg-white">
+                <div key={modulo} className="aura-card overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setModuloAberto(aberto ? null : modulo)}
-                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+                    className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition hover:bg-aura-sunken/50"
                   >
                     <div>
                       <p className="text-sm font-medium text-aura-graphite">{modulo}</p>
@@ -175,7 +174,7 @@ export default function AcademyPage() {
                   {aberto && (
                     <div className="border-t border-aura-mist p-5 pt-4">
                       {youtubeId && (
-                        <div className="mb-3 aspect-video w-full overflow-hidden rounded-xl bg-black">
+                        <div className="mb-3 aspect-video w-full overflow-hidden rounded-lg bg-black">
                           <iframe
                             className="h-full w-full"
                             src={`https://www.youtube.com/embed/${youtubeId}`}
@@ -190,11 +189,11 @@ export default function AcademyPage() {
                         <button
                           type="button"
                           onClick={() => alternar(aulaAtiva)}
-                          className={`mb-4 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-semibold transition ${
+                          className={
                             aulaAtiva.concluido
-                              ? "border-aura-success/30 bg-aura-success/10 text-aura-success"
-                              : "border-aura-petrol-700 bg-aura-petrol-700 text-white hover:bg-aura-petrol-600"
-                          }`}
+                              ? "mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-aura-success/30 bg-aura-success/10 py-2.5 text-sm font-medium text-aura-success transition"
+                              : classeBotao("primario", "lg", "mb-4 w-full")
+                          }
                         >
                           {aulaAtiva.concluido ? (
                             <>
@@ -232,7 +231,7 @@ export default function AcademyPage() {
                               }
                               className={`flex-1 truncate text-left text-sm hover:underline ${
                                 aula.id === videoAtivoId
-                                  ? "font-medium text-aura-petrol-700"
+                                  ? "font-medium text-aura-petrol-600"
                                   : "text-aura-graphite"
                               }`}
                             >
@@ -260,14 +259,9 @@ export default function AcademyPage() {
           </div>
         )
       ) : faqs.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-16 text-center">
-          <HelpCircle size={24} className="text-aura-graphite-soft" />
-          <p className="text-sm text-aura-graphite-soft">
-            Seu gestor ainda não cadastrou nenhuma pergunta frequente.
-          </p>
-        </div>
+        <EstadoVazio icone={HelpCircle} titulo="Seu gestor ainda não cadastrou nenhuma pergunta frequente." />
       ) : (
-        <div className="flex flex-col divide-y divide-aura-mist rounded-2xl border border-aura-mist bg-white">
+        <div className="aura-card flex flex-col divide-y divide-aura-mist overflow-hidden">
           {faqs.map((f) => {
             const aberta = faqAberta === f.id;
             return (
@@ -275,7 +269,7 @@ export default function AcademyPage() {
                 <button
                   type="button"
                   onClick={() => setFaqAberta(aberta ? null : f.id)}
-                  className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left"
+                  className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition hover:bg-aura-sunken/50"
                 >
                   <p className="text-sm font-medium text-aura-graphite">{f.pergunta}</p>
                   <ChevronDown
@@ -304,6 +298,6 @@ export default function AcademyPage() {
           })}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

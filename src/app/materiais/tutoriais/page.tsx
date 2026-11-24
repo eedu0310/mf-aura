@@ -40,7 +40,7 @@ export default async function TutoriaisMF() {
         </>
       }
     >
-      <div className="sticky top-16 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur md:top-20">
+      <div className="sticky top-16 z-20 border-b border-neutral-200 bg-white/90 backdrop-blur md:top-20">
         <nav aria-label="Assuntos" className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 py-3">
           {grupos.map((g) => (
             <a key={g} href={`#${ancora(g)}`} className="whitespace-nowrap rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-semibold text-neutral-700 hover:border-neutral-900">

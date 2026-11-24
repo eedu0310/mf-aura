@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Inbox, LayoutTemplate, Loader2 } from "lucide-react";
+import { FileText, Globe, Inbox, LayoutTemplate, Loader2 } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
 import { AtendimentoSite } from "@/components/site-mf/atendimento-site";
 import { FormulariosSite } from "@/components/site-mf/formularios-site";
 import { PaginasSite } from "@/components/site-mf/paginas-site";
+import { EstadoVazio, PageContainer, PageHeader } from "@/components/ui";
 
 type Aba = "atendimento" | "formularios" | "paginas";
 
@@ -41,32 +42,35 @@ export default function SiteMfPage() {
 
   if (carregando) {
     return (
-      <div className="flex justify-center py-24 text-aura-graphite-soft">
-        <Loader2 size={20} className="animate-spin" />
-      </div>
+      <PageContainer>
+        <div className="flex justify-center py-24 text-aura-graphite-soft">
+          <Loader2 size={20} className="animate-spin" />
+        </div>
+      </PageContainer>
     );
   }
 
   const daMf = profile.empresa === EMPRESA_DO_SITE || acesso.gestorMestre;
   if (!daMf) {
     return (
-      <div className="mx-auto max-w-xl py-24 text-center">
-        <p className="font-display text-xl font-semibold text-aura-graphite">Área da MF International</p>
-        <p className="mt-2 text-sm text-aura-graphite-soft">O atendimento do site, os formulários e as páginas são da equipe da fábrica.</p>
-      </div>
+      <PageContainer largura="estreita">
+        <EstadoVazio
+          icone={Globe}
+          className="mt-10"
+          titulo="Área da MF International"
+          descricao="O atendimento do site, os formulários e as páginas são da equipe da fábrica."
+        />
+      </PageContainer>
     );
   }
 
   const atual = ABAS.find((a) => a.id === aba) ?? ABAS[0];
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-5 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">Site MF</p>
-        <p className="text-sm text-aura-graphite-soft">{atual.ajuda}</p>
-      </div>
+    <PageContainer largura="normal" className="flex flex-col gap-5">
+      <PageHeader titulo="Site MF" descricao={atual.ajuda} icone={Globe} className="mb-0" />
 
-      <div role="tablist" aria-label="Site MF" className="flex flex-wrap gap-2">
+      <div role="tablist" aria-label="Site MF" className="aura-segmentado max-w-full self-start overflow-x-auto">
         {ABAS.map((a) => {
           const Icone = a.icone;
           const ativa = a.id === aba;
@@ -77,13 +81,9 @@ export default function SiteMfPage() {
               role="tab"
               aria-selected={ativa}
               onClick={() => trocar(a.id)}
-              className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition ${
-                ativa
-                  ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                  : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-              }`}
+              className="aura-segmento inline-flex items-center gap-1.5"
             >
-              <Icone size={16} /> {a.rotulo}
+              <Icone size={14} className={ativa ? "text-aura-petrol-600" : undefined} /> {a.rotulo}
             </button>
           );
         })}
@@ -94,6 +94,6 @@ export default function SiteMfPage() {
         {aba === "formularios" && <FormulariosSite />}
         {aba === "paginas" && <PaginasSite />}
       </div>
-    </div>
+    </PageContainer>
   );
 }

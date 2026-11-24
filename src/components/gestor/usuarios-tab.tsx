@@ -21,6 +21,7 @@ import {
   resumoDaCarteira,
   type CarteiraMovida,
 } from "@/components/gestor/transferir-carteira-card";
+import { Alerta, Card, CardHeader, EstadoVazio, Selo, classeBotao } from "@/components/ui";
 
 interface Usuario {
   id: string;
@@ -245,9 +246,9 @@ export function UsuariosTab() {
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={() => setModalAberto(true)}
-          className="flex items-center gap-2 rounded-lg bg-aura-petrol-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-aura-petrol-700"
+          className={classeBotao("primario")}
         >
-          <Plus size={18} />
+          <Plus size={15} />
           Novo Usuário
         </button>
 
@@ -255,7 +256,7 @@ export function UsuariosTab() {
           <select
             value={lojaFiltro}
             onChange={(e) => setLojaFiltro(e.target.value)}
-            className="rounded-lg border border-aura-mist px-3 py-2 text-sm"
+            className="aura-input w-auto min-w-44"
           >
             <option value="">Todas as lojas</option>
             {lojas.map((loja) => (
@@ -271,80 +272,84 @@ export function UsuariosTab() {
             type="checkbox"
             checked={verExcluidos}
             onChange={(e) => setVerExcluidos(e.target.checked)}
-            className="rounded border-aura-mist"
+            className="h-4 w-4 accent-aura-petrol-600"
           />
           Mostrar quem já foi excluído
         </label>
       </div>
 
       {erroForm && !modalAberto && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erroForm}</p>
+        <Alerta tom="perigo" titulo={erroForm} />
       )}
       {aviso && (
-        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{aviso}</p>
+        <Alerta tom="sucesso" titulo={aviso} />
       )}
       {senhaNova && (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <p className="font-semibold">Senha nova de {senhaNova.nome}</p>
-          <p className="mt-1 text-xs">
-            Entregue agora: ela aparece uma vez só e não fica guardada em lugar nenhum. Peça para a
-            pessoa trocar depois de entrar.
-          </p>
-          <p className="mt-2 select-all rounded-lg bg-white px-3 py-2 font-mono text-base">
-            {senhaNova.senha}
-          </p>
-          <button
-            type="button"
-            onClick={() => setSenhaNova(null)}
-            className="mt-2 text-xs underline"
-          >
-            Já anotei, pode esconder
-          </button>
-        </div>
+        <Alerta
+          tom="sucesso"
+          icone={KeyRound}
+          titulo={<>Senha nova de {senhaNova.nome}</>}
+          descricao={
+            <>
+              <p>
+                Entregue agora: ela aparece uma vez só e não fica guardada em lugar nenhum. Peça para a
+                pessoa trocar depois de entrar.
+              </p>
+              <p className="mt-2 select-all rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 font-mono text-base text-aura-graphite">
+                {senhaNova.senha}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSenhaNova(null)}
+                className={classeBotao("fantasma", "sm", "mt-2 -ml-2.5")}
+              >
+                Já anotei, pode esconder
+              </button>
+            </>
+          }
+        />
       )}
 
       {/* Contas que criaram acesso e não terminaram o cadastro. Sem esta
           lista, essas pessoas ficavam invisíveis em todo o sistema: o gestor
           não tinha como saber que elas existiam nem como ajudar. */}
       {incompletos.length > 0 && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" />
-            <div>
-              <p className="font-medium text-amber-900">
-                {incompletos.length === 1
-                  ? "1 pessoa criou o acesso e não terminou o cadastro"
-                  : `${incompletos.length} pessoas criaram o acesso e não terminaram o cadastro`}
-              </p>
-              <p className="mt-1 text-xs text-amber-800">
-                Elas conseguem entrar, mas não têm nome, loja nem cargo — então não aparecem em
-                nenhuma lista, não recebem lead e não contam em relatório. Peça para entrarem e
-                concluírem a tela de cadastro.
-              </p>
-              <ul className="mt-3 space-y-1">
+        <Card>
+          <CardHeader
+            icone={AlertTriangle}
+            corIcone="text-aura-warning"
+            titulo={
+              incompletos.length === 1
+                ? "1 pessoa criou o acesso e não terminou o cadastro"
+                : `${incompletos.length} pessoas criaram o acesso e não terminaram o cadastro`
+            }
+            descricao="Elas conseguem entrar, mas não têm nome, loja nem cargo — então não aparecem em nenhuma lista, não recebem lead e não contam em relatório. Peça para entrarem e concluírem a tela de cadastro."
+            className="mb-3"
+          />
+          <ul className="divide-y divide-aura-mist rounded-lg border border-aura-mist">
                 {incompletos.map((c) => (
-                  <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-amber-900">
-                    <Mail size={13} />
+                  <li key={c.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm text-aura-graphite">
+                    <Mail size={13} className="text-aura-graphite-soft" />
                     <span className="font-mono text-xs">{c.email}</span>
-                    <span className="text-xs text-amber-700">
+                    <span className="text-xs text-aura-graphite-soft">
                       desde {new Date(c.created_at).toLocaleDateString("pt-BR")}
                     </span>
                     {souMestre &&
                       (apagandoIncompleto === c.id ? (
-                        <span className="flex items-center gap-1">
-                          <span className="text-xs font-medium text-red-700">Apagar de vez? Não dá para desfazer.</span>
+                        <span className="ml-auto flex items-center gap-1">
+                          <span className="text-xs font-medium text-aura-danger">Apagar de vez? Não dá para desfazer.</span>
                           <button
                             type="button"
                             onClick={() => apagarIncompleto(c)}
                             disabled={ocupadoIncompleto}
-                            className="rounded-md bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                            className={classeBotao("perigo", "sm")}
                           >
                             {ocupadoIncompleto ? "Apagando..." : "Sim, apagar"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setApagandoIncompleto(null)}
-                            className="rounded-md px-2 py-0.5 text-xs text-amber-900 hover:bg-amber-100"
+                            className={classeBotao("fantasma", "sm")}
                           >
                             Cancelar
                           </button>
@@ -353,7 +358,7 @@ export function UsuariosTab() {
                         <button
                           type="button"
                           onClick={() => setApagandoIncompleto(c.id)}
-                          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-red-700 hover:bg-red-50"
+                          className={classeBotao("perigo-suave", "sm", "ml-auto")}
                           title="Apagar esta conta (teste ou cadastro por engano)"
                         >
                           <Trash2 size={12} /> Apagar
@@ -361,17 +366,15 @@ export function UsuariosTab() {
                       ))}
                   </li>
                 ))}
-              </ul>
-            </div>
-          </div>
-        </div>
+          </ul>
+        </Card>
       )}
 
       {/* Modal de novo usuário */}
       {modalAberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6">
-            <h2 className="font-display text-xl font-bold text-aura-graphite">Novo Usuário</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="aura-card w-full max-w-md rounded-xl p-5 shadow-xl">
+            <h2 className="font-display text-lg font-semibold text-aura-graphite">Novo Usuário</h2>
 
             <div className="mt-4 space-y-4">
               <div>
@@ -380,7 +383,7 @@ export function UsuariosTab() {
                   type="text"
                   value={novoUsuario.nome}
                   onChange={(e) => setNovoUsuario({ ...novoUsuario, nome: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                  className="aura-input mt-1.5"
                   placeholder="Nome completo"
                 />
               </div>
@@ -391,7 +394,7 @@ export function UsuariosTab() {
                   type="email"
                   value={novoUsuario.email}
                   onChange={(e) => setNovoUsuario({ ...novoUsuario, email: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                  className="aura-input mt-1.5"
                   placeholder="email@empresa.com"
                 />
               </div>
@@ -401,7 +404,7 @@ export function UsuariosTab() {
                 <select
                   value={novoUsuario.cargo}
                   onChange={(e) => setNovoUsuario({ ...novoUsuario, cargo: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                  className="aura-input mt-1.5"
                 >
                   <option>Vendedor</option>
                   <option>Vendedor Interno</option>
@@ -411,7 +414,7 @@ export function UsuariosTab() {
                   <option>Gestor</option>
                 </select>
                 {novoUsuario.cargo === "Gestor" && (
-                  <p className="mt-1 text-xs text-amber-700">
+                  <p className="mt-1 text-xs text-aura-gold-700">
                     Gestor criado aqui ainda precisa ser aprovado na aba Permissões.
                   </p>
                 )}
@@ -419,16 +422,24 @@ export function UsuariosTab() {
             </div>
 
             {erroForm && (
-              <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erroForm}</p>
+              <Alerta tom="perigo" titulo={erroForm} className="mt-4" />
             )}
 
             {credencial && (
-              <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
-                <p className="font-semibold">Acesso criado.</p>
-                <p className="mt-1">Entregue estes dados para a pessoa (ela troca a senha depois):</p>
-                <p className="mt-2 font-mono text-xs">E-mail: {credencial.email}</p>
-                <p className="font-mono text-xs">Senha provisória: {credencial.senha}</p>
-              </div>
+              <Alerta
+                tom="sucesso"
+                className="mt-4"
+                titulo="Acesso criado."
+                descricao={
+                  <>
+                    <p>Entregue estes dados para a pessoa (ela troca a senha depois):</p>
+                    <div className="mt-2 select-all rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 font-mono text-xs text-aura-graphite">
+                      <p>E-mail: {credencial.email}</p>
+                      <p>Senha provisória: {credencial.senha}</p>
+                    </div>
+                  </>
+                }
+              />
             )}
 
             <div className="mt-6 flex gap-2">
@@ -438,14 +449,14 @@ export function UsuariosTab() {
                   setErroForm(null);
                   setCredencial(null);
                 }}
-                className="flex-1 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+                className={classeBotao("secundario", "md", "flex-1")}
               >
                 {credencial ? "Fechar" : "Cancelar"}
               </button>
               <button
                 onClick={adicionarUsuario}
                 disabled={salvando}
-                className="flex-1 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+                className={classeBotao("primario", "md", "flex-1")}
               >
                 {salvando ? "Criando..." : "Criar"}
               </button>
@@ -490,56 +501,46 @@ export function UsuariosTab() {
       {/* Lista de Usuários */}
       {carregando ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-aura-petrol-600" />
+          <Loader2 className="h-6 w-6 animate-spin text-aura-petrol-500" />
         </div>
       ) : usuarios.length === 0 ? (
-        <p className="rounded-2xl border border-aura-mist bg-white p-6 text-sm text-aura-graphite-soft">
-          Nenhuma pessoa cadastrada nesta seleção.
-        </p>
+        <EstadoVazio titulo="Nenhuma pessoa cadastrada nesta seleção." />
       ) : (
-        <div className="grid gap-3">
+        <div className="aura-card divide-y divide-aura-mist overflow-hidden">
           {usuarios.map((user) => (
             <div
               key={user.id}
-              className={`rounded-2xl border p-4 transition ${
+              className={`p-4 transition ${
                 user.excluido
-                  ? "border-dashed border-aura-mist bg-aura-bg opacity-70"
+                  ? "bg-aura-sunken/60 opacity-70"
                   : user.ativo
-                    ? "border-aura-mist bg-white"
-                    : "border-aura-mist/50 bg-aura-bg opacity-70"
+                    ? "hover:bg-aura-sunken/40"
+                    : "bg-aura-sunken/40 opacity-70"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-aura-graphite">{user.nome}</p>
+                    <p className="text-sm font-medium text-aura-graphite">{user.nome}</p>
                     {user.excluido ? (
-                      <span className="rounded-full bg-aura-graphite/10 px-2 py-0.5 text-xs font-medium text-aura-graphite">
-                        Excluído
-                      </span>
+                      <Selo tom="neutro">Excluído</Selo>
                     ) : !user.ativo ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        Inativo
-                      </span>
+                      <Selo tom="perigo">Inativo</Selo>
                     ) : null}
                     {user.gestor_mestre && (
-                      <span className="rounded-full bg-aura-petrol-100 px-2 py-0.5 text-xs font-medium text-aura-petrol-700">
-                        Gestor mestre
-                      </span>
+                      <Selo tom="marca">Gestor mestre</Selo>
                     )}
                     {user.cargo === "Gestor" && !user.gestor_aprovado && !user.excluido && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                        Aguardando aprovação
-                      </span>
+                      <Selo tom="atencao">Aguardando aprovação</Selo>
                     )}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-aura-graphite-soft">
-                    <Mail size={14} />
+                  <div className="mt-1 flex items-center gap-2 text-xs text-aura-graphite-soft">
+                    <Mail size={13} />
                     {user.email || "Sem e-mail de acesso"}
                   </div>
                   {user.telefone && (
-                    <div className="mt-1 flex items-center gap-2 text-sm text-aura-graphite-soft">
-                      <Phone size={14} />
+                    <div className="mt-1 flex items-center gap-2 text-xs text-aura-graphite-soft">
+                      <Phone size={13} />
                       {user.telefone}
                     </div>
                   )}
@@ -547,7 +548,7 @@ export function UsuariosTab() {
                     {user.cargo} · {user.empresa}
                   </p>
                   {user.semAcesso && !user.excluido && (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+                    <p className="mt-1 flex items-center gap-1 text-xs text-aura-gold-700">
                       <KeyRound size={12} />
                       Cadastro sem conta de acesso: esta pessoa não consegue entrar.
                     </p>
@@ -567,10 +568,10 @@ export function UsuariosTab() {
                   souMestre && (
                     <button
                       onClick={() => restaurar(user)}
-                      className="shrink-0 rounded-lg bg-aura-petrol-100 p-2 text-aura-petrol-700 transition hover:bg-aura-petrol-200"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-aura-mist bg-aura-surface text-aura-graphite-soft transition shrink-0 hover:border-aura-petrol-500/40 hover:text-aura-petrol-600"
                       title="Trazer de volta para a equipe"
                     >
-                      <RotateCcw size={16} />
+                      <RotateCcw size={15} />
                     </button>
                   )
                 ) : (
@@ -581,18 +582,18 @@ export function UsuariosTab() {
                           setAviso(null);
                           setEditando(user);
                         }}
-                        className="rounded-lg bg-aura-petrol-100 p-2 text-aura-petrol-700 transition hover:bg-aura-petrol-200"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-aura-mist bg-aura-surface text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-petrol-600"
                         title="Editar dados: nome, e-mail, telefone, cargo, loja e permissões"
                       >
-                        <Pencil size={16} />
+                        <Pencil size={15} />
                       </button>
                     )}
                     <button
                       onClick={() => redefinirSenha(user)}
-                      className="rounded-lg bg-aura-mist p-2 text-aura-graphite transition hover:bg-aura-bg"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-aura-mist bg-aura-surface text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
                       title="Gerar uma senha nova para entregar a esta pessoa"
                     >
-                      <KeyRound size={16} />
+                      <KeyRound size={15} />
                     </button>
                     <button
                       onClick={() => toggleAtivar(user)}
@@ -601,13 +602,13 @@ export function UsuariosTab() {
                           ? "Desativar: tira o acesso e os leads novos, mantém tudo no lugar"
                           : "Reativar o acesso"
                       }
-                      className={`rounded-lg p-2 transition ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg border border-aura-mist bg-aura-surface text-aura-graphite-soft transition ${
                         user.ativo
-                          ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                          : "bg-green-100 text-green-700 hover:bg-green-200"
+                          ? "hover:bg-aura-warning/10 hover:text-aura-warning"
+                          : "text-aura-success hover:bg-aura-success/10"
                       }`}
                     >
-                      <Power size={16} />
+                      <Power size={15} />
                     </button>
                     {souMestre && (
                       <button
@@ -615,10 +616,10 @@ export function UsuariosTab() {
                           setAviso(null);
                           setExcluindo(user);
                         }}
-                        className="rounded-lg bg-red-100 p-2 text-red-700 transition hover:bg-red-200"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-aura-mist bg-aura-surface text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger"
                         title="Excluir da equipe e passar a carteira para outra pessoa"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     )}
                   </div>
@@ -687,12 +688,14 @@ function ModalExcluir({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl p-5 shadow-xl">
         <div className="flex items-start gap-3">
-          <UserX size={20} className="mt-0.5 shrink-0 text-red-600" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-danger/10">
+            <UserX size={18} className="text-aura-danger" />
+          </span>
           <div>
-            <h2 className="font-display text-lg font-bold text-aura-graphite">
+            <h2 className="font-display text-lg font-semibold text-aura-graphite">
               Excluir {alvo.nome}
             </h2>
             <p className="mt-1 text-xs text-aura-graphite-soft">
@@ -708,7 +711,7 @@ function ModalExcluir({
             Quem assume a carteira dela
           </label>
           {candidatos.length === 0 ? (
-            <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="mt-1.5 rounded-lg border border-aura-warning/30 bg-aura-warning/10 px-3 py-2 text-xs text-aura-graphite">
               Não há ninguém ativo em {alvo.empresa} para receber a carteira. Se {alvo.nome} tiver
               clientes, a exclusão vai ser recusada — cadastre ou reative alguém da loja primeiro.
             </p>
@@ -717,7 +720,7 @@ function ModalExcluir({
               <select
                 value={herdeiro}
                 onChange={(e) => setHerdeiro(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm"
+                className="aura-input mt-1.5"
               >
                 <option value="">Ninguém (só se a carteira estiver vazia)</option>
                 {candidatos.map((c) => (
@@ -742,7 +745,7 @@ function ModalExcluir({
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Saiu da empresa, conta de teste…"
-            className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm"
+            className="aura-input mt-1.5"
           />
         </div>
 
@@ -754,23 +757,23 @@ function ModalExcluir({
             type="text"
             value={confirmacao}
             onChange={(e) => setConfirmacao(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm"
+            className="aura-input mt-1.5"
           />
         </div>
 
-        {erro && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <Alerta tom="perigo" titulo={erro} className="mt-4" />}
 
         <div className="mt-6 flex gap-2">
           <button
             onClick={aoFechar}
-            className="flex-1 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+            className={classeBotao("secundario", "md", "flex-1")}
           >
             Cancelar
           </button>
           <button
             onClick={excluir}
             disabled={enviando || !nomeConfere}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+            className={classeBotao("perigo", "md", "flex-1")}
           >
             {enviando && <Loader2 size={15} className="animate-spin" />}
             Excluir
@@ -879,12 +882,12 @@ function ModalEditar({
   }
 
   const campo =
-    "mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500";
+    "aura-input mt-1.5";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="editar-usuario-titulo">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
-        <h2 id="editar-usuario-titulo" className="font-display text-xl font-bold text-aura-graphite">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="editar-usuario-titulo">
+      <div className="aura-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl p-5 shadow-xl">
+        <h2 id="editar-usuario-titulo" className="font-display text-lg font-semibold text-aura-graphite">
           Editar dados
         </h2>
         <p className="mt-1 text-sm text-aura-graphite-soft">{alvo.nome}</p>
@@ -898,7 +901,7 @@ function ModalEditar({
             <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-email">E-mail de acesso</label>
             <input id="ed-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={campo} />
             {mudouEmail && alvo.email && (
-              <p className="mt-1 text-xs text-amber-700">
+              <p className="mt-1 text-xs text-aura-gold-700">
                 A pessoa passa a entrar com o e-mail novo. A senha não muda: gere uma provisória na chave depois de salvar.
               </p>
             )}
@@ -924,7 +927,7 @@ function ModalEditar({
                 ))}
               </select>
               {mudouLoja && (
-                <p className="mt-1 text-xs text-amber-700">
+                <p className="mt-1 text-xs text-aura-gold-700">
                   A pessoa passa a atuar na {empresa}. Os clientes que ela já tem continuam na {alvo.empresa}; se precisar, use Transferir carteira.
                 </p>
               )}
@@ -955,19 +958,19 @@ function ModalEditar({
           </div>
         )}
 
-        {erro && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <Alerta tom="perigo" titulo={erro} className="mt-4" />}
 
         <div className="mt-6 flex gap-2">
           <button
             onClick={aoFechar}
-            className="flex-1 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+            className={classeBotao("secundario", "md", "flex-1")}
           >
             Cancelar
           </button>
           <button
             onClick={salvar}
             disabled={enviando || nome.trim().length < 2}
-            className="flex-1 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+            className={classeBotao("primario", "md", "flex-1")}
           >
             {enviando ? "Salvando..." : "Salvar"}
           </button>

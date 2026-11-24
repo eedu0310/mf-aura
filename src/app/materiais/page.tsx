@@ -61,7 +61,7 @@ export default async function MateriaisMF() {
             <div className="flex flex-1 flex-col p-5">
               <h2 className="text-lg font-bold uppercase leading-snug tracking-wide">{c.titulo}</h2>
               <p className="mt-2 text-[15px] leading-relaxed text-neutral-600">{c.texto}</p>
-              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-[#CD1C1B]">
+              <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-[#CD1C1B] dark:text-aura-danger">
                 {c.acao} <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" aria-hidden />
               </span>
             </div>

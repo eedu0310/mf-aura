@@ -32,7 +32,7 @@ export function PaginaMateriais({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f6f5f3] font-sans text-neutral-900">
+    <div className="min-h-screen bg-[#f6f5f3] font-sans text-neutral-900 dark:bg-aura-bg">
       <header className="sticky top-0 z-30 bg-[#CD1C1B] shadow-[0_1px_0_rgba(0,0,0,.08)]" data-material={ativa}>
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-center px-4 md:h-20">
           <a href="https://mfinternational.com.br" aria-label="MF International" className="shrink-0">
@@ -90,6 +90,6 @@ export function PaginaMateriais({
 export const BOTAO_VERMELHO =
   "inline-flex min-h-12 items-center justify-center gap-2 rounded-[4px] bg-[#CD1C1B] px-6 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-[#a91615]";
 export const BOTAO_CLARO =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-[4px] bg-white px-6 text-sm font-semibold uppercase tracking-wide text-[#CD1C1B] transition-colors hover:bg-neutral-100";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-[4px] bg-white/95 px-6 text-sm font-semibold uppercase tracking-wide text-[#CD1C1B] transition-colors hover:bg-neutral-100";
 export const BOTAO_CONTORNO =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-[4px] border-2 border-white px-6 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-white hover:text-neutral-900";
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-[4px] border-2 border-white/90 px-6 text-sm font-semibold uppercase tracking-wide text-white transition-colors hover:bg-white/95 hover:text-neutral-900";

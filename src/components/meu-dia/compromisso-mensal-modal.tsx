@@ -11,6 +11,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CampoMoeda } from "@/components/shared/campo-moeda";
 import { mesEmBrasilia } from "@/lib/meta-mensal";
+import { classeBotao } from "@/components/ui";
 
 interface FormState {
   metaFaturamento: string;
@@ -163,22 +164,22 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
       className={
         obrigatorio
           ? "flex min-h-0 flex-1 justify-center overflow-y-auto px-4 pb-6"
-          : "fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-aura-navy-950/50 p-4 backdrop-blur-[2px]"
       }
     >
-      <div className={`w-full max-w-2xl rounded-2xl bg-white ${obrigatorio ? "self-start" : ""}`}>
+      <div className={`w-full max-w-2xl rounded-xl border border-aura-mist bg-aura-surface shadow-xl ${obrigatorio ? "self-start" : ""}`}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-aura-mist px-6 py-4">
-          <h2 className="font-display text-xl font-bold text-aura-graphite">
+          <h2 className="font-display text-lg font-semibold text-aura-graphite">
             Compromisso do Mês — {mesAtual()}
           </h2>
           {!obrigatorio && (
             <button
               onClick={onClose}
-              className="rounded-lg p-1 transition hover:bg-aura-bg"
+              className="rounded-lg p-1.5 transition hover:bg-aura-sunken"
               aria-label="Fechar"
             >
-              <X size={20} className="text-aura-graphite-soft" />
+              <X size={18} className="text-aura-graphite-soft" />
             </button>
           )}
         </div>
@@ -187,7 +188,7 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
         <div className="max-h-[70vh] space-y-6 overflow-y-auto px-6 py-6">
           {/* Objetivo Pessoal */}
           <div>
-            <label className="block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Objetivo Pessoal para este mês
             </label>
             <textarea
@@ -196,7 +197,7 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
                 setForm({ ...form, objetivoPessoal: e.target.value })
               }
               placeholder="Descreva seu objetivo pessoal..."
-              className="mt-2 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+              className="aura-input"
               rows={3}
             />
           </div>
@@ -204,11 +205,11 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
           {/* Metas por Grupo */}
           {gruposFiltrados.map(({ grupo, campos }) => (
             <div key={grupo}>
-              <p className="mb-3 font-medium text-aura-graphite">{grupo}</p>
+              <p className="aura-rotulo mb-3">{grupo}</p>
               <div className="grid grid-cols-2 gap-3">
                 {campos.map(({ chave, label }) => (
                   <div key={chave} className={chave === "metaFaturamento" ? "col-span-2" : undefined}>
-                    <label className="block text-xs text-aura-graphite-soft">
+                    <label className="block text-xs font-medium text-aura-graphite-soft">
                       {label}
                     </label>
                     {/*
@@ -234,7 +235,7 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
                           setForm({ ...form, [chave]: e.target.value })
                         }
                         placeholder="0"
-                        className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                        className="aura-input mt-1 tabular-nums"
                       />
                     )}
                   </div>
@@ -245,11 +246,11 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 border-t border-aura-mist px-6 py-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-aura-mist bg-aura-sunken/50 px-6 py-3.5">
           {!obrigatorio && (
             <button
               onClick={onClose}
-              className="flex-1 rounded-lg border border-aura-mist px-4 py-2.5 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+              className={classeBotao("fantasma", "md", "mr-auto")}
             >
               Cancelar
             </button>
@@ -257,24 +258,24 @@ export function CompromissoMensalModal({ onClose, obrigatorio = false }: { onClo
           <button
             onClick={handleSalvarRascunho}
             disabled={salvando || enviando}
-            className="flex items-center justify-center gap-2 rounded-lg bg-aura-graphite-soft px-4 py-2.5 text-sm font-medium text-white transition hover:bg-aura-graphite disabled:opacity-50"
+            className={classeBotao("secundario")}
           >
             {salvando ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={15} className="animate-spin" />
             ) : (
-              <Save size={16} />
+              <Save size={15} />
             )}
             {salvando ? "Salvando..." : "Salvar Rascunho"}
           </button>
           <button
             onClick={handleEnviar}
             disabled={enviando || salvando}
-            className="flex items-center justify-center gap-2 rounded-lg bg-aura-petrol-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+            className={classeBotao("primario")}
           >
             {enviando ? (
-              <Loader2 size={16} className="animate-spin" />
+              <Loader2 size={15} className="animate-spin" />
             ) : (
-              <Send size={16} />
+              <Send size={15} />
             )}
             {enviando ? "Enviando..." : "Enviar para Aprovação"}
           </button>

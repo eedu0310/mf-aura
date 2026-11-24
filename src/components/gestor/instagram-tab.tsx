@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, AtSign, CheckCircle2, Loader2, Link2, Unlink } from "lucide-react";
+import { AtSign, CheckCircle2, Loader2, Link2, Unlink } from "lucide-react";
+import { Alerta, Card, EstadoVazio, classeBotao } from "@/components/ui";
 
 /**
  * Instagram por loja, e quem atende cada uma.
@@ -134,19 +135,14 @@ export function InstagramTab() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-aura-mist bg-white p-6">
-        <div className="flex items-start gap-3">
-          <AtSign size={18} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-          <div>
-            <p className="text-lg font-semibold text-aura-graphite">Instagram das lojas</p>
-            <p className="mt-0.5 text-sm text-aura-graphite-soft">
-              Cada loja conecta a própria conta e você escolhe quem atende. Quem estiver ligado aqui
-              passa a ver a aba do Instagram, com as mensagens e os comentários daquela conta.
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 rounded-lg bg-aura-bg px-3 py-2 text-xs text-aura-graphite-soft">
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="text-sm font-semibold text-aura-graphite">Instagram das lojas</p>
+        <p className="mt-0.5 text-sm text-aura-graphite-soft">
+          Cada loja conecta a própria conta e você escolhe quem atende. Quem estiver ligado aqui
+          passa a ver a aba do Instagram, com as mensagens e os comentários daquela conta.
+        </p>
+        <p className="mt-3 rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
           No Instagram quem começa a conversa é sempre o cliente, e a resposta tem prazo de 24 horas
           a partir da última mensagem dele. Passou disso, só dá para responder quando ele escrever de
           novo — é regra da Meta, não do AURA.
@@ -154,24 +150,24 @@ export function InstagramTab() {
       </div>
 
       {retorno && (
-        <p
-          className={`rounded-lg px-4 py-2 text-sm ${retorno.ok ? "bg-aura-success/10 text-aura-success" : "bg-aura-danger/10 text-aura-danger"}`}
-          role="status"
-        >
-          {retorno.msg || (retorno.ok ? "Conta conectada." : "Não consegui conectar.")}
-        </p>
+        <div role="status">
+          <Alerta
+            tom={retorno.ok ? "sucesso" : "perigo"}
+            titulo={retorno.msg || (retorno.ok ? "Conta conectada." : "Não consegui conectar.")}
+          />
+        </div>
       )}
 
-      {erro && <p className="rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
 
       {lojas.map((loja) => {
         const dias = diasAte(loja.expiraEm);
         const atendentes = loja.equipe.filter((p) => p.atende);
         return (
-          <div key={loja.empresa} className="rounded-2xl border border-aura-mist bg-white p-6">
+          <Card key={loja.empresa}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-semibold text-aura-graphite">{loja.empresa}</p>
+                <p className="text-sm font-semibold text-aura-graphite">{loja.empresa}</p>
                 {loja.conectada ? (
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-aura-success">
                     <CheckCircle2 size={14} />
@@ -187,7 +183,7 @@ export function InstagramTab() {
                   type="button"
                   onClick={() => conectarComInstagram(loja.empresa)}
                   title="Entrar de novo no Instagram e renovar a conexão"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-sm text-aura-graphite transition hover:bg-aura-bg"
+                  className={classeBotao("secundario", "sm")}
                 >
                   <AtSign size={14} />
                   Reconectar
@@ -195,7 +191,7 @@ export function InstagramTab() {
                 <button
                   type="button"
                   onClick={() => void desconectar(loja.empresa)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-sm text-aura-graphite transition hover:bg-aura-bg"
+                  className={classeBotao("secundario", "sm")}
                 >
                   <Unlink size={14} />
                   Desconectar
@@ -206,7 +202,7 @@ export function InstagramTab() {
                   <button
                     type="button"
                     onClick={() => conectarComInstagram(loja.empresa)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#833ab4] via-[#e1306c] to-[#f77737] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+                    className={classeBotao("primario", "sm")}
                   >
                     <AtSign size={14} />
                     Conectar com o Instagram
@@ -214,7 +210,7 @@ export function InstagramTab() {
                   <button
                     type="button"
                     onClick={() => setAbrindo(abrindo === loja.empresa ? null : loja.empresa)}
-                    className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs text-aura-graphite-soft underline-offset-2 hover:underline"
+                    className={classeBotao("fantasma", "sm")}
                   >
                     <Link2 size={12} />
                     Colar token manualmente
@@ -224,27 +220,28 @@ export function InstagramTab() {
             </div>
 
             {dias != null && dias <= 10 && loja.conectada && (
-              <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-graphite">
-                <AlertTriangle size={14} className="text-aura-warning" />
-                O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}. Clique em Reconectar antes disso,
-                senão as mensagens param de chegar sem aviso.
-              </p>
+              <Alerta
+                tom="atencao"
+                className="mt-3"
+                titulo={<>O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}.</>}
+                descricao="Clique em Reconectar antes disso, senão as mensagens param de chegar sem aviso."
+              />
             )}
 
             {abrindo === loja.empresa && (
-              <div className="mt-4 space-y-2 rounded-lg bg-aura-bg p-4">
+              <div className="mt-4 space-y-2 rounded-lg border border-aura-mist bg-aura-sunken p-4">
                 <input
                   value={usuario}
                   onChange={(e) => setUsuario(e.target.value)}
                   placeholder="@ da conta (ex.: lflareiras)"
-                  className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+                  className="aura-input"
                 />
                 <input
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   type="password"
                   placeholder="Token de acesso gerado no painel da Meta"
-                  className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+                  className="aura-input"
                 />
                 <p className="text-xs text-aura-graphite-soft">
                   O token não volta a aparecer depois de salvo. Guarde uma cópia no cofre de senhas de vocês.
@@ -253,7 +250,7 @@ export function InstagramTab() {
                   type="button"
                   onClick={() => void conectar(loja.empresa)}
                   disabled={salvando}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className={classeBotao("primario")}
                 >
                   {salvando && <Loader2 size={14} className="animate-spin" />}
                   Salvar conexão
@@ -269,7 +266,7 @@ export function InstagramTab() {
                   : `${atendentes.length} pessoa${atendentes.length === 1 ? "" : "s"} com acesso.`}
               </p>
               {loja.equipe.length === 0 ? (
-                <p className="py-2 text-sm text-aura-graphite-soft">Nenhuma pessoa ativa nesta loja.</p>
+                <EstadoVazio titulo="Nenhuma pessoa ativa nesta loja." className="py-6" />
               ) : (
                 <ul className="divide-y divide-aura-mist">
                   {loja.equipe.map((p) => (
@@ -285,11 +282,11 @@ export function InstagramTab() {
                         aria-label={`Atendimento pelo Instagram para ${p.nome}`}
                         onClick={() => void alternarPessoa(p)}
                         className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                          p.atende ? "bg-aura-success" : "bg-aura-mist"
+                          p.atende ? "bg-aura-petrol-600" : "bg-aura-mist"
                         }`}
                       >
                         <span
-                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${
                             p.atende ? "left-[22px]" : "left-0.5"
                           }`}
                         />
@@ -299,7 +296,7 @@ export function InstagramTab() {
                 </ul>
               )}
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

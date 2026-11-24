@@ -31,11 +31,11 @@ export function ConquistasCard({
     <PanelCard icon={Trophy} titulo="Conquistas e Prêmios">
       <div className="space-y-4">
         {/* Resumo */}
-        <div className="rounded-lg bg-aura-bg p-3 text-center">
-          <p className="text-2xl font-bold text-aura-graphite">
+        <div className="flex items-baseline justify-between rounded-lg bg-aura-sunken px-3 py-2.5">
+          <p className="aura-rotulo">Desbloqueadas</p>
+          <p className="font-display text-xl font-semibold tabular-nums text-aura-graphite">
             {desbloqueadas}/{conquistas.length}
           </p>
-          <p className="text-xs text-aura-graphite-soft">Desbloqueadas</p>
         </div>
 
         {/* Conquistas */}
@@ -48,13 +48,16 @@ export function ConquistasCard({
             {conquistas.slice(0, 4).map((c, idx) => (
               <li
                 key={idx}
-                className={`rounded-lg p-2 text-center text-xs ${
+                className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs ${
                   c.desbloqueada
-                    ? "bg-aura-success/10 border border-aura-success/20"
-                    : "bg-aura-mist border border-aura-mist"
+                    ? "border-aura-success/25 bg-aura-success/[0.06]"
+                    : "border-aura-mist bg-aura-sunken"
                 }`}
               >
-                <p className="font-medium text-aura-graphite">{c.titulo}</p>
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${c.desbloqueada ? "bg-aura-success" : "bg-aura-graphite-soft/40"}`}
+                />
+                <p className={`font-medium ${c.desbloqueada ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>{c.titulo}</p>
               </li>
             ))}
           </ul>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Loader2, Search, UserPlus, X } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { useAppData } from "@/lib/app-data-context";
 import { formatarTelefone } from "@/lib/format-phone";
 import type {
@@ -150,8 +151,8 @@ export function SearchRelationshipField({
   if (value) {
     return (
       <div>
-        <p className="mb-1.5 text-sm font-medium text-aura-graphite">{label}</p>
-        <div className="flex items-center justify-between rounded-xl border border-aura-petrol-500/40 bg-aura-petrol-700/5 px-4 py-3">
+        <p className="aura-label">{label}</p>
+        <div className="flex items-center justify-between rounded-lg border border-aura-petrol-500/40 bg-aura-petrol-500/5 px-3.5 py-2.5">
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-aura-graphite">
               {value.nome}
@@ -177,7 +178,7 @@ export function SearchRelationshipField({
 
   return (
     <div ref={containerRef} className="relative">
-      <p className="mb-1.5 text-sm font-medium text-aura-graphite">{label}</p>
+      <p className="aura-label">{label}</p>
       <div className="relative">
         <Search
           size={16}
@@ -193,12 +194,12 @@ export function SearchRelationshipField({
             setCriandoNovo(false);
           }}
           placeholder="Buscar por nome, telefone ou email..."
-          className="w-full rounded-xl border border-aura-mist bg-white py-3 pl-9 pr-4 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input pl-9"
         />
       </div>
 
       {aberto && !criandoNovo && (
-        <ul className="absolute z-20 mt-1.5 max-h-72 w-full overflow-y-auto rounded-xl border border-aura-mist bg-white shadow-lg shadow-black/5">
+        <ul className="absolute z-20 mt-1.5 max-h-72 w-full overflow-y-auto rounded-xl border border-aura-mist bg-aura-surface shadow-lg">
           {resultados.map((relacionamento) => (
             <li key={relacionamento.id}>
               <button
@@ -208,7 +209,7 @@ export function SearchRelationshipField({
                   setTermo("");
                   setAberto(false);
                 }}
-                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-aura-bg"
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-aura-sunken"
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-aura-graphite">
@@ -240,7 +241,7 @@ export function SearchRelationshipField({
               <button
                 type="button"
                 onClick={iniciarCadastro}
-                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-aura-petrol-600 hover:bg-aura-bg"
+                className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-aura-petrol-600 hover:bg-aura-sunken"
               >
                 <UserPlus size={14} />
                 Cadastrar ou actualizar relacionamento
@@ -251,7 +252,7 @@ export function SearchRelationshipField({
       )}
 
       {criandoNovo && (
-        <div className="absolute z-20 mt-1.5 w-full rounded-xl border border-aura-mist bg-white p-4 shadow-lg shadow-black/5">
+        <div className="absolute z-20 mt-1.5 w-full rounded-xl border border-aura-mist bg-aura-surface p-4 shadow-lg">
           <p className="mb-3 text-sm font-medium text-aura-graphite">
             Dados do relacionamento
           </p>
@@ -262,7 +263,7 @@ export function SearchRelationshipField({
               value={nomeNovo}
               onChange={(event) => setNomeNovo(event.target.value)}
               placeholder="Nome *"
-              className="rounded-xl border border-aura-mist px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+              className="aura-input"
             />
             <input
               type="tel"
@@ -270,7 +271,7 @@ export function SearchRelationshipField({
               value={telefoneNovo}
               onChange={(event) => setTelefoneNovo(formatarTelefone(event.target.value))}
               placeholder="Telefone"
-              className="rounded-xl border border-aura-mist px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+              className="aura-input"
             />
             <input
               type="email"
@@ -278,18 +279,18 @@ export function SearchRelationshipField({
               value={emailNovo}
               onChange={(event) => setEmailNovo(event.target.value)}
               placeholder="Email para marketing"
-              className="rounded-xl border border-aura-mist px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+              className="aura-input"
             />
             <input
               type="text"
               value={cidadeNova}
               onChange={(event) => setCidadeNova(event.target.value)}
               placeholder="Cidade"
-              className="rounded-xl border border-aura-mist px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+              className="aura-input"
             />
           </div>
 
-          <p className="mb-1.5 mt-3 text-xs text-aura-graphite-soft">
+          <p className="aura-label mt-3 text-xs font-normal text-aura-graphite-soft">
             Categoria
           </p>
           <div className="flex flex-wrap gap-2">
@@ -298,10 +299,10 @@ export function SearchRelationshipField({
                 key={categoria}
                 type="button"
                 onClick={() => setCategoriaNova(categoria)}
-                className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
                   categoriaNova === categoria
-                    ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                    : "border-aura-mist bg-white text-aura-graphite"
+                    ? "border-aura-petrol-500 bg-aura-petrol-500/10 text-aura-petrol-600"
+                    : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken"
                 }`}
               >
                 {categoria}
@@ -309,7 +310,7 @@ export function SearchRelationshipField({
             ))}
           </div>
 
-          <p className="mb-1.5 mt-3 text-xs text-aura-graphite-soft">
+          <p className="aura-label mt-3 text-xs font-normal text-aura-graphite-soft">
             Temperatura
           </p>
           <div className="flex flex-wrap gap-2">
@@ -318,10 +319,10 @@ export function SearchRelationshipField({
                 key={temperatura}
                 type="button"
                 onClick={() => setTemperaturaNova(temperatura)}
-                className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
                   temperaturaNova === temperatura
-                    ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                    : "border-aura-mist bg-white text-aura-graphite"
+                    ? "border-aura-petrol-500 bg-aura-petrol-500/10 text-aura-petrol-600"
+                    : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken"
                 }`}
               >
                 {temperatura.charAt(0).toUpperCase() + temperatura.slice(1)}
@@ -336,7 +337,7 @@ export function SearchRelationshipField({
               type="button"
               onClick={criarNovoRelacionamento}
               disabled={salvando}
-              className="flex items-center gap-1.5 rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+              className={classeBotao("primario", "sm")}
             >
               {salvando ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -348,7 +349,7 @@ export function SearchRelationshipField({
             <button
               type="button"
               onClick={() => setCriandoNovo(false)}
-              className="rounded-lg border border-aura-mist px-3 py-2 text-xs font-medium text-aura-graphite"
+              className={classeBotao("secundario", "sm")}
             >
               Cancelar
             </button>

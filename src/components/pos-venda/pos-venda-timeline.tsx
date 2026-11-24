@@ -48,7 +48,7 @@ export function PosVendaTimeline({ posVendaId }: { posVendaId: string }) {
       </label>
 
       {notas.length > 0 && (
-        <ul className="mb-2 flex max-h-40 flex-col gap-2 overflow-y-auto rounded-xl border border-aura-mist bg-aura-bg p-3">
+        <ul className="mb-2 flex max-h-40 flex-col gap-2 overflow-y-auto rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
           {notas.map((n) => (
             <li key={n.id} className="text-xs">
               <span className="font-medium text-aura-graphite">{n.autorNome ?? "Alguém"}</span>{" "}
@@ -65,13 +65,13 @@ export function PosVendaTimeline({ posVendaId }: { posVendaId: string }) {
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
           placeholder="Adicionar anotação (ex.: ligou pra confirmar horário)"
-          className="flex-1 rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+          className="aura-input flex-1"
         />
         <button
           type="submit"
           disabled={enviando || !texto.trim()}
           aria-label="Adicionar anotação"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-aura-petrol-700 text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+          className="aura-btn aura-btn-primario h-[2.375rem] w-[2.375rem] shrink-0 px-0"
         >
           <Send size={14} />
         </button>

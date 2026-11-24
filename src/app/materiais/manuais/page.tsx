@@ -43,7 +43,7 @@ export default async function ManuaisMF() {
       </div>
       <p className="px-5 pb-12 text-center text-sm text-neutral-500">
         Não achou o seu modelo?{" "}
-        <a href={LINK_WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#CD1C1B] underline">
+        <a href={LINK_WHATSAPP} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#CD1C1B] dark:text-aura-danger underline">
           Peça o manual no WhatsApp
         </a>
         .

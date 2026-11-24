@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Filter, DollarSign, Users, Loader2, ShoppingBag, ArrowRight } from "lucide-react";
+import { Filter, DollarSign, Users, Loader2, ShoppingBag, ArrowRight, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon } from "lucide-react";
+import { Card, CardHeader, StatCard } from "@/components/ui";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useAppData } from "@/lib/app-data-context";
 import { colunaDoNegocio, etapasVisiveis } from "@/lib/funil";
@@ -18,7 +19,8 @@ import { PlanilhaConsolidada } from "@/components/gestor/planilha-consolidada";
 import { CalendarioPostagens } from "@/components/marketing/calendario-postagens";
 import { AuraManagerPanel } from "@/components/gestor/aura-manager-panel";
 
-const CORES = ["#0F766E", "#14B8A6", "#2DD4BF", "#99F6E4"];
+// Cores da marca que funcionam nos dois temas: petróleo, ouro, petróleo claro, cinza.
+const CORES = ["#138780", "#c99a33", "#3aa59d", "#8a94a3"];
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -107,40 +109,31 @@ export function DashboardTab() {
     });
   }, [atividades]);
 
+  const eixo = { fill: "currentColor", fontSize: 11 };
+  const caixaTooltip = {
+    background: "var(--aura-surface)",
+    border: "1px solid var(--aura-mist)",
+    borderRadius: 8,
+    color: "var(--aura-graphite)",
+    fontSize: 12,
+  };
+  const atalhos = [
+    { href: "/relacionamentos", rotulo: "CRM", icone: Users },
+    { href: "/pipeline", rotulo: "Pipeline", icone: Filter },
+    { href: "/vendas", rotulo: "Vendas", icone: ShoppingBag },
+    { href: "/leads", rotulo: "Leads", icone: Users },
+  ];
+
   return (
-    <div className="space-y-6 pb-16">
+    <div className="flex flex-col gap-6 pb-16">
       {/* Aprovação de Compromissos */}
       <AprovacaoCompromissosMensais />
 
       {/* Resumo Consolidado */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <div className="flex items-center gap-2">
-            <Users size={16} className="text-aura-petrol-600" />
-            <p className="text-sm text-aura-graphite-soft">Vendedores</p>
-          </div>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {equipe.length}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <div className="flex items-center gap-2">
-            <Filter size={16} className="text-aura-petrol-600" />
-            <p className="text-sm text-aura-graphite-soft">Pipeline</p>
-          </div>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(valorPipeline)}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <div className="flex items-center gap-2">
-            <DollarSign size={16} className="text-aura-petrol-600" />
-            <p className="text-sm text-aura-graphite-soft">Vendido</p>
-          </div>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(valorVendido)}
-          </p>
-        </div>
+        <StatCard rotulo="Vendedores" valor={equipe.length} icone={Users} tom="marca" />
+        <StatCard rotulo="Pipeline" valor={formatarMoeda(valorPipeline)} icone={Filter} tom="marca" />
+        <StatCard rotulo="Vendido" valor={formatarMoeda(valorVendido)} icone={DollarSign} tom="sucesso" />
       </div>
 
       {/* Alertas */}
@@ -156,61 +149,69 @@ export function DashboardTab() {
       {/* Gráficos Principais */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Faturamento */}
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="font-medium text-aura-graphite">Faturamento vs Previsão</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosFaturamento}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mes" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="confirmado" stroke="#0F766E" name="Confirmado" strokeWidth={2} />
-              <Line type="monotone" dataKey="previsto" stroke="#14B8A6" name="Previsto" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        <Card>
+          <CardHeader titulo="Faturamento vs Previsão" icone={LineChartIcon} />
+          <div className="text-aura-graphite-soft">
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dadosFaturamento}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--aura-mist)" vertical={false} />
+                <XAxis dataKey="mes" tick={eixo} stroke="var(--aura-mist)" />
+                <YAxis tick={eixo} stroke="var(--aura-mist)" />
+                <Tooltip contentStyle={caixaTooltip} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line type="monotone" dataKey="confirmado" stroke={CORES[0]} name="Confirmado" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="previsto" stroke={CORES[1]} name="Previsto" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
 
         {/* Pipeline */}
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="font-medium text-aura-graphite">Pipeline por Estágio</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={dadosPipeline}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(entry: any) => `${entry.nome}: R$ ${(entry.valor / 1000).toFixed(0)}k`}
-                outerRadius={100}
-                fill="#0F766E"
-                dataKey="valor"
-              >
-                {dadosPipeline.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={CORES[index]} />
-                ))}
-              </Pie>
-            <Tooltip formatter={(value: any) => value ? `R$ ${value.toLocaleString("pt-BR")}` : ""} />            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        <Card>
+          <CardHeader titulo="Pipeline por Estágio" icone={PieChartIcon} />
+          <div className="text-aura-graphite-soft">
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={dadosPipeline}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(entry: any) => `${entry.nome}: R$ ${(entry.valor / 1000).toFixed(0)}k`}
+                  outerRadius={100}
+                  fill={CORES[0]}
+                  stroke="var(--aura-surface)"
+                  dataKey="valor"
+                >
+                  {dadosPipeline.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={CORES[index % CORES.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={caixaTooltip} formatter={(value: any) => value ? `R$ ${value.toLocaleString("pt-BR")}` : ""} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
       </div>
 
       {/* Atividades */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="font-medium text-aura-graphite">Atividades da Semana</p>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={dadosAtividades}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dia" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="ligacoes" fill="#0F766E" name="Ligações" />
-            <Bar dataKey="visitas" fill="#14B8A6" name="Visitas" />
-            <Bar dataKey="reunioes" fill="#2DD4BF" name="Reuniões" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <Card>
+        <CardHeader titulo="Atividades da Semana" icone={BarChart3} />
+        <div className="text-aura-graphite-soft">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={dadosAtividades}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--aura-mist)" vertical={false} />
+              <XAxis dataKey="dia" tick={eixo} stroke="var(--aura-mist)" />
+              <YAxis tick={eixo} stroke="var(--aura-mist)" />
+              <Tooltip contentStyle={caixaTooltip} cursor={{ fill: "var(--aura-sunken)" }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="ligacoes" fill={CORES[0]} name="Ligações" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="visitas" fill={CORES[1]} name="Visitas" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="reunioes" fill={CORES[2]} name="Reuniões" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
       {/* Planilha e Calendário */}
       <PlanilhaConsolidada />
@@ -218,38 +219,13 @@ export function DashboardTab() {
 
       {/* Atalhos Rápidos */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Link
-          href="/relacionamentos"
-          className="flex items-center gap-2 rounded-2xl border border-aura-mist bg-white p-3.5 transition hover:border-aura-petrol-500/40"
-        >
-          <Users size={15} className="text-aura-petrol-600" />
-          <span className="flex-1 text-xs font-medium text-aura-graphite">CRM</span>
-          <ArrowRight size={12} className="text-aura-graphite-soft" />
-        </Link>
-        <Link
-          href="/pipeline"
-          className="flex items-center gap-2 rounded-2xl border border-aura-mist bg-white p-3.5 transition hover:border-aura-petrol-500/40"
-        >
-          <Filter size={15} className="text-aura-petrol-600" />
-          <span className="flex-1 text-xs font-medium text-aura-graphite">Pipeline</span>
-          <ArrowRight size={12} className="text-aura-graphite-soft" />
-        </Link>
-        <Link
-          href="/vendas"
-          className="flex items-center gap-2 rounded-2xl border border-aura-mist bg-white p-3.5 transition hover:border-aura-petrol-500/40"
-        >
-          <ShoppingBag size={15} className="text-aura-petrol-600" />
-          <span className="flex-1 text-xs font-medium text-aura-graphite">Vendas</span>
-          <ArrowRight size={12} className="text-aura-graphite-soft" />
-        </Link>
-        <Link
-          href="/leads"
-          className="flex items-center gap-2 rounded-2xl border border-aura-mist bg-white p-3.5 transition hover:border-aura-petrol-500/40"
-        >
-          <Users size={15} className="text-aura-petrol-600" />
-          <span className="flex-1 text-xs font-medium text-aura-graphite">Leads</span>
-          <ArrowRight size={12} className="text-aura-graphite-soft" />
-        </Link>
+        {atalhos.map(({ href, rotulo, icone: Icone }) => (
+          <Link key={href} href={href} className="aura-card aura-card-interativo flex items-center gap-2 p-3.5">
+            <Icone size={15} className="text-aura-petrol-600" />
+            <span className="flex-1 text-xs font-medium text-aura-graphite">{rotulo}</span>
+            <ArrowRight size={12} className="text-aura-graphite-soft" />
+          </Link>
+        ))}
       </div>
 
       {/* Equipe e Alertas */}

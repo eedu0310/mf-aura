@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Activity,
   AlertCircle,
   Calendar,
   Filter,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
+import { PageContainer, PageHeader, Selo, Segmentado, EstadoVazio, type Tom } from "@/components/ui";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Atividade, TipoAtividade } from "@/lib/types";
@@ -32,19 +34,20 @@ const TIPOS_ATIVIDADE: TipoAtividade[] = [
   "Outro",
 ];
 
-const CORES_TIPO: Record<TipoAtividade, string> = {
-  Visita: "bg-blue-100 text-blue-700",
-  Reunião: "bg-purple-100 text-purple-700",
-  "Follow-up": "bg-orange-100 text-orange-700",
-  Ligação: "bg-green-100 text-green-700",
-  WhatsApp: "bg-emerald-100 text-emerald-700",
-  Email: "bg-cyan-100 text-cyan-700",
-  Orçamento: "bg-amber-100 text-amber-700",
-  Venda: "bg-teal-100 text-teal-700",
-  Prospecção: "bg-indigo-100 text-indigo-700",
-  "Pós-venda": "bg-pink-100 text-pink-700",
-  Treinamento: "bg-violet-100 text-violet-700",
-  Outro: "bg-gray-100 text-gray-700",
+// Selo discreto por tipo: poucas cores do tema em vez de um arco-íris.
+const TOM_TIPO: Record<TipoAtividade, Tom> = {
+  Visita: "marca",
+  Reunião: "marca",
+  "Follow-up": "atencao",
+  Ligação: "neutro",
+  WhatsApp: "sucesso",
+  Email: "neutro",
+  Orçamento: "ouro",
+  Venda: "sucesso",
+  Prospecção: "marca",
+  "Pós-venda": "neutro",
+  Treinamento: "neutro",
+  Outro: "neutro",
 };
 
 type FiltroStatus = "Todas" | "Pendentes" | "Concluídas";
@@ -207,46 +210,35 @@ export default function AtividadesPage() {
   ]);
 
   return (
-    <div className="space-y-6 pb-24">
-      <div className="relative overflow-hidden bg-aura-navy-950 px-6 pb-10 pt-8 sm:px-8">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
-            Atividades
-          </h1>
-          <p className="mt-1 text-sm text-white/50">
-            Todas as suas atividades registradas com localização
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Atividades"
+        descricao="Todas as suas atividades registradas com localização"
+        icone={Activity}
+      />
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+      <div className="space-y-4">
         <AuraInsightCard pagina="atividades" />
-      </div>
 
-      <div className="mx-auto w-full max-w-7xl space-y-4 px-6 sm:px-8">
-        <div className="rounded-lg border border-aura-mist bg-white p-4">
+        <div className="aura-card p-4">
           <div className="flex flex-col gap-3">
             <div className="relative">
               <Search
-                className="absolute left-3 top-3 text-aura-graphite-soft"
-                size={18}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft"
+                size={16}
               />
               <input
                 type="search"
                 value={busca}
                 onChange={(event) => setBusca(event.target.value)}
                 placeholder="Buscar por título, contexto, cliente ou vendedor..."
-                className="w-full rounded-lg border border-aura-mist py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-aura-navy-950"
+                className="aura-input pl-9"
               />
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <Filter size={16} className="text-aura-graphite-soft" />
+                <Filter size={15} className="text-aura-graphite-soft" />
                 <span className="text-sm font-medium text-aura-graphite">
                   Tipo:
                 </span>
@@ -257,7 +249,7 @@ export default function AtividadesPage() {
                       event.target.value as TipoAtividade | "Todas",
                     )
                   }
-                  className="rounded border border-aura-mist px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-aura-navy-950"
+                  className="aura-input h-9 w-auto"
                 >
                   <option value="Todas">Todas</option>
                   {TIPOS_ATIVIDADE.map((tipo) => (
@@ -268,31 +260,22 @@ export default function AtividadesPage() {
                 </select>
               </div>
 
-              <select
-                value={statusFiltro}
-                onChange={(event) =>
-                  setStatusFiltro(event.target.value as FiltroStatus)
-                }
-                className="rounded border border-aura-mist px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-aura-navy-950"
-              >
-                <option value="Todas">Todas as atividades</option>
-                <option value="Pendentes">Pendentes</option>
-                <option value="Concluídas">Concluídas</option>
-              </select>
+              <Segmentado
+                rotulo="Situação"
+                opcoes={[
+                  { valor: "Todas", rotulo: "Todas as atividades" },
+                  { valor: "Pendentes", rotulo: "Pendentes" },
+                  { valor: "Concluídas", rotulo: "Concluídas" },
+                ]}
+                valor={statusFiltro}
+                aoMudar={setStatusFiltro}
+              />
             </div>
           </div>
         </div>
 
         {atividadesFiltradas.length === 0 ? (
-          <div className="rounded-lg border border-aura-mist bg-white p-8 text-center">
-            <AlertCircle
-              size={32}
-              className="mx-auto mb-3 text-aura-graphite-soft"
-            />
-            <p className="text-aura-graphite-soft">
-              Nenhuma atividade encontrada
-            </p>
-          </div>
+          <EstadoVazio icone={AlertCircle} titulo="Nenhuma atividade encontrada" />
         ) : (
           <div className="grid gap-3">
             {atividadesFiltradas.map((atividade) => {
@@ -319,18 +302,14 @@ export default function AtividadesPage() {
               return (
                 <article
                   key={atividade.id}
-                  className="rounded-lg border border-aura-mist bg-white p-4 transition hover:border-aura-graphite-soft"
+                  className="aura-card aura-card-interativo p-4"
                 >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="mb-1 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-block rounded-md px-2 py-1 text-xs font-medium ${
-                            CORES_TIPO[atividade.tipo] || CORES_TIPO.Outro
-                          }`}
-                        >
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                        <Selo tom={TOM_TIPO[atividade.tipo] || TOM_TIPO.Outro}>
                           {atividade.tipo}
-                        </span>
+                        </Selo>
                         {atividade.subtipo && (
                           <span className="text-xs text-aura-graphite-soft">
                             {atividade.subtipo}
@@ -342,7 +321,7 @@ export default function AtividadesPage() {
                           </span>
                         )}
                       </div>
-                      <h3 className="font-semibold text-aura-graphite">
+                      <h3 className="text-sm font-semibold text-aura-graphite">
                         {atividade.titulo}
                       </h3>
                     </div>
@@ -352,7 +331,7 @@ export default function AtividadesPage() {
                       disabled={excluindo === atividade.id}
                       title="Excluir esta atividade"
                       aria-label={`Excluir ${atividade.titulo}`}
-                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft transition hover:bg-red-50 hover:text-aura-danger disabled:opacity-40"
+                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger disabled:opacity-40"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -365,7 +344,7 @@ export default function AtividadesPage() {
                   )}
 
                   {atividade.anotacoes && (
-                    <div className="mb-3 rounded bg-aura-bg p-2">
+                    <div className="mb-3 rounded-lg bg-aura-sunken px-3 py-2">
                       <p className="text-xs text-aura-graphite-soft">
                         {atividade.anotacoes}
                       </p>
@@ -373,7 +352,7 @@ export default function AtividadesPage() {
                   )}
 
                   {(atividade.endereco || possuiCoordenadas) && (
-                    <div className="mb-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                    <div className="mb-3 rounded-lg border border-aura-mist p-3">
                       <button
                         type="button"
                         disabled={!possuiCoordenadas}
@@ -382,23 +361,23 @@ export default function AtividadesPage() {
                           const url = `https://www.google.com/maps/?q=${atividade.latitude},${atividade.longitude}`;
                           window.open(url, "_blank", "noopener,noreferrer");
                         }}
-                        className="flex w-full items-start gap-2 text-left transition hover:opacity-80 disabled:cursor-default"
+                        className="group flex w-full items-start gap-2 text-left disabled:cursor-default"
                       >
                         <MapPin
-                          size={16}
-                          className="mt-0.5 shrink-0 text-green-600"
+                          size={15}
+                          className="mt-0.5 shrink-0 text-aura-success"
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium text-green-700">
+                          <p className="truncate text-xs font-medium text-aura-graphite">
                             {atividade.endereco || "Localização capturada"}
                           </p>
                           {possuiCoordenadas && (
                             <>
-                              <p className="mt-1 text-xs text-green-600">
+                              <p className="mt-1 text-xs tabular-nums text-aura-graphite-soft">
                                 {atividade.latitude?.toFixed(5)},{" "}
                                 {atividade.longitude?.toFixed(5)}
                               </p>
-                              <p className="mt-1 text-xs text-green-600 underline">
+                              <p className="mt-1 text-xs font-medium text-aura-petrol-600 group-hover:underline">
                                 Abrir no Google Maps →
                               </p>
                             </>
@@ -408,12 +387,12 @@ export default function AtividadesPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-4 border-t border-aura-mist pt-2 text-xs text-aura-graphite-soft">
-                    <div className="flex items-center gap-1">
-                      <Calendar size={14} />
+                  <div className="flex items-center gap-4 border-t border-aura-mist pt-2.5 text-xs text-aura-graphite-soft">
+                    <div className="flex items-center gap-1 tabular-nums">
+                      <Calendar size={13} />
                       {dataFormatada}
                     </div>
-                    {horaFormatada && <div>{horaFormatada}</div>}
+                    {horaFormatada && <div className="tabular-nums">{horaFormatada}</div>}
                     {atividade.proximoPasso && (
                       <div className="ml-auto truncate">
                         Próximo: {atividade.proximoPasso}
@@ -429,11 +408,11 @@ export default function AtividadesPage() {
         <Link
           href="/registrar-atividade"
           aria-label="Registrar nova atividade"
-          className="fixed bottom-8 right-8 hidden h-14 w-14 items-center justify-center rounded-full bg-aura-navy-950 text-white shadow-lg transition hover:bg-aura-navy-900 sm:flex"
+          className="fixed bottom-8 right-8 hidden h-12 w-12 items-center justify-center rounded-full bg-aura-petrol-600 text-white shadow-xl transition hover:bg-aura-petrol-700 sm:flex"
         >
-          <Plus size={24} />
+          <Plus size={22} />
         </Link>
       </div>
-    </div>
+    </PageContainer>
   );
 }

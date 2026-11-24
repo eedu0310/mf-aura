@@ -6,6 +6,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { buscarCompromissoDoMes, type CompromissoMensal } from "@/lib/supabase/compromisso-mensal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { CompromissoMensalModal } from "./compromisso-mensal-modal";
+import { Alerta } from "@/components/ui";
 
 export function CompromissoMensalBanner() {
   const { profile } = useUserProfile();
@@ -80,9 +81,11 @@ export function CompromissoMensalBanner() {
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="flex w-full items-center gap-2.5 rounded-2xl border border-aura-warning/30 bg-aura-warning/5 px-4 py-3 text-left hover:bg-aura-warning/10"
+          className="aura-card aura-card-interativo flex w-full items-center gap-3 p-3.5 text-left"
         >
-          <Target size={16} className="shrink-0 text-aura-warning" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-warning/12">
+            <Target size={16} className="text-aura-warning" />
+          </span>
           <p className="text-sm text-aura-graphite">
             Você ainda não enviou seu <span className="font-medium">Compromisso do Mês</span> pro
             gestor aprovar.
@@ -99,9 +102,11 @@ export function CompromissoMensalBanner() {
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="flex w-full items-center gap-2.5 rounded-2xl border border-aura-danger/30 bg-aura-danger/5 px-4 py-3 text-left hover:bg-aura-danger/10"
+          className="aura-card aura-card-interativo flex w-full items-center gap-3 p-3.5 text-left"
         >
-          <AlertTriangle size={16} className="shrink-0 text-aura-danger" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-danger/10">
+            <AlertTriangle size={16} className="text-aura-danger" />
+          </span>
           <div>
             <p className="text-sm font-medium text-aura-graphite">
               Seu gestor pediu um ajuste no seu Compromisso do Mês
@@ -118,23 +123,13 @@ export function CompromissoMensalBanner() {
 
   if (compromisso.status === "pendente_aprovacao") {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-aura-mist bg-white px-4 py-3">
-        <Clock size={16} className="shrink-0 text-aura-graphite-soft" />
-        <p className="text-sm text-aura-graphite-soft">
-          Seu Compromisso do Mês está aguardando aprovação do gestor.
-        </p>
-      </div>
+      <Alerta tom="info" icone={Clock} titulo="Seu Compromisso do Mês está aguardando aprovação do gestor." />
     );
   }
 
   if (compromisso.status === "aprovado" && !compromisso.notificacao_visualizada) {
     return (
-      <div className="flex items-center gap-2.5 rounded-2xl border border-aura-success/30 bg-aura-success/5 px-4 py-3">
-        <CheckCircle2 size={16} className="shrink-0 text-aura-success" />
-        <p className="text-sm text-aura-graphite">
-          Seu Compromisso do Mês foi aprovado — bom trabalho! 🎯
-        </p>
-      </div>
+      <Alerta tom="sucesso" icone={CheckCircle2} titulo="Seu Compromisso do Mês foi aprovado — bom trabalho!" />
     );
   }
 

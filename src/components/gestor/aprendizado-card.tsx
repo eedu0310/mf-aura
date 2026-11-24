@@ -17,6 +17,7 @@
  */
 import { useEffect, useState, useCallback } from "react";
 import { Check, X, Pencil, GraduationCap, Loader2 } from "lucide-react";
+import { Alerta, Card, CardHeader, EstadoVazio, Segmentado, Selo, classeBotao } from "@/components/ui";
 
 interface Item {
   id: string;
@@ -136,67 +137,44 @@ export function AprendizadoCard() {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <GraduationCap size={20} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-          <div>
-            <h3 className="font-display text-lg font-semibold text-aura-graphite">
-              O que a AURA aprendeu
-            </h3>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
-              Tirado dos negócios fechados e perdidos e das conversas de cada
-              dia. Só entra sozinho o que se repetiu, já fechou venda e não tem
-              preço, prazo nem número; o resto espera você.
-            </p>
-          </div>
-        </div>
-        {sugeridos.length > 0 && (
-          <span className="shrink-0 rounded-full bg-aura-gold/20 px-3 py-1 text-xs font-semibold text-aura-graphite">
-            {sugeridos.length} para revisar
-          </span>
-        )}
-      </div>
+    <Card>
+      <CardHeader
+        titulo="O que a AURA aprendeu"
+        descricao="Tirado dos negócios fechados e perdidos e das conversas de cada dia. Só entra sozinho o que se repetiu, já fechou venda e não tem preço, prazo nem número; o resto espera você."
+        icone={GraduationCap}
+        acoes={
+          sugeridos.length > 0 ? (
+            <Selo tom="ouro">{sugeridos.length} para revisar</Selo>
+          ) : undefined
+        }
+      />
 
       {lojas && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {lojas.map((l) => (
-            <button
-              key={l.nome}
-              type="button"
-              onClick={() => setLoja(l.nome)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                loja === l.nome
-                  ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                  : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500"
-              }`}
-            >
-              {l.nome}
-              {l.esperando > 0 && (
-                <span className={`rounded-full px-1.5 text-[0.65rem] font-semibold ${loja === l.nome ? "bg-white/20" : "bg-aura-gold/25"}`}>
-                  {l.esperando}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <Segmentado
+          rotulo="Loja"
+          opcoes={lojas.map((l) => ({
+            valor: l.nome,
+            rotulo: l.nome,
+            contagem: l.esperando > 0 ? l.esperando : undefined,
+          }))}
+          valor={loja ?? ""}
+          aoMudar={(v) => setLoja(v)}
+        />
       )}
 
-      {erro && (
-        <p className="mt-4 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
-          {erro}
-        </p>
-      )}
+      {erro && <Alerta tom="perigo" titulo={erro} className="mt-4" />}
 
       {carregando ? (
         <p className="mt-6 flex items-center gap-2 text-sm text-aura-graphite-soft">
           <Loader2 size={15} className="animate-spin" /> Carregando…
         </p>
       ) : sugeridos.length === 0 ? (
-        <p className="mt-6 text-sm text-aura-graphite-soft">
-          Nada esperando revisão. Toda noite a AURA relê as conversas do dia e
-          traz para cá o que aprendeu.
-        </p>
+        <EstadoVazio
+          className="mt-5"
+          icone={GraduationCap}
+          titulo="Nada esperando revisão."
+          descricao="Toda noite a AURA relê as conversas do dia e traz para cá o que aprendeu."
+        />
       ) : (
         <ul className="mt-5 space-y-3">
           {sugeridos.map((item) => {
@@ -204,12 +182,10 @@ export function AprendizadoCard() {
             return (
               <li
                 key={item.id}
-                className="rounded-xl border border-aura-mist bg-aura-bg/50 p-4"
+                className="rounded-lg border border-aura-mist p-4"
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-aura-petrol-700 px-2.5 py-0.5 text-xs font-medium text-white">
-                    {ROTULO[item.tipo] ?? item.tipo}
-                  </span>
+                  <Selo tom="marca">{ROTULO[item.tipo] ?? item.tipo}</Selo>
                   <span className="text-xs text-aura-graphite-soft">{placar(item)}</span>
                 </div>
 
@@ -221,7 +197,7 @@ export function AprendizadoCard() {
                         setRascunho((r) => ({ ...r, gatilho: e.target.value }))
                       }
                       placeholder="O que o cliente disse"
-                      className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+                      className="aura-input"
                     />
                     <textarea
                       value={rascunho.resposta}
@@ -230,7 +206,7 @@ export function AprendizadoCard() {
                       }
                       rows={3}
                       placeholder="A resposta que a AURA deve usar"
-                      className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+                      className="aura-input"
                     />
                   </div>
                 ) : (
@@ -254,12 +230,12 @@ export function AprendizadoCard() {
                     type="button"
                     disabled={ocupado === item.id}
                     onClick={() => void decidir(item, "aprovar")}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-aura-success px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                    className={classeBotao("primario", "sm")}
                   >
                     {ocupado === item.id ? (
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={13} className="animate-spin" />
                     ) : (
-                      <Check size={14} />
+                      <Check size={13} />
                     )}
                     {emEdicao ? "Salvar e aprovar" : "Aprovar"}
                   </button>
@@ -267,17 +243,17 @@ export function AprendizadoCard() {
                     type="button"
                     disabled={ocupado === item.id}
                     onClick={() => void decidir(item, "recusar")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-1.5 text-sm font-medium text-aura-graphite transition hover:border-aura-danger hover:text-aura-danger disabled:opacity-50"
+                    className={classeBotao("perigo-suave", "sm")}
                   >
-                    <X size={14} /> Recusar
+                    <X size={13} /> Recusar
                   </button>
                   {!emEdicao && (
                     <button
                       type="button"
                       onClick={() => abrirEdicao(item)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-1.5 text-sm font-medium text-aura-graphite transition hover:border-aura-petrol-500"
+                      className={classeBotao("fantasma", "sm")}
                     >
-                      <Pencil size={14} /> Ajustar o texto
+                      <Pencil size={13} /> Ajustar o texto
                     </button>
                   )}
                 </div>
@@ -299,16 +275,12 @@ export function AprendizadoCard() {
             AURA
           </button>
           {verAprovados && (
-            <ul className="mt-3 space-y-3">
+            <ul className="mt-3 divide-y divide-aura-mist">
               {aprovados.map((item) => (
-                <li key={item.id} className="text-sm text-aura-graphite-soft">
+                <li key={item.id} className="py-3 text-sm text-aura-graphite-soft">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-aura-graphite">{ROTULO[item.tipo] ?? item.tipo}</span>
-                    {item.aprovado_auto && (
-                      <span className="rounded-full bg-aura-gold/20 px-2 py-0.5 text-[0.7rem] font-semibold text-aura-graphite">
-                        entrou sozinho
-                      </span>
-                    )}
+                    {item.aprovado_auto && <Selo tom="ouro">entrou sozinho</Selo>}
                     <span className="text-xs">{placar(item)}</span>
                     {podeDecidir && <button
                       type="button"
@@ -316,7 +288,7 @@ export function AprendizadoCard() {
                       onClick={() => {
                         if (confirm("Tirar este aprendizado de uso? Ele não volta a ser sugerido.")) void decidir(item, "recusar");
                       }}
-                      className="ml-auto inline-flex items-center gap-1 rounded-lg border border-aura-mist bg-white px-2 py-1 text-xs font-medium text-aura-graphite transition hover:border-aura-danger hover:text-aura-danger disabled:opacity-50"
+                      className={classeBotao("perigo-suave", "sm", "ml-auto")}
                     >
                       <X size={12} /> Tirar de uso
                     </button>}
@@ -333,7 +305,7 @@ export function AprendizadoCard() {
 
       {sugestoes && sugestoes.total > 0 && (
         <div className="mt-6 border-t border-aura-mist pt-4">
-          <p className="text-sm font-medium text-aura-graphite">
+          <p className="text-sm font-semibold text-aura-graphite">
             Sugestões de resposta da AURA · últimos {sugestoes.dias} dias
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -343,9 +315,9 @@ export function AprendizadoCard() {
               ["Ignoradas", sugestoes.ignorou],
               ["Automáticas", sugestoes.automatica],
             ].map(([rotulo, n]) => (
-              <div key={rotulo as string} className="rounded-xl bg-aura-bg/60 px-3 py-2">
-                <p className="text-lg font-semibold text-aura-graphite">{n as number}</p>
-                <p className="text-xs text-aura-graphite-soft">{rotulo as string}</p>
+              <div key={rotulo as string} className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3 py-2.5">
+                <p className="aura-rotulo truncate">{rotulo as string}</p>
+                <p className="mt-1 font-display text-lg font-semibold tabular-nums text-aura-graphite">{n as number}</p>
               </div>
             ))}
           </div>
@@ -361,10 +333,10 @@ export function AprendizadoCard() {
         </div>
       )}
 
-      <p className="mt-5 text-xs text-aura-graphite-soft">
+      <p className="mt-5 border-t border-aura-mist pt-4 text-xs text-aura-graphite-soft">
         Em conflito com o manual de vendas, o manual manda — isto entra como
         complemento, nunca por cima da regra da casa.
       </p>
-    </div>
+    </Card>
   );
 }

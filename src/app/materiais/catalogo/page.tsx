@@ -44,7 +44,7 @@ export default async function CatalogoMF() {
           ))}
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#CD1C1B]">Edição 2025</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#CD1C1B] dark:text-aura-danger">Edição 2025</p>
           <h2 className="mt-2 text-3xl font-bold uppercase leading-tight tracking-wide">Todas as lareiras MF em um só lugar</h2>
           <p className="mt-4 text-[17px] leading-relaxed text-neutral-700">
             Embutidas, expostas e suspensas, com medidas e potência de cada modelo. Use o catálogo para escolher com calma e, quando

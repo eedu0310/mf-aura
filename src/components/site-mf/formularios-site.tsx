@@ -17,7 +17,7 @@ import {
 import { FormularioPublico } from "./formulario-publico";
 import { UploadArquivo } from "./upload-arquivo";
 
-const entrada = "min-h-10 w-full rounded-xl border border-aura-mist bg-white px-3 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500";
+const entrada = "aura-input font-normal";
 
 function enderecoBase() {
   return typeof window === "undefined" ? "" : window.location.origin;
@@ -79,7 +79,7 @@ export function FormulariosSite() {
               imagem_fundo: null,
             })
           }
-          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
+          className="aura-btn aura-btn-primario"
         >
           <Plus size={16} /> Novo formulário
         </button>
@@ -90,16 +90,16 @@ export function FormulariosSite() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : lista.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-12 text-center text-sm text-aura-graphite-soft">
+        <p className="rounded-xl border border-dashed border-aura-mist px-6 py-12 text-center text-sm text-aura-graphite-soft">
           Nenhum formulário ainda.
         </p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((f) => (
-            <li key={f.id} className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4">
+            <li key={f.id} className="aura-card flex flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-aura-graphite">{f.nome}</p>
-                <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${f.ativo ? "bg-emerald-100 text-emerald-900" : "bg-aura-mist text-aura-graphite-soft"}`}>
+                <p className="text-sm font-semibold text-aura-graphite">{f.nome}</p>
+                <span className={`aura-selo ${f.ativo ? "aura-selo-sucesso" : "aura-selo-neutro"}`}>
                   {f.ativo ? "Ativo" : "Desligado"}
                 </span>
               </div>
@@ -111,7 +111,7 @@ export function FormulariosSite() {
                 <button
                   type="button"
                   onClick={() => setEditando(f)}
-                  className="min-h-9 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                  className="aura-btn aura-btn-secundario aura-btn-sm"
                 >
                   Editar
                 </button>
@@ -119,7 +119,7 @@ export function FormulariosSite() {
                   href={`/f/${f.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                  className="aura-btn aura-btn-secundario aura-btn-sm"
                 >
                   <ExternalLink size={13} /> Abrir
                 </a>
@@ -224,13 +224,13 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
         <div className="flex flex-col gap-4">
-          <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="font-medium text-aura-graphite">Geral</p>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+          <section className="aura-card flex flex-col gap-3 p-5">
+            <p className="text-sm font-semibold text-aura-graphite">Geral</p>
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Nome (só para a equipe)
               <input className={entrada} value={f.nome} onChange={(e) => mudar("nome", e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Endereço
               <div className="flex items-center gap-2">
                 <span className="shrink-0 text-xs text-aura-graphite-soft">/f/</span>
@@ -242,23 +242,23 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
                 />
               </div>
             </label>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Título que o cliente vê
               <input className={entrada} value={f.titulo ?? ""} onChange={(e) => mudar("titulo", e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Texto de apoio
               <input className={entrada} value={f.descricao ?? ""} onChange={(e) => mudar("descricao", e.target.value)} />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Texto do botão
                 <input className={entrada} value={f.botao_texto} onChange={(e) => mudar("botao_texto", e.target.value)} />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Cor do botão
                 <div className="flex items-center gap-2">
-                  <input type="color" aria-label="Cor do botão" value={f.cor} onChange={(e) => mudar("cor", e.target.value.toUpperCase())} className="h-10 w-12 rounded-lg border border-aura-mist" />
+                  <input type="color" aria-label="Cor do botão" value={f.cor} onChange={(e) => mudar("cor", e.target.value.toUpperCase())} className="h-[2.375rem] w-12 rounded-lg border border-aura-mist bg-aura-surface" />
                   <input className={entrada} value={f.cor} onChange={(e) => mudar("cor", e.target.value)} />
                 </div>
               </label>
@@ -273,7 +273,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
               ).map(([valor, titulo, ajuda]) => (
                 <label
                   key={valor}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm ${f.destino === valor ? "border-aura-petrol-600 bg-aura-petrol-700/5" : "border-aura-mist"}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${f.destino === valor ? "border-aura-petrol-500 bg-aura-petrol-500/[0.06]" : "border-aura-mist"}`}
                 >
                   <input type="radio" name="destino" className="mt-1" checked={(f.destino ?? "lead") === valor} onChange={() => mudar("destino", valor)} />
                   <span>
@@ -288,9 +288,9 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
             </label>
           </section>
 
-          <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-5">
+          <section className="aura-card flex flex-col gap-3 p-5">
             <div className="flex items-center justify-between">
-              <p className="font-medium text-aura-graphite">Campos</p>
+              <p className="text-sm font-semibold text-aura-graphite">Campos</p>
               <button
                 type="button"
                 onClick={() =>
@@ -299,7 +299,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
                     { chave: `campo_${f.campos.length + 1}_${Math.random().toString(36).slice(2, 5)}`, rotulo: "Novo campo", tipo: "texto", obrigatorio: false },
                   ])
                 }
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                className="aura-btn aura-btn-secundario aura-btn-sm"
               >
                 <Plus size={14} /> Campo
               </button>
@@ -330,17 +330,17 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
                     <input type="checkbox" checked={c.obrigatorio} onChange={(e) => mudarCampo(i, { obrigatorio: e.target.checked })} /> Obrigatório
                   </label>
                   <div className="ml-auto flex gap-1">
-                    <button type="button" aria-label="Subir" onClick={() => mover(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                    <button type="button" aria-label="Subir" onClick={() => mover(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                       <ArrowUp size={15} />
                     </button>
-                    <button type="button" aria-label="Descer" onClick={() => mover(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                    <button type="button" aria-label="Descer" onClick={() => mover(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                       <ArrowDown size={15} />
                     </button>
                     <button
                       type="button"
                       aria-label="Tirar campo"
                       onClick={() => mudar("campos", f.campos.filter((_, j) => j !== i))}
-                      className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-red-700"
+                      className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-danger"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -350,25 +350,25 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
             ))}
           </section>
 
-          <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="font-medium text-aura-graphite">Depois de enviar</p>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+          <section className="aura-card flex flex-col gap-3 p-5">
+            <p className="text-sm font-semibold text-aura-graphite">Depois de enviar</p>
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Mensagem para o cliente
               <textarea rows={2} className={`${entrada} py-2`} value={f.mensagem_sucesso} onChange={(e) => mudar("mensagem_sucesso", e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Material que ele recebe (nome do botão)
               <input className={entrada} placeholder="Ex.: Baixar o catálogo" value={f.material_nome ?? ""} onChange={(e) => mudar("material_nome", e.target.value)} />
             </label>
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Link do material (PDF, Drive, realidade aumentada…)
               <input className={entrada} placeholder="https://" value={f.material_url ?? ""} onChange={(e) => mudar("material_url", e.target.value)} />
             </label>
             <UploadArquivo rotulo="Subir PDF do material" aceita="application/pdf" onPronto={(url) => mudar("material_url", url)} />
           </section>
 
-          <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="font-medium text-aura-graphite">Página do formulário</p>
+          <section className="aura-card flex flex-col gap-3 p-5">
+            <p className="text-sm font-semibold text-aura-graphite">Página do formulário</p>
             <p className="text-xs leading-relaxed text-aura-graphite-soft">
               Aberto pelo link, o formulário vira uma página no visual dos materiais da MF: barra vermelha com o logo, foto de fundo, o título e o texto acima, e o cartão &quot;Preencha seus dados&quot;.
             </p>
@@ -376,34 +376,34 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
               // eslint-disable-next-line @next/next/no-img-element
               <img src={f.imagem_fundo} alt="" className="max-h-40 w-full rounded-xl object-cover" />
             )}
-            <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
               Foto de fundo (link)
               <input className={entrada} placeholder="https://" value={f.imagem_fundo ?? ""} onChange={(e) => mudar("imagem_fundo", e.target.value)} />
             </label>
             <UploadArquivo rotulo="Subir foto de fundo" aceita="image/jpeg,image/png,image/webp" onPronto={(url) => mudar("imagem_fundo", url)} />
           </section>
 
-          {erro && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+          {erro && <p role="alert" className="rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
 
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => void salvar()}
               disabled={salvando}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-aura-petrol-700 px-5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+              className="aura-btn aura-btn-primario"
             >
               {salvando ? <Loader2 size={16} className="animate-spin" /> : salvo ? <Check size={16} /> : null} {salvo ? "Salvo" : "Salvar"}
             </button>
-            <button type="button" onClick={() => void apagar()} className="min-h-11 rounded-full border border-aura-mist px-4 text-sm font-medium text-red-700 hover:border-red-300">
+            <button type="button" onClick={() => void apagar()} className="aura-btn aura-btn-perigo-suave">
               {novo ? "Descartar" : "Apagar"}
             </button>
           </div>
 
           {!novo && (
-            <section className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-5">
-              <p className="font-medium text-aura-graphite">Colar no site da MF</p>
+            <section className="aura-card flex flex-col gap-2 p-5">
+              <p className="text-sm font-semibold text-aura-graphite">Colar no site da MF</p>
               <p className="text-xs text-aura-graphite-soft">No Elementor, use um widget HTML e cole:</p>
-              <pre className="whitespace-pre-wrap break-all rounded-xl bg-aura-navy-950 p-3 text-xs text-white/85">{codigo}</pre>
+              <pre className="whitespace-pre-wrap break-all rounded-lg border border-aura-mist bg-aura-sunken p-3 font-mono text-xs text-aura-graphite">{codigo}</pre>
               <button
                 type="button"
                 onClick={() => {
@@ -411,7 +411,7 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
                   setCopiado(true);
                   setTimeout(() => setCopiado(false), 2000);
                 }}
-                className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite"
+                className="aura-btn aura-btn-secundario aura-btn-sm w-fit"
               >
                 {copiado ? <Check size={14} /> : <Copy size={14} />} {copiado ? "Copiado" : "Copiar código"}
               </button>
@@ -420,8 +420,8 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
         </div>
 
         <div className="lg:sticky lg:top-4 lg:self-start">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-aura-graphite-soft">Como o cliente vê</p>
-          <div className="overflow-hidden rounded-2xl">
+          <p className="aura-rotulo mb-2">Como o cliente vê</p>
+          <div className="overflow-hidden rounded-xl">
             <div className="flex h-12 items-center justify-center bg-[#CD1C1B] text-sm font-bold tracking-widest text-white">MF</div>
             <div
               className="bg-neutral-700 bg-cover bg-center p-4"

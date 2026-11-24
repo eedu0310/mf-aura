@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Factory, Store, Pencil, Check, X, Lock } from "lucide-react";
+import { LogOut, Factory, Store, Pencil, Check, X, Lock, Settings, Palette, Bell } from "lucide-react";
 import { ToggleSwitch } from "./toggle-switch";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FotoDePerfil } from "./foto-de-perfil";
 import { SeletorTema } from "@/components/tema";
+import { CardHeader, PageContainer, PageHeader, classeBotao } from "@/components/ui";
 
 export function ConfiguracoesView() {
   const router = useRouter();
@@ -107,24 +108,22 @@ export function ConfiguracoesView() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">
-          Configurações
-        </p>
-        <p className="text-sm text-aura-graphite-soft">
-          Seus dados e preferências na AURA.
-        </p>
-      </div>
+    <PageContainer largura="estreita" className="flex flex-col gap-6">
+      <PageHeader
+        titulo="Configurações"
+        descricao="Seus dados e preferências na AURA."
+        icone={Settings}
+        className="mb-0"
+      />
 
       {/* Perfil */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
+      <div className="aura-card p-5">
         {!editando ? (
           <>
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div>
-                  <p className="font-display text-base font-semibold text-aura-graphite">
+                  <p className="text-base font-semibold text-aura-graphite">
                     {profile.nome}
                   </p>
                   <p className="text-sm text-aura-graphite-soft">
@@ -136,7 +135,7 @@ export function ConfiguracoesView() {
                 type="button"
                 onClick={() => setEditando(true)}
                 aria-label="Editar perfil"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
+                className={classeBotao("secundario", "sm", "w-8 px-0")}
               >
                 <Pencil size={15} />
               </button>
@@ -164,18 +163,18 @@ export function ConfiguracoesView() {
         ) : (
           <div className="flex flex-col gap-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Nome
               </label>
               <input
                 type="text"
                 value={nomeRascunho}
                 onChange={(e) => setNomeRascunho(e.target.value)}
-                className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Telefone
               </label>
               <input
@@ -183,15 +182,15 @@ export function ConfiguracoesView() {
                 value={telefoneRascunho}
                 onChange={(e) => setTelefoneRascunho(e.target.value)}
                 placeholder="(54) 99999-0000"
-                className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
               />
             </div>
             <div>
-              <p className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+              <p className="aura-label flex items-center gap-1.5">
                 Loja
                 <Lock size={11} className="text-aura-graphite-soft" />
               </p>
-              <div className="flex items-center gap-2.5 rounded-xl border border-aura-mist bg-aura-bg px-3 py-2.5 text-sm text-aura-graphite-soft">
+              <div className="flex h-[2.375rem] items-center gap-2.5 rounded-lg border border-aura-mist bg-aura-sunken px-3 text-sm text-aura-graphite-soft">
                 <IconeEmpresa size={14} />
                 {profile.empresa}
               </div>
@@ -204,7 +203,7 @@ export function ConfiguracoesView() {
                 type="button"
                 onClick={() => void salvarPerfil()}
                 disabled={salvandoPerfil}
-                className="flex items-center gap-1.5 rounded-xl bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+                className={classeBotao("primario")}
               >
                 <Check size={14} />
                 {salvandoPerfil ? "Salvando..." : "Salvar"}
@@ -212,7 +211,7 @@ export function ConfiguracoesView() {
               <button
                 type="button"
                 onClick={cancelarEdicao}
-                className="flex items-center gap-1.5 rounded-xl border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite hover:bg-aura-bg"
+                className={classeBotao("secundario")}
               >
                 <X size={14} />
                 Cancelar
@@ -224,20 +223,20 @@ export function ConfiguracoesView() {
       </div>
 
       {/* Aparência */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="text-sm font-medium text-aura-graphite">Aparência</p>
-        <p className="mt-0.5 text-xs text-aura-graphite-soft">
-          Claro, escuro ou automático (segue o tema do aparelho). Fica salvo neste aparelho.
-        </p>
-        <div className="mt-3">
-          <SeletorTema />
-        </div>
+      <div className="aura-card p-5">
+        <CardHeader
+          titulo="Aparência"
+          icone={Palette}
+          descricao="Claro, escuro ou automático (segue o tema do aparelho). Fica salvo neste aparelho."
+          className="mb-3"
+        />
+        <SeletorTema />
       </div>
 
       {/* Notificações */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="text-sm font-medium text-aura-graphite">Notificações</p>
-        <div className="mt-1 flex flex-col divide-y divide-aura-mist">
+      <div className="aura-card p-5">
+        <CardHeader titulo="Notificações" icone={Bell} className="mb-1" />
+        <div className="flex flex-col divide-y divide-aura-mist">
           <ToggleSwitch
             label="Follow-ups atrasados"
             descricao="Mostrar no sininho os clientes que passaram do prazo de contato"
@@ -262,11 +261,11 @@ export function ConfiguracoesView() {
       <button
         type="button"
         onClick={sair}
-        className="flex items-center justify-center gap-2 rounded-xl border border-aura-mist bg-white py-3 text-sm font-medium text-aura-danger hover:bg-aura-danger/5"
+        className={classeBotao("perigo-suave", "lg", "w-full")}
       >
         <LogOut size={16} />
         Sair da conta
       </button>
-    </div>
+    </PageContainer>
   );
 }

@@ -41,7 +41,7 @@ export default async function BlocosMF() {
             ["Orientação técnica", "Gratuita para o seu projeto"],
           ].map(([t, d]) => (
             <li key={t} className="bg-white px-5 py-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-[#CD1C1B]">{t}</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#CD1C1B] dark:text-aura-danger">{t}</p>
               <p className="mt-1 text-[15px] text-neutral-700">{d}</p>
             </li>
           ))}

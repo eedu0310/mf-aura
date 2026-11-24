@@ -53,12 +53,12 @@ export default async function TriplaCombustaoMF() {
       }
     >
       <div className="mx-auto max-w-6xl px-5 py-14 md:py-20">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-[#CD1C1B]">Pioneiros na tripla combustão</p>
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-[#CD1C1B] dark:text-aura-danger">Pioneiros na tripla combustão</p>
         <h2 className="mx-auto mt-2 max-w-2xl text-center text-3xl font-bold uppercase leading-tight tracking-wide">Como funciona</h2>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {PONTOS.map(({ icone: Icone, titulo, texto }) => (
             <div key={titulo} className="rounded-md bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,.06),0_0_0_1px_rgba(0,0,0,.05)]">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#CD1C1B]/10 text-[#CD1C1B]">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#CD1C1B]/10 text-[#CD1C1B] dark:text-aura-danger">
                 <Icone size={24} aria-hidden />
               </span>
               <h3 className="mt-4 text-lg font-bold uppercase tracking-wide">{titulo}</h3>

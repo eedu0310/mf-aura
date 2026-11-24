@@ -21,9 +21,9 @@ export function WhenPicker({
     <div>
       <label
         htmlFor="proximo-contato-data"
-        className="mb-1.5 flex items-center gap-2 text-sm font-medium text-aura-graphite"
+        className="aura-label flex items-center gap-2"
       >
-        <Calendar size={15} className="text-aura-petrol-700" />
+        <Calendar size={15} className="text-aura-petrol-600" />
         Data do próximo contato
       </label>
       <input
@@ -33,7 +33,7 @@ export function WhenPicker({
         min={hojeLocal}
         required
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+        className="aura-input"
       />
       <p className="mt-1 text-xs text-aura-graphite-soft">
         A data será registrada no CRM e aparecerá na sua agenda.

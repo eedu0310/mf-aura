@@ -23,7 +23,7 @@ export function ToggleSwitch({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-          checked ? "bg-aura-petrol-700" : "bg-aura-mist"
+          checked ? "bg-aura-petrol-600" : "bg-aura-graphite-soft/30"
         }`}
       >
         <span

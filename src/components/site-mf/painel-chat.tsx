@@ -85,7 +85,7 @@ export function PainelChat() {
   const nomes = resumo.online.map((p) => p.nome.split(" ")[0]);
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-aura-mist bg-white px-4 py-3">
+    <div className="aura-card flex flex-wrap items-center gap-3 px-4 py-3">
       <button
         type="button"
         role="switch"
@@ -94,7 +94,7 @@ export function PainelChat() {
         onClick={() => void alternar()}
         className="flex min-h-10 items-center gap-2.5 text-sm font-medium text-aura-graphite disabled:opacity-60"
       >
-        <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${resumo.disponivel ? "bg-emerald-500" : "bg-aura-mist"}`}>
+        <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition ${resumo.disponivel ? "bg-aura-success" : "bg-aura-graphite-soft/30"}`}>
           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${resumo.disponivel ? "left-[22px]" : "left-0.5"}`} />
         </span>
         {resumo.disponivel ? "Estou online no chat do site" : "Estou fora do chat do site"}
@@ -106,7 +106,7 @@ export function PainelChat() {
         <button
           type="button"
           onClick={() => setConfigurando(true)}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+          className="ml-auto aura-btn aura-btn-secundario aura-btn-sm"
         >
           <Settings2 size={14} /> Configurar chat
         </button>
@@ -199,15 +199,15 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
     }
   }
 
-  const entrada = "min-h-11 rounded-xl border border-aura-mist bg-white px-3 text-sm font-normal outline-none focus:border-aura-petrol-500";
-  const pequena = "min-h-9 w-full min-w-0 rounded-lg border border-aura-mist bg-white px-2 text-sm font-normal outline-none focus:border-aura-petrol-500";
+  const entrada = "aura-input font-normal";
+  const pequena = "aura-input h-9 min-w-0 px-2 font-normal";
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={onFechar}>
-      <div role="dialog" aria-label="Configurar o chat do site" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onFechar}>
+      <div role="dialog" aria-label="Configurar o chat do site" className="max-h-[92vh] w-full max-w-2xl overflow-y-auto aura-card rounded-b-none p-6 shadow-xl sm:rounded-b-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-lg font-semibold text-aura-graphite">Chat do site da MF</p>
-          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
@@ -263,13 +263,13 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
                   ))}
                 </select>
                 <div className="flex gap-1">
-                  <button type="button" aria-label="Subir" onClick={() => moverAtalho(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                  <button type="button" aria-label="Subir" onClick={() => moverAtalho(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                     <ArrowUp size={15} />
                   </button>
-                  <button type="button" aria-label="Descer" onClick={() => moverAtalho(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                  <button type="button" aria-label="Descer" onClick={() => moverAtalho(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                     <ArrowDown size={15} />
                   </button>
-                  <button type="button" aria-label="Tirar atalho" onClick={() => setAtalhos((l) => l.filter((_, j) => j !== i))} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-red-700">
+                  <button type="button" aria-label="Tirar atalho" onClick={() => setAtalhos((l) => l.filter((_, j) => j !== i))} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-danger">
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -284,7 +284,7 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
                   const f = formularios.find((x) => !atalhos.some((a) => a.slug === x.slug)) ?? formularios[0];
                   setAtalhos((l) => [...l, { slug: f.slug, titulo: f.titulo || f.nome, subtitulo: "", icone: "documento" }]);
                 }}
-                className="inline-flex min-h-9 w-fit items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite"
+                className="aura-btn aura-btn-secundario aura-btn-sm w-fit"
               >
                 <Plus size={13} /> Atalho
               </button>
@@ -343,12 +343,12 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
             </label>
           </section>
 
-          <div className="rounded-xl border border-aura-mist bg-aura-bg p-3">
+          <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
             <p className="text-sm font-medium text-aura-graphite">Código para colar no site</p>
             <p className="mt-1 text-xs leading-relaxed text-aura-graphite-soft">
               No WordPress, no mesmo lugar onde está o código do Bitrix (Betheme → Theme Options, ou Elementor → Código personalizado). Tire o do Bitrix e cole este no lugar.
             </p>
-            <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-2 font-data text-xs text-aura-graphite">{codigo}</pre>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-aura-surface p-2 font-data text-xs text-aura-graphite">{codigo}</pre>
             <button
               type="button"
               onClick={() => {
@@ -356,24 +356,24 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
                 setCopiado(true);
                 setTimeout(() => setCopiado(false), 2000);
               }}
-              className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 text-xs font-medium text-aura-graphite"
+              className="mt-2 aura-btn aura-btn-secundario aura-btn-sm"
             >
               {copiado ? <Check size={14} /> : <Copy size={14} />} {copiado ? "Copiado" : "Copiar código"}
             </button>
           </div>
         </div>
 
-        {erro && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+        {erro && <p role="alert" className="mt-3 rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onFechar} className="min-h-11 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite">
+          <button type="button" onClick={onFechar} className="aura-btn aura-btn-secundario">
             Cancelar
           </button>
           <button
             type="button"
             onClick={() => void salvar()}
             disabled={salvando}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-aura-petrol-700 px-5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+            className="aura-btn aura-btn-primario"
           >
             {salvando && <Loader2 size={16} className="animate-spin" />} Salvar
           </button>

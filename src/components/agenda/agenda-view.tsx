@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, useMemo, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock } from "lucide-react";
+import { PageContainer, PageHeader, Card, CardHeader, Botao, classeBotao, Selo, EstadoVazio } from "@/components/ui";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { ConectarCalendario } from "./conectar-calendario";
 import { useAppData } from "@/lib/app-data-context";
@@ -252,58 +253,49 @@ export function AgendaView() {
   const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-aura-navy-950 px-6 pb-10 pt-8 sm:px-8">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-aura-gold/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-aura-petrol-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">Agenda</h1>
-          <p className="mt-1 text-sm text-white/50">
-            Organize seus contatos e próximas atividades.
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Agenda"
+        descricao="Organize seus contatos e próximas atividades."
+        icone={Calendar}
+        acoes={
+          <Botao variante="primario" icone={Plus} onClick={() => setModalAberto(true)}>
+            Agendar
+          </Botao>
+        }
+      />
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+      <div className="space-y-6">
         <AuraInsightCard pagina="agenda" />
-      </div>
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
         <ConectarCalendario />
-      </div>
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* CALENDÁRIO */}
-          <div className="lg:col-span-1 rounded-2xl border border-aura-mist bg-white p-6">
+          <Card className="lg:col-span-1">
             {/* Controles do Mês */}
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <button
                 onClick={mesAnterior}
-                className="rounded-lg border border-aura-mist p-2 hover:bg-aura-bg transition"
+                aria-label="Mês anterior"
+                className={classeBotao("fantasma", "sm", "w-8 px-0")}
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={16} />
               </button>
-              <p className="font-semibold text-aura-graphite capitalize">{nomeMes}</p>
+              <p className="text-sm font-semibold capitalize text-aura-graphite">{nomeMes}</p>
               <button
                 onClick={mesProximo}
-                className="rounded-lg border border-aura-mist p-2 hover:bg-aura-bg transition"
+                aria-label="Próximo mês"
+                className={classeBotao("fantasma", "sm", "w-8 px-0")}
               >
-                <ChevronRight size={18} />
+                <ChevronRight size={16} />
               </button>
             </div>
 
             {/* Dias da Semana */}
-            <div className="mb-3 grid grid-cols-7 gap-1">
+            <div className="mb-1 grid grid-cols-7 gap-1">
               {diasSemana.map((dia) => (
-                <div key={dia} className="text-center text-xs font-medium text-aura-graphite-soft py-2">
+                <div key={dia} className="aura-rotulo py-2 text-center">
                   {dia}
                 </div>
               ))}
@@ -326,19 +318,23 @@ export function AgendaView() {
                   <button
                     key={dia.toISOString()}
                     onClick={() => setDiaSelecionado(dia)}
-                    className={`aspect-square rounded-lg p-1 text-sm font-medium transition flex flex-col items-center justify-center ${
+                    className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg p-1 text-sm tabular-nums transition ${
                       ehHoje
-                        ? "bg-aura-petrol-700 text-white ring-2 ring-aura-petrol-300"
+                        ? "bg-aura-petrol-600 font-semibold text-white"
                         : ehSelecionado
-                        ? "bg-aura-petrol-100 text-aura-petrol-700"
+                        ? "bg-aura-petrol-500/12 font-semibold text-aura-petrol-600 ring-1 ring-aura-petrol-500/40"
                         : mesCorreto
-                        ? "hover:bg-aura-bg text-aura-graphite"
-                        : "text-aura-graphite-soft"
+                        ? "text-aura-graphite hover:bg-aura-sunken"
+                        : "text-aura-graphite-soft/60 hover:bg-aura-sunken"
                     }`}
                   >
                     <span>{dia.getDate()}</span>
                     {atividades > 0 && (
-                      <span className={`text-xs ${ehHoje ? "bg-white text-aura-petrol-700" : "bg-aura-petrol-100 text-aura-petrol-700"} rounded-full w-4 h-4 flex items-center justify-center`}>
+                      <span
+                        className={`flex h-4 min-w-4 items-center justify-center rounded px-1 text-[0.625rem] font-medium leading-none ${
+                          ehHoje ? "bg-white/25 text-white" : "bg-aura-petrol-500/12 text-aura-petrol-600"
+                        }`}
+                      >
                         {atividades}
                       </span>
                     )}
@@ -346,144 +342,121 @@ export function AgendaView() {
                 );
               })}
             </div>
-          </div>
+          </Card>
 
           {/* PRÓXIMAS ATIVIDADES E AGENDAMENTO */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6 lg:col-span-2">
             {/* Atividades do Dia */}
-            <div className="rounded-2xl border border-aura-mist bg-white p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar size={18} className="text-aura-petrol-600" />
-                  <p className="text-lg font-semibold text-aura-graphite">
-                    {diaSelecionado ? formatarData(diaSelecionado) : "Hoje"}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setModalAberto(true)}
-                  className="flex items-center gap-2 rounded-lg bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 transition"
-                >
-                  <Plus size={16} />
-                  Agendar
-                </button>
-              </div>
+            <Card>
+              <CardHeader
+                icone={Calendar}
+                titulo={diaSelecionado ? formatarData(diaSelecionado) : "Hoje"}
+                acoes={
+                  <Botao variante="secundario" tamanho="sm" icone={Plus} onClick={() => setModalAberto(true)}>
+                    Agendar
+                  </Botao>
+                }
+              />
 
               {compromissosDia.length > 0 || atividadesDia.length > 0 || followupsDia.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {followupsDia.map((f) => (
                     <Link
                       key={`followup-${f.id}`}
                       href={`/relacionamentos?id=${f.id}`}
-                      className={`block rounded-lg border p-4 transition hover:border-aura-petrol-500 ${
-                        f.atrasado
-                          ? "border-aura-danger/40 bg-aura-danger/5"
-                          : "border-aura-mist bg-white"
+                      className={`block rounded-lg border p-3.5 transition hover:border-aura-petrol-500/50 hover:bg-aura-sunken/50 ${
+                        f.atrasado ? "border-aura-danger/30" : "border-aura-mist"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="font-medium text-aura-graphite">Falar com {f.nome}</p>
-                          <p className="mt-1 text-xs text-aura-graphite-soft">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-aura-graphite">Falar com {f.nome}</p>
+                          <p className="mt-0.5 text-xs text-aura-graphite-soft">
                             {f.atrasado
                               ? `Follow-up venceu em ${f.quando.slice(8, 10)}/${f.quando.slice(5, 7)}`
                               : "Follow-up marcado para hoje"}
                           </p>
                         </div>
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
-                            f.atrasado
-                              ? "bg-aura-danger/15 text-aura-danger"
-                              : "bg-aura-petrol-100 text-aura-petrol-700"
-                          }`}
-                        >
+                        <Selo tom={f.atrasado ? "perigo" : "marca"} className="shrink-0">
                           {f.atrasado ? "Atrasado" : "Follow-up"}
-                        </span>
+                        </Selo>
                       </div>
                     </Link>
                   ))}
                   {compromissosDia.map((compromisso) => (
-                    <div key={compromisso.id} className="rounded-lg border border-aura-gold/40 bg-aura-gold/10 p-4">
+                    <div key={compromisso.id} className="rounded-lg border border-aura-mist p-3.5">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="font-medium text-aura-graphite">{compromisso.titulo}</p>
-                          {compromisso.subtitulo && <p className="mt-1 text-xs text-aura-graphite-soft">{compromisso.subtitulo}</p>}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-aura-graphite">{compromisso.titulo}</p>
+                          {compromisso.subtitulo && <p className="mt-0.5 text-xs text-aura-graphite-soft">{compromisso.subtitulo}</p>}
                           <div className="mt-2 flex items-center gap-2 text-xs text-aura-graphite-soft">
                             <Clock size={12} /> {compromisso.hora || "Horário não definido"}
                             {compromisso.relacionamentoNome && <><span>·</span><span>{compromisso.relacionamentoNome}</span></>}
                           </div>
                         </div>
-                        <span className="rounded-full bg-aura-gold/20 px-2 py-1 text-xs font-medium text-aura-graphite">Agenda</span>
+                        <Selo tom="ouro" className="shrink-0">Agenda</Selo>
                       </div>
                     </div>
                   ))}
                   {atividadesDia.map((a) => (
-                    <div key={a.id} className="rounded-lg border border-aura-mist bg-aura-bg p-4">
+                    <div key={a.id} className="rounded-lg border border-aura-mist p-3.5">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="font-medium text-aura-graphite">{a.titulo}</p>
-                          <p className="text-xs text-aura-graphite-soft mt-1">{a.contexto}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-aura-graphite">{a.titulo}</p>
+                          <p className="mt-0.5 text-xs text-aura-graphite-soft">{a.contexto}</p>
                           <div className="mt-2 flex items-center gap-2 text-xs text-aura-graphite-soft">
                             <Clock size={12} />
                             {formatarHora(a.quando || a.criadoEm)}
                           </div>
                         </div>
-                        <span className="inline-block rounded-full bg-aura-petrol-100 px-2 py-1 text-xs font-medium text-aura-petrol-700 shrink-0">
+                        <Selo tom="marca" className="shrink-0">
                           {a.tipo}
-                        </span>
+                        </Selo>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-center text-sm text-aura-graphite-soft py-8">
-                  Nada marcado para este dia
-                </p>
+                <EstadoVazio icone={Calendar} titulo="Nada marcado para este dia" />
               )}
-            </div>
+            </Card>
 
             {/* Próximas Atividades */}
-            <div className="rounded-2xl border border-aura-mist bg-white p-6">
-              <p className="mb-4 text-lg font-semibold text-aura-graphite">Próximas Atividades</p>
+            <Card>
+              <CardHeader icone={Clock} titulo="Próximas Atividades" />
               {proximasAtividades.length > 0 ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {proximasAtividades.map((a) => {
                     const dias = diasAteODia(parseDataLocal(dataAgenda(a)));
 
                     return (
-                      <div key={a.id} className="rounded-lg border border-aura-mist bg-aura-bg p-4">
+                      <div key={a.id} className="rounded-lg border border-aura-mist p-3.5">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-aura-graphite">{a.titulo}</p>
-                            <p className="text-xs text-aura-graphite-soft mt-1">{a.contexto}</p>
-                            <div className="mt-2 flex items-center gap-2 text-xs text-aura-graphite-soft">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-aura-graphite">{a.titulo}</p>
+                            <p className="mt-0.5 text-xs text-aura-graphite-soft">{a.contexto}</p>
+                            <div className="mt-2 flex items-center gap-2 text-xs tabular-nums text-aura-graphite-soft">
                               <Calendar size={12} />
                               {formatarData(a.quando || a.criadoEm)}
                               <Clock size={12} />
                               {formatarHora(a.quando || a.criadoEm)}
                             </div>
                           </div>
-                          <div className="text-right shrink-0">
-                            <span className={`text-xs font-medium rounded-full px-2 py-1 ${
-                              dias === 0
-                                ? "bg-red-100 text-red-700"
-                                : dias === 1
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-blue-100 text-blue-700"
-                            }`}>
-                              {dias === 0 ? "Hoje" : dias === 1 ? "Amanhã" : `Em ${dias}d`}
-                            </span>
-                          </div>
+                          <Selo
+                            tom={dias === 0 ? "perigo" : dias === 1 ? "atencao" : "neutro"}
+                            className="shrink-0"
+                          >
+                            {dias === 0 ? "Hoje" : dias === 1 ? "Amanhã" : `Em ${dias}d`}
+                          </Selo>
                         </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <p className="text-center text-sm text-aura-graphite-soft py-8">
-                  Nenhuma atividade próxima
-                </p>
+                <EstadoVazio icone={Clock} titulo="Nenhuma atividade próxima" />
               )}
-            </div>
+            </Card>
           </div>
         </div>
       </div>
@@ -506,6 +479,6 @@ export function AgendaView() {
           }}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

@@ -13,8 +13,8 @@ export function ChoiceChips({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-sm font-medium text-aura-graphite">{label}</p>
-      <div className="flex flex-wrap gap-2">
+      <p className="aura-label">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => {
           const ativo = value === opt;
           return (
@@ -22,10 +22,11 @@ export function ChoiceChips({
               key={opt}
               type="button"
               onClick={() => onChange(opt)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
+              aria-pressed={ativo}
+              className={`rounded-lg border px-3 py-1.5 text-[0.8125rem] font-medium transition ${
                 ativo
-                  ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                  : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
+                  ? "border-aura-petrol-500 bg-aura-petrol-500/10 text-aura-petrol-600"
+                  : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
               }`}
             >
               {opt}

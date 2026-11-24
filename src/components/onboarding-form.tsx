@@ -81,7 +81,7 @@ export function OnboardingForm() {
   return (
     <form onSubmit={concluir} className="flex flex-col gap-6">
       <div>
-        <label htmlFor="nome" className="mb-1.5 block text-sm font-medium text-aura-graphite">
+        <label htmlFor="nome" className="aura-label">
           Como você se chama?
         </label>
         <input
@@ -91,12 +91,12 @@ export function OnboardingForm() {
           value={nome}
           onChange={(e) => setNome(e.target.value)}
           placeholder="Seu nome completo"
-          className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-[0.95rem] text-aura-graphite outline-none transition placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input h-11 px-3.5 text-[0.95rem]"
         />
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-medium text-aura-graphite">Em qual loja você trabalha?</p>
+        <p className="aura-label mb-2">Em qual loja você trabalha?</p>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {EMPRESAS.map((empresa) => {
             const ativo = empresaId === empresa.id;
@@ -106,15 +106,15 @@ export function OnboardingForm() {
                 key={empresa.id}
                 type="button"
                 onClick={() => setEmpresaId(empresa.id)}
-                className={`relative flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
+                className={`relative flex items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition ${
                   ativo
-                    ? "border-aura-petrol-700 bg-aura-petrol-700/5"
-                    : "border-aura-mist bg-white hover:border-aura-petrol-500/50"
+                    ? "border-aura-petrol-500 bg-aura-petrol-500/[0.06] ring-1 ring-aura-petrol-500/30"
+                    : "border-aura-mist bg-aura-surface hover:bg-aura-sunken/60"
                 }`}
               >
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    ativo ? "bg-aura-petrol-700 text-white" : "bg-aura-bg text-aura-graphite-soft"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    ativo ? "bg-aura-petrol-500/12 text-aura-petrol-600" : "bg-aura-sunken text-aura-graphite-soft"
                   }`}
                 >
                   <Icon size={16} />
@@ -124,7 +124,7 @@ export function OnboardingForm() {
                   <p className="text-xs text-aura-graphite-soft">{empresa.tipo}</p>
                 </div>
                 {ativo && (
-                  <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-aura-petrol-700 text-white">
+                  <span className="absolute right-3 top-3 flex h-4 w-4 items-center justify-center rounded-full bg-aura-petrol-600 text-white">
                     <Check size={10} strokeWidth={3} />
                   </span>
                 )}
@@ -135,7 +135,7 @@ export function OnboardingForm() {
       </div>
 
       <div>
-        <p className="mb-2 text-sm font-medium text-aura-graphite">Qual seu papel?</p>
+        <p className="aura-label mb-2">Qual seu papel?</p>
         <div className="flex flex-col gap-2">
           {PAPEIS.map((opcao) => {
             const ativo = papel === opcao.valor;
@@ -145,15 +145,15 @@ export function OnboardingForm() {
                 key={opcao.valor}
                 type="button"
                 onClick={() => setPapel(opcao.valor)}
-                className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition ${
                   ativo
-                    ? "border-aura-petrol-700 bg-aura-petrol-700/5"
-                    : "border-aura-mist bg-white hover:border-aura-petrol-500/50"
+                    ? "border-aura-petrol-500 bg-aura-petrol-500/[0.06] ring-1 ring-aura-petrol-500/30"
+                    : "border-aura-mist bg-aura-surface hover:bg-aura-sunken/60"
                 }`}
               >
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    ativo ? "bg-aura-petrol-700 text-white" : "bg-aura-bg text-aura-graphite-soft"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    ativo ? "bg-aura-petrol-500/12 text-aura-petrol-600" : "bg-aura-sunken text-aura-graphite-soft"
                   }`}
                 >
                   <Icon size={16} />
@@ -163,7 +163,7 @@ export function OnboardingForm() {
                   <p className="text-xs text-aura-graphite-soft">{opcao.descricao}</p>
                 </div>
                 {ativo && (
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-aura-petrol-700 text-white">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-aura-petrol-600 text-white">
                     <Check size={10} strokeWidth={3} />
                   </span>
                 )}
@@ -174,7 +174,7 @@ export function OnboardingForm() {
       </div>
 
       {erro && (
-        <p role="alert" className="rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-warning">
+        <p role="alert" className="rounded-lg border border-aura-warning/30 bg-aura-warning/10 px-3 py-2 text-sm text-aura-gold-700">
           {erro}
         </p>
       )}
@@ -182,7 +182,7 @@ export function OnboardingForm() {
       <button
         type="submit"
         disabled={!podeContinuar || salvando}
-        className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-3 text-[0.95rem] font-medium text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+        className="aura-btn aura-btn-primario aura-btn-lg mt-1 w-full"
       >
         {salvando ? (
           <>

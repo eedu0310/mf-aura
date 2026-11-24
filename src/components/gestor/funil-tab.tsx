@@ -6,10 +6,11 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  GitBranch,
+  AlertTriangle,
   Loader2,
   Plus,
 } from "lucide-react";
+import { Alerta, Selo, classeBotao } from "@/components/ui";
 
 interface Etapa {
   id?: string | null;
@@ -140,40 +141,24 @@ export function FunilTab() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <div className="flex items-start gap-3">
-          <GitBranch size={20} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-          <div>
-            <h3 className="font-display text-lg font-semibold text-aura-graphite">
-              Etapas do funil
-            </h3>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
-              O nome é seu; o papel é do sistema. Renomeie à vontade — quem decide se a venda entra
-              no mês é a etapa marcada como <strong>fechamento</strong>, não o nome dela.{" "}
-              <strong>Renomear move os negócios junto</strong>, então nenhum card fica para trás.
-            </p>
-          </div>
-        </div>
+    <div className="flex flex-col gap-6">
+      <p className="max-w-3xl text-sm text-aura-graphite-soft">
+        O nome é seu; o papel é do sistema. Renomeie à vontade — quem decide se a venda entra
+        no mês é a etapa marcada como <strong className="font-medium text-aura-graphite">fechamento</strong>, não o nome dela.{" "}
+        <strong className="font-medium text-aura-graphite">Renomear move os negócios junto</strong>, então nenhum card fica para trás.
+      </p>
 
-        {carregando && (
-          <p className="mt-4 flex items-center gap-2 text-sm text-aura-graphite-soft">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
-          </p>
-        )}
-        {erro && (
-          <p className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {erro}
-          </p>
-        )}
-        {recado && (
-          <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{recado}</p>
-        )}
-      </div>
+      {carregando && (
+        <p className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+        </p>
+      )}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
+      {recado && <Alerta tom="sucesso" titulo={recado} />}
 
       {!carregando && (
         <>
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {etapas.map((e, i) => {
               const original = e.id ? nomesOriginais[e.id] : null;
               const vaiRenomear = !!original && original !== e.nome;
@@ -182,9 +167,11 @@ export function FunilTab() {
               return (
                 <div
                   key={e.id ?? `nova-${i}`}
-                  className={`rounded-2xl border p-4 ${
-                    e.ativa ? "border-aura-mist bg-white" : "border-dashed border-aura-mist bg-aura-bg"
-                  }`}
+                  className={
+                    e.ativa
+                      ? "aura-card p-4"
+                      : "rounded-xl border border-dashed border-aura-mist bg-aura-sunken p-4"
+                  }
                 >
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex flex-col gap-0.5">
@@ -192,7 +179,7 @@ export function FunilTab() {
                         type="button"
                         onClick={() => mover(i, -1)}
                         disabled={i === 0}
-                        className="rounded p-0.5 text-aura-graphite-soft hover:bg-aura-bg disabled:opacity-30"
+                        className="rounded p-0.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite disabled:opacity-30"
                         aria-label="Subir"
                       >
                         <ArrowUp size={14} />
@@ -201,7 +188,7 @@ export function FunilTab() {
                         type="button"
                         onClick={() => mover(i, 1)}
                         disabled={i === etapas.length - 1}
-                        className="rounded p-0.5 text-aura-graphite-soft hover:bg-aura-bg disabled:opacity-30"
+                        className="rounded p-0.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite disabled:opacity-30"
                         aria-label="Descer"
                       >
                         <ArrowDown size={14} />
@@ -212,7 +199,7 @@ export function FunilTab() {
                       type="color"
                       value={e.cor}
                       onChange={(ev) => mudar(i, { cor: ev.target.value })}
-                      className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-aura-mist bg-white p-0.5"
+                      className="h-9 w-9 shrink-0 cursor-pointer rounded-lg border border-aura-mist bg-aura-surface p-0.5"
                       title="Cor da etapa no quadro"
                     />
 
@@ -221,13 +208,13 @@ export function FunilTab() {
                       value={e.nome}
                       onChange={(ev) => mudar(i, { nome: ev.target.value })}
                       placeholder="Nome da etapa"
-                      className="min-w-0 flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm font-medium"
+                      className="aura-input min-w-0 flex-1 basis-48 font-medium"
                     />
 
                     <select
                       value={e.tipo}
                       onChange={(ev) => mudar(i, { tipo: ev.target.value })}
-                      className="rounded-lg border border-aura-mist px-2 py-2 text-sm"
+                      className="aura-input w-auto"
                     >
                       {Object.entries(ROTULO_TIPO).map(([v, r]) => (
                         <option key={v} value={v}>
@@ -239,7 +226,7 @@ export function FunilTab() {
                     <select
                       value={e.probabilidade}
                       onChange={(ev) => mudar(i, { probabilidade: ev.target.value })}
-                      className="rounded-lg border border-aura-mist px-2 py-2 text-sm"
+                      className="aura-input w-auto"
                       title="Chance de fechar, usada na previsão"
                     >
                       {["Baixa", "Média", "Alta"].map((p) => (
@@ -256,7 +243,7 @@ export function FunilTab() {
                         type="checkbox"
                         checked={e.conta_no_pipeline}
                         onChange={(ev) => mudar(i, { conta_no_pipeline: ev.target.checked })}
-                        className="rounded border-aura-mist"
+                        className="rounded border-aura-mist accent-aura-petrol-600"
                       />
                       Conta no pipeline (entra no valor em aberto)
                     </label>
@@ -265,32 +252,38 @@ export function FunilTab() {
                         type="checkbox"
                         checked={e.ativa}
                         onChange={(ev) => mudar(i, { ativa: ev.target.checked })}
-                        className="rounded border-aura-mist"
+                        className="rounded border-aura-mist accent-aura-petrol-600"
                       />
                       Em uso
                     </label>
                     {negocios > 0 && (
-                      <span className="text-aura-graphite-soft">
+                      <Selo tom="neutro">
                         {negocios} negócio(s) aqui hoje
-                      </span>
+                      </Selo>
                     )}
                     {!e.chave && e.id && (
-                      <span className="text-amber-700">
+                      <Selo tom="atencao">
                         Sem papel conhecido: só o vendedor move cards para cá
-                      </span>
+                      </Selo>
                     )}
                   </div>
 
                   {vaiRenomear && (
-                    <p className="mt-2 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
-                      Ao salvar, “{original}” vira “{e.nome}”
-                      {negocios > 0 ? ` e os ${negocios} negócio(s) vão junto` : ""}.
+                    <p className="mt-3 flex items-start gap-2 rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 text-xs text-aura-graphite">
+                      <AlertTriangle size={13} className="mt-px shrink-0 text-aura-warning" />
+                      <span>
+                        Ao salvar, “{original}” vira “{e.nome}”
+                        {negocios > 0 ? ` e os ${negocios} negócio(s) vão junto` : ""}.
+                      </span>
                     </p>
                   )}
                   {!e.ativa && negocios > 0 && (
-                    <p className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-700">
-                      Esta etapa tem {negocios} negócio(s). Desligada, ela some do quadro e esses
-                      cards ficam sem coluna — mova-os antes.
+                    <p className="mt-3 flex items-start gap-2 rounded-lg border border-aura-danger/30 bg-aura-danger/5 px-3 py-2 text-xs text-aura-graphite">
+                      <AlertCircle size={13} className="mt-px shrink-0 text-aura-danger" />
+                      <span>
+                        Esta etapa tem {negocios} negócio(s). Desligada, ela some do quadro e esses
+                        cards ficam sem coluna — mova-os antes.
+                      </span>
                     </p>
                   )}
                 </div>
@@ -302,7 +295,7 @@ export function FunilTab() {
             <button
               type="button"
               onClick={adicionar}
-              className="flex items-center gap-2 rounded-full border border-aura-mist bg-white px-4 py-2 text-sm text-aura-graphite hover:bg-aura-bg"
+              className={classeBotao("secundario")}
             >
               <Plus className="h-4 w-4" /> Nova etapa
             </button>
@@ -310,7 +303,7 @@ export function FunilTab() {
               type="button"
               onClick={salvar}
               disabled={salvando}
-              className="flex items-center gap-2 rounded-full bg-aura-navy-950 px-5 py-2 text-sm font-medium text-aura-gold hover:bg-aura-navy-900 disabled:opacity-60"
+              className={classeBotao("primario")}
             >
               {salvando ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Calendar } from "lucide-react";
+import { PageContainer, PageHeader, Selo, EstadoVazio } from "@/components/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Compromisso {
@@ -87,78 +88,71 @@ export default function CompromissosHistoricoPage() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-aura-graphite">
-          Histórico de Compromissos
-        </h1>
-        <p className="text-sm text-aura-graphite-soft">
-          Seus compromissos enviados
-        </p>
-      </div>
+    <PageContainer largura="normal">
+      <PageHeader
+        titulo="Histórico de Compromissos"
+        descricao="Seus compromissos enviados"
+        icone={Calendar}
+      />
 
       {/* Conteúdo */}
       {carregando ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-aura-petrol-600" />
+          <Loader2 className="h-6 w-6 animate-spin text-aura-petrol-600" />
         </div>
       ) : compromissos.length === 0 ? (
-        <div className="rounded-2xl border border-aura-mist bg-white p-8 text-center">
-          <Calendar size={32} className="mx-auto mb-3 text-aura-graphite-soft" />
-          <p className="text-aura-graphite-soft">Nenhum compromisso enviado ainda</p>
-        </div>
+        <EstadoVazio icone={Calendar} titulo="Nenhum compromisso enviado ainda" />
       ) : (
         <div className="space-y-3">
           {compromissos.map((comp) => (
             <div
               key={comp.id}
-              className="rounded-2xl border border-aura-mist bg-white p-5 transition hover:border-aura-petrol-300"
+              className="aura-card aura-card-interativo p-5"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="font-medium text-aura-graphite">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold capitalize text-aura-graphite">
                     {formatarMes(comp.mes)}
                   </p>
-                  <p className="text-sm text-aura-graphite-soft">
+                  <p className="mt-0.5 text-sm text-aura-graphite-soft">
                     Objetivo: {comp.objetivoPessoal}
                   </p>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-aura-graphite-soft sm:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                     <div>
-                      <p className="font-medium">Faturamento</p>
-                      <p>R$ {(comp.metaFaturamento || 0).toLocaleString("pt-BR")}</p>
+                      <p className="aura-rotulo">Faturamento</p>
+                      <p className="mt-0.5 text-sm font-medium tabular-nums text-aura-graphite">R$ {(comp.metaFaturamento || 0).toLocaleString("pt-BR")}</p>
                     </div>
                     <div>
-                      <p className="font-medium">Clientes Novos</p>
-                      <p>{(comp.metaClientesNovos || 0)}</p>
+                      <p className="aura-rotulo">Clientes Novos</p>
+                      <p className="mt-0.5 text-sm font-medium tabular-nums text-aura-graphite">{(comp.metaClientesNovos || 0)}</p>
                     </div>
                     <div>
-                      <p className="font-medium">Arquitetos</p>
-                      <p>{(comp.metaArquitetos || 0)}</p>
+                      <p className="aura-rotulo">Arquitetos</p>
+                      <p className="mt-0.5 text-sm font-medium tabular-nums text-aura-graphite">{(comp.metaArquitetos || 0)}</p>
                     </div>
                     <div>
-                      <p className="font-medium">Visitas</p>
-                      <p>{(comp.metaVisitas || 0)}</p>
+                      <p className="aura-rotulo">Visitas</p>
+                      <p className="mt-0.5 text-sm font-medium tabular-nums text-aura-graphite">{(comp.metaVisitas || 0)}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                  <Selo
+                    tom={
                       comp.status === "aprovado"
-                        ? "bg-green-100 text-green-700"
+                        ? "sucesso"
                         : comp.status === "rejeitado"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-yellow-100 text-yellow-700"
-                    }`}
+                          ? "perigo"
+                          : "atencao"
+                    }
                   >
                     {comp.status === "aprovado"
                       ? "Aprovado"
                       : comp.status === "rejeitado"
                         ? "Rejeitado"
                         : "Enviado"}
-                  </span>
+                  </Selo>
                   {comp.feedbackGestor && (
                     <p className="max-w-xs text-right text-xs text-aura-graphite-soft">
                       {comp.feedbackGestor}
@@ -170,6 +164,6 @@ export default function CompromissosHistoricoPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

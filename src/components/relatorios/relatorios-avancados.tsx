@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Download, TrendingUp, Calendar, BarChart3 } from "lucide-react";
+import { Download, TrendingUp, Calendar, BarChart3, FileText } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -19,6 +19,18 @@ import { exportarExcel } from "@/lib/export-excel";
 import { parseDataLocal } from "@/lib/date-local";
 import { buscarMetaDoMes } from "@/lib/supabase/metas";
 import { ehFechada } from "@/lib/funil";
+import { Botao, Card, CardHeader, EstadoVazio, Segmentado, Selo, StatCard } from "@/components/ui";
+
+// Eixos e tooltip legíveis nos dois temas: o texto herda a cor do invólucro
+// (text-aura-graphite-soft) e o fundo do tooltip acompanha a superfície.
+const EIXO = { fill: "currentColor", fontSize: 11 };
+const TOOLTIP = {
+  background: "var(--aura-surface)",
+  border: "1px solid var(--aura-mist)",
+  borderRadius: 8,
+  color: "var(--aura-graphite)",
+  fontSize: 12,
+};
 
 interface DadosVenda {
   mes: string;
@@ -148,173 +160,149 @@ export function RelatóriosAvançados() {
   return (
     <div className="space-y-6">
       {/* Header com KPIs */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="text-sm text-aura-graphite-soft">Total Vendido</p>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(totalVendido)}
-          </p>
-          <p className="mt-1 text-xs text-green-600">
-            ↑ {comparativoMeses.length > 1 ? comparativoMeses[comparativoMeses.length - 1].percentual.toFixed(1) : 0}% vs mês anterior
-          </p>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          rotulo="Total Vendido"
+          valor={formatarMoeda(totalVendido)}
+          tom="marca"
+          detalhe={
+            <span className="text-aura-success">
+              ↑ {comparativoMeses.length > 1 ? comparativoMeses[comparativoMeses.length - 1].percentual.toFixed(1) : 0}% vs mês anterior
+            </span>
+          }
+        />
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="text-sm text-aura-graphite-soft">Pipeline ponderado</p>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(pipelinePonderado)}
-          </p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">
-            {negociosAbertos > 0
+        <StatCard
+          rotulo="Pipeline ponderado"
+          valor={formatarMoeda(pipelinePonderado)}
+          detalhe={
+            negociosAbertos > 0
               ? `${negociosAbertos} negócio${negociosAbertos !== 1 ? "s" : ""} aberto${negociosAbertos !== 1 ? "s" : ""}, pesado pela probabilidade`
-              : "Nenhum negócio aberto no pipeline"}
-          </p>
-        </div>
+              : "Nenhum negócio aberto no pipeline"
+          }
+        />
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="text-sm text-aura-graphite-soft">% Meta Atingida</p>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {percentualMeta}%
-          </p>
-          <p className={`mt-1 text-xs ${Number(percentualMeta) >= 100 ? "text-green-600" : "text-red-600"}`}>
-            {totalMeta > 0 ? (Number(percentualMeta) >= 100 ? "✓ Acima da meta" : "✗ Abaixo da meta") : "Meta não cadastrada"}
-          </p>
-        </div>
+        <StatCard
+          rotulo="% Meta Atingida"
+          valor={`${percentualMeta}%`}
+          tom={totalMeta > 0 ? (Number(percentualMeta) >= 100 ? "sucesso" : "perigo") : "neutro"}
+          detalhe={
+            <span className={Number(percentualMeta) >= 100 ? "text-aura-success" : "text-aura-danger"}>
+              {totalMeta > 0 ? (Number(percentualMeta) >= 100 ? "✓ Acima da meta" : "✗ Abaixo da meta") : "Meta não cadastrada"}
+            </span>
+          }
+        />
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="text-sm text-aura-graphite-soft">Ticket Médio</p>
-          <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-            {formatarMoeda(ticketMedio)}
-          </p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">Por mês</p>
-        </div>
+        <StatCard rotulo="Ticket Médio" valor={formatarMoeda(ticketMedio)} detalhe="Por mês" />
       </div>
 
       {/* Filtro e Export */}
-      <div className="flex items-center justify-between rounded-2xl border border-aura-mist bg-white p-4">
-        <div className="flex gap-2">
-          {["1m", "3m", "6m", "12m"].map((periodo) => (
-            <button
-              key={periodo}
-              onClick={() => setPeriodoSelecionado(periodo)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                periodoSelecionado === periodo
-                  ? "bg-aura-petrol-600 text-white"
-                  : "border border-aura-mist text-aura-graphite hover:border-aura-petrol-300"
-              }`}
-            >
-              {periodo === "1m" && "Último mês"}
-              {periodo === "3m" && "Últimos 3 meses"}
-              {periodo === "6m" && "Últimos 6 meses"}
-              {periodo === "12m" && "Últimos 12 meses"}
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmentado
+          rotulo="Período"
+          opcoes={[
+            { valor: "1m", rotulo: "Último mês" },
+            { valor: "3m", rotulo: "Últimos 3 meses" },
+            { valor: "6m", rotulo: "Últimos 6 meses" },
+            { valor: "12m", rotulo: "Últimos 12 meses" },
+          ]}
+          valor={periodoSelecionado}
+          aoMudar={setPeriodoSelecionado}
+        />
 
-        <button
-          onClick={handleExportarExcel}
-          className="flex items-center gap-2 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700"
-        >
-          <Download size={16} />
+        <Botao onClick={handleExportarExcel} icone={Download}>
           Exportar Excel
-        </button>
+        </Botao>
       </div>
 
       {/* Gráfico Principal - Evolução de Vendas */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <BarChart3 size={18} className="text-aura-petrol-600" />
-          <p className="font-medium text-aura-graphite">Evolução de Vendas</p>
-        </div>
+      <Card>
+        <CardHeader titulo="Evolução de Vendas" icone={BarChart3} />
         {dadosVendas.some((d) => d.vendido > 0) ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={dadosVendas}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="mes" />
-              <YAxis />
-              <Tooltip formatter={(value: any) => formatarMoeda(Number(value))} />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="vendido"
-                stroke="#0F766E"
-                name="Vendido"
-                strokeWidth={2}
-              />
-              <Line
-                type="monotone"
-                dataKey="meta"
-                stroke="#F59E0B"
-                name="Meta"
-                strokeWidth={2}
-                strokeDasharray="5 5"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="text-aura-graphite-soft">
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={dadosVendas}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--aura-mist)" />
+                <XAxis dataKey="mes" tick={EIXO} stroke="var(--aura-mist)" />
+                <YAxis tick={EIXO} stroke="var(--aura-mist)" />
+                <Tooltip formatter={(value: any) => formatarMoeda(Number(value))} contentStyle={TOOLTIP} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                <Line
+                  type="monotone"
+                  dataKey="vendido"
+                  stroke="#138780"
+                  name="Vendido"
+                  strokeWidth={2}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="meta"
+                  stroke="#c99a33"
+                  name="Meta"
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <p className="text-center text-sm text-aura-graphite-soft py-8">Sem dados de vendas</p>
+          <EstadoVazio titulo="Sem dados de vendas" icone={BarChart3} />
         )}
-      </div>
+      </Card>
 
       {/* Comparativo Mês a Mês */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Gráfico Comparativo */}
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Calendar size={18} className="text-aura-petrol-600" />
-            <p className="font-medium text-aura-graphite">Comparativo Mês a Mês</p>
-          </div>
+        <Card>
+          <CardHeader titulo="Comparativo Mês a Mês" icone={Calendar} />
           {comparativoMeses.some((d) => d.mesAtual > 0) ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={comparativoMeses}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" />
-                <YAxis />
-                <Tooltip formatter={(value: any) => formatarMoeda(Number(value))} />
-                <Legend />
-                <Bar dataKey="mesAnterior" fill="#14B8A6" name="Mês Anterior" />
-                <Bar dataKey="mesAtual" fill="#0F766E" name="Mês Atual" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="text-aura-graphite-soft">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={comparativoMeses}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--aura-mist)" />
+                  <XAxis dataKey="mes" tick={EIXO} stroke="var(--aura-mist)" />
+                  <YAxis tick={EIXO} stroke="var(--aura-mist)" />
+                  <Tooltip
+                    formatter={(value: any) => formatarMoeda(Number(value))}
+                    contentStyle={TOOLTIP}
+                    cursor={{ fill: "var(--aura-sunken)" }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="mesAnterior" fill="var(--aura-petrol-300)" name="Mês Anterior" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="mesAtual" fill="#138780" name="Mês Atual" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <p className="text-center text-sm text-aura-graphite-soft py-8">Sem dados</p>
+            <EstadoVazio titulo="Sem dados" icone={Calendar} />
           )}
-        </div>
+        </Card>
 
         {/* Análise de Tendências */}
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-aura-petrol-600" />
-            <p className="font-medium text-aura-graphite">Análise de Tendências</p>
-          </div>
-          <div className="space-y-3">
+        <Card>
+          <CardHeader titulo="Análise de Tendências" icone={TrendingUp} />
+          <div className="space-y-2">
             {comparativoMeses.slice(1).map((item) => (
-              <div key={item.mes} className="flex items-center justify-between rounded-lg bg-aura-bg p-3">
+              <div key={item.mes} className="flex items-center justify-between rounded-lg bg-aura-sunken px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium text-aura-graphite">{item.mes}</p>
-                  <p className="text-xs text-aura-graphite-soft">
+                  <p className="text-xs tabular-nums text-aura-graphite-soft">
                     {formatarMoeda(item.diferenca)}
                   </p>
                 </div>
-                <div
-                  className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
-                    item.percentual >= 0
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
+                <Selo tom={item.percentual >= 0 ? "sucesso" : "perigo"} className="tabular-nums">
                   {item.percentual >= 0 ? "↑" : "↓"}
                   {Math.abs(item.percentual).toFixed(1)}%
-                </div>
+                </Selo>
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Resumo Executivo */}
-      <div className="rounded-2xl border border-aura-mist bg-aura-bg p-5">
-        <p className="mb-3 font-medium text-aura-graphite">Resumo Executivo</p>
+      <Card>
+        <CardHeader titulo="Resumo Executivo" icone={FileText} className="mb-3" />
         <div className="space-y-2 text-sm text-aura-graphite">
           <p>
             <span className="font-medium">Desempenho:</span> Você vendeu {formatarMoeda(totalVendido)} no período, atingindo {percentualMeta}% da meta.
@@ -336,7 +324,7 @@ export function RelatóriosAvançados() {
             }
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

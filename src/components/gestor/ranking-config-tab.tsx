@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, Loader2, Plus, Trash2, Trophy } from "lucide-react";
+import { Alerta, Card, CardHeader, classeBotao } from "@/components/ui";
 
 interface Criterio {
   id: string;
@@ -132,45 +133,47 @@ export function RankingConfigTab() {
   const desbalanceado = ativos.length > 0 && Math.abs(somaPesos - 10) > 0.05;
 
   return (
-    <div className="space-y-5">
-      <p className="text-sm text-aura-graphite-soft">
+    <div className="flex flex-col gap-6">
+      <p className="max-w-3xl text-sm text-aura-graphite-soft">
         A nota de cada vendedor no mês vai de 0 a 10. Cada critério vale um peso, e o vendedor
         leva o peso inteiro quando cumpre a meta — metade da meta, metade do peso.
       </p>
 
       {desbalanceado && (
-        <p className="flex items-start gap-2 rounded-xl border border-aura-warning/40 bg-aura-warning/5 px-4 py-3 text-sm text-aura-graphite">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-aura-warning" />
-          <span>
-            Os pesos somam <strong>{somaPesos.toFixed(1)}</strong>, não 10. O sistema ajusta a
-            escala sozinho, então a nota continua indo até 10 — mas fica mais fácil de explicar
-            para a equipe quando a soma bate.
-          </span>
-        </p>
+        <Alerta
+          tom="atencao"
+          icone={AlertTriangle}
+          titulo={
+            <>
+              Os pesos somam <strong className="font-semibold">{somaPesos.toFixed(1)}</strong>, não 10.
+            </>
+          }
+          descricao="O sistema ajusta a escala sozinho, então a nota continua indo até 10 — mas fica mais fácil de explicar para a equipe quando a soma bate."
+        />
       )}
 
       {/* Critérios */}
-      <section className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-        <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold text-aura-graphite">
-          <Trophy size={15} className="text-aura-gold" />
-          O que conta no ranking
-        </h3>
-        <p className="mb-4 text-xs text-aura-graphite-soft">
-          Desligue o que não quiser usar em vez de apagar — assim o histórico do mês não se perde.
-        </p>
+      <Card>
+        <CardHeader
+          titulo="O que conta no ranking"
+          descricao="Desligue o que não quiser usar em vez de apagar — assim o histórico do mês não se perde."
+          icone={Trophy}
+          corIcone="text-aura-gold-700"
+          className="mb-1"
+        />
 
         <ul className="divide-y divide-aura-mist">
           {criterios.map((c) => (
             <li key={c.id} className={`py-4 ${c.ativo ? "" : "opacity-50"}`}>
               <div className="flex flex-wrap items-end gap-3">
-                <label className="min-w-40 flex-1 text-xs text-aura-graphite-soft">
+                <label className="min-w-40 flex-1 text-xs font-medium text-aura-graphite-soft">
                   Nome
                   <input
                     defaultValue={c.titulo}
                     onBlur={(e) =>
                       e.target.value !== c.titulo && void editarCriterio(c.id, { titulo: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm text-aura-graphite focus:border-aura-petrol-500 focus:outline-none"
+                    className="aura-input mt-1"
                   />
                 </label>
 
@@ -180,12 +183,12 @@ export function RankingConfigTab() {
                   deixava a aba com um nome e contando outra coisa, e o
                   ranking parecia ter números absurdos.
                 */}
-                <label className="min-w-48 flex-1 text-xs text-aura-graphite-soft">
+                <label className="min-w-48 flex-1 text-xs font-medium text-aura-graphite-soft">
                   O que conta
                   <select
                     value={c.medida}
                     onChange={(e) => void editarCriterio(c.id, { medida: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite focus:border-aura-petrol-500 focus:outline-none"
+                    className="aura-input mt-1"
                   >
                     {medidas.map((m) => (
                       <option key={m.valor} value={m.valor}>
@@ -195,7 +198,7 @@ export function RankingConfigTab() {
                   </select>
                 </label>
 
-                <label className="w-24 text-xs text-aura-graphite-soft">
+                <label className="w-24 text-xs font-medium text-aura-graphite-soft">
                   Peso
                   <input
                     type="number"
@@ -207,11 +210,11 @@ export function RankingConfigTab() {
                       Number(e.target.value) !== Number(c.peso) &&
                       void editarCriterio(c.id, { peso: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm tabular-nums focus:border-aura-petrol-500 focus:outline-none"
+                    className="aura-input mt-1 tabular-nums"
                   />
                 </label>
 
-                <label className="w-28 text-xs text-aura-graphite-soft">
+                <label className="w-28 text-xs font-medium text-aura-graphite-soft">
                   Meta no mês
                   <input
                     type="number"
@@ -222,7 +225,7 @@ export function RankingConfigTab() {
                       Number(e.target.value) !== Number(c.meta_mes) &&
                       void editarCriterio(c.id, { metaMes: e.target.value })
                     }
-                    className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm tabular-nums focus:border-aura-petrol-500 focus:outline-none"
+                    className="aura-input mt-1 tabular-nums"
                   />
                 </label>
 
@@ -231,7 +234,7 @@ export function RankingConfigTab() {
                     type="checkbox"
                     checked={c.ativo}
                     onChange={(e) => void editarCriterio(c.id, { ativo: e.target.checked })}
-                    className="h-4 w-4"
+                    className="h-4 w-4 accent-aura-petrol-600"
                   />
                   Ativo
                 </label>
@@ -240,7 +243,7 @@ export function RankingConfigTab() {
                   type="button"
                   onClick={() => void removerCriterio(c.id)}
                   aria-label={`Remover ${c.titulo}`}
-                  className="mb-1 rounded-lg p-2 text-aura-graphite-soft hover:bg-red-50 hover:text-red-600"
+                  className="mb-1 rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-danger/10 hover:text-aura-danger"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -260,17 +263,17 @@ export function RankingConfigTab() {
         </ul>
 
         {/* Novo critério */}
-        <div className="mt-4 rounded-xl border border-dashed border-aura-mist p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
+        <div className="mt-4 rounded-lg border border-dashed border-aura-mist bg-aura-sunken/40 p-4">
+          <p className="aura-rotulo mb-3">
             Acrescentar critério
           </p>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="min-w-44 flex-1 text-xs text-aura-graphite-soft">
+            <label className="min-w-44 flex-1 text-xs font-medium text-aura-graphite-soft">
               O que mede
               <select
                 value={novo.medida}
                 onChange={(e) => setNovo({ ...novo, medida: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm text-aura-graphite focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1"
               >
                 {medidas.map((m) => (
                   <option key={m.valor} value={m.valor}>
@@ -281,12 +284,12 @@ export function RankingConfigTab() {
             </label>
 
             {novo.medida === "prospeccao" && (
-              <label className="min-w-40 text-xs text-aura-graphite-soft">
+              <label className="min-w-40 text-xs font-medium text-aura-graphite-soft">
                 Categoria
                 <select
                   value={novo.categoriaAlvo}
                   onChange={(e) => setNovo({ ...novo, categoriaAlvo: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                  className="aura-input mt-1"
                 >
                   <option value="">Todas</option>
                   {categorias.map((c) => (
@@ -298,17 +301,17 @@ export function RankingConfigTab() {
               </label>
             )}
 
-            <label className="min-w-40 flex-1 text-xs text-aura-graphite-soft">
+            <label className="min-w-40 flex-1 text-xs font-medium text-aura-graphite-soft">
               Nome que a equipe vê
               <input
                 value={novo.titulo}
                 onChange={(e) => setNovo({ ...novo, titulo: e.target.value })}
                 placeholder="Ex.: Prospecção de arquitetos"
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1"
               />
             </label>
 
-            <label className="w-24 text-xs text-aura-graphite-soft">
+            <label className="w-24 text-xs font-medium text-aura-graphite-soft">
               Peso
               <input
                 type="number"
@@ -317,11 +320,11 @@ export function RankingConfigTab() {
                 max="10"
                 value={novo.peso}
                 onChange={(e) => setNovo({ ...novo, peso: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm tabular-nums focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1 tabular-nums"
               />
             </label>
 
-            <label className="w-28 text-xs text-aura-graphite-soft">
+            <label className="w-28 text-xs font-medium text-aura-graphite-soft">
               Meta no mês
               <input
                 type="number"
@@ -329,7 +332,7 @@ export function RankingConfigTab() {
                 min="1"
                 value={novo.metaMes}
                 onChange={(e) => setNovo({ ...novo, metaMes: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm tabular-nums focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1 tabular-nums"
               />
             </label>
 
@@ -337,7 +340,7 @@ export function RankingConfigTab() {
               type="button"
               onClick={() => void criarCriterio()}
               disabled={criando}
-              className="mb-0.5 flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-medium text-aura-gold disabled:opacity-60"
+              className={classeBotao("primario", "md", "mb-0.5")}
             >
               {criando ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Acrescentar
@@ -347,11 +350,11 @@ export function RankingConfigTab() {
             {medidas.find((m) => m.valor === novo.medida)?.ajuda}
           </p>
         </div>
-      </section>
+      </Card>
 
       {/* Bônus e MF */}
-      <section className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-aura-graphite">Bônus e participação</h3>
+      <Card>
+        <CardHeader titulo="Bônus e participação" />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm text-aura-graphite">
@@ -366,7 +369,7 @@ export function RankingConfigTab() {
                   Number(e.target.value) !== config?.bonus_crm_minimo &&
                   void ajustarConfig({ bonusCrmMinimo: e.target.value })
                 }
-                className="w-24 rounded-lg border border-aura-mist px-3 py-2 text-sm tabular-nums focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input w-24 tabular-nums"
               />
               <span className="text-sm text-aura-graphite-soft">%</span>
             </div>
@@ -384,17 +387,17 @@ export function RankingConfigTab() {
                 e.target.value !== config?.bonus_descricao &&
                 void ajustarConfig({ bonusDescricao: e.target.value })
               }
-              className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+              className="aura-input mt-1"
             />
           </label>
         </div>
 
-        <label className="mt-4 flex items-start gap-2.5 rounded-xl border border-aura-mist bg-aura-bg/50 p-3">
+        <label className="mt-4 flex items-start gap-2.5 rounded-lg border border-aura-mist bg-aura-sunken p-3">
           <input
             type="checkbox"
             checked={config?.mf_no_ranking_do_grupo ?? false}
             onChange={(e) => void ajustarConfig({ mfNoRanking: e.target.checked })}
-            className="mt-0.5 h-4 w-4"
+            className="mt-0.5 h-4 w-4 accent-aura-petrol-600"
           />
           <span className="text-sm text-aura-graphite">
             Mostrar a MF International no ranking das lojas
@@ -411,9 +414,9 @@ export function RankingConfigTab() {
             <Check size={12} /> salvo
           </p>
         )}
-      </section>
+      </Card>
 
-      {erro && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
     </div>
   );
 }

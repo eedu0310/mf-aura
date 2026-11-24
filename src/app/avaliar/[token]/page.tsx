@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { Star, CheckCircle2, Loader2 } from "lucide-react";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { classeBotao } from "@/components/ui";
 
 export default function AvaliarPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -61,7 +62,7 @@ export default function AvaliarPage({ params }: { params: Promise<{ token: strin
           <AuraLogoFull />
         </div>
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-6 shadow-sm">
+        <div className="aura-card p-6 sm:p-7">
           {carregando ? (
             <div className="flex justify-center py-8 text-aura-graphite-soft">
               <Loader2 size={20} className="animate-spin" />
@@ -97,7 +98,7 @@ export default function AvaliarPage({ params }: { params: Promise<{ token: strin
                   >
                     <Star
                       size={32}
-                      className={n <= nota ? "fill-aura-gold text-aura-gold" : "text-aura-mist"}
+                      className={`transition ${n <= nota ? "fill-aura-gold text-aura-gold" : "text-aura-graphite-soft/30 hover:text-aura-gold/60"}`}
                     />
                   </button>
                 ))}
@@ -108,7 +109,7 @@ export default function AvaliarPage({ params }: { params: Promise<{ token: strin
                 onChange={(e) => setComentario(e.target.value)}
                 rows={3}
                 placeholder="Quer contar mais alguma coisa? (opcional)"
-                className="mt-4 w-full resize-none rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input mt-5 resize-none"
               />
 
               {erro && <p className="mt-2 text-center text-xs text-aura-danger">{erro}</p>}
@@ -117,7 +118,7 @@ export default function AvaliarPage({ params }: { params: Promise<{ token: strin
                 type="button"
                 onClick={enviar}
                 disabled={nota === 0 || enviando}
-                className="mt-4 w-full rounded-xl bg-aura-petrol-700 py-2.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+                className={classeBotao("primario", "lg", "mt-4 w-full")}
               >
                 {enviando ? "Enviando..." : "Enviar avaliação"}
               </button>

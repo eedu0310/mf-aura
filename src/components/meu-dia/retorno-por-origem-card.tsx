@@ -69,14 +69,16 @@ export function RetornoPorOrigemCard() {
   }, []);
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
+    <div className="aura-card p-5">
       <div className="flex items-start gap-3">
-        <PieChart size={20} className="mt-0.5 shrink-0 text-aura-petrol-600" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <PieChart size={16} className="text-aura-petrol-600" />
+        </span>
         <div>
-          <h3 className="font-display text-lg font-semibold text-aura-graphite">
+          <h3 className="text-sm font-semibold text-aura-graphite">
             De onde vieram os negócios deste mês
           </h3>
-          <p className="mt-1 text-sm text-aura-graphite-soft">
+          <p className="mt-0.5 text-xs text-aura-graphite-soft">
             Calculado dos registros, não digitado. A planilha de indicadores
             segue sendo sua.
           </p>
@@ -84,7 +86,7 @@ export function RetornoPorOrigemCard() {
       </div>
 
       {erro && (
-        <p className="mt-4 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
+        <p className="mt-4 rounded-lg border border-aura-danger/25 px-3 py-2 text-sm text-aura-danger">
           {erro}
         </p>
       )}
@@ -101,21 +103,21 @@ export function RetornoPorOrigemCard() {
         </p>
       ) : (
         <>
-          <div className="mt-5 -mx-2 overflow-x-auto">
-            <table className="w-full min-w-[520px] border-collapse text-sm">
+          <div className="mt-4 overflow-x-auto rounded-lg border border-aura-mist">
+            <table className="aura-tabela min-w-[520px] tabular-nums">
               <thead>
-                <tr className="border-b border-aura-mist text-left text-xs text-aura-graphite-soft">
-                  <th className="px-2 py-2 font-medium">Origem</th>
-                  <th className="px-2 py-2 text-right font-medium">Leads</th>
-                  <th className="px-2 py-2 text-right font-medium">Vendas</th>
-                  <th className="px-2 py-2 text-right font-medium">Perdas</th>
-                  <th className="px-2 py-2 text-right font-medium">Conversão</th>
-                  <th className="px-2 py-2 text-right font-medium">Faturamento</th>
+                <tr>
+                  <th>Origem</th>
+                  <th className="!text-right">Leads</th>
+                  <th className="!text-right">Vendas</th>
+                  <th className="!text-right">Perdas</th>
+                  <th className="!text-right">Conversão</th>
+                  <th className="!text-right">Faturamento</th>
                 </tr>
               </thead>
               <tbody>
                 {dados.origens.map((o) => (
-                  <tr key={o.origem} className="border-b border-aura-mist/60 last:border-0">
+                  <tr key={o.origem}>
                     <td className="px-2 py-2">
                       <SeloOrigem origem={o.origem} tamanho={12} />
                     </td>
@@ -130,7 +132,7 @@ export function RetornoPorOrigemCard() {
                     </td>
                   </tr>
                 ))}
-                <tr className="border-t-2 border-aura-mist font-semibold">
+                <tr className="font-semibold [&>td]:!border-b-0 [&>td]:bg-aura-sunken/60">
                   <td className="px-2 py-2 text-aura-graphite">Total</td>
                   <td className="px-2 py-2 text-right text-aura-graphite">{dados.totais.leads}</td>
                   <td className="px-2 py-2 text-right text-aura-graphite">{dados.totais.vendas}</td>

@@ -14,15 +14,23 @@ import {
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { LeadsPorVendedor } from "@/components/marketing/leads-por-vendedor";
+import { StatCard, classeBotao } from "@/components/ui";
 
 const LABEL_STATUS: Record<StatusCampanha, { texto: string; cor: string }> = {
-  planejada: { texto: "Planejada", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft" },
-  ativa: { texto: "Ativa", cor: "bg-aura-success/10 text-aura-success" },
-  pausada: { texto: "Pausada", cor: "bg-aura-warning/10 text-aura-warning" },
-  encerrada: { texto: "Encerrada", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft" },
+  planejada: { texto: "Planejada", cor: "aura-selo-neutro" },
+  ativa: { texto: "Ativa", cor: "aura-selo-sucesso" },
+  pausada: { texto: "Pausada", cor: "aura-selo-atencao" },
+  encerrada: { texto: "Encerrada", cor: "aura-selo-neutro" },
 };
 
-const CORES_BARRA = ["#0f5c5c", "#c9a44c", "#2f8f8f", "#8a6a1c", "#5aa3a3", "#b08a2e"];
+const CORES_BARRA = [
+  "var(--aura-petrol-600)",
+  "var(--aura-gold)",
+  "var(--aura-petrol-400)",
+  "var(--aura-gold-700)",
+  "var(--aura-petrol-300)",
+  "var(--aura-gold-soft)",
+];
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(valor);
@@ -117,33 +125,15 @@ export function CampanhasMarketing() {
   return (
     <div className="flex flex-col gap-4">
       <LeadsPorVendedor />
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="flex items-center gap-1.5 text-xs text-aura-graphite-soft">
-            <Megaphone size={12} />
-            Campanhas ativas
-          </p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{ativas}</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="flex items-center gap-1.5 text-xs text-aura-graphite-soft">
-            <UserPlus size={12} />
-            Leads gerados (total)
-          </p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{totalLeads}</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="flex items-center gap-1.5 text-xs text-aura-graphite-soft">
-            <DollarSign size={12} />
-            Orçamento total
-          </p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{formatarMoeda(totalOrcamento)}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard rotulo="Campanhas ativas" valor={ativas} icone={Megaphone} />
+        <StatCard rotulo="Leads gerados (total)" valor={totalLeads} icone={UserPlus} />
+        <StatCard rotulo="Orçamento total" valor={formatarMoeda(totalOrcamento)} icone={DollarSign} />
       </div>
 
       {porCanal.length > 0 && (
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+        <div className="aura-card p-5">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
             <BarChart3 size={15} className="text-aura-petrol-600" />
             Leads gerados por canal
           </p>
@@ -153,8 +143,17 @@ export function CampanhasMarketing() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--aura-mist)" vertical={false} />
                 <XAxis dataKey="canal" tick={{ fontSize: 10, fill: "var(--aura-graphite-soft)" }} axisLine={false} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "var(--aura-graphite-soft)" }} axisLine={false} tickLine={false} width={24} />
-                <Tooltip contentStyle={{ borderRadius: 12, borderColor: "var(--aura-mist)", fontSize: 12 }} />
-                <Bar dataKey="Leads" radius={[6, 6, 0, 0]}>
+                <Tooltip
+                  cursor={{ fill: "var(--aura-sunken)" }}
+                  contentStyle={{
+                    borderRadius: 8,
+                    borderColor: "var(--aura-mist)",
+                    background: "var(--aura-surface)",
+                    color: "var(--aura-graphite)",
+                    fontSize: 12,
+                  }}
+                />
+                <Bar dataKey="Leads" radius={[4, 4, 0, 0]}>
                   {porCanal.map((_, i) => (
                     <Cell key={i} fill={CORES_BARRA[i % CORES_BARRA.length]} />
                   ))}
@@ -165,9 +164,9 @@ export function CampanhasMarketing() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
+      <div className="aura-card p-5">
         <div className="flex items-center justify-between gap-2">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
             <Megaphone size={15} className="text-aura-petrol-600" />
             Campanhas
           </p>
@@ -175,7 +174,7 @@ export function CampanhasMarketing() {
             <button
               type="button"
               onClick={() => setFormAberto((v) => !v)}
-              className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-aura-petrol-600"
+              className={classeBotao("primario", "sm")}
             >
               <Plus size={13} />
               Nova campanha
@@ -184,21 +183,21 @@ export function CampanhasMarketing() {
         </div>
 
         {formAberto && (
-          <form onSubmit={salvarNova} className="mt-4 flex flex-col gap-3 rounded-xl border border-aura-mist bg-aura-bg p-4">
+          <form onSubmit={salvarNova} className="mt-4 flex flex-col gap-3 rounded-lg border border-aura-mist bg-aura-sunken/50 p-4">
             <div className="grid grid-cols-2 gap-2">
               <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
                 placeholder="Nome da campanha"
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input"
               />
               <input
                 type="text"
                 value={canalInput}
                 onChange={(e) => setCanalInput(e.target.value)}
                 placeholder="Canal (Instagram, Google Ads, Indicação...)"
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input"
               />
             </div>
             <div className="grid grid-cols-3 gap-2">
@@ -206,13 +205,13 @@ export function CampanhasMarketing() {
                 type="date"
                 value={dataInicio}
                 onChange={(e) => setDataInicio(e.target.value)}
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                className="aura-input"
               />
               <input
                 type="date"
                 value={dataFim}
                 onChange={(e) => setDataFim(e.target.value)}
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                className="aura-input"
               />
               <input
                 type="number"
@@ -220,13 +219,13 @@ export function CampanhasMarketing() {
                 value={orcamento}
                 onChange={(e) => setOrcamento(e.target.value)}
                 placeholder="Orçamento (R$)"
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input"
               />
             </div>
             <button
               type="submit"
               disabled={salvando}
-              className="self-start rounded-lg bg-aura-petrol-700 px-4 py-2 text-xs font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+              className={classeBotao("primario", "md", "self-start")}
             >
               {salvando ? "Salvando..." : "Criar campanha"}
             </button>
@@ -250,7 +249,7 @@ export function CampanhasMarketing() {
                       {c.dataInicio ? ` · desde ${c.dataInicio.split("-").reverse().join("/")}` : ""}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${LABEL_STATUS[c.status].cor}`}>
+                  <span className={`aura-selo shrink-0 ${LABEL_STATUS[c.status].cor}`}>
                     {LABEL_STATUS[c.status].texto}
                   </span>
                 </div>
@@ -264,13 +263,13 @@ export function CampanhasMarketing() {
                         min={0}
                         defaultValue={c.leadsGerados}
                         onBlur={(e) => atualizarLeadsGerados(c, e.target.value)}
-                        className="w-16 rounded-md border border-aura-mist bg-white px-1.5 py-1 text-center text-xs text-aura-graphite outline-none focus:border-aura-petrol-500"
+                        className="aura-input h-7 w-16 px-1.5 text-center text-xs"
                       />
                     </label>
                     <select
                       value={c.status}
                       onChange={(e) => mudarStatus(c, e.target.value as StatusCampanha)}
-                      className="rounded-md border border-aura-mist bg-white px-2 py-1 text-xs text-aura-graphite outline-none focus:border-aura-petrol-500"
+                      className="aura-input h-7 w-auto px-2 text-xs"
                     >
                       {Object.keys(LABEL_STATUS).map((s) => (
                         <option key={s} value={s}>

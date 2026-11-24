@@ -13,6 +13,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { Alerta, EstadoVazio, classeBotao } from "@/components/ui";
 
 interface Material {
   id: string;
@@ -132,14 +133,14 @@ export function MateriaisAura({ loja }: { loja?: string }) {
   const totalPaginas = Math.round(ativos.reduce((s, m) => s + m.caracteres, 0) / 1800);
 
   return (
-    <section className="rounded-2xl border border-aura-mist bg-white shadow-sm">
+    <section className="aura-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-aura-mist px-5 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-aura-navy-950">
-            <BookOpen className="h-5 w-5 text-aura-gold" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15">
+            <BookOpen size={16} className="text-aura-gold-700" />
           </span>
           <div>
-            <h3 className="font-semibold text-aura-graphite">Materiais que a AURA estuda</h3>
+            <h3 className="text-sm font-semibold text-aura-graphite">Materiais que a AURA estuda</h3>
             <p className="text-xs text-aura-graphite-soft">
               Manual de vendas, playbook, tabela de produtos, scripts. A IA usa isso para orientar os vendedores.
             </p>
@@ -150,40 +151,40 @@ export function MateriaisAura({ loja }: { loja?: string }) {
             <button
               type="button"
               onClick={() => setModo("arquivo")}
-              className="flex items-center gap-2 rounded-full bg-aura-navy-950 px-4 py-2 text-sm font-medium text-aura-gold hover:bg-aura-navy-900"
+              className={classeBotao("primario", "sm")}
             >
-              <Upload className="h-4 w-4" /> Enviar arquivo
+              <Upload size={13} /> Enviar arquivo
             </button>
             <button
               type="button"
               onClick={() => setModo("texto")}
-              className="flex items-center gap-2 rounded-full border border-aura-mist px-4 py-2 text-sm text-aura-graphite hover:bg-aura-bg"
+              className={classeBotao("secundario", "sm")}
             >
-              <Type className="h-4 w-4" /> Colar texto
+              <Type size={13} /> Colar texto
             </button>
           </div>
         )}
       </div>
 
       {modo !== "nenhum" && (
-        <div className="space-y-3 border-b border-aura-mist bg-aura-bg/40 px-5 py-4">
+        <div className="space-y-3 border-b border-aura-mist bg-aura-sunken/50 px-5 py-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm text-aura-graphite">
+            <label className="text-[0.8125rem] font-medium text-aura-graphite">
               Nome do material
               <input
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Ex.: Manual de atendimento 2026"
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1.5 font-normal"
               />
             </label>
-            <label className="text-sm text-aura-graphite">
+            <label className="text-[0.8125rem] font-medium text-aura-graphite">
               Para que serve (opcional)
               <input
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 placeholder="Ex.: regras de desconto e prazos"
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1.5 font-normal"
               />
             </label>
           </div>
@@ -206,9 +207,9 @@ export function MateriaisAura({ loja }: { loja?: string }) {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-aura-mist bg-white px-4 py-6 text-sm text-aura-graphite-soft hover:border-aura-petrol-500 hover:text-aura-graphite"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-aura-mist bg-aura-surface px-4 py-6 text-sm text-aura-graphite-soft transition hover:border-aura-petrol-500 hover:text-aura-graphite"
               >
-                <Upload className="h-5 w-5" />
+                <Upload size={17} />
                 {arquivo ? `${arquivo.name} (${tamanho(arquivo.size)})` : "Escolher arquivo — PDF, Word (.docx), texto ou markdown"}
               </button>
               <p className="mt-1 text-xs text-aura-graphite-soft">
@@ -221,21 +222,21 @@ export function MateriaisAura({ loja }: { loja?: string }) {
               onChange={(e) => setTexto(e.target.value)}
               rows={8}
               placeholder="Cole aqui o conteúdo que a AURA deve seguir…"
-              className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+              className="aura-input"
             />
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={enviar}
               disabled={enviando}
-              className="flex items-center gap-2 rounded-full bg-aura-navy-950 px-5 py-2 text-sm font-medium text-aura-gold hover:bg-aura-navy-900 disabled:opacity-60"
+              className={classeBotao("primario")}
             >
-              {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {enviando ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
               Adicionar à biblioteca
             </button>
-            <button type="button" onClick={limpar} className="rounded-full px-4 py-2 text-sm text-aura-graphite-soft hover:text-aura-graphite">
+            <button type="button" onClick={limpar} className={classeBotao("fantasma")}>
               Cancelar
             </button>
 
@@ -250,7 +251,7 @@ export function MateriaisAura({ loja }: { loja?: string }) {
                 type="checkbox"
                 checked={todasAsLojas}
                 onChange={(e) => setTodasAsLojas(e.target.checked)}
-                className="h-4 w-4 rounded border-aura-mist"
+                className="h-4 w-4 rounded border-aura-mist accent-aura-petrol-600"
               />
               Enviar para todas as lojas
             </label>
@@ -258,32 +259,28 @@ export function MateriaisAura({ loja }: { loja?: string }) {
         </div>
       )}
 
-      {erro && (
-        <p className="mx-5 mt-4 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {erro}
-        </p>
-      )}
-      {aviso && (
-        <p className="mx-5 mt-4 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {aviso}
-        </p>
-      )}
+      {erro && <Alerta tom="perigo" icone={AlertCircle} titulo={erro} className="mx-5 mt-4 shadow-none" />}
+      {aviso && <Alerta tom="atencao" icone={AlertCircle} titulo={aviso} className="mx-5 mt-4 shadow-none" />}
 
       <div className="px-5 py-4">
         {carregando ? (
           <div className="flex justify-center py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-aura-petrol-500" />
+            <Loader2 className="h-5 w-5 animate-spin text-aura-graphite-soft" />
           </div>
         ) : materiais.length === 0 ? (
-          <p className="py-6 text-center text-sm text-aura-graphite-soft">
-            Nenhum material ainda. Envie o manual de vendas para a AURA orientar a equipe com as regras da casa.
-          </p>
+          <EstadoVazio
+            icone={BookOpen}
+            titulo="Nenhum material ainda."
+            descricao="Envie o manual de vendas para a AURA orientar a equipe com as regras da casa."
+          />
         ) : (
           <>
             <ul className="divide-y divide-aura-mist">
               {materiais.map((m) => (
                 <li key={m.id} className="flex items-start gap-3 py-3">
-                  <FileText className={`mt-0.5 h-5 w-5 shrink-0 ${m.ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft/50"}`} />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+                    <FileText size={15} className={m.ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft/50"} />
+                  </span>
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm font-medium ${m.ativo ? "text-aura-graphite" : "text-aura-graphite-soft line-through"}`}>{m.titulo}</p>
                     {m.descricao && <p className="text-xs text-aura-graphite-soft">{m.descricao}</p>}
@@ -300,17 +297,17 @@ export function MateriaisAura({ loja }: { loja?: string }) {
                         type="button"
                         onClick={() => alternar(m)}
                         title={m.ativo ? "Desativar (AURA para de usar)" : "Ativar"}
-                        className={`rounded-full p-2 ${m.ativo ? "text-emerald-600 hover:bg-emerald-50" : "text-aura-graphite-soft hover:bg-aura-bg"}`}
+                        className={`rounded-lg p-1.5 transition hover:bg-aura-sunken ${m.ativo ? "text-aura-success" : "text-aura-graphite-soft"}`}
                       >
-                        {m.ativo ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        {m.ativo ? <Check size={15} /> : <X size={15} />}
                       </button>
                       <button
                         type="button"
                         onClick={() => remover(m)}
                         title="Excluir"
-                        className="rounded-full p-2 text-red-600 hover:bg-red-50"
+                        className="rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   )}

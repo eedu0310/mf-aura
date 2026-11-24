@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import type { MembroEquipe } from "@/lib/supabase/team";
+import { Card, CardHeader, classeBotao } from "@/components/ui";
 
 export function MeetingPrepCard({ equipe }: { equipe: MembroEquipe[] }) {
   const { playbook } = useAppData();
@@ -39,20 +40,16 @@ export function MeetingPrepCard({ equipe }: { equipe: MembroEquipe[] }) {
   }
 
   return (
-    <div className="rounded-2xl bg-aura-navy-950 p-6">
-      <div className="flex items-center gap-2">
-        <Sparkles size={16} className="text-aura-gold" />
-        <p className="font-display text-sm font-semibold text-white">
-          Preparar reunião de segunda-feira
-        </p>
-      </div>
-      <p className="mt-1.5 text-xs text-white/60">
-        A AURA monta a pauta com base no desempenho real da equipe: Reconhecer → Aprender →
-        Desenvolver → Comprometer.
-      </p>
+    <Card>
+      <CardHeader
+        titulo="Preparar reunião de segunda-feira"
+        descricao="A AURA monta a pauta com base no desempenho real da equipe: Reconhecer → Aprender → Desenvolver → Comprometer."
+        icone={Sparkles}
+        corIcone="text-aura-gold"
+      />
 
       {equipe.length === 0 ? (
-        <p className="mt-4 text-xs text-white/50">
+        <p className="text-xs text-aura-graphite-soft">
           Cadastre pelo menos um vendedor nesta loja para preparar a reunião.
         </p>
       ) : (
@@ -61,26 +58,27 @@ export function MeetingPrepCard({ equipe }: { equipe: MembroEquipe[] }) {
             <button
               type="button"
               onClick={prepararReuniao}
-              className="mt-4 rounded-xl bg-aura-gold px-4 py-2.5 text-sm font-medium text-aura-navy-950 transition hover:bg-aura-gold-soft"
+              className={classeBotao("primario")}
             >
+              <Sparkles size={15} aria-hidden />
               Preparar reunião com IA
             </button>
           )}
 
           {carregando && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-white/70">
+            <div className="flex items-center gap-2 text-sm text-aura-graphite-soft">
               <Loader2 size={15} className="animate-spin" />
               Montando a pauta...
             </div>
           )}
 
           {pauta && (
-            <div className="mt-4 rounded-xl bg-white/5 p-4">
-              <p className="whitespace-pre-line text-sm leading-relaxed text-white/90">{pauta}</p>
+            <div className="rounded-lg border border-aura-mist bg-aura-sunken p-4">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-aura-graphite">{pauta}</p>
               <button
                 type="button"
                 onClick={prepararReuniao}
-                className="mt-3 text-xs font-medium text-aura-gold hover:underline"
+                className="mt-3 text-xs font-medium text-aura-petrol-600 hover:underline"
               >
                 Gerar novamente
               </button>
@@ -88,6 +86,6 @@ export function MeetingPrepCard({ equipe }: { equipe: MembroEquipe[] }) {
           )}
         </>
       )}
-    </div>
+    </Card>
   );
 }

@@ -74,10 +74,12 @@ export function JustificativasEquipe() {
   const semResposta = recentes.filter((l) => !l.respondidaEm).length;
 
   return (
-    <section className="rounded-2xl border border-aura-mist bg-white p-5" aria-labelledby="justificativas-titulo">
-      <div className="flex flex-wrap items-center gap-2">
-        <MessageSquareWarning size={18} className="text-aura-warning" aria-hidden />
-        <h2 id="justificativas-titulo" className="font-display text-lg font-semibold text-aura-graphite">
+    <section className="aura-card p-5" aria-labelledby="justificativas-titulo">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <MessageSquareWarning size={16} className="text-aura-warning" aria-hidden />
+        </span>
+        <h2 id="justificativas-titulo" className="text-sm font-semibold text-aura-graphite">
           Cobranças da supervisora
         </h2>
         <span className="text-xs text-aura-graphite-soft">
@@ -87,7 +89,7 @@ export function JustificativasEquipe() {
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {recentes.map((l) => (
-          <article key={l.id} className={`rounded-xl border p-4 ${l.respondidaEm ? "border-aura-mist" : "border-aura-warning/40 bg-aura-warning/5"}`}>
+          <article key={l.id} className={`rounded-lg border p-4 ${l.respondidaEm ? "border-aura-mist" : "border-aura-warning/35 bg-aura-warning/5"}`}>
             <div className="flex items-baseline justify-between gap-2">
               <p className="text-sm font-semibold text-aura-graphite">{nomes.get(l.vendedorId) || "Vendedor"}</p>
               <p className="text-xs text-aura-graphite-soft">

@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Send } from "lucide-react";
+import { Alerta, classeBotao } from "@/components/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface Item {
@@ -64,9 +65,10 @@ export function CobrancaSupervisora() {
 
   if (enviada) {
     return (
-      <section className="rounded-2xl border border-aura-success/30 bg-aura-success/5 px-5 py-4 text-sm text-aura-graphite">
-        Resposta enviada. O gestor vai ler. Agora é registrar no CRM o que você está fazendo.
-      </section>
+      <Alerta
+        tom="sucesso"
+        titulo="Resposta enviada. O gestor vai ler. Agora é registrar no CRM o que você está fazendo."
+      />
     );
   }
   if (!cobranca || !cobranca.itens.length) return null;
@@ -89,14 +91,14 @@ export function CobrancaSupervisora() {
   }
 
   return (
-    <section className="rounded-2xl border border-aura-warning/40 bg-white p-5" aria-labelledby="cobranca-titulo">
+    <section className="aura-card border-l-2 border-l-aura-warning p-5" aria-labelledby="cobranca-titulo">
       <div className="flex items-start gap-3">
-        <span className="rounded-full bg-aura-warning/10 p-2 text-aura-warning" aria-hidden>
-          <AlertTriangle size={18} />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-warning/12 text-aura-warning" aria-hidden>
+          <AlertTriangle size={16} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-aura-warning">Supervisora AURA</p>
-          <h2 id="cobranca-titulo" className="mt-0.5 font-display text-lg font-semibold text-aura-graphite">
+          <p className="aura-rotulo text-aura-gold-700">Supervisora AURA</p>
+          <h2 id="cobranca-titulo" className="mt-0.5 font-display text-base font-semibold text-aura-graphite">
             O seu mês ainda não aparece no CRM
           </h2>
           {cobranca.contexto && <p className="mt-1 text-sm text-aura-graphite-soft">{cobranca.contexto}</p>}
@@ -113,7 +115,7 @@ export function CobrancaSupervisora() {
               value={respostas[i.chave] ?? ""}
               onChange={(e) => setRespostas((r) => ({ ...r, [i.chave]: e.target.value }))}
               placeholder="Escreva o motivo"
-              className="rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+              className="aura-input"
             />
           </label>
         ))}
@@ -125,7 +127,7 @@ export function CobrancaSupervisora() {
           type="button"
           onClick={enviar}
           disabled={!completo || enviando}
-          className="flex items-center gap-2 rounded-full bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+          className={classeBotao("primario")}
         >
           {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           Enviar para o gestor

@@ -82,14 +82,14 @@ export function LeadsPorVendedor() {
   }, [carregar]);
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
+    <div className="aura-card p-5">
       <div className="mb-3 flex items-center gap-2">
-        <Megaphone size={16} className="text-aura-petrol-600" />
-        <p className="font-medium text-aura-graphite">Leads de anúncio por vendedor</p>
+        <Megaphone size={15} className="text-aura-petrol-600" />
+        <p className="text-sm font-semibold text-aura-graphite">Leads de anúncio por vendedor</p>
       </div>
 
       {erro && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-aura-danger/30 bg-aura-danger/10 p-3 text-xs text-aura-danger">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>{erro}</span>
         </div>
@@ -105,32 +105,32 @@ export function LeadsPorVendedor() {
           seus anúncios do Facebook e do Instagram passa a aparecer aqui sozinho.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="-mx-5 overflow-x-auto border-t border-aura-mist">
+          <table className="aura-tabela">
             <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wide text-aura-graphite-soft">
-                <th className="pb-2 font-medium">Vendedor</th>
-                <th className="pb-2 text-right font-medium">Leads</th>
-                <th className="pb-2 text-right font-medium">Fechou</th>
-                <th className="pb-2 text-right font-medium">Conversão</th>
-                <th className="pb-2 text-right font-medium">Gerou</th>
+              <tr>
+                <th>Vendedor</th>
+                <th className="text-right">Leads</th>
+                <th className="text-right">Fechou</th>
+                <th className="text-right">Conversão</th>
+                <th className="text-right">Gerou</th>
               </tr>
             </thead>
             <tbody>
               {linhas.map((l) => {
                 const conversao = l.leads > 0 ? Math.round((l.fechadas / l.leads) * 100) : 0;
                 return (
-                  <tr key={l.vendedor} className="border-t border-aura-mist">
-                    <td className="py-2">
+                  <tr key={l.vendedor}>
+                    <td>
                       <p className="font-medium text-aura-graphite">{l.vendedor}</p>
                       <p className="text-xs text-aura-graphite-soft">
                         {l.empresa} · {l.campanhas} {l.campanhas === 1 ? "campanha" : "campanhas"}
                       </p>
                     </td>
-                    <td className="py-2 text-right font-data">{l.leads}</td>
-                    <td className="py-2 text-right font-data">{l.fechadas}</td>
-                    <td className="py-2 text-right font-data">{conversao}%</td>
-                    <td className="py-2 text-right font-data font-semibold">{moeda(l.valor)}</td>
+                    <td className="text-right tabular-nums">{l.leads}</td>
+                    <td className="text-right tabular-nums">{l.fechadas}</td>
+                    <td className="text-right tabular-nums">{conversao}%</td>
+                    <td className="text-right font-semibold tabular-nums">{moeda(l.valor)}</td>
                   </tr>
                 );
               })}

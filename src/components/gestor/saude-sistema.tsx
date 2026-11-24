@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Database, RefreshCw, ShieldCheck } from "lucide-react";
+import { Alerta, Card, CardHeader, Selo, classeBotao, type Tom } from "@/components/ui";
 
 type Nivel = "ok" | "atencao" | "critico";
 
@@ -26,10 +27,10 @@ const SENTINELAS = [
   { id: "seguranca", nome: "Segurança", descricao: "Acessos, RLS e contas novas", icon: ShieldCheck },
 ] as const;
 
-const COR: Record<Nivel, { selo: string; texto: string }> = {
-  ok: { selo: "bg-emerald-100 text-emerald-800", texto: "Tudo certo" },
-  atencao: { selo: "bg-amber-100 text-amber-800", texto: "Atenção" },
-  critico: { selo: "bg-red-100 text-red-800", texto: "Crítico" },
+const COR: Record<Nivel, { tom: Tom; texto: string }> = {
+  ok: { tom: "sucesso", texto: "Tudo certo" },
+  atencao: { tom: "atencao", texto: "Atenção" },
+  critico: { tom: "perigo", texto: "Crítico" },
 };
 
 /**
@@ -72,10 +73,9 @@ export function SaudeSistema() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-aura-graphite">Saúde do sistema</h2>
           <p className="text-sm text-aura-graphite-soft">
             Três sentinelas conferem o AURA todo dia às 7h30 e às 13h30 e avisam no sino o que for novo.
           </p>
@@ -84,14 +84,14 @@ export function SaudeSistema() {
           type="button"
           onClick={rodarAgora}
           disabled={rodando}
-          className="flex items-center gap-2 rounded-full bg-aura-navy-950 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className={classeBotao("primario")}
         >
           <RefreshCw size={15} className={rodando ? "animate-spin" : ""} aria-hidden />
           {rodando ? "Conferindo…" : "Conferir agora"}
         </button>
       </div>
 
-      {erro && <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</div>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
 
       {rodadas === null ? (
         <p className="text-sm text-aura-graphite-soft">Carregando…</p>
@@ -102,21 +102,14 @@ export function SaudeSistema() {
             const Icone = s.icon;
             const nivel: Nivel = rodada?.nivel ?? "ok";
             return (
-              <section key={s.id} className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-                <header className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Icone size={18} className="text-aura-graphite" aria-hidden />
-                    <div>
-                      <h3 className="text-sm font-semibold text-aura-graphite">{s.nome}</h3>
-                      <p className="text-xs text-aura-graphite-soft">{s.descricao}</p>
-                    </div>
-                  </div>
-                  {rodada && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${COR[nivel].selo}`}>
-                      {COR[nivel].texto}
-                    </span>
-                  )}
-                </header>
+              <Card key={s.id}>
+                <CardHeader
+                  icone={Icone}
+                  titulo={s.nome}
+                  descricao={s.descricao}
+                  className="mb-0!"
+                  acoes={rodada && <Selo tom={COR[nivel].tom}>{COR[nivel].texto}</Selo>}
+                />
 
                 {!rodada ? (
                   <p className="mt-4 text-sm text-aura-graphite-soft">
@@ -129,12 +122,12 @@ export function SaudeSistema() {
                       {rodada.achados.map((a) => (
                         <li
                           key={a.titulo}
-                          className={`rounded-xl border-l-4 px-3 py-2 text-sm ${
-                            a.nivel === "critico" ? "border-red-500 bg-red-50" : "border-amber-400 bg-amber-50"
+                          className={`rounded-lg border border-l-[3px] border-aura-mist bg-aura-sunken/50 px-3 py-2 text-sm ${
+                            a.nivel === "critico" ? "border-l-aura-danger" : "border-l-aura-warning"
                           }`}
                         >
-                          <p className="font-semibold text-aura-graphite">{a.titulo}</p>
-                          <p className="mt-0.5 text-aura-graphite">{a.detalhe}</p>
+                          <p className="font-medium text-aura-graphite">{a.titulo}</p>
+                          <p className="mt-0.5 text-aura-graphite-soft">{a.detalhe}</p>
                           {a.acao && <p className="mt-1 text-xs text-aura-graphite-soft">O que fazer: {a.acao}</p>}
                         </li>
                       ))}
@@ -144,7 +137,7 @@ export function SaudeSistema() {
                     </p>
                   </>
                 )}
-              </section>
+              </Card>
             );
           })}
         </div>

@@ -52,14 +52,14 @@ export function EditarContato({
     }
   }
 
-  const entrada = "min-h-11 rounded-xl border border-aura-mist bg-white px-3 text-sm font-normal outline-none focus:border-aura-petrol-500";
+  const entrada = "aura-input font-normal";
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={onFechar}>
-      <div role="dialog" aria-label="Editar contato" className="w-full max-w-md rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onFechar}>
+      <div role="dialog" aria-label="Editar contato" className="w-full max-w-md aura-card rounded-b-none p-6 shadow-xl sm:rounded-b-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-lg font-semibold text-aura-graphite">Editar contato</p>
-          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
@@ -82,7 +82,7 @@ export function EditarContato({
           </label>
           <p className="text-xs text-aura-graphite-soft">A correção vale também para o lead na fila da MF e para a conversa do chat.</p>
         </div>
-        {erro && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+        {erro && <p role="alert" className="mt-3 rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
           {podeExcluir ? (
             <button
@@ -93,7 +93,7 @@ export function EditarContato({
                   void enviar({ acao: "excluir" });
                 }
               }}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-60"
+              className="aura-btn aura-btn-fantasma text-aura-danger hover:bg-aura-danger/10 hover:text-aura-danger"
             >
               <Trash2 size={15} /> Excluir
             </button>
@@ -101,14 +101,14 @@ export function EditarContato({
             <span />
           )}
           <div className="flex gap-2">
-            <button type="button" onClick={onFechar} className="min-h-11 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite">
+            <button type="button" onClick={onFechar} className="aura-btn aura-btn-secundario">
               Cancelar
             </button>
             <button
               type="button"
               disabled={ocupado}
               onClick={() => void enviar({ acao: "editar", nome, telefone, email, cidade })}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-aura-petrol-700 px-5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+              className="aura-btn aura-btn-primario"
             >
               {ocupado && <Loader2 size={15} className="animate-spin" />} Salvar
             </button>

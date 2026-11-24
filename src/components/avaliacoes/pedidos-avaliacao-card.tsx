@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Send, Star } from "lucide-react";
 import { montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
+import { classeBotao } from "@/components/ui";
 
 export interface Pedido {
   id: string;
@@ -149,11 +150,13 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
   return (
     <section
       id="avaliacoes"
-      className={`rounded-2xl border border-aura-gold/40 bg-aura-gold/5 p-4 sm:p-5 ${className}`}
+      className={`aura-card p-4 sm:p-5 ${className}`}
       aria-label="Avaliações pendentes"
     >
-      <div className="flex items-start gap-2.5">
-        <Star className="mt-0.5 h-5 w-5 shrink-0 text-aura-gold" />
+      <div className="flex items-start gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15">
+          <Star size={16} className="text-aura-gold-700" />
+        </span>
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-aura-graphite">
             {pedidos.length === 0
@@ -168,11 +171,12 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
         </div>
       </div>
 
-      <ul className="mt-3 space-y-2">
+      {pedidos.length > 0 && (
+      <ul className="mt-4 divide-y divide-aura-mist overflow-hidden rounded-lg border border-aura-mist">
         {pedidos.map((p) => (
           <li
             key={p.id}
-            className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2.5"
+            className="flex items-center justify-between gap-3 px-3 py-2.5"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-aura-graphite">
@@ -184,7 +188,7 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
               type="button"
               onClick={() => void enviar(p)}
               disabled={enviando === p.id}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-aura-navy-950 px-3 py-2 text-xs font-medium text-aura-gold disabled:opacity-60"
+              className={classeBotao("secundario", "sm", "shrink-0")}
             >
               {enviando === p.id ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
               Pedir avaliação
@@ -192,11 +196,12 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
           </li>
         ))}
       </ul>
+      )}
 
       {segundas.length > 0 && (
         <ul className="mt-3 space-y-2">
           {segundas.map((m) => (
-            <li key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-aura-gold/40 bg-white px-3 py-2.5">
+            <li key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-aura-gold/40 bg-aura-gold/[0.06] px-3 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-aura-graphite">{m.cliente}</p>
                 <p className="text-xs text-aura-graphite-soft">Falta a 2ª mensagem (redes sociais)</p>
@@ -207,7 +212,7 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
                   window.open(linkDoWhatsapp(m.numero, m.texto), "_blank", "noopener");
                   setSegundas((s) => s.filter((x) => x.id !== m.id));
                 }}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-aura-navy-950 px-3 py-2 text-xs font-medium text-aura-navy-950"
+                className={classeBotao("primario", "sm", "shrink-0")}
               >
                 <Send size={13} /> Enviar 2ª mensagem
               </button>
@@ -217,13 +222,13 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
       )}
 
       {feito && (
-        <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs text-aura-success">
+        <p className="mt-3 flex items-center gap-1.5 rounded-lg border border-aura-success/25 px-3 py-2 text-xs text-aura-success">
           <Check size={12} /> {feito}
         </p>
       )}
 
       {aviso && (
-        <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-aura-warning">{aviso}</p>
+        <p className="mt-3 rounded-lg border border-aura-warning/30 px-3 py-2 text-xs text-aura-gold-700">{aviso}</p>
       )}
     </section>
   );
@@ -238,7 +243,7 @@ export function SeloAvaliacao({ pedido }: { pedido: Pedido }) {
       </span>
     );
   }
-  if (pedido.aberto_em) return <span className="text-xs text-aura-petrol-700">Abriu o link</span>;
+  if (pedido.aberto_em) return <span className="text-xs text-aura-petrol-600">Abriu o link</span>;
   if (pedido.enviado_em) return <span className="text-xs text-aura-graphite-soft">Link enviado</span>;
   return <span className="text-xs text-aura-warning">Não pediu ainda</span>;
 }

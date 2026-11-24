@@ -9,6 +9,7 @@ import type { CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/t
 import { formatarTelefone } from "@/lib/format-phone";
 import { SeletorOrigem } from "@/components/origem/selo-origem";
 import { INFO_ORIGEM, type OrigemLead } from "@/lib/origem-lead";
+import { classeBotao } from "@/components/ui";
 
 const CATEGORIAS: CategoriaRelacionamento[] = [
   "Cliente Final",
@@ -134,24 +135,25 @@ export function NewRelationshipModal({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-xl p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
-          <p className="font-display text-lg font-semibold text-aura-graphite">
+          <p className="font-display text-base font-semibold text-aura-graphite">
             Novo Cliente/Relacionamento
           </p>
           <button
             type="button"
             onClick={onClose}
             disabled={salvando}
-            className="text-aura-graphite-soft hover:text-aura-graphite disabled:opacity-50"
+            className={classeBotao("fantasma", "sm", "h-8 w-8 px-0")}
+            aria-label="Fechar"
           >
             <X size={18} />
           </button>
         </div>
 
         {erro && (
-          <div className="mb-4 flex items-start gap-2 rounded-lg bg-aura-danger/10 p-3">
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-aura-danger/25 bg-aura-danger/5 p-3" role="alert">
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-aura-danger" />
             <p className="text-sm text-aura-danger">{erro}</p>
           </div>
@@ -159,7 +161,7 @@ export function NewRelationshipModal({
 
         <form onSubmit={salvar} className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Nome *
             </label>
             <input
@@ -168,13 +170,13 @@ export function NewRelationshipModal({
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: João da Silva"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Telefone / WhatsApp *
             </label>
             <input
@@ -182,13 +184,13 @@ export function NewRelationshipModal({
               value={telefone}
               onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
               placeholder="(11) 99999-9999"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Email
             </label>
             <input
@@ -196,13 +198,13 @@ export function NewRelationshipModal({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email (opcional)"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Cidade *
             </label>
             <input
@@ -210,19 +212,19 @@ export function NewRelationshipModal({
               value={cidade}
               onChange={(e) => setCidade(e.target.value)}
               placeholder="Ex: São Paulo"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Categoria
             </label>
             <select
               value={categoria}
               onChange={(e) => setCategoria(e.target.value as CategoriaRelacionamento)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             >
               {CATEGORIAS.map((c) => (
@@ -244,13 +246,13 @@ export function NewRelationshipModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Temperatura
             </label>
             <select
               value={temperatura}
               onChange={(e) => setTemperatura(e.target.value as TemperaturaRelacionamento)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             >
               {TEMPERATURAS.map((t) => (
@@ -262,7 +264,7 @@ export function NewRelationshipModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Próximo Contato
             </label>
             <input
@@ -270,7 +272,7 @@ export function NewRelationshipModal({
               value={proximoContato}
               onChange={(e) => setProximoContato(e.target.value)}
               placeholder="Ex: Segunda-feira às 10h"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20 disabled:opacity-50"
+              className="aura-input disabled:opacity-50"
               disabled={salvando}
             />
           </div>
@@ -278,7 +280,7 @@ export function NewRelationshipModal({
           <button
             type="submit"
             disabled={salvando || !nome.trim() || !telefone.trim() || !cidade.trim() || !origemLead}
-            className="mt-2 rounded-xl bg-aura-petrol-700 py-2.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className={classeBotao("primario", "lg", "mt-2 w-full")}
           >
             {salvando ? (
               <div className="flex items-center justify-center gap-2">

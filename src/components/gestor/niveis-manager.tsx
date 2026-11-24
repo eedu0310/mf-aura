@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Medal, Plus, Trash2 } from "lucide-react";
 import { listarNiveis, criarNivel, apagarNivel, type NivelPerformance } from "@/lib/supabase/niveis";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { classeBotao } from "@/components/ui";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -58,7 +59,7 @@ export function NiveisManager() {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
+    <div className="aura-card p-5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Medal size={16} className="text-aura-petrol-600" />
@@ -67,7 +68,7 @@ export function NiveisManager() {
         <button
           type="button"
           onClick={() => setMostrarForm((v) => !v)}
-          className="flex items-center gap-1 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
+          className={classeBotao("secundario", "sm")}
         >
           <Plus size={13} />
           Novo nível
@@ -79,13 +80,13 @@ export function NiveisManager() {
       </p>
 
       {mostrarForm && (
-        <form onSubmit={salvar} className="mt-4 flex flex-col gap-3 rounded-xl border border-aura-mist bg-aura-bg p-4">
+        <form onSubmit={salvar} className="mt-4 flex flex-col gap-3 rounded-lg border border-aura-mist bg-aura-sunken p-4">
           <input
             type="text"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Nome do nível (ex.: Bronze, Prata, Ouro)"
-            className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input"
           />
           <input
             type="text"
@@ -93,19 +94,19 @@ export function NiveisManager() {
             value={metaValor}
             onChange={(e) => setMetaValor(e.target.value)}
             placeholder="Faturamento acumulado necessário (R$)"
-            className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input"
           />
           <input
             type="text"
             value={premio}
             onChange={(e) => setPremio(e.target.value)}
             placeholder="Prêmio (ex.: R$ 5.000, Viagem, opcional)"
-            className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input"
           />
           <button
             type="submit"
             disabled={salvando || !nome.trim() || !metaValor.trim()}
-            className="rounded-xl bg-aura-petrol-700 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+            className={classeBotao("primario")}
           >
             {salvando ? "Salvando..." : "Adicionar nível"}
           </button>
@@ -114,7 +115,7 @@ export function NiveisManager() {
 
       <ul className="mt-4 flex flex-col divide-y divide-aura-mist">
         {niveis.length === 0 ? (
-          <p className="py-4 text-center text-xs text-aura-graphite-soft">Nenhum nível cadastrado ainda.</p>
+          <p className="rounded-lg border border-dashed border-aura-mist py-6 text-center text-xs text-aura-graphite-soft">Nenhum nível cadastrado ainda.</p>
         ) : (
           niveis.map((n) => (
             <li key={n.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">

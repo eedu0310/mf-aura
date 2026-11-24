@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, Check, Copy, Loader2, RefreshCw, Smartphone } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 
 /**
  * Liga a agenda do CRM ao calendário do celular.
@@ -68,14 +69,14 @@ export function ConectarCalendario() {
   }
 
   return (
-    <section className="rounded-2xl border border-aura-mist bg-white shadow-sm">
+    <section className="aura-card">
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left"
+        className="flex w-full items-center gap-3 rounded-xl px-5 py-4 text-left transition hover:bg-aura-sunken/40"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-navy-950">
-          <CalendarClock className="h-5 w-5 text-aura-gold" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <CalendarClock size={17} className="text-aura-petrol-600" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold text-aura-graphite">
@@ -85,7 +86,7 @@ export function ConectarCalendario() {
             Conecte uma vez e todo compromisso marcado aqui aparece no seu calendário, com lembrete.
           </span>
         </span>
-        <span className="shrink-0 text-xs font-medium text-aura-petrol-700">
+        <span className={classeBotao("secundario", "sm", "pointer-events-none shrink-0")}>
           {aberto ? "Fechar" : "Conectar"}
         </span>
       </button>
@@ -99,7 +100,7 @@ export function ConectarCalendario() {
           ) : (
             <>
               <div>
-                <p className="mb-1.5 text-xs font-medium text-aura-graphite">
+                <p className="aura-label text-xs">
                   Seu endereço de calendário (é pessoal — não compartilhe)
                 </p>
                 <div className="flex gap-2">
@@ -107,38 +108,38 @@ export function ConectarCalendario() {
                     readOnly
                     value={enderecoHttps}
                     onFocus={(e) => e.currentTarget.select()}
-                    className="min-w-0 flex-1 rounded-lg border border-aura-mist bg-aura-bg px-3 py-2 font-mono text-xs text-aura-graphite"
+                    className="aura-input min-w-0 flex-1 bg-aura-sunken font-mono text-xs"
                   />
                   <button
                     type="button"
                     onClick={() => void copiar()}
-                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-aura-navy-950 px-3 py-2 text-xs font-medium text-aura-gold"
+                    className={classeBotao("secundario", "md", "shrink-0")}
                   >
-                    {copiado ? <Check size={14} /> : <Copy size={14} />}
+                    {copiado ? <Check size={14} className="text-aura-success" /> : <Copy size={14} />}
                     {copiado ? "Copiado" : "Copiar"}
                   </button>
                 </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-aura-mist bg-aura-bg/50 p-3">
+                <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
                   <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-aura-graphite">
-                    <Smartphone size={13} /> iPhone e iPad
+                    <Smartphone size={13} className="text-aura-graphite-soft" /> iPhone e iPad
                   </p>
                   <p className="text-xs leading-relaxed text-aura-graphite-soft">
                     Abra este link no Safari do celular e confirme em <strong>Assinar</strong>:
                   </p>
                   <a
                     href={enderecoWebcal}
-                    className="mt-2 inline-block break-all text-xs font-medium text-aura-petrol-700 underline"
+                    className="mt-2 inline-block break-all text-xs font-medium text-aura-petrol-600 underline-offset-2 hover:underline"
                   >
                     Assinar no calendário do iPhone
                   </a>
                 </div>
 
-                <div className="rounded-xl border border-aura-mist bg-aura-bg/50 p-3">
+                <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
                   <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-aura-graphite">
-                    <CalendarClock size={13} /> Google Agenda
+                    <CalendarClock size={13} className="text-aura-graphite-soft" /> Google Agenda
                   </p>
                   <p className="text-xs leading-relaxed text-aura-graphite-soft">
                     No computador, abra o Google Agenda, clique no <strong>+</strong> ao lado de
@@ -149,7 +150,7 @@ export function ConectarCalendario() {
                     href="https://calendar.google.com/calendar/u/0/r/settings/addbyurl"
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block text-xs font-medium text-aura-petrol-700 underline"
+                    className="mt-2 inline-block text-xs font-medium text-aura-petrol-600 underline-offset-2 hover:underline"
                   >
                     Abrir a tela do Google Agenda
                   </a>
@@ -168,7 +169,7 @@ export function ConectarCalendario() {
                 type="button"
                 onClick={() => void gerarNovo()}
                 disabled={trocando}
-                className="flex items-center gap-1.5 text-xs font-medium text-aura-graphite-soft hover:text-aura-graphite disabled:opacity-60"
+                className={classeBotao("fantasma", "sm")}
               >
                 {trocando ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                 Gerar um endereço novo

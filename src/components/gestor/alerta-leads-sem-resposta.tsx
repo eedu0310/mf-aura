@@ -41,14 +41,18 @@ export function AlertaLeadsSemResposta() {
   if (carregando || leads.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-aura-danger/30 bg-aura-danger/5 p-5">
-      <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
-        <AlertTriangle size={15} className="text-aura-danger" />
-        {leads.length} vendedor{leads.length > 1 ? "es" : ""} não respondeu{leads.length > 1 ? "ram" : ""} um lead a tempo
-      </p>
-      <ul className="mt-2 flex flex-col divide-y divide-aura-danger/10">
+    <div className="aura-card p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-danger/10">
+          <AlertTriangle size={16} className="text-aura-danger" />
+        </span>
+        <p className="text-sm font-semibold text-aura-graphite">
+          {leads.length} vendedor{leads.length > 1 ? "es" : ""} não respondeu{leads.length > 1 ? "ram" : ""} um lead a tempo
+        </p>
+      </div>
+      <ul className="mt-3 flex flex-col divide-y divide-aura-mist">
         {leads.slice(0, 6).map((lead) => (
-          <li key={lead.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+          <li key={lead.id} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
             <div>
               <p className="text-sm font-medium text-aura-graphite">
                 {lead.vendedorNome} <span className="font-normal text-aura-graphite-soft">→ {lead.nome || lead.telefone}</span>
@@ -58,7 +62,7 @@ export function AlertaLeadsSemResposta() {
                 {lead.resumoIa ? ` · ${lead.resumoIa}` : ""}
               </p>
             </div>
-            <span className="shrink-0 text-xs font-medium text-aura-danger">
+            <span className="aura-selo aura-selo-perigo shrink-0 tabular-nums">
               {formatarAtraso(lead.prazoResposta)}
             </span>
           </li>

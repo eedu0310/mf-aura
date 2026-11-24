@@ -9,7 +9,8 @@ import { RoleGuard } from "@/components/role-guard";
 /**
  * O pós-venda entra direto nesta tela ao fazer login, então ela precisa do
  * mesmo menu das outras áreas — antes só tinha um botão "Voltar" que levava
- * para a tela do vendedor.
+ * para a tela do vendedor. O <main> não tem respiro: a página usa PageContainer,
+ * igual às telas do vendedor.
  */
 export default function PosVendaLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,7 +21,7 @@ export default function PosVendaLayout({ children }: { children: React.ReactNode
           <MobileNavbar />
           <div className="flex min-w-0 flex-1 flex-col pt-14 lg:pt-0">
             <VendorTopbar />
-            <main className="min-w-0 flex-1 overflow-x-hidden px-6 py-8 sm:px-8">{children}</main>
+            <main className="min-w-0 flex-1 overflow-x-hidden">{children}</main>
           </div>
         </div>
       </RoleGuard>

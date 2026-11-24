@@ -30,12 +30,12 @@ export function BotaoMicrofone({
         disabled={voz.ocupado}
         title={voz.erro ?? titulo}
         aria-label={voz.ouvindo ? "Parar de gravar" : titulo}
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:opacity-60 ${
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition disabled:opacity-60 ${
           voz.ouvindo
             ? "bg-aura-danger text-white"
             : voz.erro
               ? "bg-aura-danger/10 text-aura-danger"
-              : "bg-aura-mist/60 text-aura-petrol-600 hover:bg-aura-mist"
+              : "bg-aura-sunken text-aura-petrol-600 hover:bg-aura-mist"
         } ${classe}`}
       >
         {voz.ocupado ? (
@@ -50,8 +50,8 @@ export function BotaoMicrofone({
       {(voz.ouvindo || voz.ocupado || voz.erro) && (
         <span
           role="status"
-          className={`pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-[16rem] -translate-x-1/2 rounded-lg px-2.5 py-1.5 text-xs leading-snug shadow-sm ${
-            voz.erro ? "bg-aura-danger text-white" : "bg-aura-navy-950 text-white"
+          className={`pointer-events-none absolute bottom-full left-1/2 mb-2 w-max max-w-[16rem] -translate-x-1/2 rounded-lg px-2.5 py-1.5 text-xs leading-snug shadow-lg ${
+            voz.erro ? "bg-aura-danger text-white" : "bg-aura-graphite text-aura-surface"
           }`}
         >
           {voz.erro

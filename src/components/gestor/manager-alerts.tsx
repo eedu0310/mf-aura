@@ -1,5 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import type { MembroEquipe } from "@/lib/supabase/team";
+import { Alerta } from "@/components/ui";
 
 export function ManagerAlerts({ equipe }: { equipe: MembroEquipe[] }) {
   const alertas = equipe
@@ -13,21 +14,25 @@ export function ManagerAlerts({ equipe }: { equipe: MembroEquipe[] }) {
 
   if (alertas.length === 0) {
     return (
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="text-sm font-medium text-aura-graphite">Alertas</p>
-        <p className="mt-2 text-sm text-aura-graphite-soft">
-          Nenhum alerta no momento — a equipe está com bom ritmo de execução.
-        </p>
-      </div>
+      <Alerta
+        tom="sucesso"
+        titulo="Alertas"
+        descricao="Nenhum alerta no momento — a equipe está com bom ritmo de execução."
+      />
     );
   }
 
   return (
-    <div className="rounded-2xl border border-aura-warning/30 bg-aura-warning/5 p-5">
-      <p className="text-sm font-medium text-aura-graphite">
-        Alertas · {alertas.length} vendedor{alertas.length > 1 ? "es" : ""} precisa
-        {alertas.length > 1 ? "m" : ""} de apoio
-      </p>
+    <div className="aura-card p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-warning/12">
+          <AlertTriangle size={16} className="text-aura-warning" />
+        </span>
+        <p className="text-sm font-semibold text-aura-graphite">
+          Alertas · {alertas.length} vendedor{alertas.length > 1 ? "es" : ""} precisa
+          {alertas.length > 1 ? "m" : ""} de apoio
+        </p>
+      </div>
       <ul className="mt-3 flex flex-col gap-2.5">
         {alertas.map((a) => (
           <li key={a.nome} className="flex items-start gap-2.5">

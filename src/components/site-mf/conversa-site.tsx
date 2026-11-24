@@ -55,7 +55,7 @@ function Anexo({ m, minha }: { m: Mensagem; minha: boolean }) {
       href={m.anexo_url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`flex max-w-[240px] items-center gap-2 rounded-xl px-3 py-2 ${minha ? "bg-white/15" : "bg-aura-bg"}`}
+      className={`flex max-w-[240px] items-center gap-2 rounded-xl px-3 py-2 ${minha ? "bg-white/15" : "bg-aura-sunken"}`}
     >
       <FileText size={18} className="shrink-0" />
       <span className="min-w-0">
@@ -231,14 +231,14 @@ export function ConversaSite({
   const noSite = conversa?.visitante_visto_em && agora - new Date(conversa.visitante_visto_em).getTime() < 60_000;
 
   return (
-    <div className="fixed inset-0 z-[80] flex justify-end bg-black/30" onClick={onFechar}>
+    <div className="fixed inset-0 z-[80] flex justify-end bg-black/40" onClick={onFechar}>
       <div
         role="dialog"
         aria-label={`Conversa com ${conversa?.nome ?? "cliente do site"}`}
         className="flex h-full w-full max-w-xl flex-col bg-aura-bg shadow-xl"
         onClick={(ev) => ev.stopPropagation()}
       >
-        <div className="flex items-start gap-3 border-b border-aura-mist bg-white px-5 py-4">
+        <div className="flex items-start gap-3 border-b border-aura-mist bg-aura-surface px-5 py-4">
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-lg font-semibold text-aura-graphite">{conversa?.nome ?? "Carregando…"}</p>
             <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-aura-graphite-soft">
@@ -254,25 +254,25 @@ export function ConversaSite({
               {conversa?.status === "encerrada" ? (
                 <span className="text-aura-graphite-soft">Conversa encerrada</span>
               ) : noSite ? (
-                <span className="font-medium text-emerald-700">● Está no site agora</span>
+                <span className="font-medium text-aura-success">● Está no site agora</span>
               ) : (
                 <span className="text-aura-graphite-soft">Saiu do site · a resposta fica esperando por ele lá</span>
               )}
               {conversa?.atendente ? <span className="text-aura-graphite-soft"> · atendendo: {conversa.atendente}</span> : null}
             </p>
           </div>
-          <button type="button" onClick={onFechar} aria-label="Fechar conversa" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+          <button type="button" onClick={onFechar} aria-label="Fechar conversa" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 border-b border-aura-mist bg-white px-5 py-3">
+        <div className="flex flex-wrap gap-2 border-b border-aura-mist bg-aura-surface px-5 py-3">
           {conversa?.telefone && (
             <a
               href={`https://wa.me/${conversa.telefone.replace(/\D/g, "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+              className="aura-btn aura-btn-secundario aura-btn-sm"
             >
               <MessageCircle size={14} /> WhatsApp
             </a>
@@ -283,14 +283,14 @@ export function ConversaSite({
                 type="button"
                 disabled={ocupado}
                 onClick={onAtendido}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+                className="aura-btn aura-btn-secundario aura-btn-sm"
               >
                 <CheckCircle2 size={14} /> Atendido · vai para o pipeline
               </button>
               <button
                 type="button"
                 onClick={onTransferir}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                className="aura-btn aura-btn-secundario aura-btn-sm"
               >
                 <ArrowRightLeft size={14} /> Transferir
               </button>
@@ -299,7 +299,7 @@ export function ConversaSite({
           <button
             type="button"
             onClick={onEditar}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite-soft hover:border-aura-petrol-500/50"
+            className="aura-btn aura-btn-secundario aura-btn-sm"
           >
             <Pencil size={14} /> Editar
           </button>
@@ -308,7 +308,7 @@ export function ConversaSite({
               <button
                 type="button"
                 onClick={() => void mudarStatus("encerrar")}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite-soft hover:border-aura-petrol-500/50"
+                className="aura-btn aura-btn-secundario aura-btn-sm"
               >
                 <XCircle size={14} /> Encerrar conversa
               </button>
@@ -316,7 +316,7 @@ export function ConversaSite({
               <button
                 type="button"
                 onClick={() => void mudarStatus("reabrir")}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite-soft hover:border-aura-petrol-500/50"
+                className="aura-btn aura-btn-secundario aura-btn-sm"
               >
                 <RotateCcw size={14} /> Reabrir
               </button>
@@ -332,7 +332,7 @@ export function ConversaSite({
           <ul className="flex flex-col gap-2.5">
             {mensagens.map((m) =>
               m.autor === "sistema" ? (
-                <li key={m.id} className="mx-auto max-w-[90%] rounded-xl bg-aura-mist/70 px-3 py-1.5 text-center text-xs text-aura-graphite-soft">
+                <li key={m.id} className="mx-auto max-w-[90%] rounded-md bg-aura-sunken px-3 py-1.5 text-center text-xs text-aura-graphite-soft">
                   {m.texto}
                 </li>
               ) : (
@@ -342,12 +342,12 @@ export function ConversaSite({
                     {m.autor === "equipe" ? m.autor_nome || "Equipe" : m.autor === "assistente" ? "Assistente virtual (IA)" : conversa?.nome || "Cliente"} · {hora(m.created_at)}
                   </span>
                   <div
-                    className={`flex max-w-[85%] flex-col gap-1.5 break-words rounded-2xl px-3.5 py-2 text-sm ${
+                    className={`flex max-w-[85%] flex-col gap-1.5 break-words rounded-xl px-3.5 py-2 text-sm ${
                       m.autor === "equipe"
-                        ? "rounded-br-md bg-aura-petrol-700 text-white"
+                        ? "rounded-br-md bg-aura-petrol-600 text-white"
                         : m.autor === "assistente"
-                          ? "rounded-br-md bg-aura-graphite text-white"
-                          : "rounded-bl-md border border-aura-mist bg-white text-aura-graphite"
+                          ? "rounded-br-md border border-aura-mist bg-aura-sunken text-aura-graphite"
+                          : "rounded-bl-md border border-aura-mist bg-aura-surface text-aura-graphite"
                     }`}
                   >
                     <Anexo m={m} minha={m.autor !== "visitante"} />
@@ -361,13 +361,13 @@ export function ConversaSite({
         </div>
 
         {erro && (
-          <p role="alert" className="mx-5 mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="mx-5 mb-2 rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
             {erro}
           </p>
         )}
 
         <form
-          className="relative flex items-end gap-1.5 border-t border-aura-mist bg-white px-3 py-3"
+          className="relative flex items-end gap-1.5 border-t border-aura-mist bg-aura-surface px-3 py-3"
           onSubmit={(ev) => {
             ev.preventDefault();
             setEmojis(false);
@@ -375,13 +375,13 @@ export function ConversaSite({
           }}
         >
           {emojis && (
-            <div className="absolute bottom-full left-3 right-3 mb-2 grid grid-cols-8 gap-1 rounded-2xl border border-aura-mist bg-white p-2 shadow-lg">
+            <div className="absolute bottom-full left-3 right-3 mb-2 grid grid-cols-8 gap-1 aura-card p-2 shadow-lg">
               {EMOJIS.map((e) => (
                 <button
                   key={e}
                   type="button"
                   aria-label={e}
-                  className="rounded-lg py-1.5 text-xl hover:bg-aura-bg"
+                  className="rounded-lg py-1.5 text-xl hover:bg-aura-sunken"
                   onClick={() => {
                     const c = caixaRef.current;
                     const ini = c?.selectionStart ?? texto.length;
@@ -396,21 +396,21 @@ export function ConversaSite({
             </div>
           )}
           {gravando ? (
-            <div className="flex min-h-11 flex-1 items-center gap-3 rounded-xl bg-aura-bg px-3 text-sm text-aura-graphite">
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" /> Gravando áudio…
-              <button type="button" onClick={() => gravando.parar(false)} aria-label="Cancelar o áudio" className="ml-auto rounded-full p-2 text-aura-graphite-soft hover:text-red-700">
+            <div className="flex min-h-11 flex-1 items-center gap-3 rounded-lg bg-aura-sunken px-3 text-sm text-aura-graphite">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-aura-danger" /> Gravando áudio…
+              <button type="button" onClick={() => gravando.parar(false)} aria-label="Cancelar o áudio" className="ml-auto rounded-lg p-2 text-aura-graphite-soft hover:text-aura-danger">
                 <Trash2 size={16} />
               </button>
-              <button type="button" onClick={() => gravando.parar(true)} aria-label="Parar e enviar o áudio" className="rounded-full bg-aura-petrol-700 p-2 text-white">
+              <button type="button" onClick={() => gravando.parar(true)} aria-label="Parar e enviar o áudio" className="aura-btn aura-btn-primario aura-btn-sm w-8 px-0">
                 <Square size={14} />
               </button>
             </div>
           ) : (
             <>
-          <button type="button" onClick={() => setEmojis((v) => !v)} aria-label="Emoji" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+          <button type="button" onClick={() => setEmojis((v) => !v)} aria-label="Emoji" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <Smile size={19} />
           </button>
-          <button type="button" onClick={() => arquivoRef.current?.click()} disabled={enviando} aria-label="Enviar arquivo ou foto" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+          <button type="button" onClick={() => arquivoRef.current?.click()} disabled={enviando} aria-label="Enviar arquivo ou foto" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <Paperclip size={19} />
           </button>
           <input
@@ -437,17 +437,17 @@ export function ConversaSite({
             }}
             placeholder="Responder ao cliente… (Enter envia, Shift+Enter quebra a linha)"
             aria-label="Resposta"
-            className="max-h-40 min-h-11 flex-1 resize-y rounded-xl border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input max-h-40 min-h-11 flex-1 resize-y"
           />
           <button
             type="submit"
             disabled={enviando || !texto.trim()}
             aria-label="Enviar resposta"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-aura-petrol-700 text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+            className="aura-btn aura-btn-primario h-11 w-11 shrink-0 px-0"
           >
             {enviando ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
           </button>
-          <button type="button" onClick={() => void gravarAudio()} aria-label="Gravar áudio" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite">
+          <button type="button" onClick={() => void gravarAudio()} aria-label="Gravar áudio" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <Mic size={19} />
           </button>
             </>

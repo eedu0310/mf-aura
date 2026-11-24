@@ -99,7 +99,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium text-aura-graphite">
+        <label htmlFor="email" className="aura-label mb-0">
           E-mail
         </label>
         <input
@@ -111,19 +111,19 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="seunome@grupomf.com.br"
-          className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-[0.95rem] text-aura-graphite placeholder:text-aura-graphite-soft/60 outline-none transition focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input h-11 px-3.5 text-[0.95rem]"
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-sm font-medium text-aura-graphite">
+          <label htmlFor="password" className="aura-label mb-0">
             Senha
           </label>
           <button
             type="button"
             onClick={esqueciSenha}
-            className="text-xs font-medium text-aura-petrol-600 hover:text-aura-petrol-700 hover:underline underline-offset-2"
+            className="text-xs font-medium text-aura-petrol-600 underline-offset-2 hover:underline"
           >
             Esqueceu a senha?
           </button>
@@ -139,7 +139,7 @@ export function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 pr-11 text-[0.95rem] text-aura-graphite placeholder:text-aura-graphite-soft/60 outline-none transition focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+            className="aura-input h-11 px-3.5 pr-11 text-[0.95rem]"
           />
           <button
             type="button"
@@ -153,7 +153,7 @@ export function LoginForm() {
       </div>
 
       {recuperacaoEnviada && (
-        <p className="rounded-lg bg-aura-success/10 px-3 py-2 text-sm text-aura-success">
+        <p className="rounded-lg border border-aura-success/25 bg-aura-success/10 px-3 py-2 text-sm text-aura-success">
           {supabase
             ? `Se existir uma conta com o e-mail ${email}, enviamos instruções de recuperação.`
             : `Enviamos instruções de recuperação para ${email}. (simulado — configure o Supabase para envio real)`}
@@ -161,13 +161,13 @@ export function LoginForm() {
       )}
 
       {bloqueado && !error && (
-        <p role="alert" className="rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-warning">
+        <p role="alert" className="rounded-lg border border-aura-warning/30 bg-aura-warning/10 px-3 py-2 text-sm text-aura-gold-700">
           Seu acesso foi desativado pelo gestor. Fale com ele para voltar a entrar.
         </p>
       )}
 
       {error && (
-        <p role="alert" className="rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-warning">
+        <p role="alert" className="rounded-lg border border-aura-warning/30 bg-aura-warning/10 px-3 py-2 text-sm text-aura-gold-700">
           {error}
         </p>
       )}
@@ -175,7 +175,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-3 text-[0.95rem] font-medium text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-70"
+        className="aura-btn aura-btn-primario aura-btn-lg mt-1 w-full"
       >
         {isSubmitting ? (
           <>

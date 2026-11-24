@@ -69,14 +69,14 @@ export function HistoricoCompras({ relacionamentoId }: { relacionamentoId: strin
   if (!resumo || resumo.compras === 0) return null;
 
   return (
-    <section className="rounded-xl border border-aura-mist bg-white p-4">
+    <section className="aura-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
           <ShoppingBag size={15} className="text-aura-petrol-600" />
           Já comprou {resumo.compras}{resumo.compras === 1 ? " vez" : " vezes"}
         </h4>
         {resumo.recorrente && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-aura-gold/15 px-2 py-0.5 text-xs font-semibold text-aura-graphite">
+          <span className="aura-selo aura-selo-ouro">
             <Repeat size={11} /> Cliente recorrente
           </span>
         )}
@@ -91,7 +91,7 @@ export function HistoricoCompras({ relacionamentoId }: { relacionamentoId: strin
       </p>
 
       {resumo.dias_desde_ultima_compra != null && resumo.dias_desde_ultima_compra > 180 && (
-        <p className="mt-2 rounded-lg bg-aura-gold/10 px-3 py-2 text-xs text-aura-graphite">
+        <p className="mt-2 rounded-lg border border-aura-gold/25 bg-aura-gold/5 px-3 py-2 text-xs text-aura-graphite">
           Faz mais de seis meses desde a última compra. Cliente que já confiou na loja volta
           mais fácil do que um contato novo.
         </p>

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, LocateFixed, Loader2, MapPin, RotateCcw } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 
 export interface ActivityLocation {
   latitude?: number;
@@ -101,7 +102,7 @@ export function LocationCaptureField({
   }
 
   return (
-    <div className="rounded-xl border border-aura-mist bg-aura-bg p-4">
+    <div className="rounded-xl border border-aura-mist bg-aura-sunken/60 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
@@ -118,7 +119,7 @@ export function LocationCaptureField({
             type="button"
             onClick={limpar}
             aria-label="Limpar localização capturada"
-            className="rounded-lg p-2 text-aura-graphite-soft hover:bg-white hover:text-aura-graphite"
+            className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-surface hover:text-aura-graphite"
           >
             <RotateCcw size={15} />
           </button>
@@ -129,9 +130,9 @@ export function LocationCaptureField({
         type="button"
         onClick={capturar}
         disabled={capturando}
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-aura-petrol-500/30 bg-white px-4 py-2.5 text-sm font-medium text-aura-petrol-700 transition hover:border-aura-petrol-500 disabled:opacity-60"
+        className={classeBotao("secundario", "md", "mt-3 w-full")}
       >
-        {capturando ? <Loader2 size={16} className="animate-spin" /> : <LocateFixed size={16} />}
+        {capturando ? <Loader2 size={15} className="animate-spin" /> : <LocateFixed size={15} className="text-aura-petrol-600" />}
         {capturando
           ? "Pegando a localização..."
           : temCoordenadas
@@ -140,14 +141,14 @@ export function LocationCaptureField({
       </button>
 
       {temCoordenadas && (
-        <div className="mt-3 rounded-lg bg-aura-success/10 px-3 py-2 text-xs text-aura-success">
+        <div className="mt-3 rounded-lg border border-aura-success/25 bg-aura-success/10 px-3 py-2 text-xs text-aura-success">
           Localização registrada, com precisão de cerca de {Math.round(value.precisaoMetros || 0)}{" "}
           metros.
         </div>
       )}
 
       {semHttps && (
-        <p className="mt-3 flex items-start gap-2 rounded-lg bg-aura-warning/10 px-3 py-2 text-xs text-aura-warning">
+        <p className="mt-3 flex items-start gap-2 rounded-lg border border-aura-warning/25 bg-aura-warning/10 px-3 py-2 text-xs text-aura-gold-700">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
             Esta página não está em HTTPS, e o navegador só libera o GPS em endereço seguro.
@@ -158,7 +159,7 @@ export function LocationCaptureField({
       )}
 
       <div className="mt-3">
-        <label className="mb-1.5 block text-xs text-aura-graphite-soft">
+        <label className="aura-label text-xs font-normal text-aura-graphite-soft">
           Endereço ou referência
         </label>
         <input
@@ -166,7 +167,7 @@ export function LocationCaptureField({
           value={value.endereco || ""}
           onChange={(event) => onChange({ ...value, endereco: event.target.value })}
           placeholder="Ex.: Loja Centro, Rua..., obra do cliente"
-          className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+          className="aura-input"
         />
       </div>
 

@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Filter, AlertCircle, Activity, Calendar, ListChecks, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Filter, AlertCircle, Activity, Calendar, ListChecks, ArrowRight, CheckCircle2, Sun } from "lucide-react";
 
 import { PanelCard } from "@/components/panel-card";
+import { Card, CardHeader, PageContainer, PageHeader, classeBotao } from "@/components/ui";
 import { MetaDoMesCard } from "@/components/meu-dia/meta-do-mes-card";
 import { MetasVendedorModal } from "@/components/gestor/metas-vendedor-modal";
 import { DnaScoreCard } from "@/components/meu-dia/dna-score-card";
@@ -216,10 +217,16 @@ export default function MeuDiaPage() {
   }
 
   return (
-    <>
+    <PageContainer>
       <PopupMotivacional />
 
-      <div className="grid items-start gap-6 pb-28 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <PageHeader
+        titulo="Meu Dia"
+        descricao="Prioridades, agenda e resultados do seu dia."
+        icone={Sun}
+      />
+
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
         <BriefingDoDia />
 
@@ -235,7 +242,7 @@ export default function MeuDiaPage() {
               <button
                 type="button"
                 onClick={() => setMetasAbertas(true)}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-xs font-medium text-aura-petrol-700 transition hover:border-aura-petrol-500"
+                className={classeBotao("secundario", "sm", "w-full text-aura-petrol-600")}
               >
                 Definir metas de prospecção e indicadores
               </button>
@@ -256,25 +263,26 @@ export default function MeuDiaPage() {
           <RankingMiniCard posicao={posicaoRanking} totalEquipe={totalEquipe} />
         </div>
 
-        <section className="rounded-2xl bg-aura-navy-950 p-5 text-white" aria-labelledby="comecar-dia-titulo">
+        {/* Único bloco escuro da tela, de propósito: é o "por onde começar". */}
+        <section className="rounded-xl border border-aura-navy-800 bg-aura-navy-950 p-5 text-white" aria-labelledby="comecar-dia-titulo">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-aura-gold">Começar meu dia</p>
-              <h1 id="comecar-dia-titulo" className="mt-1 font-display text-2xl font-semibold">Seu próximo resultado começa agora.</h1>
+              <p className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-aura-gold">Começar meu dia</p>
+              <h2 id="comecar-dia-titulo" className="mt-1 font-display text-xl font-semibold">Seu próximo resultado começa agora.</h2>
               <p className="mt-1 max-w-2xl text-sm text-white/65">A AURA organizou as ações com maior impacto usando seus retornos, oportunidades e relacionamentos reais.</p>
             </div>
-            <Link href={prioridades[0]?.acaoHref ?? "/registrar-atividade"} className="inline-flex items-center gap-2 rounded-xl bg-aura-gold px-4 py-2.5 text-sm font-semibold text-aura-navy-950 hover:bg-aura-gold-soft">
+            <Link href={prioridades[0]?.acaoHref ?? "/registrar-atividade"} className="inline-flex h-9 items-center gap-2 rounded-lg bg-aura-gold px-3.5 text-[0.8125rem] font-medium text-aura-navy-950 transition hover:bg-aura-gold-soft">
               {prioridades[0]?.acaoLabel ?? "Registrar primeira atividade"} <ArrowRight size={15} />
             </Link>
           </div>
           <div className="mt-5 grid grid-cols-1 gap-2 md:grid-cols-2">
             {prioridades.slice(0, 4).map((prioridade) => (
-              <Link key={prioridade.id} href={prioridade.acaoHref} className="group rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10">
+              <Link key={prioridade.id} href={prioridade.acaoHref} className="group rounded-lg border border-white/10 bg-white/[0.04] p-3 transition hover:border-white/20 hover:bg-white/[0.08]">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-aura-gold" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-aura-gold">{rotuloPrioridade(prioridade.nivel)}</span>
+                      <span className="text-[0.65rem] font-medium uppercase tracking-wide text-aura-gold">{rotuloPrioridade(prioridade.nivel)}</span>
                       <p className="truncate text-sm font-medium text-white">{prioridade.titulo}</p>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-white/60">{prioridade.descricao}</p>
@@ -283,15 +291,15 @@ export default function MeuDiaPage() {
                 </div>
               </Link>
             ))}
-            {prioridades.length === 0 && <p className="rounded-xl bg-white/5 p-3 text-sm text-white/65">Nenhuma prioridade crítica identificada. Continue registrando os próximos passos.</p>}
+            {prioridades.length === 0 && <p className="rounded-lg bg-white/[0.04] p-3 text-sm text-white/65">Nenhuma prioridade crítica identificada. Continue registrando os próximos passos.</p>}
           </div>
         </section>
 
         <CompromissoMensalBanner />
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
+        <Card>
           <TarefasInteligentes />
-        </div>
+        </Card>
 
         <AuraSupervisorPanel />
 
@@ -337,7 +345,7 @@ export default function MeuDiaPage() {
                       <span className="text-aura-graphite">{etapa.etapa}</span>
                       <span className="font-data font-medium text-aura-graphite">{formatarMoeda(etapa.valor)}</span>
                     </div>
-                    <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-aura-bg">
+                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-aura-sunken">
                       <div className={`h-full rounded-full ${CORES_PIPELINE[index]}`} style={{ width: `${(etapa.valor / maiorValorPipeline) * 100}%` }} />
                     </div>
                     <p className="mt-0.5 text-xs text-aura-graphite-soft">{etapa.oportunidades} oportunidades</p>
@@ -355,7 +363,7 @@ export default function MeuDiaPage() {
             titulo="Follow-ups Pendentes"
             acaoLabel="Ver relacionamentos"
             acaoHref="/relacionamentos"
-            badge={precisamDeAtencao.length > 0 ? <span className="rounded-full bg-aura-danger/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-aura-danger">{precisamDeAtencao.length}</span> : undefined}
+            badge={precisamDeAtencao.length > 0 ? <span className="aura-selo aura-selo-perigo tabular-nums">{precisamDeAtencao.length}</span> : undefined}
           >
             {precisamDeAtencao.length === 0 ? (
               <p className="py-4 text-center text-sm text-aura-graphite-soft">Nada urgente por aqui. Bom trabalho!</p>
@@ -428,12 +436,14 @@ export default function MeuDiaPage() {
         <ConquistasCard conquistas={conquistas} niveis={niveis} vendasTotal={vendasTotal} />
 
         {pendenciasPosVenda.length > 0 && (
-          <div className="rounded-2xl border border-aura-danger/30 bg-aura-danger/5 p-5">
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
-              <AlertCircle size={15} className="text-aura-danger" />
-              Pós-venda das suas vendas precisa de atenção
-            </p>
-            <ul className="mt-2 flex flex-col divide-y divide-aura-danger/10">
+          <Card>
+            <CardHeader
+              icone={AlertCircle}
+              corIcone="text-aura-danger"
+              titulo="Pós-venda das suas vendas precisa de atenção"
+              className="mb-3"
+            />
+            <ul className="flex flex-col divide-y divide-aura-mist">
               {pendenciasPosVenda.map((posVenda) => (
                 <li key={posVenda.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
                   <div>
@@ -446,14 +456,14 @@ export default function MeuDiaPage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-aura-graphite-soft">Fale com o time de Pós-venda se puder ajudar a resolver mais rápido.</p>
-          </div>
+            <p className="mt-3 border-t border-aura-mist pt-3 text-xs text-aura-graphite-soft">Fale com o time de Pós-venda se puder ajudar a resolver mais rápido.</p>
+          </Card>
         )}
 
         <RetornoPorOrigemCard />
       </div>
       <AuraCoachPanel />
       </div>
-    </>
+    </PageContainer>
   );
 }

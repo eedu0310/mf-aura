@@ -5,6 +5,7 @@ import { BarChart3, Settings, Users } from "lucide-react";
 import { VisaoGeralMarketing } from "@/components/marketing/visao-geral-marketing";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
+import { Segmentado } from "@/components/ui";
 
 type AbaMarketingGestor = "dashboard" | "usuarios" | "configuracoes";
 
@@ -23,31 +24,23 @@ export function MarketingTab() {
 
   return (
     <section className="space-y-6">
-      <div className="rounded-2xl border border-aura-mist bg-white p-2">
-        <nav className="flex flex-wrap gap-2" aria-label="Abas de Marketing">
-          {ABAS.map((item) => {
-            const Icon = item.icon;
-            const ativa = aba === item.id;
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setAba(item.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-                  ativa
-                    ? "bg-aura-navy-950 text-white"
-                    : "text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
-                }`}
-                aria-selected={ativa}
-              >
-                <Icon size={16} />
+      <Segmentado
+        rotulo="Abas de Marketing"
+        valor={aba}
+        aoMudar={setAba}
+        opcoes={ABAS.map((item) => {
+          const Icon = item.icon;
+          return {
+            valor: item.id,
+            rotulo: (
+              <span className="flex items-center gap-1.5">
+                <Icon size={15} aria-hidden />
                 {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+              </span>
+            ),
+          };
+        })}
+      />
 
       {aba === "dashboard" && (
         <VisaoGeralMarketing onIrPara={() => undefined} />

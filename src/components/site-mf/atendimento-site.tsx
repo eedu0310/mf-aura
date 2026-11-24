@@ -11,6 +11,7 @@ import { ClientesParceiros, type EnvioCliente } from "./clientes-parceiros";
 import { EditarContato } from "./editar-contato";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { Pencil, Trash2 } from "lucide-react";
+import { Alerta, EstadoVazio, Segmentado, Selo, classeBotao } from "@/components/ui";
 
 interface Envio {
   id: string;
@@ -66,12 +67,12 @@ function quando(iso: string) {
 }
 
 function situacao(e: Envio): { texto: string; classe: string } {
-  if (e.transferido_para) return { texto: `Transferido · ${e.transferido_para}`, classe: "bg-violet-100 text-violet-900" };
-  if (e.lead?.status === "respondido") return { texto: "Atendido · no pipeline", classe: "bg-emerald-100 text-emerald-900" };
+  if (e.transferido_para) return { texto: `Transferido · ${e.transferido_para}`, classe: "aura-selo-marca" };
+  if (e.lead?.status === "respondido") return { texto: "Atendido · no pipeline", classe: "aura-selo-sucesso" };
   const vencido = e.lead?.prazo_resposta && new Date(e.lead.prazo_resposta).getTime() < Date.now();
   return vencido
-    ? { texto: "Esperando resposta · prazo vencido", classe: "bg-red-100 text-red-900" }
-    : { texto: "Esperando resposta", classe: "bg-amber-100 text-amber-900" };
+    ? { texto: "Esperando resposta · prazo vencido", classe: "aura-selo-perigo" }
+    : { texto: "Esperando resposta", classe: "aura-selo-atencao" };
 }
 
 /** Precisa de alguém: lead ainda sem atendimento, ou cliente escreveu no chat e ninguém leu. */
@@ -212,28 +213,21 @@ export function AtendimentoSite() {
     <div className="flex flex-col gap-4">
       <PainelChat />
 
-      <h2 className="font-display text-base font-semibold text-aura-graphite">Novos clientes · catálogo, tecnologia, realidade aumentada e chat</h2>
-      <div className="flex flex-wrap gap-2">
-        {(
+      <h2 className="mt-2 text-sm font-semibold text-aura-graphite">Novos clientes · catálogo, tecnologia, realidade aumentada e chat</h2>
+      <Segmentado<Filtro>
+        rotulo="Filtrar contatos"
+        valor={filtro}
+        aoMudar={setFiltro}
+        className="self-start"
+        opcoes={(
           [
             ["abertos", "Esperando"],
             ["atendidos", "Atendidos"],
             ["transferidos", "Transferidos"],
             ["todos", "Todos"],
           ] as [Filtro, string][]
-        ).map(([id, rotulo]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setFiltro(id)}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-              filtro === id ? "border-aura-petrol-700 bg-aura-petrol-700 text-white" : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-            }`}
-          >
-            {rotulo} · {contagem[id]}
-          </button>
-        ))}
-      </div>
+        ).map(([id, rotulo]) => ({ valor: id, rotulo, contagem: contagem[id] }))}
+      />
 
       <p className="text-xs text-aura-graphite-soft">
         Quem preenche um formulário ou começa o chat no site entra aqui e na fila de leads da MF, já distribuído para um vendedor. Clique num chat para responder: a resposta aparece na hora para o cliente no site.
@@ -244,11 +238,9 @@ export function AtendimentoSite() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : erro ? (
-        <p className="rounded-2xl border border-aura-danger/30 bg-aura-danger/5 p-4 text-sm text-aura-graphite">{erro}</p>
+        <Alerta tom="perigo" titulo={erro} />
       ) : lista.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-12 text-center text-sm text-aura-graphite-soft">
-          Nenhum contato aqui.
-        </p>
+        <EstadoVazio titulo="Nenhum contato aqui." />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((e) => {
@@ -258,27 +250,23 @@ export function AtendimentoSite() {
                 <button
                   type="button"
                   onClick={() => (e.conversa ? setConversando(e) : setAberto(e))}
-                  className="flex h-full w-full flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40"
+                  className="aura-card aura-card-interativo flex h-full w-full flex-col gap-2 p-4 text-left"
                 >
                   <div className={`flex items-start justify-between gap-2 ${podeExcluir ? "pr-8" : ""}`}>
-                    <p className="truncate font-medium text-aura-graphite">{e.nome || e.telefone || e.email || "Sem nome"}</p>
+                    <p className="truncate text-sm font-medium text-aura-graphite">{e.nome || e.telefone || e.email || "Sem nome"}</p>
                     <span className="shrink-0 text-xs text-aura-graphite-soft">{quando(e.created_at)}</span>
                   </div>
                   <span className="flex flex-wrap items-center gap-1.5">
-                    <span
-                      className={`w-fit rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${
-                        e.conversa ? "bg-[#CD1C1B]/10 text-[#9b1515]" : "bg-aura-petrol-700/10 text-aura-petrol-700"
-                      }`}
-                    >
+                    <Selo tom={e.conversa ? "perigo" : "marca"}>
                       {e.formulario ?? "Formulário do site"}
-                    </span>
+                    </Selo>
                     {e.conversa && e.conversa.nao_lidas > 0 && (
-                      <span className="rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.7rem] font-semibold text-white">
+                      <span className="rounded-md bg-aura-danger px-1.5 py-0.5 text-[0.7rem] font-semibold text-white">
                         {e.conversa.nao_lidas} nova{e.conversa.nao_lidas > 1 ? "s" : ""}
                       </span>
                     )}
                     {e.conversa?.visitante_visto_em && Date.now() - new Date(e.conversa.visitante_visto_em).getTime() < 60_000 && (
-                      <span className="text-[0.7rem] font-medium text-emerald-700">● no site agora</span>
+                      <span className="text-[0.7rem] font-medium text-aura-success">● no site agora</span>
                     )}
                   </span>
                   {e.conversa?.ultima_mensagem && <p className="line-clamp-2 text-xs text-aura-graphite">{e.conversa.ultima_mensagem}</p>}
@@ -287,7 +275,7 @@ export function AtendimentoSite() {
                     {e.perfil ? ` · ${e.perfil}` : ""}
                   </p>
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${s.classe}`}>{s.texto}</span>
+                    <span className={`aura-selo ${s.classe}`}>{s.texto}</span>
                     {e.lead?.dono && !e.transferido_para && <span className="truncate text-xs text-aura-graphite-soft">com {e.lead.dono}</span>}
                   </div>
                 </button>
@@ -298,7 +286,7 @@ export function AtendimentoSite() {
                     onClick={() => void excluir(e)}
                     aria-label={`Excluir ${e.nome || "contato"}`}
                     title="Excluir"
-                    className="absolute right-2 top-2 rounded-full p-2 text-aura-graphite-soft transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                    className="absolute right-2 top-2 rounded-lg p-2 text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger disabled:opacity-50"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -310,8 +298,8 @@ export function AtendimentoSite() {
       )}
 
       {aberto && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={() => setAberto(null)}>
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl" onClick={(ev) => ev.stopPropagation()}>
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => setAberto(null)}>
+          <div className="aura-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-b-none p-6 shadow-xl sm:rounded-b-xl" onClick={(ev) => ev.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-display text-lg font-semibold text-aura-graphite">{aberto.nome || "Sem nome"}</p>
@@ -319,7 +307,7 @@ export function AtendimentoSite() {
                   {aberto.formulario ?? "Formulário do site"} · {new Date(aberto.created_at).toLocaleString("pt-BR")}
                 </p>
               </div>
-              <button type="button" onClick={() => setAberto(null)} aria-label="Fechar" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+              <button type="button" onClick={() => setAberto(null)} aria-label="Fechar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
                 <X size={18} />
               </button>
             </div>
@@ -359,18 +347,18 @@ export function AtendimentoSite() {
                   setEditandoContato(aberto);
                   setAberto(null);
                 }}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                className={classeBotao("secundario")}
               >
-                <Pencil size={16} /> {podeExcluir ? "Editar ou excluir" : "Editar dados"}
+                <Pencil size={15} /> {podeExcluir ? "Editar ou excluir" : "Editar dados"}
               </button>
               {aberto.telefone && (
                 <a
                   href={`https://wa.me/${aberto.telefone.replace(/\D/g, "")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
+                  className={classeBotao("primario")}
                 >
-                  <MessageCircle size={16} /> Chamar no WhatsApp
+                  <MessageCircle size={15} /> Chamar no WhatsApp
                 </a>
               )}
               {!aberto.transferido_para && aberto.lead?.status !== "respondido" && (
@@ -379,9 +367,9 @@ export function AtendimentoSite() {
                     type="button"
                     disabled={ocupado}
                     onClick={() => void marcarAtendido(aberto)}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+                    className={classeBotao("secundario")}
                   >
-                    <CheckCircle2 size={16} /> Atendido · vai para o pipeline
+                    <CheckCircle2 size={15} /> Atendido · vai para o pipeline
                   </button>
                   <button
                     type="button"
@@ -389,9 +377,9 @@ export function AtendimentoSite() {
                       setTransferindo(aberto);
                       setAberto(null);
                     }}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                    className={classeBotao("secundario")}
                   >
-                    <ArrowRightLeft size={16} /> Transferir para vendedor
+                    <ArrowRightLeft size={15} /> Transferir para vendedor
                   </button>
                 </>
               )}
@@ -401,7 +389,7 @@ export function AtendimentoSite() {
       )}
 
       <section className="mt-4 flex flex-col gap-3 border-t border-aura-mist pt-5" aria-label="Clientes e parceiros">
-        <h2 className="font-display text-base font-semibold text-aura-graphite">
+        <h2 className="text-sm font-semibold text-aura-graphite">
           Clientes e parceiros · manuais e blocos 3D ·{" "}
           {deClientes.filter((e) => (e.etapa ?? "novo") !== "resolvido").length} em aberto
         </h2>
@@ -506,8 +494,8 @@ function TransferirLead({ envio, onFechar, onFeito }: { envio: Envio; onFechar: 
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 p-0 sm:items-center sm:p-4" onClick={onFechar}>
-      <div role="dialog" aria-label="Transferir para vendedor" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl" onClick={(ev) => ev.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={onFechar}>
+      <div role="dialog" aria-label="Transferir para vendedor" className="aura-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-b-none p-6 shadow-xl sm:rounded-b-xl" onClick={(ev) => ev.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-display text-lg font-semibold text-aura-graphite">Transferir para vendedor</p>
@@ -516,40 +504,40 @@ function TransferirLead({ envio, onFechar, onFeito }: { envio: Envio; onFechar: 
               {envio.cidade ? ` · ${envio.cidade}` : ""}
             </p>
           </div>
-          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
 
         {sugerida && (
-          <p className="mt-4 rounded-xl border border-aura-mist bg-aura-bg px-3 py-2.5 text-sm text-aura-graphite">
+          <p className="mt-4 rounded-lg border border-aura-mist bg-aura-sunken/60 px-3 py-2.5 text-sm text-aura-graphite">
             A AURA sugere a <strong>{sugerida}</strong>, que atende {envio.cidade?.split("/")[0]}.
           </p>
         )}
 
         <fieldset className="mt-4 flex flex-col gap-2">
-          <legend className="mb-2 text-sm font-medium text-aura-graphite">Para qual loja</legend>
+          <legend className="aura-label">Para qual loja</legend>
           {EMPRESAS.map((e) => (
             <label
               key={e.id}
-              className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border px-3 text-sm ${
-                empresa === e.nome ? "border-aura-petrol-600 bg-aura-petrol-700/5" : "border-aura-mist"
+              className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm text-aura-graphite transition ${
+                empresa === e.nome ? "border-aura-petrol-500 bg-aura-petrol-500/[0.06]" : "border-aura-mist hover:bg-aura-sunken/60"
               }`}
             >
-              <input type="radio" name="loja" checked={empresa === e.nome} onChange={() => setEmpresa(e.nome)} />
+              <input type="radio" className="accent-aura-petrol-600" name="loja" checked={empresa === e.nome} onChange={() => setEmpresa(e.nome)} />
               {e.nome === EMPRESA_DO_SITE ? "MF International (outro vendedor da MF)" : e.nome}
               {e.nome === sugerida && <span className="ml-auto text-xs font-medium text-aura-petrol-600">sugerida</span>}
             </label>
           ))}
         </fieldset>
 
-        <label className="mt-4 flex flex-col gap-1.5 text-sm font-medium text-aura-graphite">
+        <label className="mt-4 flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
           Vendedor responsável
           <select
             value={vendedorId}
             onChange={(e) => setVendedorId(e.target.value)}
             disabled={!empresa}
-            className="min-h-11 rounded-xl border border-aura-mist bg-white px-3 text-sm font-normal"
+            className="aura-input font-normal"
           >
             <option value="">{empresa ? "Fila da loja (distribui sozinho)" : "Escolha a loja primeiro"}</option>
             {vendedores.map((v) => (
@@ -560,14 +548,14 @@ function TransferirLead({ envio, onFechar, onFeito }: { envio: Envio; onFechar: 
           </select>
         </label>
 
-        <label className="mt-4 flex flex-col gap-1.5 text-sm font-medium text-aura-graphite">
+        <label className="mt-4 flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
           Recado para quem recebe
           <textarea
             rows={3}
             value={recado}
             onChange={(e) => setRecado(e.target.value)}
             placeholder="Ex.: quer fogão a lenha, pediu para ver pessoalmente."
-            className="rounded-xl border border-aura-mist px-3 py-2 text-sm font-normal"
+            className="aura-input font-normal"
           />
         </label>
 
@@ -575,19 +563,19 @@ function TransferirLead({ envio, onFechar, onFeito }: { envio: Envio; onFechar: 
           O lead vai com os dados do formulário e o recado. Entra na fila da loja escolhida e segue para o pipeline de lá quando for atendido. Aqui fica anotado para onde foi.
         </p>
 
-        {erro && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+        {erro && <p role="alert" className="mt-3 rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onFechar} className="min-h-11 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite">
+          <button type="button" onClick={onFechar} className={classeBotao("secundario")}>
             Cancelar
           </button>
           <button
             type="button"
             onClick={() => void transferir()}
             disabled={enviando || !empresa}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full bg-aura-petrol-700 px-5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+            className={classeBotao("primario")}
           >
-            {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Transferir
+            {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Transferir
           </button>
         </div>
       </div>

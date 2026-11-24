@@ -13,6 +13,7 @@
  */
 import { useEffect, useState, useCallback } from "react";
 import { Loader2, Trophy, Target, Save, Award } from "lucide-react";
+import { Alerta, Card, CardHeader, EstadoVazio, Selo, classeBotao } from "@/components/ui";
 
 interface Vendedor {
   id: string;
@@ -131,41 +132,23 @@ export function PontuacaoTab() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-6">
       {/* Cabeçalho e mês */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <Trophy size={20} className="mt-0.5 shrink-0 text-aura-gold" />
-            <div>
-              <h3 className="font-display text-lg font-semibold text-aura-graphite">
-                Metas, pontuação e prêmios
-              </h3>
-              <p className="mt-1 text-sm text-aura-graphite-soft">
-                A meta é por pessoa e o peso de cada etapa é seu. O placar é
-                somado dos registros.
-              </p>
-            </div>
-          </div>
-          <input
-            type="month"
-            value={mes}
-            onChange={(e) => setMes(e.target.value)}
-            className="rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
-          />
-        </div>
-
-        {erro && (
-          <p className="mt-4 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
-            {erro}
-          </p>
-        )}
-        {aviso && (
-          <p className="mt-4 rounded-lg bg-aura-success/10 px-3 py-2 text-sm text-aura-success">
-            {aviso}
-          </p>
-        )}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="max-w-2xl text-sm text-aura-graphite-soft">
+          A meta é por pessoa e o peso de cada etapa é seu. O placar é
+          somado dos registros.
+        </p>
+        <input
+          type="month"
+          value={mes}
+          onChange={(e) => setMes(e.target.value)}
+          className="aura-input w-auto"
+        />
       </div>
+
+      {erro && <Alerta tom="perigo" titulo={erro} />}
+      {aviso && <Alerta tom="sucesso" titulo={aviso} />}
 
       {carregando ? (
         <p className="flex items-center gap-2 text-sm text-aura-graphite-soft">
@@ -174,45 +157,40 @@ export function PontuacaoTab() {
       ) : !d ? null : (
         <>
           {/* Metas por vendedor */}
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="flex items-center gap-2 font-display text-base font-semibold text-aura-graphite">
-              <Target size={17} className="text-aura-petrol-600" />
-              Meta de prospecção do mês
-            </p>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
-              Lead, ligação e visita somados. Comece menor e vá ajustando até
-              chegar no número — 200 para alguns, 400 para quem já roda mais.
-            </p>
+          <Card>
+            <CardHeader
+              titulo="Meta de prospecção do mês"
+              descricao="Lead, ligação e visita somados. Comece menor e vá ajustando até chegar no número — 200 para alguns, 400 para quem já roda mais."
+              icone={Target}
+            />
 
             {d.vendedores.length === 0 ? (
-              <p className="mt-4 text-sm text-aura-graphite-soft">
-                Nenhum vendedor nesta loja.
-              </p>
+              <EstadoVazio titulo="Nenhum vendedor nesta loja." />
             ) : (
-              <ul className="mt-4 space-y-3">
+              <ul className="divide-y divide-aura-mist rounded-lg border border-aura-mist">
                 {d.vendedores.map((v) => (
                   <li
                     key={v.id}
-                    className="flex flex-wrap items-center gap-3 rounded-xl border border-aura-mist p-3"
+                    className="flex flex-wrap items-center gap-3 px-3 py-2.5"
                   >
                     <span className="min-w-[140px] flex-1 text-sm font-medium text-aura-graphite">
                       {v.nome}
                     </span>
-                    <span className="text-sm text-aura-graphite-soft">
+                    <span className="text-xs tabular-nums text-aura-graphite-soft">
                       {v.prospeccoes} feitas
                       {v.percentual !== null && ` · ${v.percentual}% da meta`}
                       {v.falta !== null && v.falta > 0 && ` · faltam ${v.falta}`}
                     </span>
-                    <span className="rounded-full bg-aura-navy-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+                    <Selo tom="marca" className="tabular-nums">
                       {v.pontos} pts
-                    </span>
+                    </Selo>
                     <input
                       type="number"
                       min={0}
                       value={metas[v.id] ?? ""}
                       onChange={(e) => setMetas((m) => ({ ...m, [v.id]: e.target.value }))}
                       placeholder="meta"
-                      className="w-24 rounded-lg border border-aura-mist px-2.5 py-1.5 text-sm outline-none focus:border-aura-petrol-500"
+                      className="aura-input h-8 w-24 px-2.5"
                     />
                     <button
                       type="button"
@@ -224,12 +202,12 @@ export function PontuacaoTab() {
                           `Meta de ${v.nome} salva.`,
                         )
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-aura-petrol-700 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                      className={classeBotao("secundario", "sm")}
                     >
                       {salvando === `meta-${v.id}` ? (
-                        <Loader2 size={14} className="animate-spin" />
+                        <Loader2 size={13} className="animate-spin" />
                       ) : (
-                        <Save size={14} />
+                        <Save size={13} />
                       )}
                       Salvar
                     </button>
@@ -237,120 +215,119 @@ export function PontuacaoTab() {
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
 
           {/* Pontos */}
-          {(["atividade", "etapa"] as const).map((tipo) => (
-            <div key={tipo} className="rounded-2xl border border-aura-mist bg-white p-5">
-              <p className="font-display text-base font-semibold text-aura-graphite">
-                {tipo === "atividade"
-                  ? "Quanto vale cada atividade"
-                  : "Quanto vale alcançar cada etapa"}
-              </p>
-              <p className="mt-1 text-sm text-aura-graphite-soft">
-                Vale para {mes}. Sem valor próprio no mês, usa o padrão.
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {regrasPorTipo(tipo).map((g) => {
-                  const k = `${g.tipo}:${g.chave}`;
-                  return (
-                    <div
-                      key={k}
-                      className="flex items-center gap-2 rounded-lg border border-aura-mist px-3 py-2"
-                    >
-                      <span className="flex-1 text-sm text-aura-graphite">{g.chave}</span>
-                      {g.mes !== mes && (
-                        <span className="text-xs text-aura-graphite-soft">padrão</span>
-                      )}
-                      <input
-                        type="number"
-                        min={0}
-                        value={pontos[k] ?? ""}
-                        onChange={(e) => setPontos((p) => ({ ...p, [k]: e.target.value }))}
-                        className="w-20 rounded-lg border border-aura-mist px-2 py-1 text-sm outline-none focus:border-aura-petrol-500"
-                      />
-                      <button
-                        type="button"
-                        disabled={salvando === k}
-                        onClick={() =>
-                          void enviar(
-                            {
-                              acao: "regra",
-                              mes,
-                              tipo: g.tipo,
-                              chave: g.chave,
-                              pontos: Number(pontos[k]),
-                            },
-                            k,
-                            `${g.chave}: ${pontos[k]} pontos em ${mes}.`,
-                          )
-                        }
-                        className="rounded-lg bg-aura-petrol-700 px-2.5 py-1 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          <div className="grid gap-6 lg:grid-cols-2">
+            {(["atividade", "etapa"] as const).map((tipo) => (
+              <Card key={tipo}>
+                <CardHeader
+                  titulo={
+                    tipo === "atividade"
+                      ? "Quanto vale cada atividade"
+                      : "Quanto vale alcançar cada etapa"
+                  }
+                  descricao={`Vale para ${mes}. Sem valor próprio no mês, usa o padrão.`}
+                />
+                <div className="flex flex-col gap-1.5">
+                  {regrasPorTipo(tipo).map((g) => {
+                    const k = `${g.tipo}:${g.chave}`;
+                    return (
+                      <div
+                        key={k}
+                        className="flex items-center gap-2 rounded-lg border border-aura-mist px-3 py-1.5"
                       >
-                        {salvando === k ? "…" : "ok"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+                        <span className="flex-1 text-sm text-aura-graphite">{g.chave}</span>
+                        {g.mes !== mes && <Selo tom="neutro">padrão</Selo>}
+                        <input
+                          type="number"
+                          min={0}
+                          value={pontos[k] ?? ""}
+                          onChange={(e) => setPontos((p) => ({ ...p, [k]: e.target.value }))}
+                          className="aura-input h-8 w-20 px-2 text-right tabular-nums"
+                        />
+                        <button
+                          type="button"
+                          disabled={salvando === k}
+                          onClick={() =>
+                            void enviar(
+                              {
+                                acao: "regra",
+                                mes,
+                                tipo: g.tipo,
+                                chave: g.chave,
+                                pontos: Number(pontos[k]),
+                              },
+                              k,
+                              `${g.chave}: ${pontos[k]} pontos em ${mes}.`,
+                            )
+                          }
+                          className={classeBotao("secundario", "sm", "w-10")}
+                        >
+                          {salvando === k ? "…" : "ok"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ))}
+          </div>
 
           {/* Acumulado do ano */}
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="flex items-center gap-2 font-display text-base font-semibold text-aura-graphite">
-              <Award size={17} className="text-aura-gold" />
-              Acumulado de {d.ano}
-            </p>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
-              É este placar que decide o prêmio maior do fim do ano.
-            </p>
+          <Card>
+            <CardHeader
+              titulo={`Acumulado de ${d.ano}`}
+              descricao="É este placar que decide o prêmio maior do fim do ano."
+              icone={Award}
+              corIcone="text-aura-gold-700"
+            />
             {d.anual.length === 0 ? (
-              <p className="mt-4 text-sm text-aura-graphite-soft">Sem pontos no ano ainda.</p>
+              <EstadoVazio titulo="Sem pontos no ano ainda." />
             ) : (
-              <ol className="mt-4 space-y-2">
+              <ol className="divide-y divide-aura-mist rounded-lg border border-aura-mist">
                 {d.anual.map((a, i) => (
                   <li
                     key={a.id}
-                    className="flex items-center gap-3 rounded-xl border border-aura-mist px-3 py-2"
+                    className="flex items-center gap-3 px-3 py-2.5"
                   >
                     <span
-                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                      className={`flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold tabular-nums ${
                         i === 0
-                          ? "bg-aura-gold text-aura-graphite"
-                          : "bg-aura-mist text-aura-graphite-soft"
+                          ? "bg-aura-gold/20 text-aura-gold-700"
+                          : "bg-aura-sunken text-aura-graphite-soft"
                       }`}
                     >
                       {i + 1}
                     </span>
                     <span className="flex-1 text-sm font-medium text-aura-graphite">{a.nome}</span>
-                    <span className="text-sm text-aura-graphite-soft">
+                    <span className="text-xs text-aura-graphite-soft">
                       {a.atividades} atividades · {a.meses}{" "}
                       {a.meses === 1 ? "mês" : "meses"}
                     </span>
-                    <span className="font-display text-base font-bold text-aura-graphite">
+                    <span className="font-display text-sm font-semibold tabular-nums text-aura-graphite">
                       {a.pontos} pts
                     </span>
                   </li>
                 ))}
               </ol>
             )}
-          </div>
+          </Card>
 
           {/* Prêmios */}
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <p className="font-display text-base font-semibold text-aura-graphite">Prêmios</p>
-            <div className="mt-4 space-y-4">
+          <Card>
+            <CardHeader titulo="Prêmios" icone={Trophy} corIcone="text-aura-gold-700" />
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Brinde de {mes}
                 </label>
-                <div className="mt-1.5 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     value={premioMes}
                     onChange={(e) => setPremioMes(e.target.value)}
                     placeholder="Jantar para dois, hospedagem…"
-                    className="min-w-[200px] flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+                    className="aura-input min-w-[200px] flex-1"
                   />
                   <button
                     type="button"
@@ -370,7 +347,7 @@ export function PontuacaoTab() {
                         "Brinde do mês salvo.",
                       )
                     }
-                    className="rounded-lg bg-aura-gold px-4 py-2 text-sm font-medium text-aura-graphite transition hover:opacity-90 disabled:opacity-50"
+                    className={classeBotao("primario")}
                   >
                     {salvando === "premio-mes" ? "…" : "Salvar"}
                   </button>
@@ -384,15 +361,15 @@ export function PontuacaoTab() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Prêmio de {d.ano}
                 </label>
-                <div className="mt-1.5 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <input
                     value={premioAno}
                     onChange={(e) => setPremioAno(e.target.value)}
                     placeholder="A definir com o gestor de equipes"
-                    className="min-w-[200px] flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+                    className="aura-input min-w-[200px] flex-1"
                   />
                   <button
                     type="button"
@@ -410,7 +387,7 @@ export function PontuacaoTab() {
                         "Prêmio do ano salvo.",
                       )
                     }
-                    className="rounded-lg bg-aura-gold px-4 py-2 text-sm font-medium text-aura-graphite transition hover:opacity-90 disabled:opacity-50"
+                    className={classeBotao("primario")}
                   >
                     {salvando === "premio-ano" ? "…" : "Salvar"}
                   </button>
@@ -437,7 +414,7 @@ export function PontuacaoTab() {
                 ))}
               </ul>
             )}
-          </div>
+          </Card>
         </>
       )}
     </div>

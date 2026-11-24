@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { BotaoLink, classeBotao } from "@/components/ui";
 import { TIPOS_ATIVIDADE, type ActivityTypeId } from "./activity-types";
 import { VisitaForm } from "./visita-form";
 import { VendaForm } from "./venda-form";
@@ -32,13 +32,13 @@ export function RegistrarAtividadeFlow() {
   const tipoInfo = TIPOS_ATIVIDADE.find((t) => t.id === tipoSelecionado);
 
   return (
-    <div className="mx-auto w-full max-w-xl">
+    <div className="w-full">
       {etapa === "tipo" && (
-        <div className="rounded-2xl border border-aura-mist bg-white p-6 sm:p-8">
-          <p className="text-center font-display text-xl font-semibold text-aura-graphite">
+        <div className="aura-card p-5 sm:p-6">
+          <p className="text-base font-semibold text-aura-graphite">
             O que você fez agora?
           </p>
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             {TIPOS_ATIVIDADE.map((tipo) => {
               const Icon = tipo.icon;
               return (
@@ -46,10 +46,10 @@ export function RegistrarAtividadeFlow() {
                   key={tipo.id}
                   type="button"
                   onClick={() => selecionarTipo(tipo.id)}
-                  className="flex flex-col items-center gap-2.5 rounded-xl border border-aura-mist bg-white px-3 py-5 transition hover:border-aura-petrol-500 hover:bg-aura-petrol-700/5"
+                  className="aura-card aura-card-interativo group flex flex-col items-center gap-2.5 px-3 py-5 focus-visible:outline-2 focus-visible:outline-aura-petrol-500"
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-aura-petrol-700/10 text-aura-petrol-700">
-                    <Icon size={20} />
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-aura-sunken text-aura-graphite-soft transition group-hover:bg-aura-petrol-500/10 group-hover:text-aura-petrol-600">
+                    <Icon size={18} />
                   </span>
                   <span className="text-sm font-medium text-aura-graphite">
                     {tipo.label}
@@ -62,20 +62,20 @@ export function RegistrarAtividadeFlow() {
       )}
 
       {etapa === "form" && tipoInfo && (
-        <div className="rounded-2xl border border-aura-mist bg-white p-6 sm:p-8">
-          <div className="mb-6 flex items-center gap-3">
+        <div className="aura-card p-5 sm:p-6">
+          <div className="mb-5 flex items-center gap-3 border-b border-aura-mist pb-4">
             <button
               type="button"
               onClick={() => setEtapa("tipo")}
               aria-label="Voltar"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-aura-graphite-soft hover:bg-aura-bg hover:text-aura-graphite"
+              className={classeBotao("fantasma", "sm", "w-8 px-0")}
             >
-              <ArrowLeft size={17} />
+              <ArrowLeft size={16} />
             </button>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-aura-petrol-700/10 text-aura-petrol-700">
-              <tipoInfo.icon size={17} />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aura-petrol-500/10 text-aura-petrol-600">
+              <tipoInfo.icon size={16} />
             </span>
-            <p className="font-display text-lg font-semibold text-aura-graphite">
+            <p className="text-base font-semibold text-aura-graphite">
               {tipoInfo.label}
             </p>
           </div>
@@ -92,9 +92,9 @@ export function RegistrarAtividadeFlow() {
       )}
 
       {etapa === "concluido" && tipoInfo && (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-aura-mist bg-white p-10 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-aura-success/10 text-aura-success">
-            <CheckCircle2 size={28} />
+        <div className="aura-card flex flex-col items-center gap-4 p-8 text-center sm:p-10">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-aura-success/10 text-aura-success">
+            <CheckCircle2 size={24} />
           </span>
           <div>
             <p className="font-display text-lg font-semibold text-aura-graphite">
@@ -106,19 +106,12 @@ export function RegistrarAtividadeFlow() {
             </p>
           </div>
           <div className="mt-2 flex flex-col gap-2.5 sm:flex-row">
-            <button
-              type="button"
-              onClick={registrarOutra}
-              className="rounded-xl border border-aura-mist px-5 py-2.5 text-sm font-medium text-aura-graphite hover:bg-aura-bg"
-            >
+            <button type="button" onClick={registrarOutra} className={classeBotao("secundario")}>
               Registrar outra atividade
             </button>
-            <Link
-              href="/meu-dia"
-              className="rounded-xl bg-aura-petrol-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-aura-petrol-600"
-            >
+            <BotaoLink href="/meu-dia" variante="primario">
               Voltar para Meu Dia
-            </Link>
+            </BotaoLink>
           </div>
         </div>
       )}

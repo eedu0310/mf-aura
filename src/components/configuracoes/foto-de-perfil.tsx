@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { Camera, Loader2, Trash2 } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
+import { classeBotao } from "@/components/ui";
 
 /** Recorta o quadrado do meio e reduz para 400 px: foto leve e sempre redonda certinha. */
 async function prepararFoto(arquivo: File): Promise<Blob> {
@@ -85,7 +86,7 @@ export function FotoDePerfil() {
           foto={profile.fotoUrl}
           iniciais={profile.avatarIniciais}
           alt={profile.nome}
-          className="h-16 w-16 bg-aura-petrol-700/10 font-display text-lg font-semibold text-aura-petrol-700"
+          className="h-16 w-16 bg-aura-petrol-500/10 font-display text-lg font-semibold text-aura-petrol-600"
         />
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
           {ocupado ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
@@ -97,7 +98,7 @@ export function FotoDePerfil() {
             type="button"
             onClick={() => entrada.current?.click()}
             disabled={ocupado}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+            className={classeBotao("secundario", "sm")}
           >
             {ocupado ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
             {profile.fotoUrl ? "Trocar foto" : "Colocar foto"}
@@ -107,7 +108,7 @@ export function FotoDePerfil() {
               type="button"
               onClick={() => void tirar()}
               disabled={ocupado}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-aura-graphite-soft hover:text-aura-danger disabled:opacity-60"
+              className={classeBotao("fantasma", "sm", "hover:text-aura-danger")}
             >
               <Trash2 size={14} /> Tirar
             </button>

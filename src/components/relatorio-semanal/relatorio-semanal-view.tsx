@@ -14,12 +14,21 @@ import {
   Target,
   TrendingUp,
   Users,
+  CalendarRange,
 } from "lucide-react";
 import type { RelatorioSemanal, VendedorNoRelatorio } from "@/lib/relatorio-semanal/gerar";
+import { Alerta, EstadoVazio, classeBotao } from "@/components/ui";
 
-/* Mesma paleta do Relatório do Período, para os dois relatórios parecerem
-   do mesmo sistema quando o gestor imprime os dois juntos. */
-const COR = { serie: "#2a78d6", serie2: "#1baf7a", alerta: "#c2410c", grade: "#e7e5e4", texto: "#52514e" };
+/* Paleta do tema (petrol da marca, verde de acerto, vermelho de alerta), para
+   o relatório ficar legível no claro e no escuro. O texto dos eixos herda a
+   cor do invólucro (text-aura-graphite-soft) por currentColor. */
+const COR = {
+  serie: "#138780",
+  serie2: "var(--aura-success)",
+  alerta: "var(--aura-danger)",
+  grade: "var(--aura-mist)",
+  texto: "currentColor",
+};
 
 interface Periodo {
   periodo_inicio: string;
@@ -65,13 +74,13 @@ function Numero({
   sub?: string;
 }) {
   return (
-    <div className="rounded-xl border border-aura-mist bg-white p-3" data-cartao>
+    <div className="aura-card p-4" data-cartao>
       <div className="flex items-center gap-1.5 text-aura-graphite-soft">
         {icone}
-        <span className="text-[11px] font-medium uppercase tracking-wide">{label}</span>
+        <span className="aura-rotulo truncate">{label}</span>
       </div>
-      <p className="mt-1 font-display text-xl font-semibold text-aura-graphite">{valor}</p>
-      {sub ? <p className="text-[11px] text-aura-graphite-soft">{sub}</p> : null}
+      <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-aura-graphite">{valor}</p>
+      {sub ? <p className="mt-0.5 text-xs text-aura-graphite-soft">{sub}</p> : null}
     </div>
   );
 }
@@ -86,7 +95,7 @@ function Cartao({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-aura-mist bg-white p-4 ${className}`} data-cartao>
+    <section className={`aura-card p-5 ${className}`} data-cartao>
       <h3 className="mb-3 text-sm font-semibold text-aura-graphite">{titulo}</h3>
       {children}
     </section>
@@ -138,7 +147,7 @@ function Barras({
 function Dica({ active, payload, label, formato }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-aura-mist bg-white px-2.5 py-1.5 text-xs shadow-sm">
+    <div className="rounded-lg border border-aura-mist bg-aura-surface px-2.5 py-1.5 text-xs shadow-lg">
       <p className="font-medium text-aura-graphite">{label}</p>
       {payload.map((p: any) => (
         <p key={p.dataKey} className="text-aura-graphite-soft">
@@ -159,7 +168,7 @@ function CabecalhoImpressao({ r }: { r: RelatorioSemanal }) {
             "semanal" faria o gestor comparar números de 1 dia com a meta de
             uma semana sem perceber.
           */}
-          <p className="font-display text-xl font-bold text-aura-graphite">
+          <p className="font-display text-xl font-semibold text-aura-graphite">
             {r.periodoInicio === r.periodoFim
               ? "Relatório do dia"
               : diasEntre(r.periodoInicio, r.periodoFim) >= 6
@@ -200,7 +209,7 @@ function Avaliacao({ v }: { v: VendedorNoRelatorio }) {
 
   if (a.semDados) {
     return (
-      <div className="rounded-lg border border-aura-mist bg-aura-bg px-3 py-2 text-xs text-aura-graphite-soft">
+      <div className="rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 text-xs text-aura-graphite-soft">
         {a.resumo}
       </div>
     );
@@ -212,7 +221,7 @@ function Avaliacao({ v }: { v: VendedorNoRelatorio }) {
 
       {a.acertos.length ? (
         <div>
-          <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+          <p className="aura-rotulo mb-1 flex items-center gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5" style={{ color: COR.serie2 }} />
             Fez certo
           </p>
@@ -229,7 +238,7 @@ function Avaliacao({ v }: { v: VendedorNoRelatorio }) {
 
       {a.erros.length ? (
         <div>
-          <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+          <p className="aura-rotulo mb-1 flex items-center gap-1.5">
             <AlertTriangle className="h-3.5 w-3.5" style={{ color: COR.alerta }} />
             Onde errou
           </p>
@@ -251,7 +260,7 @@ function Avaliacao({ v }: { v: VendedorNoRelatorio }) {
 
       {a.comoMelhorar.length ? (
         <div>
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+          <p className="aura-rotulo mb-1">
             Para a semana que vem
           </p>
           <ol className="space-y-1">
@@ -306,7 +315,7 @@ function MetasDoVendedor({ v }: { v: VendedorNoRelatorio }) {
   return (
     <table className="w-full text-xs">
       <thead>
-        <tr className="text-left text-[11px] uppercase tracking-wide text-aura-graphite-soft">
+        <tr className="aura-rotulo text-left">
           <th className="pb-1 font-medium">Item</th>
           <th className="pb-1 text-right font-medium">Semana</th>
           <th className="pb-1 text-right font-medium">Alvo/sem.</th>
@@ -355,8 +364,8 @@ function ProgressoNoMes({ v }: { v: VendedorNoRelatorio }) {
     emReais ? moedaCurta(n) : String(Math.round(n * 100) / 100);
 
   return (
-    <div className="mt-4 rounded-lg border border-aura-mist bg-aura-bg p-3">
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-aura-graphite-soft">
+    <div className="mt-4 rounded-lg border border-aura-mist bg-aura-sunken/60 p-3">
+      <p className="aura-rotulo mb-2">
         Acumulado do mês até {p.apuradoAte.split("-").reverse().join("/")} —{" "}
         {p.diasUteisRestantes} {p.diasUteisRestantes === 1 ? "dia útil restante" : "dias úteis restantes"}
       </p>
@@ -373,7 +382,7 @@ function ProgressoNoMes({ v }: { v: VendedorNoRelatorio }) {
                   <span style={{ color: bateu ? COR.serie2 : COR.alerta }}>({i.percentual}%)</span>
                 </span>
               </div>
-              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white">
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-aura-mist">
                 <div
                   className="h-full rounded-full"
                   style={{ width: `${largura}%`, backgroundColor: bateu ? COR.serie2 : COR.alerta }}
@@ -411,13 +420,13 @@ function ProspeccoesDoVendedor({ v }: { v: VendedorNoRelatorio }) {
   if (!lista) return null; // relatório guardado antes desta lista existir
   const corDoResultado = (r: string) => {
     const t = r.toLowerCase();
-    if (t.startsWith("boa") || t.startsWith("ótima") || t.startsWith("otima")) return "text-emerald-700";
-    if (t.startsWith("sem")) return "text-red-700";
+    if (t.startsWith("boa") || t.startsWith("ótima") || t.startsWith("otima")) return "text-aura-success";
+    if (t.startsWith("sem")) return "text-aura-danger";
     return "text-aura-graphite";
   };
   return (
     <div className="rounded-lg border border-aura-mist p-3 print:break-inside-avoid">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+      <p className="aura-rotulo mb-1">
         Quem ele prospectou ({lista.length})
       </p>
       {lista.length === 0 ? (
@@ -482,8 +491,8 @@ function AgendaDoVendedor({ v }: { v: VendedorNoRelatorio }) {
           ["Realizados", a.realizados, COR.serie2],
           ["Não cumpridos", a.naoCumpridos, a.naoCumpridos ? COR.alerta : undefined],
         ].map(([rotulo, n, cor]) => (
-          <div key={String(rotulo)} className="rounded-lg border border-aura-mist bg-aura-bg p-2">
-            <p className="font-data text-lg font-semibold" style={cor ? { color: String(cor) } : undefined}>
+          <div key={String(rotulo)} className="rounded-lg border border-aura-mist bg-aura-sunken/60 p-2">
+            <p className="font-data text-lg font-semibold text-aura-graphite" style={cor ? { color: String(cor) } : undefined}>
               {String(n)}
             </p>
             <p className="text-[10px] leading-tight text-aura-graphite-soft">{String(rotulo)}</p>
@@ -537,18 +546,18 @@ function BlocoDoVendedor({
   const [aberto, setAberto] = useState(abertoInicial);
 
   return (
-    <section className="rounded-xl border border-aura-mist bg-white" data-cartao>
+    <section className="aura-card" data-cartao>
       <button
         type="button"
         onClick={() => setAberto((x) => !x)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left print:cursor-auto"
+        className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-aura-sunken/60 print:cursor-auto"
         aria-expanded={aberto}
       >
         <span className="text-aura-graphite-soft print:hidden">
           {aberto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-display text-base font-semibold text-aura-graphite">
+          <span className="block truncate text-sm font-semibold text-aura-graphite">
             {v.nome}
           </span>
           <span className="block text-[11px] text-aura-graphite-soft">{v.cargo}</span>
@@ -566,29 +575,29 @@ function BlocoDoVendedor({
         </span>
         <span className="hidden shrink-0 gap-4 text-right sm:flex print:flex">
           <span>
-            <span className="block text-[10px] uppercase tracking-wide text-aura-graphite-soft">
+            <span className="aura-rotulo block text-[10px]">
               Vendido
             </span>
-            <span className="block text-sm font-semibold text-aura-graphite">
+            <span className="block text-sm font-semibold tabular-nums text-aura-graphite">
               {moedaCurta(v.vendas.valor)}
             </span>
           </span>
           <span>
-            <span className="block text-[10px] uppercase tracking-wide text-aura-graphite-soft">
+            <span className="aura-rotulo block text-[10px]">
               CRM
             </span>
-            <span className="block text-sm font-semibold text-aura-graphite">{v.crm.atividades}</span>
+            <span className="block text-sm font-semibold tabular-nums text-aura-graphite">{v.crm.atividades}</span>
           </span>
           <span>
-            <span className="block text-[10px] uppercase tracking-wide text-aura-graphite-soft">
+            <span className="aura-rotulo block text-[10px]">
               Conversas
             </span>
-            <span className="block text-sm font-semibold text-aura-graphite">
+            <span className="block text-sm font-semibold tabular-nums text-aura-graphite">
               {v.atendimento.conversasAtivas}
             </span>
           </span>
           <span>
-            <span className="block text-[10px] uppercase tracking-wide text-aura-graphite-soft">
+            <span className="aura-rotulo block text-[10px]">
               Alertas
             </span>
             <span
@@ -614,7 +623,7 @@ function BlocoDoVendedor({
       >
           <div className="grid gap-4 lg:grid-cols-2 print:grid-cols-2">
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+              <p className="aura-rotulo mb-2">
                 O que ele fez no CRM
               </p>
               <Barras itens={v.crm.porTipo.map((t) => ({ rotulo: t.tipo, valor: t.n }))} />
@@ -625,7 +634,7 @@ function BlocoDoVendedor({
             </div>
 
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+              <p className="aura-rotulo mb-2">
                 Prospecção por tipo de cliente
               </p>
               <Barras
@@ -641,7 +650,7 @@ function BlocoDoVendedor({
             </div>
 
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+              <p className="aura-rotulo mb-2">
                 Pipeline dele
               </p>
               <Barras
@@ -663,14 +672,14 @@ function BlocoDoVendedor({
             </div>
 
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+              <p className="aura-rotulo mb-2">
                 Agenda da semana
               </p>
               <AgendaDoVendedor v={v} />
             </div>
 
             <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+              <p className="aura-rotulo mb-2">
                 Meta do mês contra a semana
               </p>
               <MetasDoVendedor v={v} />
@@ -680,8 +689,8 @@ function BlocoDoVendedor({
 
           <ProspeccoesDoVendedor v={v} />
 
-          <div className="rounded-lg border border-aura-mist bg-aura-bg p-3">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-aura-graphite-soft">
+          <div className="rounded-lg border border-aura-mist bg-aura-sunken/60 p-3">
+            <p className="aura-rotulo mb-2 flex items-center gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" />
               Atendimento no WhatsApp
             </p>
@@ -879,7 +888,7 @@ export function RelatorioSemanalView() {
               setLoja(e.target.value);
               setPeriodo(null);
             }}
-            className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
+            className="aura-input w-auto"
             aria-label="Loja"
           >
             {dados.lojas.map((l) => (
@@ -894,7 +903,7 @@ export function RelatorioSemanalView() {
           <select
             value={periodo ?? `${dados.periodos[0].periodo_inicio}|${dados.periodos[0].periodo_fim}`}
             onChange={(e) => setPeriodo(e.target.value)}
-            className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
+            className="aura-input w-auto"
             aria-label="Período"
           >
             {dados.periodos.map((p) => (
@@ -913,7 +922,7 @@ export function RelatorioSemanalView() {
               type="button"
               onClick={() => setMenuGerar((v) => !v)}
               disabled={gerando}
-              className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite hover:bg-aura-bg disabled:opacity-60"
+              className={classeBotao("secundario")}
             >
               {gerando ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -923,7 +932,7 @@ export function RelatorioSemanalView() {
               {gerando ? "Gerando..." : "Gerar relatório"}
             </button>
             {menuGerar && !gerando && (
-              <div className="absolute left-0 top-10 z-30 w-52 rounded-xl border border-aura-mist bg-white py-1 shadow-xl">
+              <div className="absolute left-0 top-11 z-30 w-52 aura-card rounded-xl py-1 shadow-xl">
                 {(
                   [
                     ["hoje", "Hoje"],
@@ -936,7 +945,7 @@ export function RelatorioSemanalView() {
                     key={chave}
                     type="button"
                     onClick={() => void gerarJanela(chave)}
-                    className="block w-full px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-bg"
+                    className="block w-full px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-sunken"
                   >
                     {rotulo}
                   </button>
@@ -953,7 +962,7 @@ export function RelatorioSemanalView() {
           <button
             type="button"
             onClick={imprimir}
-            className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3 py-1.5 text-sm text-white hover:bg-aura-petrol-600"
+            className={classeBotao("primario")}
           >
             <Printer className="h-4 w-4" />
             Imprimir / PDF
@@ -961,11 +970,7 @@ export function RelatorioSemanalView() {
         ) : null}
       </div>
 
-      {erro ? (
-        <p className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-800">
-          {erro}
-        </p>
-      ) : null}
+      {erro ? <Alerta tom="perigo" titulo={erro} /> : null}
 
       {dados?.textoAntigo ? (
         <Cartao titulo="Relatório desta semana (formato antigo)">
@@ -976,13 +981,16 @@ export function RelatorioSemanalView() {
       ) : null}
 
       {!r && !dados?.textoAntigo && !erro ? (
-        <div className="rounded-xl border border-aura-mist bg-white px-4 py-8 text-center" data-cartao>
-          <p className="text-sm text-aura-graphite">Nenhum relatório semanal gerado ainda.</p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">
-            O relatório é gerado automaticamente todo sábado às 16h.
-            {dados?.podeGerar ? " Você também pode gerar o desta semana agora, pelo botão acima." : ""}
-          </p>
-        </div>
+        <EstadoVazio
+          icone={CalendarRange}
+          titulo="Nenhum relatório semanal gerado ainda."
+          descricao={
+            <>
+              O relatório é gerado automaticamente todo sábado às 16h.
+              {dados?.podeGerar ? " Você também pode gerar o desta semana agora, pelo botão acima." : ""}
+            </>
+          }
+        />
       ) : null}
 
       {r ? (
@@ -1033,7 +1041,7 @@ export function RelatorioSemanalView() {
 
           <div className="grid gap-4 lg:grid-cols-2 print:grid-cols-2">
             <Cartao titulo="Vendido por vendedor na semana">
-              <div className="h-56">
+              <div className="h-56 text-aura-graphite-soft">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={porVendedor} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={COR.grade} vertical={false} />
@@ -1054,7 +1062,7 @@ export function RelatorioSemanalView() {
             </Cartao>
 
             <Cartao titulo="Prospecção da loja por tipo de cliente">
-              <div className="h-56">
+              <div className="h-56 text-aura-graphite-soft">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={prospeccaoDaLoja}
@@ -1083,7 +1091,7 @@ export function RelatorioSemanalView() {
             </Cartao>
 
             <Cartao titulo="Atividades no CRM por vendedor">
-              <div className="h-56">
+              <div className="h-56 text-aura-graphite-soft">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={porVendedor} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={COR.grade} vertical={false} />
@@ -1099,7 +1107,7 @@ export function RelatorioSemanalView() {
             </Cartao>
 
             <Cartao titulo="Conversas e alertas por vendedor">
-              <div className="h-56">
+              <div className="h-56 text-aura-graphite-soft">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={porVendedor} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={COR.grade} vertical={false} />

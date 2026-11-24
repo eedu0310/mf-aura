@@ -137,13 +137,13 @@ function VigiaLogado({ empresa }: { empresa: string }) {
   return (
     <div
       role="status"
-      className="fixed bottom-24 right-4 z-[90] flex w-[min(360px,calc(100vw-2rem))] items-start gap-3 rounded-2xl border border-aura-mist bg-white p-4 shadow-xl lg:bottom-6"
+      className="fixed bottom-24 right-4 z-[90] flex w-[min(360px,calc(100vw-2rem))] items-start gap-3 aura-card p-4 shadow-xl lg:bottom-6"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#CD1C1B] text-white">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-aura-danger/10 text-aura-danger">
         <MessageCircle size={18} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-aura-graphite-soft">Chat do site da MF</p>
+        <p className="aura-rotulo">Chat do site da MF</p>
         <p className="truncate text-sm font-semibold text-aura-graphite">{aviso.nome}</p>
         <p className="line-clamp-2 text-sm text-aura-graphite-soft">{aviso.texto}</p>
         <button
@@ -152,12 +152,12 @@ function VigiaLogado({ empresa }: { empresa: string }) {
             setAviso(null);
             router.push(`/site-mf?conversa=${aviso.id}`);
           }}
-          className="mt-2 min-h-9 rounded-full bg-aura-petrol-700 px-4 text-xs font-medium text-white hover:bg-aura-petrol-600"
+          className="mt-2 aura-btn aura-btn-primario aura-btn-sm"
         >
           Responder agora
         </button>
       </div>
-      <button type="button" onClick={() => setAviso(null)} aria-label="Fechar aviso" className="rounded-full p-1.5 text-aura-graphite-soft hover:bg-aura-bg">
+      <button type="button" onClick={() => setAviso(null)} aria-label="Fechar aviso" className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
         <X size={16} />
       </button>
     </div>

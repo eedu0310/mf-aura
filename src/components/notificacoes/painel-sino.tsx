@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BellOff } from "lucide-react";
 import type { Sino } from "@/lib/use-sino";
 
 function quandoFoi(iso: string): string {
@@ -26,42 +27,50 @@ export function PainelDoSino({ sino, aoFechar, className }: { sino: Sino; aoFech
 
   return (
     <div className={className}>
-      <p className="border-b border-aura-mist px-4 py-3 text-sm font-medium text-aura-graphite">Notificações</p>
+      <div className="flex items-center justify-between border-b border-aura-mist px-4 py-3">
+        <p className="text-sm font-semibold text-aura-graphite">Notificações</p>
+        {novos.size > 0 && <span className="aura-selo aura-selo-marca tabular-nums">{novos.size}</span>}
+      </div>
       {vazio ? (
-        <p className="px-4 py-6 text-center text-xs text-aura-graphite-soft">Nada pendente agora.</p>
+        <div className="flex flex-col items-center px-4 py-8 text-center">
+          <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-aura-sunken">
+            <BellOff size={16} className="text-aura-graphite-soft" />
+          </span>
+          <p className="text-xs text-aura-graphite-soft">Nada pendente agora.</p>
+        </div>
       ) : (
-        <ul className="max-h-80 overflow-y-auto">
+        <ul className="max-h-96 divide-y divide-aura-mist overflow-y-auto">
           {lembretes.map((n) => (
-            <li key={`l-${n.id}`} className="border-b border-aura-mist last:border-b-0">
+            <li key={`l-${n.id}`}>
               <Link
                 href={n.href ?? `/relacionamentos?buscar=${encodeURIComponent(n.titulo.split("· ")[1] ?? "")}`}
                 onClick={aoFechar}
-                className="block px-4 py-3 hover:bg-aura-bg"
+                className="block px-4 py-3 transition hover:bg-aura-sunken"
               >
                 <p className="text-sm font-medium text-aura-graphite">{n.titulo}</p>
-                <p className={`mt-1 text-xs font-medium ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p>
+                <p className={`mt-0.5 text-xs font-medium ${n.urgente ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{n.quando}</p>
               </Link>
             </li>
           ))}
           {avisos.map((a) => {
             const novo = novos.has(a.id);
             return (
-              <li key={a.id} className="border-b border-aura-mist last:border-b-0">
+              <li key={a.id}>
                 <Link
                   href={a.acaoUrl || "/meu-dia"}
                   onClick={aoFechar}
-                  className={`flex gap-2.5 px-4 py-3 hover:bg-aura-bg ${novo ? "bg-aura-petrol-700/5" : ""}`}
+                  className={`flex gap-2.5 px-4 py-3 transition hover:bg-aura-sunken ${novo ? "bg-aura-petrol-500/[0.06]" : ""}`}
                 >
                   <span
                     aria-hidden
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${novo ? "bg-aura-danger" : "bg-transparent"}`}
+                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${novo ? "bg-aura-petrol-500" : "bg-transparent"}`}
                   />
                   <span className="min-w-0">
                     <span className={`block text-sm ${novo ? "font-semibold text-aura-graphite" : "font-medium text-aura-graphite-soft"}`}>
                       {a.titulo}
                     </span>
-                    <span className="mt-1 block text-xs text-aura-graphite-soft">{a.mensagem}</span>
-                    <span className="mt-1 block text-[0.7rem] text-aura-graphite-soft/80">{quandoFoi(a.criadaEm)}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-aura-graphite-soft">{a.mensagem}</span>
+                    <span className="mt-1 block text-[0.7rem] tabular-nums text-aura-graphite-soft/80">{quandoFoi(a.criadaEm)}</span>
                   </span>
                 </Link>
               </li>

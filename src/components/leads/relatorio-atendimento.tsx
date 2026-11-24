@@ -26,6 +26,7 @@ import {
   type SituacaoAtendimento,
 } from "@/lib/leads/atendimento";
 import { exportarAtendimentoExcel } from "@/lib/leads/exportar-atendimento";
+import { StatCard, classeBotao } from "@/components/ui";
 
 const ATALHOS: { valor: AtalhoPeriodo; texto: string }[] = [
   { valor: "hoje", texto: "Hoje" },
@@ -137,7 +138,7 @@ export function RelatorioAtendimento({
           <select
             value={atalho}
             onChange={(e) => escolherAtalho(e.target.value as AtalhoPeriodo)}
-            className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
+            className="aura-input w-auto"
           >
             {ATALHOS.map((a) => (
               <option key={a.valor} value={a.valor}>{a.texto}</option>
@@ -148,11 +149,11 @@ export function RelatorioAtendimento({
           <>
             <label className="flex flex-col gap-1 text-xs text-aura-graphite-soft">
               De
-              <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite" />
+              <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="aura-input w-auto" />
             </label>
             <label className="flex flex-col gap-1 text-xs text-aura-graphite-soft">
               Até
-              <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite" />
+              <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="aura-input w-auto" />
             </label>
           </>
         )}
@@ -161,7 +162,7 @@ export function RelatorioAtendimento({
             type="button"
             onClick={() => window.print()}
             disabled={!atividades}
-            className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3.5 py-1.5 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-50"
+            className={classeBotao("secundario")}
           >
             <Printer size={14} />
             Imprimir ou PDF
@@ -170,7 +171,7 @@ export function RelatorioAtendimento({
             type="button"
             onClick={baixarExcel}
             disabled={!atividades || gerandoExcel}
-            className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+            className={classeBotao("primario")}
           >
             {gerandoExcel ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             Baixar Excel
@@ -213,40 +214,40 @@ export function RelatorioAtendimento({
             {" · "}Perdidos: <strong className="text-aura-graphite">{total.perdidos}</strong>
           </p>
 
-          <section className="rounded-2xl border border-aura-mist bg-white p-4" data-cartao>
-            <h2 className="mb-3 text-sm font-semibold text-aura-graphite">Por vendedor</h2>
+          <section className="aura-card overflow-hidden" data-cartao>
+            <h2 className="border-b border-aura-mist px-4 py-3 text-sm font-semibold text-aura-graphite">Por vendedor</h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-xs">
+              <table className="aura-tabela min-w-[640px]">
                 <thead>
-                  <tr className="border-b border-aura-mist text-left text-aura-graphite-soft">
-                    <th className="py-2 pr-3 font-medium">Vendedor</th>
-                    <th className="py-2 pr-3 text-right font-medium">Recebidos</th>
-                    <th className="py-2 pr-3 text-right font-medium">Atendidos</th>
-                    <th className="py-2 pr-3 text-right font-medium">No prazo</th>
-                    <th className="py-2 pr-3 text-right font-medium">Fora do prazo</th>
-                    <th className="py-2 pr-3 text-right font-medium">Sem atendimento</th>
-                    <th className="py-2 pr-3 text-right font-medium">Perdidos</th>
-                    <th className="py-2 text-right font-medium">Tempo até atender</th>
+                  <tr>
+                    <th>Vendedor</th>
+                    <th className="text-right">Recebidos</th>
+                    <th className="text-right">Atendidos</th>
+                    <th className="text-right">No prazo</th>
+                    <th className="text-right">Fora do prazo</th>
+                    <th className="text-right">Sem atendimento</th>
+                    <th className="text-right">Perdidos</th>
+                    <th className="text-right">Tempo até atender</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...porVendedor, total].map((r) => (
-                    <tr key={r.chave} className={`border-b border-aura-mist/60 ${r.chave === "total" ? "font-semibold" : ""}`}>
-                      <td className="py-2 pr-3 text-aura-graphite">{r.nome}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{r.recebidos}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
+                    <tr key={r.chave} className={r.chave === "total" ? "font-semibold" : ""}>
+                      <td className="text-aura-graphite">{r.nome}</td>
+                      <td className="text-right tabular-nums">{r.recebidos}</td>
+                      <td className="text-right tabular-nums">
                         {r.atendidos} <span className="text-aura-graphite-soft">({porcentagem(r.atendidos, r.recebidos)})</span>
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
+                      <td className="text-right tabular-nums">
                         {r.noPrazo} <span className="text-aura-graphite-soft">({porcentagem(r.noPrazo, r.recebidos)})</span>
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{r.foraDoPrazo}</td>
-                      <td className={`py-2 pr-3 text-right tabular-nums ${r.atrasados ? "text-aura-danger" : ""}`}>
+                      <td className="text-right tabular-nums">{r.foraDoPrazo}</td>
+                      <td className={`text-right tabular-nums ${r.atrasados ? "text-aura-danger" : ""}`}>
                         {r.semAtendimento}
                         {r.atrasados ? <span className="text-aura-graphite-soft"> ({r.atrasados} vencidos)</span> : null}
                       </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{r.perdidos}</td>
-                      <td className="py-2 text-right tabular-nums">{formatarDuracao(r.medianaMinutos)}</td>
+                      <td className="text-right tabular-nums">{r.perdidos}</td>
+                      <td className="text-right tabular-nums">{formatarDuracao(r.medianaMinutos)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -254,42 +255,42 @@ export function RelatorioAtendimento({
             </div>
           </section>
 
-          <section className="rounded-2xl border border-aura-mist bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-aura-graphite">Lead por lead ({linhas.length})</h2>
+          <section className="aura-card overflow-hidden">
+            <h2 className="border-b border-aura-mist px-4 py-3 text-sm font-semibold text-aura-graphite">Lead por lead ({linhas.length})</h2>
             {linhas.length === 0 ? (
               <p className="py-6 text-center text-sm text-aura-graphite-soft">Nenhum lead chegou neste período com esses filtros.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-xs">
+                <table className="aura-tabela min-w-[760px]">
                   <thead>
-                    <tr className="border-b border-aura-mist text-left text-aura-graphite-soft">
-                      <th className="py-2 pr-3 font-medium">Chegou</th>
-                      <th className="py-2 pr-3 font-medium">Cliente</th>
-                      <th className="py-2 pr-3 font-medium">Vendedor</th>
-                      <th className="py-2 pr-3 font-medium">Origem</th>
-                      <th className="py-2 pr-3 font-medium">Atendido em</th>
-                      <th className="py-2 pr-3 text-right font-medium">Levou</th>
-                      <th className="py-2 pr-3 font-medium">Como</th>
-                      <th className="py-2 font-medium">Situação</th>
+                    <tr>
+                      <th>Chegou</th>
+                      <th>Cliente</th>
+                      <th>Vendedor</th>
+                      <th>Origem</th>
+                      <th>Atendido em</th>
+                      <th className="text-right">Levou</th>
+                      <th>Como</th>
+                      <th>Situação</th>
                     </tr>
                   </thead>
                   <tbody>
                     {linhas.map((l) => (
-                      <tr key={l.lead.id} className="border-b border-aura-mist/60 align-top">
-                        <td className="whitespace-nowrap py-2 pr-3 tabular-nums">{dataHoraBR(l.chegouEm)}</td>
-                        <td className="py-2 pr-3">
+                      <tr key={l.lead.id} className="align-top">
+                        <td className="whitespace-nowrap tabular-nums">{dataHoraBR(l.chegouEm)}</td>
+                        <td>
                           <span className="text-aura-graphite">{l.lead.nome || "Contato novo"}</span>
                           <span className="block text-aura-graphite-soft">{l.lead.telefone}</span>
                         </td>
-                        <td className="py-2 pr-3">
+                        <td>
                           {l.vendedor}
                           <span className="block text-aura-graphite-soft">{l.lead.empresa}</span>
                         </td>
-                        <td className="py-2 pr-3">{l.lead.origem}</td>
-                        <td className="whitespace-nowrap py-2 pr-3 tabular-nums">{dataHoraBR(l.atendidoEm)}</td>
-                        <td className="whitespace-nowrap py-2 pr-3 text-right tabular-nums">{formatarDuracao(l.minutosAteAtender)}</td>
-                        <td className="py-2 pr-3">{l.como ?? "—"}</td>
-                        <td className={`py-2 ${COR_SITUACAO[l.situacao]}`}>
+                        <td>{l.lead.origem}</td>
+                        <td className="whitespace-nowrap tabular-nums">{dataHoraBR(l.atendidoEm)}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{formatarDuracao(l.minutosAteAtender)}</td>
+                        <td>{l.como ?? "—"}</td>
+                        <td className={COR_SITUACAO[l.situacao]}>
                           {SITUACAO_TEXTO[l.situacao]}
                           {l.lead.motivoPerda ? <span className="block text-aura-graphite-soft">Motivo: {l.lead.motivoPerda}</span> : null}
                         </td>
@@ -316,10 +317,12 @@ export function RelatorioAtendimento({
 
 function Cartao({ rotulo, valor, detalhe, alerta }: { rotulo: string; valor: string; detalhe?: string; alerta?: boolean }) {
   return (
-    <div className={`rounded-2xl border bg-white p-4 ${alerta ? "border-aura-danger/40" : "border-aura-mist"}`}>
-      <p className="text-xs text-aura-graphite-soft">{rotulo}</p>
-      <p className={`font-display text-2xl font-semibold tabular-nums ${alerta ? "text-aura-danger" : "text-aura-graphite"}`}>{valor}</p>
-      {detalhe && <p className="text-[11px] text-aura-graphite-soft">{detalhe}</p>}
-    </div>
+    <StatCard
+      rotulo={rotulo}
+      valor={valor}
+      detalhe={detalhe}
+      tom={alerta ? "perigo" : "neutro"}
+      className={alerta ? "border-aura-danger/40" : undefined}
+    />
   );
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ListPlus, Loader2, Plus, Trash2 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { classeBotao } from "@/components/ui";
 
 /**
  * Linhas que o gestor acrescenta na planilha mensal do vendedor.
@@ -91,12 +92,14 @@ export function PlanilhaLinhasCard() {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-6">
+    <div className="aura-card p-5">
       <div className="flex items-start gap-3">
-        <ListPlus size={18} className="mt-0.5 shrink-0 text-aura-petrol-600" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <ListPlus size={16} className="text-aura-petrol-600" />
+        </span>
         <div>
-          <p className="text-lg font-semibold text-aura-graphite">Linhas da planilha</p>
-          <p className="mt-0.5 text-sm text-aura-graphite-soft">
+          <p className="text-sm font-semibold text-aura-graphite">Linhas da planilha</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-aura-graphite-soft">
             As nove linhas padrão vêm de fábrica. Aqui você acrescenta o que a sua loja
             também quer medir — a linha aparece na planilha de todo mundo da {profile.empresa}.
           </p>
@@ -112,13 +115,13 @@ export function PlanilhaLinhasCard() {
           }}
           placeholder="Ex.: Visitas a arquitetos"
           maxLength={80}
-          className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-600"
+          className="aura-input flex-1"
         />
         <button
           type="button"
           onClick={() => void acrescentar()}
           disabled={salvando || !titulo.trim()}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
+          className={classeBotao("primario")}
         >
           {salvando ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
           Acrescentar
@@ -149,7 +152,7 @@ export function PlanilhaLinhasCard() {
                   <button
                     type="button"
                     onClick={() => void alternar(linha)}
-                    className="rounded-lg border border-aura-mist px-2.5 py-1 text-xs font-medium text-aura-graphite transition hover:bg-aura-bg"
+                    className={classeBotao("secundario", "sm")}
                   >
                     {linha.ativo ? "Desligar" : "Ligar"}
                   </button>
@@ -158,14 +161,14 @@ export function PlanilhaLinhasCard() {
                       <button
                         type="button"
                         onClick={() => void apagar(linha.id)}
-                        className="rounded-lg bg-aura-danger px-2.5 py-1 text-xs font-semibold text-white"
+                        className={classeBotao("perigo", "sm")}
                       >
                         Apagar mesmo
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmando(null)}
-                        className="rounded-lg px-2 py-1 text-xs text-aura-graphite-soft"
+                        className={classeBotao("fantasma", "sm")}
                       >
                         Cancelar
                       </button>

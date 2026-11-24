@@ -92,10 +92,10 @@ export function TravaMetaMensal() {
   const nomeMes = new Date(Date.UTC(ano, m - 1, 15)).toLocaleDateString("pt-BR", { month: "long", timeZone: "UTC" });
 
   return (
-    <div className="fixed inset-0 z-[90] flex flex-col bg-aura-navy-950/95" role="dialog" aria-modal="true" aria-labelledby="trava-meta-titulo">
-      <div className="mx-auto flex w-full max-w-2xl items-start gap-3 px-4 pb-2 pt-6 text-white sm:pt-10">
-        <span className="mt-0.5 rounded-full bg-aura-gold/15 p-2 text-aura-gold" aria-hidden>
-          <Target size={20} />
+    <div className="fixed inset-0 z-[90] flex flex-col bg-aura-navy-950/95 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="trava-meta-titulo">
+      <div className="mx-auto flex w-full max-w-2xl items-start gap-3 px-4 pb-4 pt-6 text-white sm:pt-10">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15 text-aura-gold" aria-hidden>
+          <Target size={18} />
         </span>
         <div className="flex-1">
           <p id="trava-meta-titulo" className="font-display text-lg font-semibold">
@@ -108,7 +108,7 @@ export function TravaMetaMensal() {
         <button
           type="button"
           onClick={sair}
-          className="flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+          className="flex h-8 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-white/80 transition hover:bg-white/10"
         >
           <LogOut size={14} />
           Sair

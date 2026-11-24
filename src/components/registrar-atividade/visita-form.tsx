@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
 import { ResultRating } from "./result-rating";
@@ -162,7 +163,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
 
       {objetivo === "Outro" && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+          <label className="aura-label">
             Qual foi o outro objetivo? *
           </label>
           <input
@@ -170,7 +171,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
             value={outroDetalhe}
             onChange={(event) => setOutroDetalhe(event.target.value)}
             placeholder="Ex.: tomar café, tirar medida, acompanhar obra..."
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input"
           />
         </div>
       )}
@@ -214,9 +215,9 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
       />
 
       {houveOportunidade === "Sim" && (
-        <div className="flex flex-col gap-4 rounded-xl border border-aura-mist bg-aura-bg p-4">
+        <div className="flex flex-col gap-4 rounded-xl border border-aura-mist bg-aura-sunken/60 p-4">
           <div>
-            <p className="mb-1.5 text-sm font-medium text-aura-graphite">
+            <p className="aura-label">
               Valor estimado
             </p>
             <input
@@ -225,7 +226,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
               value={valorEstimado}
               onChange={(event) => setValorEstimado(event.target.value)}
               placeholder="R$ 0,00"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
           <ChoiceChips
@@ -246,7 +247,7 @@ export function VisitaForm({ onConcluir }: { onConcluir: () => void }) {
         type="button"
         disabled={!podeConcluir}
         onClick={() => void concluir()}
-        className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+        className={classeBotao("primario", "lg", "mt-2 w-full")}
       >
         {salvando ? (
           <>

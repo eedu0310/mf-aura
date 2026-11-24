@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, Check, Loader2, Plus, Settings, Trash2, Wallet } from "lucide-react";
+import { Check, Loader2, Plus, Settings, Trash2, Wallet } from "lucide-react";
+import { Alerta, Card, CardHeader, EstadoVazio, StatCard, classeBotao } from "@/components/ui";
 
-// Mesma paleta dos outros gráficos do sistema.
-const COR = { serie: "#2a78d6", texto: "#52514e", tinta: "#0b0b0b" };
+// Petróleo da marca: a mesma cor nos dois temas. Os eixos usam currentColor.
+const COR = { serie: "#138780" };
 
 interface Resposta {
   saldo: {
@@ -120,7 +121,7 @@ export function CustoIAPainel() {
   }
 
   if (!dados) {
-    return <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro ?? "Sem dados."}</p>;
+    return <Alerta tom="perigo" titulo={erro ?? "Sem dados."} />;
   }
 
   const s = dados.saldo;
@@ -129,96 +130,93 @@ export function CustoIAPainel() {
   const perto = !semDeposito && !noVermelho && s.saldo <= s.alerta;
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-6">
       {/* Aviso de saldo */}
       {noVermelho && (
-        <p className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            <strong>Saldo zerado.</strong> Deposite para a AURA continuar analisando conversas e gerando
-            recados. {s.bloquearSemSaldo ? "O bloqueio está ligado: a IA já parou." : "O bloqueio está desligado, então a IA continua consumindo."}
-          </span>
-        </p>
+        <Alerta
+          tom="perigo"
+          titulo="Saldo zerado."
+          descricao={
+            <>
+              Deposite para a AURA continuar analisando conversas e gerando recados.{" "}
+              {s.bloquearSemSaldo ? "O bloqueio está ligado: a IA já parou." : "O bloqueio está desligado, então a IA continua consumindo."}
+            </>
+          }
+        />
       )}
       {perto && (
-        <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            Saldo abaixo de {dolar(s.alerta)}.{" "}
-            {dados.diasRestantes != null && `No ritmo atual dura cerca de ${dados.diasRestantes} dia(s).`}
-          </span>
-        </p>
+        <Alerta
+          tom="atencao"
+          titulo={`Saldo abaixo de ${dolar(s.alerta)}.`}
+          descricao={
+            dados.diasRestantes != null ? `No ritmo atual dura cerca de ${dados.diasRestantes} dia(s).` : undefined
+          }
+        />
       )}
 
       {/* Números */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
-          <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-            <Wallet size={13} /> Saldo
-          </p>
-          <p
-            className={`mt-2 text-3xl font-bold tabular-nums ${
-              noVermelho ? "text-red-600" : perto ? "text-amber-600" : "text-aura-graphite"
-            }`}
-          >
-            {semDeposito ? "—" : dolar(s.saldo)}
-          </p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">
-            {semDeposito
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icone={Wallet}
+          rotulo="Saldo"
+          tom={noVermelho ? "perigo" : perto ? "atencao" : "neutro"}
+          valor={semDeposito ? "—" : dolar(s.saldo)}
+          detalhe={
+            semDeposito
               ? "Registre o primeiro depósito para acompanhar o saldo"
-              : `${dolar(s.depositado)} depositado`}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">Gasto hoje</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-aura-graphite">{dolar(dados.gastoHoje)}</p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">Média de {dolar(dados.mediaDiaria)} por dia</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">Gasto no mês</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-aura-graphite">{dolar(dados.gastoMes)}</p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">{dolar(s.gasto)} desde o início</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">Dura até</p>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-aura-graphite">
-            {semDeposito || dados.diasRestantes == null
+              : `${dolar(s.depositado)} depositado`
+          }
+        />
+        <StatCard
+          rotulo="Gasto hoje"
+          valor={dolar(dados.gastoHoje)}
+          detalhe={`Média de ${dolar(dados.mediaDiaria)} por dia`}
+        />
+        <StatCard
+          rotulo="Gasto no mês"
+          valor={dolar(dados.gastoMes)}
+          detalhe={`${dolar(s.gasto)} desde o início`}
+        />
+        <StatCard
+          rotulo="Dura até"
+          valor={
+            semDeposito || dados.diasRestantes == null
               ? "—"
               : dados.diasRestantes > 365
                 ? "+1 ano"
-                : `${dados.diasRestantes} dias`}
-          </p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">No ritmo dos últimos 7 dias</p>
-        </div>
+                : `${dados.diasRestantes} dias`
+          }
+          detalhe="No ritmo dos últimos 7 dias"
+        />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Depósito */}
-        <section className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-          <h3 className="mb-1 text-sm font-semibold text-aura-graphite">Registrar depósito</h3>
-          <p className="mb-3 text-xs text-aura-graphite-soft">
-            Anote aqui o que você colocou de crédito no painel da Anthropic. O saldo desta tela é o
-            que você depositou menos o que o sistema já consumiu.
-          </p>
+        <Card>
+          <CardHeader
+            icone={Plus}
+            titulo="Registrar depósito"
+            descricao="Anote aqui o que você colocou de crédito no painel da Anthropic. O saldo desta tela é o que você depositou menos o que o sistema já consumiu."
+          />
           <div className="flex flex-wrap gap-2">
             <input
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               inputMode="decimal"
               placeholder="Valor em dólar (ex.: 50)"
-              className="min-w-36 flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+              className="aura-input min-w-36 flex-1 basis-36"
             />
             <input
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               placeholder="Observação (opcional)"
-              className="min-w-36 flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+              className="aura-input min-w-36 flex-1 basis-36"
             />
             <button
               type="button"
               onClick={() => void depositar()}
               disabled={salvando}
-              className="flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-medium text-aura-gold disabled:opacity-60"
+              className={classeBotao("primario")}
             >
               {salvando ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
               Registrar
@@ -241,14 +239,14 @@ export function CustoIAPainel() {
                       <button
                         type="button"
                         onClick={() => void removerDeposito(c.id)}
-                        className="rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white"
+                        className={classeBotao("perigo", "sm")}
                       >
                         Remover
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmando(null)}
-                        className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-aura-graphite-soft hover:bg-aura-bg"
+                        className={classeBotao("fantasma", "sm")}
                       >
                         Cancelar
                       </button>
@@ -258,7 +256,7 @@ export function CustoIAPainel() {
                       type="button"
                       onClick={() => setConfirmando(c.id)}
                       aria-label="Remover depósito"
-                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft hover:bg-red-50 hover:text-red-600"
+                      className="shrink-0 rounded-lg p-2 text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -267,25 +265,25 @@ export function CustoIAPainel() {
               ))}
             </ul>
           )}
-        </section>
+        </Card>
 
         {/* Consumo por dia */}
-        <section className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-aura-graphite">Consumo dos últimos 30 dias</h3>
-          <div style={{ height: 180 }}>
+        <Card>
+          <CardHeader icone={Wallet} titulo="Consumo dos últimos 30 dias" />
+          <div style={{ height: 180 }} className="text-aura-graphite-soft">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dados.porDia} margin={{ top: 4, right: 14, left: -18, bottom: 0 }}>
                 <XAxis
                   dataKey="dia"
                   tickFormatter={diaCurto}
                   interval={6}
-                  tick={{ fontSize: 11, fill: COR.texto }}
+                  tick={{ fontSize: 11, fill: "currentColor" }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <YAxis
                   tickFormatter={(v: number) => (v ? `$${v.toFixed(2)}` : "0")}
-                  tick={{ fontSize: 11, fill: COR.texto }}
+                  tick={{ fontSize: 11, fill: "currentColor" }}
                   axisLine={false}
                   tickLine={false}
                   width={56}
@@ -293,7 +291,7 @@ export function CustoIAPainel() {
                 <Tooltip
                   content={({ active, payload, label }: any) =>
                     active && payload?.length ? (
-                      <div className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-xs shadow-lg">
+                      <div className="rounded-lg border border-aura-mist bg-aura-surface px-3 py-2 text-xs text-aura-graphite shadow-lg">
                         <p className="font-medium">{diaCurto(String(label))}</p>
                         <p>{dolar(Number(payload[0].value))}</p>
                       </div>
@@ -305,11 +303,11 @@ export function CustoIAPainel() {
             </ResponsiveContainer>
           </div>
 
-          <h4 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
+          <h4 className="aura-rotulo mb-2 mt-5">
             Para onde foi
           </h4>
           {dados.porFuncao.length === 0 ? (
-            <p className="py-4 text-center text-sm text-aura-graphite-soft">Nenhum consumo registrado ainda.</p>
+            <EstadoVazio titulo="Nenhum consumo registrado ainda." className="py-6" />
           ) : (
             <ul className="space-y-1.5">
               {dados.porFuncao.map((f) => (
@@ -322,19 +320,21 @@ export function CustoIAPainel() {
               ))}
             </ul>
           )}
-        </section>
+        </Card>
       </div>
 
       {/* Ajustes */}
-      <section className="rounded-2xl border border-aura-mist bg-white shadow-sm">
+      <section className="aura-card">
         <button
           type="button"
           onClick={() => setAjustes((v) => !v)}
-          className="flex w-full items-center gap-2 px-5 py-4 text-left text-sm font-semibold text-aura-graphite"
+          className="flex w-full items-center gap-3 rounded-xl px-5 py-4 text-left text-sm font-semibold text-aura-graphite transition hover:bg-aura-sunken/50"
         >
-          <Settings size={15} className="text-aura-graphite-soft" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+            <Settings size={16} className="text-aura-graphite-soft" />
+          </span>
           Preços e alerta
-          <span className="ml-auto text-xs font-medium text-aura-petrol-700">{ajustes ? "Fechar" : "Abrir"}</span>
+          <span className="ml-auto text-xs font-medium text-aura-petrol-600">{ajustes ? "Fechar" : "Abrir"}</span>
         </button>
 
         {ajustes && (
@@ -344,44 +344,44 @@ export function CustoIAPainel() {
               seu painel da Anthropic — se o seu contrato tiver preço diferente, ajuste aqui.
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm text-aura-graphite">
+              <label className="text-sm font-medium text-aura-graphite">
                 Entrada (US$ por 1 milhão)
                 <input
                   type="number"
                   step="0.01"
                   defaultValue={s.precoEntrada}
                   onBlur={(e) => void ajustar({ precoEntrada: Number(e.target.value) })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                  className="aura-input mt-1.5 font-normal"
                 />
               </label>
-              <label className="text-sm text-aura-graphite">
+              <label className="text-sm font-medium text-aura-graphite">
                 Saída (US$ por 1 milhão)
                 <input
                   type="number"
                   step="0.01"
                   defaultValue={s.precoSaida}
                   onBlur={(e) => void ajustar({ precoSaida: Number(e.target.value) })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                  className="aura-input mt-1.5 font-normal"
                 />
               </label>
-              <label className="text-sm text-aura-graphite">
+              <label className="text-sm font-medium text-aura-graphite">
                 Avisar quando o saldo cair abaixo de
                 <input
                   type="number"
                   step="1"
                   defaultValue={s.alerta}
                   onBlur={(e) => void ajustar({ alerta: Number(e.target.value) })}
-                  className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                  className="aura-input mt-1.5 font-normal"
                 />
               </label>
             </div>
 
-            <label className="flex items-start gap-2.5 rounded-xl border border-aura-mist bg-aura-bg/50 p-3">
+            <label className="flex items-start gap-2.5 rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
               <input
                 type="checkbox"
                 checked={s.bloquearSemSaldo}
                 onChange={(e) => void ajustar({ bloquear: e.target.checked })}
-                className="mt-0.5 h-4 w-4"
+                className="mt-0.5 h-4 w-4 accent-aura-petrol-600"
               />
               <span className="text-sm text-aura-graphite">
                 Parar a IA quando o saldo zerar
@@ -394,7 +394,7 @@ export function CustoIAPainel() {
             </label>
 
             {s.bloquearSemSaldo && (
-              <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+              <p className="flex items-center gap-1.5 text-xs font-medium text-aura-success">
                 <Check size={13} /> Bloqueio ligado.
               </p>
             )}
@@ -402,7 +402,7 @@ export function CustoIAPainel() {
         )}
       </section>
 
-      {erro && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
     </div>
   );
 }

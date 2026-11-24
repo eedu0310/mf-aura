@@ -5,6 +5,7 @@ import { FileText, Loader2, Sparkles } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { listarRelatorios, type RelatorioPeriodico, type TipoRelatorio } from "@/lib/supabase/relatorios";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Card, EstadoVazio, PageContainer, PageHeader, Selo, classeBotao } from "@/components/ui";
 
 const LABEL_TIPO: Record<TipoRelatorio, string> = {
   semanal_vendedor: "Seu relatório semanal",
@@ -79,15 +80,19 @@ export default function RelatoriosPage() {
     : ["semanal_vendedor"];
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">Relatórios</p>
-        <p className="text-sm text-aura-graphite-soft">
-          Gerados automaticamente todo domingo (semanal) e todo dia 1 (mensal) — ou gere na hora.
-          {vejoTudo && " Sempre um relatório separado para cada uma das 4 lojas."}
-        </p>
-      </div>
+    <PageContainer largura="estreita">
+      <PageHeader
+        titulo="Relatórios"
+        icone={FileText}
+        descricao={
+          <>
+            Gerados automaticamente todo domingo (semanal) e todo dia 1 (mensal) — ou gere na hora.
+            {vejoTudo && " Sempre um relatório separado para cada uma das 4 lojas."}
+          </>
+        }
+      />
 
+      <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
         {opcoesGeracao.map((tipo) => (
           <button
@@ -95,7 +100,7 @@ export default function RelatoriosPage() {
             type="button"
             onClick={() => gerar(tipo)}
             disabled={gerando !== null}
-            className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+            className={classeBotao("primario")}
           >
             {gerando === tipo ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             {gerando === tipo ? "Gerando..." : `Gerar ${LABEL_TIPO[tipo].toLowerCase()} agora`}
@@ -108,30 +113,28 @@ export default function RelatoriosPage() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : relatorios.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-16 text-center">
-          <FileText size={24} className="text-aura-graphite-soft" />
-          <p className="text-sm text-aura-graphite-soft">
-            Nenhum relatório ainda. Gere um agora ou espere o próximo domingo.
-          </p>
-        </div>
+        <EstadoVazio
+          icone={FileText}
+          titulo="Nenhum relatório ainda. Gere um agora ou espere o próximo domingo."
+          className="py-16"
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {relatorios.map((r) => (
-            <div key={r.id} className="rounded-2xl border border-aura-mist bg-white p-5">
+            <Card key={r.id}>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-aura-graphite">{LABEL_TIPO[r.tipo]}</p>
-                <span className="shrink-0 text-xs text-aura-graphite-soft">
-                  {formatarPeriodo(r.periodoInicio, r.periodoFim)}
-                </span>
+                <Selo className="shrink-0">{formatarPeriodo(r.periodoInicio, r.periodoFim)}</Selo>
               </div>
-              {vejoTudo && <p className="text-xs text-aura-graphite-soft">{r.empresa}</p>}
-              <div className="mt-2 whitespace-pre-line text-sm leading-relaxed text-aura-graphite">
+              {vejoTudo && <p className="mt-0.5 text-xs text-aura-graphite-soft">{r.empresa}</p>}
+              <div className="mt-3 whitespace-pre-line text-sm leading-relaxed text-aura-graphite">
                 {r.conteudo}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </PageContainer>
   );
 }

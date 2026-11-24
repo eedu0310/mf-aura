@@ -15,6 +15,7 @@ import {
   User,
   Users,
 } from "lucide-react";
+import { Alerta, EstadoVazio, classeBotao } from "@/components/ui";
 
 /**
  * Loja → vendedor → conversa / negociação, com o laudo da IA no fim.
@@ -116,23 +117,18 @@ export function EquipeTab() {
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="font-display text-lg font-semibold text-aura-graphite">
-            Equipe, conversa por conversa
-          </h2>
-          <p className="text-sm text-aura-graphite-soft">
-            Entre na loja, depois no vendedor, e leia o que a IA viu em cada
-            conversa e em cada negociação dele.
-          </p>
-        </div>
+        <p className="max-w-2xl text-sm text-aura-graphite-soft">
+          Entre na loja, depois no vendedor, e leia o que a IA viu em cada
+          conversa e em cada negociação dele.
+        </p>
         <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
           Período
           <select
             value={dias}
             onChange={(e) => setDias(Number(e.target.value))}
-            className="rounded-lg border border-aura-mist bg-white px-2.5 py-1.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+            className="aura-input w-auto"
           >
             <option value={7}>7 dias</option>
             <option value={30}>30 dias</option>
@@ -146,7 +142,7 @@ export function EquipeTab() {
         <button
           type="button"
           onClick={voltar}
-          className="flex w-fit items-center gap-1.5 text-sm font-medium text-aura-petrol-600 hover:text-aura-petrol-700"
+          className={classeBotao("fantasma", "sm", "-ml-2.5 w-fit")}
         >
           <ArrowLeft size={15} />
           Voltar
@@ -161,7 +157,7 @@ export function EquipeTab() {
       )}
 
       {erro && !carregando && (
-        <p className="rounded-xl bg-aura-danger/10 px-4 py-3 text-sm text-aura-danger">{erro}</p>
+        <Alerta tom="perigo" titulo={erro} />
       )}
 
       {!carregando && !erro && dados && (
@@ -215,7 +211,7 @@ function NivelLojas({
   aoEntrar: (loja: string) => void;
 }) {
   if (!lojas.length) {
-    return <p className="text-sm text-aura-graphite-soft">Nenhuma loja com movimento no período.</p>;
+    return <EstadoVazio icone={Building2} titulo="Nenhuma loja com movimento no período." />;
   }
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -224,7 +220,7 @@ function NivelLojas({
           key={l.nome}
           type="button"
           onClick={() => aoEntrar(l.nome)}
-          className="flex items-start justify-between gap-3 rounded-xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40 hover:bg-aura-bg/40"
+          className="aura-card aura-card-interativo flex items-start justify-between gap-3 p-4 text-left"
         >
           <div className="min-w-0">
             <p className="flex items-center gap-2 font-medium text-aura-graphite">
@@ -275,24 +271,24 @@ function NivelLoja({
         {loja}
       </p>
       {!vendedores.length && (
-        <p className="text-sm text-aura-graphite-soft">Nenhuma pessoa nesta loja.</p>
+        <EstadoVazio icone={Users} titulo="Nenhuma pessoa nesta loja." />
       )}
       {vendedores.map((v) => (
         <button
           key={v.id}
           type="button"
           onClick={() => aoEntrar(v)}
-          className="flex items-start justify-between gap-3 rounded-xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40 hover:bg-aura-bg/40"
+          className="aura-card aura-card-interativo flex items-start justify-between gap-3 p-4 text-left"
         >
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 font-medium text-aura-graphite">
               <User size={15} className="text-aura-petrol-600" />
               {v.nome}
-              <span className="rounded-full bg-aura-mist/60 px-2 py-0.5 text-xs font-normal text-aura-graphite-soft">
+              <span className="aura-selo aura-selo-neutro">
                 {v.cargo}
               </span>
               {!v.ativo && (
-                <span className="rounded-full bg-aura-mist px-2 py-0.5 text-xs font-normal text-aura-graphite-soft">
+                <span className="aura-selo aura-selo-neutro">
                   desativado
                 </span>
               )}
@@ -344,25 +340,25 @@ function NivelVendedor({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="font-display text-lg font-semibold text-aura-graphite">{v.nome}</p>
+        <p className="font-display text-base font-semibold text-aura-graphite">{v.nome}</p>
         <p className="text-sm text-aura-graphite-soft">
           {v.cargo} · {v.loja}
         </p>
       </div>
 
       {supervisoes.length > 0 && (
-        <div className="rounded-xl border border-aura-mist bg-aura-bg/40 p-4">
+        <div className="aura-card p-4">
           <p className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
             <Bot size={15} className="text-aura-petrol-600" />
             O que a AURA escreveu sobre {v.nome.split(" ")[0]}
           </p>
           <div className="mt-3 flex flex-col gap-3">
             {supervisoes.slice(0, 3).map((s) => (
-              <div key={String(s.id)} className="rounded-lg bg-white p-3">
+              <div key={String(s.id)} className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
                 <p className="flex flex-wrap items-center gap-2 text-xs text-aura-graphite-soft">
                   {quando(s.criado_em as string)}
                   {s.score != null && (
-                    <span className="rounded-full bg-aura-petrol-500/10 px-2 py-0.5 font-medium text-aura-petrol-600">
+                    <span className="aura-selo aura-selo-marca">
                       nota {String(s.score)}
                     </span>
                   )}
@@ -397,9 +393,7 @@ function NivelVendedor({
 
       {verConversas ? (
         conversas.length === 0 ? (
-          <p className="text-sm text-aura-graphite-soft">
-            Nenhuma conversa desta pessoa no período.
-          </p>
+          <EstadoVazio icone={MessageSquare} titulo="Nenhuma conversa desta pessoa no período." />
         ) : (
           <div className="flex flex-col gap-2">
             {conversas.map((c) => (
@@ -407,23 +401,23 @@ function NivelVendedor({
                 key={String(c.id)}
                 type="button"
                 onClick={() => aoAbrirConversa(String(c.id))}
-                className="flex items-start justify-between gap-3 rounded-xl border border-aura-mist bg-white p-3.5 text-left transition hover:border-aura-petrol-500/40 hover:bg-aura-bg/40"
+                className="aura-card aura-card-interativo flex items-start justify-between gap-3 p-3.5 text-left"
               >
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-aura-graphite">
                     {String(c.nome ?? c.telefone ?? "Sem nome")}
                     {c.papel === "parceiro" && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-aura-petrol-500/10 px-2 py-0.5 text-xs font-normal text-aura-petrol-600">
+                      <span className="aura-selo aura-selo-marca">
                         <Users size={11} /> em dupla
                       </span>
                     )}
                     {Number(c.qtdAlertas ?? 0) > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-aura-gold/15 px-2 py-0.5 text-xs font-normal text-aura-gold-700">
+                      <span className="aura-selo aura-selo-atencao">
                         <AlertTriangle size={11} /> {String(c.qtdAlertas)}
                       </span>
                     )}
                     {c.ignorado === true && (
-                      <span className="rounded-full bg-aura-mist px-2 py-0.5 text-xs font-normal text-aura-graphite-soft">
+                      <span className="aura-selo aura-selo-neutro">
                         não é lead
                       </span>
                     )}
@@ -447,7 +441,7 @@ function NivelVendedor({
           </div>
         )
       ) : negocios.length === 0 ? (
-        <p className="text-sm text-aura-graphite-soft">Nenhuma negociação desta pessoa.</p>
+        <EstadoVazio icone={Target} titulo="Nenhuma negociação desta pessoa." />
       ) : (
         <div className="flex flex-col gap-2">
           {negocios.map((o) => (
@@ -455,28 +449,28 @@ function NivelVendedor({
               key={String(o.id)}
               type="button"
               onClick={() => aoAbrirNegocio(String(o.id))}
-              className="flex items-start justify-between gap-3 rounded-xl border border-aura-mist bg-white p-3.5 text-left transition hover:border-aura-petrol-500/40 hover:bg-aura-bg/40"
+              className="aura-card aura-card-interativo flex items-start justify-between gap-3 p-3.5 text-left"
             >
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-aura-graphite">
                   {String(o.cliente ?? "Sem nome")}
                   {o.papel === "parceiro" && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-aura-petrol-500/10 px-2 py-0.5 text-xs font-normal text-aura-petrol-600">
+                    <span className="aura-selo aura-selo-marca">
                       <Users size={11} /> em dupla
                     </span>
                   )}
                   {o.ganho === true && (
-                    <span className="rounded-full bg-aura-success/15 px-2 py-0.5 text-xs font-normal text-aura-success">
+                    <span className="aura-selo aura-selo-sucesso">
                       ganho
                     </span>
                   )}
                   {o.perdido === true && (
-                    <span className="rounded-full bg-aura-danger/10 px-2 py-0.5 text-xs font-normal text-aura-danger">
+                    <span className="aura-selo aura-selo-perigo">
                       perdido
                     </span>
                   )}
                   {o.fechado !== true && Number(o.dias_parado ?? 0) >= 7 && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-aura-gold/15 px-2 py-0.5 text-xs font-normal text-aura-gold-700">
+                    <span className="aura-selo aura-selo-atencao">
                       <Clock size={11} /> {String(o.dias_parado)} dias parado
                     </span>
                   )}
@@ -508,7 +502,7 @@ function NivelConversa({ dados }: { dados: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="font-display text-lg font-semibold text-aura-graphite">
+        <p className="font-display text-base font-semibold text-aura-graphite">
           {String(c.nome ?? c.telefone ?? "Conversa")}
         </p>
         <p className="text-sm text-aura-graphite-soft">
@@ -540,7 +534,7 @@ function NivelConversa({ dados }: { dados: Record<string, unknown> }) {
           <Campo rotulo="Analisada em" valor={quando(c.ultima_analise_em as string)} />
         </dl>
         {!!c.motivo_natureza && (
-          <p className="mt-3 rounded-lg bg-aura-bg/60 px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
+          <p className="mt-3 rounded-lg bg-aura-sunken px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
             Por que foi classificada assim: {String(c.motivo_natureza)}
           </p>
         )}
@@ -597,7 +591,7 @@ function NivelConversa({ dados }: { dados: Record<string, unknown> }) {
         ) : (
           <ol className="flex flex-col gap-2">
             {historico.map((h, i) => (
-              <li key={i} className="rounded-lg bg-aura-bg/60 px-3 py-2">
+              <li key={i} className="rounded-lg bg-aura-sunken px-3 py-2">
                 <p className="text-xs text-aura-graphite-soft">
                   {quando((h.em ?? h.quando ?? h.created_at) as string)}
                   {h.etapa ? ` · ${String(h.etapa)}` : ""}
@@ -623,7 +617,7 @@ function NivelNegocio({ dados }: { dados: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="font-display text-lg font-semibold text-aura-graphite">
+        <p className="font-display text-base font-semibold text-aura-graphite">
           {String(o.cliente ?? "Negócio")}
         </p>
         <p className="text-sm text-aura-graphite-soft">
@@ -647,7 +641,7 @@ function NivelNegocio({ dados }: { dados: Record<string, unknown> }) {
           <Campo rotulo="Aberto em" valor={quando(o.created_at as string)} />
         </dl>
         {!!o.motivo_perda && (
-          <p className="mt-3 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm leading-relaxed text-aura-danger">
+          <p className="mt-3 rounded-lg border border-aura-danger/25 bg-aura-danger/5 px-3 py-2 text-sm leading-relaxed text-aura-danger">
             Perdido por {String(o.motivo_perda)}
             {o.descricao_perda ? `: ${String(o.descricao_perda)}` : ""}
           </p>
@@ -663,7 +657,7 @@ function NivelNegocio({ dados }: { dados: Record<string, unknown> }) {
           <Lista rotulo="Errou" itens={fechamento.erros} />
           <Lista rotulo="Etapas puladas" itens={fechamento.etapas_puladas} />
           {!!fechamento.ponto_fraco && (
-            <p className="mt-3 rounded-lg bg-aura-gold/10 px-3 py-2 text-sm leading-relaxed text-aura-graphite">
+            <p className="mt-3 rounded-lg border border-aura-gold/30 bg-aura-gold/10 px-3 py-2 text-sm leading-relaxed text-aura-graphite">
               Ponto fraco: {String(fechamento.ponto_fraco)}
             </p>
           )}
@@ -697,7 +691,7 @@ function NivelNegocio({ dados }: { dados: Record<string, unknown> }) {
         ) : (
           <ol className="flex flex-col gap-2">
             {movimentos.map((m) => (
-              <li key={String(m.id)} className="rounded-lg bg-aura-bg/60 px-3 py-2">
+              <li key={String(m.id)} className="rounded-lg bg-aura-sunken px-3 py-2">
                 <p className="text-xs text-aura-graphite-soft">
                   {quando((m.ocorrida_em ?? m.created_at) as string)}
                   {m.origem === "whatsapp_ia" ? " · pela IA" : " · à mão"}
@@ -734,7 +728,7 @@ function Lista({ rotulo, itens }: { rotulo: string; itens: unknown }) {
   if (!Array.isArray(itens) || itens.length === 0) return null;
   return (
     <div className="mt-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-aura-graphite-soft">
+      <p className="aura-rotulo">
         {rotulo}
       </p>
       <ul className="mt-1 flex flex-col gap-1">
@@ -758,8 +752,8 @@ function Cartao({
   children: ReactNode;
 }) {
   return (
-    <div data-cartao className="rounded-xl border border-aura-mist bg-white p-4">
-      <p className="mb-2.5 flex items-center gap-2 text-sm font-medium text-aura-graphite">
+    <div data-cartao className="aura-card p-4">
+      <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-aura-graphite">
         <span className="text-aura-petrol-600">{icone}</span>
         {titulo}
       </p>
@@ -789,7 +783,7 @@ function Numero({
   return (
     <div>
       <p className="text-aura-graphite-soft">{rotulo}</p>
-      <p className={`font-semibold ${alerta ? "text-aura-gold-700" : "text-aura-graphite"}`}>
+      <p className={`font-semibold tabular-nums ${alerta ? "text-aura-gold-700" : "text-aura-graphite"}`}>
         {valor}
       </p>
     </div>

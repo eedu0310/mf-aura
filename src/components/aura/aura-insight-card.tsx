@@ -13,6 +13,8 @@ import {
   TrendingUp,
   Trophy,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Alerta, classeBotao } from "@/components/ui";
 
 type Tom = "bom" | "atencao" | "ruim" | "neutro";
 
@@ -45,25 +47,33 @@ export type PaginaAura =
   | "whatsapp"
   | "gestor";
 
-const ESTILO_TIPO: Record<Insight["tipo"], { icone: React.ReactNode; borda: string; fundo: string; rotulo: string }> = {
-  alerta: { icone: <AlertTriangle className="h-4 w-4 text-red-600" />, borda: "border-red-200", fundo: "bg-red-50", rotulo: "Atenção" },
-  oportunidade: { icone: <TrendingUp className="h-4 w-4 text-emerald-700" />, borda: "border-emerald-200", fundo: "bg-emerald-50", rotulo: "Oportunidade" },
-  dica: { icone: <Lightbulb className="h-4 w-4 text-amber-600" />, borda: "border-amber-200", fundo: "bg-amber-50", rotulo: "Dica" },
-  conquista: { icone: <Trophy className="h-4 w-4 text-sky-700" />, borda: "border-sky-200", fundo: "bg-sky-50", rotulo: "Conquista" },
+/*
+ * Recado = alerta claro do design system, com o ícone colorido no
+ * quadradinho. Antes cada tipo pintava a caixa inteira (vermelho, verde,
+ * âmbar, azul) e quatro recados juntos viravam um mosaico.
+ */
+const ESTILO_TIPO: Record<
+  Insight["tipo"],
+  { icone: LucideIcon; tom: "perigo" | "atencao" | "sucesso" | "info"; rotulo: string }
+> = {
+  alerta: { icone: AlertTriangle, tom: "perigo", rotulo: "Atenção" },
+  oportunidade: { icone: TrendingUp, tom: "sucesso", rotulo: "Oportunidade" },
+  dica: { icone: Lightbulb, tom: "atencao", rotulo: "Dica" },
+  conquista: { icone: Trophy, tom: "info", rotulo: "Conquista" },
 };
 
 const COR_TOM: Record<Tom, string> = {
-  bom: "text-emerald-700",
-  atencao: "text-amber-700",
-  ruim: "text-red-600",
+  bom: "text-aura-success",
+  atencao: "text-aura-gold-700",
+  ruim: "text-aura-danger",
   neutro: "text-aura-graphite",
 };
 
 const PONTO_TOM: Record<Tom, string> = {
-  bom: "bg-emerald-500",
-  atencao: "bg-amber-500",
-  ruim: "bg-red-500",
-  neutro: "bg-slate-300",
+  bom: "bg-aura-success",
+  atencao: "bg-aura-warning",
+  ruim: "bg-aura-danger",
+  neutro: "bg-aura-graphite-soft/40",
 };
 
 function lerRecolhido(pagina: string) {
@@ -139,64 +149,64 @@ export function AuraInsightCard({
   };
 
   return (
-    <section className={`overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-sm ${className}`} aria-label="Supervisora AURA">
-      {/* Cabeçalho escuro com a manchete */}
-      <div className="flex items-start gap-3 bg-aura-navy-950 px-4 py-3 sm:px-5">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-gold/15 ring-1 ring-aura-gold/40">
-          <Sparkles className="h-5 w-5 text-aura-gold" />
+    <section className={`aura-card overflow-hidden ${className}`} aria-label="Supervisora AURA">
+      {/* Cabeçalho claro com a manchete */}
+      <div className={`flex items-start gap-3 px-4 py-3.5 sm:px-5 ${recolhido ? "" : "border-b border-aura-mist"}`}>
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15 ring-1 ring-inset ring-aura-gold/25">
+          <Sparkles size={16} className="text-aura-gold-700" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aura-gold/80">Supervisora AURA</p>
+          <p className="aura-rotulo">Supervisora AURA</p>
           {carregando && !dados ? (
-            <div className="mt-1 h-5 w-2/3 animate-pulse rounded bg-white/10" />
+            <div className="mt-1.5 h-4 w-2/3 animate-pulse rounded bg-aura-sunken" />
           ) : (
             <>
-              <p className="truncate text-base font-semibold text-white sm:text-lg">{dados?.manchete ?? "AURA indisponível"}</p>
+              <p className="mt-0.5 truncate text-[0.9375rem] font-semibold text-aura-graphite">{dados?.manchete ?? "AURA indisponível"}</p>
               {!recolhido && dados?.foco && (
-                <p className="mt-0.5 flex items-start gap-1.5 text-sm text-white/75">
-                  <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-aura-gold" />
+                <p className="mt-1 flex items-start gap-1.5 text-sm text-aura-graphite-soft">
+                  <Target size={14} className="mt-0.5 shrink-0 text-aura-gold-700" />
                   {dados.foco}
                 </p>
               )}
             </>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
             onClick={() => carregar(true)}
             disabled={carregando}
-            className="rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite disabled:opacity-50"
             title="Atualizar análise"
           >
-            <RefreshCw className={`h-4 w-4 ${carregando ? "animate-spin" : ""}`} />
+            <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
           </button>
           <button
             type="button"
             onClick={alternar}
-            className="rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
+            className="rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
             title={recolhido ? "Mostrar" : "Recolher"}
           >
-            {recolhido ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            {recolhido ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
           </button>
         </div>
       </div>
 
       {!recolhido && (
-        <div className="space-y-3 p-4 sm:p-5">
-          {erro && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        <div className="space-y-3 bg-aura-bg/40 p-4 sm:p-5">
+          {erro && <Alerta tom="perigo" titulo={erro} className="shadow-none" />}
 
           {/* Números-chave (exatos, vindos do banco) */}
           {dados?.kpis?.length ? (
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {dados.kpis.map((k) => {
                 const miolo = (
                   <>
-                    <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-aura-graphite-soft">
-                      <span className={`h-1.5 w-1.5 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
-                      {k.label}
+                    <p className="flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
+                      <span className="aura-rotulo truncate">{k.label}</span>
                     </p>
-                    <p className={`mt-0.5 text-xl font-bold tabular-nums ${COR_TOM[k.tom ?? "neutro"]}`}>{k.valor}</p>
+                    <p className={`mt-1.5 font-display text-xl font-semibold tabular-nums ${COR_TOM[k.tom ?? "neutro"]}`}>{k.valor}</p>
                   </>
                 );
                 // Cartão com destino vira link: a vendedora tocava em
@@ -205,22 +215,22 @@ export function AuraInsightCard({
                   <Link
                     key={k.label}
                     href={k.href}
-                    className="rounded-xl border border-aura-mist bg-aura-bg/50 px-3 py-2 transition hover:border-aura-petrol-500 hover:bg-white"
+                    className="aura-card aura-card-interativo px-3.5 py-3"
                     title={`Ver ${k.label.toLowerCase()}`}
                   >
                     {miolo}
                   </Link>
                 ) : (
-                  <div key={k.label} className="rounded-xl border border-aura-mist bg-aura-bg/50 px-3 py-2">
+                  <div key={k.label} className="aura-card px-3.5 py-3">
                     {miolo}
                   </div>
                 );
               })}
             </div>
           ) : carregando ? (
-            <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-[62px] animate-pulse rounded-xl bg-slate-100" />
+                <div key={i} className="h-[66px] animate-pulse rounded-xl bg-aura-sunken" />
               ))}
             </div>
           ) : null}
@@ -231,22 +241,21 @@ export function AuraInsightCard({
               {dados.insights.map((i, idx) => {
                 const est = ESTILO_TIPO[i.tipo] ?? ESTILO_TIPO.dica;
                 return (
-                  <li key={idx} className={`flex items-start gap-3 rounded-xl border ${est.borda} ${est.fundo} px-3 py-2.5`}>
-                    <span className="mt-0.5 shrink-0" title={est.rotulo}>
-                      {est.icone}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-aura-graphite">{i.titulo}</p>
-                      {i.detalhe && <p className="mt-0.5 text-xs text-aura-graphite-soft">{i.detalhe}</p>}
-                    </div>
-                    {i.acao && (
-                      <Link
-                        href={i.acao.href}
-                        className="shrink-0 self-center rounded-full bg-aura-navy-950 px-3 py-1.5 text-xs font-semibold text-aura-gold transition hover:bg-aura-navy-900"
-                      >
-                        {i.acao.label}
-                      </Link>
-                    )}
+                  <li key={idx} title={est.rotulo} className="flex">
+                    <Alerta
+                      tom={est.tom}
+                      icone={est.icone}
+                      titulo={i.titulo}
+                      descricao={i.detalhe}
+                      className="w-full"
+                      acao={
+                        i.acao && (
+                          <Link href={i.acao.href} className={classeBotao("secundario", "sm")}>
+                            {i.acao.label}
+                          </Link>
+                        )
+                      }
+                    />
                   </li>
                 );
               })}

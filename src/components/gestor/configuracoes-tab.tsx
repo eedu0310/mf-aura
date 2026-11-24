@@ -13,10 +13,10 @@ export function ConfiguracoesTab() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="font-display text-lg font-semibold text-aura-graphite">
+        <p className="text-sm font-semibold text-aura-graphite">
           Base de Conhecimento
         </p>
-        <p className="text-sm text-aura-graphite-soft">
+        <p className="mt-0.5 text-sm text-aura-graphite-soft">
           Configure recursos para todos os vendedores de {profile.empresa}
         </p>
       </div>

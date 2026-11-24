@@ -4,6 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
+import { classeBotao } from "@/components/ui";
+
+// Botão flutuante: o primário do sistema, em formato de pílula e com sombra
+// (flutua sobre o conteúdo, então a sombra aqui é de propósito).
+const FLUTUANTE = "!rounded-full shadow-lg shadow-aura-navy-950/15";
 
 // Nessas rotas o botão atrapalha: já está na própria tela de registrar
 // atividade, ou tem um campo de digitar embaixo (chat, formulários longos).
@@ -24,31 +29,27 @@ export function FloatingActionButton() {
         <Link
           href="/registrar-atividade"
           onClick={() => setAberto(false)}
-          className="rounded-full bg-aura-navy-950 px-4 py-3 text-xs font-semibold tracking-wide text-aura-gold shadow-lg sm:hidden"
+          className={classeBotao("primario", "lg", `${FLUTUANTE} sm:hidden`)}
         >
-          REGISTRAR ATIVIDADE
+          Registrar atividade
         </Link>
       )}
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-label={aberto ? "Fechar ações" : "Abrir ações"}
-        className="flex items-center gap-2 rounded-full bg-aura-navy-950 px-4 py-3.5 text-sm font-semibold tracking-wide text-aura-gold shadow-lg shadow-black/20 transition hover:bg-aura-navy-900 sm:hidden"
+        className={classeBotao("primario", "lg", `${FLUTUANTE} !h-12 !w-12 !px-0 sm:hidden`)}
       >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-aura-gold/60">
-          {aberto ? <X size={13} /> : <Plus size={13} />}
-        </span>
+        {aberto ? <X size={18} /> : <Plus size={18} />}
       </button>
 
       {/* Computador: o botão já leva direto para a tela */}
       <Link
         href="/registrar-atividade"
-        className="hidden items-center gap-2 rounded-full bg-aura-navy-950 px-6 py-3.5 text-sm font-semibold tracking-wide text-aura-gold shadow-lg shadow-black/20 transition hover:bg-aura-navy-900 sm:flex"
+        className={classeBotao("primario", "lg", `${FLUTUANTE} !hidden !px-5 sm:!inline-flex`)}
       >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-aura-gold/60">
-          <Plus size={13} />
-        </span>
-        REGISTRAR ATIVIDADE
+        <Plus size={16} />
+        Registrar atividade
       </Link>
     </div>
   );

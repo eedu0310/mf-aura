@@ -79,25 +79,20 @@ export function BriefingDoDia() {
   if (!briefing || fechado) return null;
 
   return (
-    <section
-      className="overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-sm"
-      aria-label="Seu dia"
-    >
-      <div className="flex items-start gap-3 bg-aura-navy-950 px-4 py-3 sm:px-5">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-gold/15 ring-1 ring-aura-gold/40">
-          <Sunrise className="h-5 w-5 text-aura-gold" />
+    <section className="aura-card overflow-hidden" aria-label="Seu dia">
+      <div className="flex items-start gap-3 border-b border-aura-mist px-4 py-3.5 sm:px-5">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-gold/15">
+          <Sunrise size={16} className="text-aura-gold-700" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-aura-gold/80">
-            Seu dia começa assim
-          </p>
-          <p className="text-base font-semibold text-white sm:text-lg">{briefing.resumo}</p>
+          <p className="aura-rotulo">Seu dia começa assim</p>
+          <p className="mt-0.5 text-sm font-semibold text-aura-graphite sm:text-base">{briefing.resumo}</p>
         </div>
         <button
           type="button"
           onClick={fechar}
           aria-label="Fechar resumo do dia"
-          className="shrink-0 rounded-full p-2 text-white/60 transition hover:bg-white/10 hover:text-white"
+          className="shrink-0 rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
         >
           <X size={16} />
         </button>
@@ -110,9 +105,9 @@ export function BriefingDoDia() {
             <li key={`${item.titulo}-${i}`}>
               <Link
                 href={item.link}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-aura-bg sm:px-5"
+                className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-aura-sunken sm:px-5"
               >
-                <Icone size={16} className="shrink-0 text-aura-petrol-600" />
+                <Icone size={15} className="shrink-0 text-aura-petrol-600" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-aura-graphite">
                     {item.titulo}
@@ -135,7 +130,7 @@ export function BriefingDoDia() {
       </ul>
 
       {briefing.itens.length > 8 && (
-        <p className="px-4 py-2.5 text-xs text-aura-graphite-soft sm:px-5">
+        <p className="border-t border-aura-mist px-4 py-2.5 text-xs text-aura-graphite-soft sm:px-5">
           e mais {briefing.itens.length - 8} item(ns) na agenda.
         </p>
       )}

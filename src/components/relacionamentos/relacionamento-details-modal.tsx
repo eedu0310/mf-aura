@@ -9,6 +9,7 @@ import { FichaGestor } from "./ficha-gestor";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Relacionamento, CategoriaRelacionamento, TemperaturaRelacionamento } from "@/lib/types";
 import { formatarTelefone } from "@/lib/format-phone";
+import { classeBotao } from "@/components/ui";
 
 /**
  * O carimbo que o Supervisor gravava em todo contato criado por ele.
@@ -112,15 +113,15 @@ export function RelacionamentoDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-xl">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <p className="font-display text-lg font-semibold text-aura-graphite">
+            <p className="font-display text-base font-semibold text-aura-graphite">
               {editando ? "Editar Relacionamento" : "Detalhes do Relacionamento"}
             </p>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
+            <p className="mt-0.5 text-xs tabular-nums text-aura-graphite-soft">
               ID: {relacionamento.id.slice(0, 8)}...
             </p>
           </div>
@@ -128,9 +129,10 @@ export function RelacionamentoDetailsModal({
             type="button"
             onClick={onClose}
             disabled={salvando || deletando}
-            className="text-aura-graphite-soft hover:text-aura-graphite disabled:opacity-50"
+            className={classeBotao("fantasma", "sm", "h-8 w-8 px-0")}
+            aria-label="Fechar"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -142,64 +144,64 @@ export function RelacionamentoDetailsModal({
             {souGestor && <FichaGestor relacionamentoId={relacionamento.id} />}
 
             {/* Informações */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Nome</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Nome</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.nome}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Categoria</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Categoria</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.categoria}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Telefone</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Telefone</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.telefone || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Email</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Email</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.email || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Cidade</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Cidade</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.cidade || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Endereço</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Endereço</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.endereco || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Responsável</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Responsável</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.responsavel || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Temperatura</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Temperatura</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.temperatura}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Próximo Contato</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Próximo Contato</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.proximoContato}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Último Contato</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Último Contato</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {relacionamento.ultimoContato || "-"}
                 </p>
               </div>
@@ -212,8 +214,8 @@ export function RelacionamentoDetailsModal({
               ruído que ensina a pessoa a ignorar o lugar.
             */}
             {observacaoUtil(relacionamento.observacao) ? (
-              <div className="rounded-xl border border-aura-mist bg-white p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">
+              <div className="rounded-lg border border-aura-mist bg-aura-surface p-4">
+                <p className="aura-rotulo">
                   Observações sobre o cadastro
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-aura-graphite">
@@ -227,7 +229,7 @@ export function RelacionamentoDetailsModal({
               <button
                 type="button"
                 onClick={() => setEditando(true)}
-                className="flex-1 rounded-lg bg-aura-petrol-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-petrol-600"
+                className={classeBotao("primario", "md", "flex-1")}
               >
                 Editar
               </button>
@@ -235,7 +237,8 @@ export function RelacionamentoDetailsModal({
                 type="button"
                 onClick={excluir}
                 disabled={deletando}
-                className="rounded-lg border border-aura-danger bg-aura-danger/10 px-4 py-2.5 text-sm font-medium text-aura-danger hover:bg-aura-danger/20 disabled:opacity-50"
+                className={classeBotao("perigo-suave")}
+                aria-label="Excluir"
               >
                 {deletando ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -249,78 +252,78 @@ export function RelacionamentoDetailsModal({
           // MODO EDIÇÃO
           <form className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Nome *
               </label>
               <input
                 type="text"
                 value={formData.nome}
                 onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Telefone
               </label>
               <input
                 type="tel"
                 value={formData.telefone}
                 onChange={(e) => setFormData({ ...formData, telefone: formatarTelefone(e.target.value) })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Email
               </label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Cidade
               </label>
               <input
                 type="text"
                 value={formData.cidade}
                 onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-aura-graphite-soft">Endereço</label>
+              <label className="aura-label">Endereço</label>
               <input
                 type="text"
                 value={formData.endereco}
                 onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
                 placeholder="Rua, número, bairro"
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-aura-graphite-soft">Responsável</label>
+              <label className="aura-label">Responsável</label>
               <input
                 type="text"
                 value={formData.responsavel}
                 onChange={(e) => setFormData({ ...formData, responsavel: e.target.value })}
                 placeholder="Quem resolve do lado do cliente"
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input"
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs font-medium text-aura-graphite-soft">
+              <label className="aura-label">
                 Observações sobre o cadastro
               </label>
               {/*
@@ -334,19 +337,19 @@ export function RelacionamentoDetailsModal({
                 onChange={(e) => setFormData({ ...formData, observacao: e.target.value })}
                 rows={4}
                 placeholder="Ex.: falei com o João, que é quem fecha. Prefere orçamento por e-mail. Atende de terça a sexta."
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Categoria
                 </label>
                 <select
                   value={formData.categoria}
                   onChange={(e) => setFormData({ ...formData, categoria: e.target.value as CategoriaRelacionamento })}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 >
                   {CATEGORIAS.map((c) => (
@@ -358,13 +361,13 @@ export function RelacionamentoDetailsModal({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Temperatura
                 </label>
                 <select
                   value={formData.temperatura}
                   onChange={(e) => setFormData({ ...formData, temperatura: e.target.value as TemperaturaRelacionamento })}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 >
                   {TEMPERATURAS.map((t) => (
@@ -377,14 +380,14 @@ export function RelacionamentoDetailsModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Próximo Contato
               </label>
               <input
                 type="text"
                 value={formData.proximoContato}
                 onChange={(e) => setFormData({ ...formData, proximoContato: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
@@ -395,7 +398,7 @@ export function RelacionamentoDetailsModal({
                 type="button"
                 onClick={salvarEdicoes}
                 disabled={salvando}
-                className="flex-1 rounded-lg bg-aura-petrol-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+                className={classeBotao("primario", "md", "flex-1")}
               >
                 {salvando ? (
                   <div className="flex items-center justify-center gap-2">
@@ -410,7 +413,7 @@ export function RelacionamentoDetailsModal({
                 type="button"
                 onClick={() => setEditando(false)}
                 disabled={salvando}
-                className="flex-1 rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm font-medium text-aura-graphite hover:bg-aura-bg disabled:opacity-50"
+                className={classeBotao("secundario", "md", "flex-1")}
               >
                 Cancelar
               </button>

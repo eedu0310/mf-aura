@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AtSign, Clock, Loader2, MessageSquare, Send, ShieldOff } from "lucide-react";
+import { Alerta, EstadoVazio, PageContainer, PageHeader, Segmentado, Selo, classeBotao } from "@/components/ui";
 
 /**
  * O Instagram da loja, dentro do AURA.
@@ -150,59 +151,59 @@ export default function InstagramPage() {
 
   if (semAcesso) {
     return (
-      <div className="mx-auto max-w-lg px-6 py-20 text-center">
-        <ShieldOff className="mx-auto h-12 w-12 text-aura-graphite-soft" />
-        <h1 className="mt-4 font-display text-xl font-bold text-aura-graphite">Instagram não liberado</h1>
-        <p className="mt-2 text-sm text-aura-graphite-soft">
-          Em cada loja quem responde o Instagram é o vendedor interno. Se for para ser você, peça ao
-          gestor para ligar seu acesso em Painel do Gestor → Instagram.
-        </p>
-      </div>
+      <PageContainer largura="estreita">
+        <EstadoVazio
+          icone={ShieldOff}
+          titulo="Instagram não liberado"
+          className="mt-10"
+          descricao="Em cada loja quem responde o Instagram é o vendedor interno. Se for para ser você, peça ao gestor para ligar seu acesso em Painel do Gestor → Instagram."
+        />
+      </PageContainer>
     );
   }
 
-  if (carregando) return <p className="py-20 text-center text-sm text-aura-graphite-soft">Carregando…</p>;
+  if (carregando)
+    return (
+      <PageContainer>
+        <p className="flex items-center justify-center gap-2 py-20 text-sm text-aura-graphite-soft">
+          <Loader2 size={15} className="animate-spin" />
+          Carregando…
+        </p>
+      </PageContainer>
+    );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-aura-graphite">
-            <AtSign size={22} className="text-aura-petrol-600" />
-            Instagram
-          </h1>
-          <p className="mt-0.5 text-sm text-aura-graphite-soft">
-            {conectada ? `Conta ${usuario ? `@${usuario}` : "da loja"} conectada.` : "A conta desta loja ainda não foi conectada pelo gestor."}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {(["mensagens", "comentarios"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setAba(id)}
-              className={`rounded-full px-4 py-1.5 text-sm transition ${
-                aba === id ? "bg-aura-navy-950 text-white" : "bg-aura-bg text-aura-graphite hover:bg-aura-mist"
-              }`}
-            >
-              {id === "mensagens" ? `Mensagens (${conversas.length})` : `Comentários (${comentarios.length})`}
-            </button>
-          ))}
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Instagram"
+        icone={AtSign}
+        descricao={conectada ? `Conta ${usuario ? `@${usuario}` : "da loja"} conectada.` : "A conta desta loja ainda não foi conectada pelo gestor."}
+        acoes={
+          <Segmentado<"mensagens" | "comentarios">
+            rotulo="Seção do Instagram"
+            valor={aba}
+            aoMudar={setAba}
+            opcoes={[
+              { valor: "mensagens", rotulo: "Mensagens", contagem: conversas.length },
+              { valor: "comentarios", rotulo: "Comentários", contagem: comentarios.length },
+            ]}
+          />
+        }
+      />
 
-      {erro && <p className="mb-3 rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} className="mb-4" />}
 
       {!conectada && (
-        <p className="mb-4 rounded-lg bg-aura-warning/10 px-4 py-3 text-sm text-aura-graphite">
-          Enquanto a conta não for conectada, nada chega aqui. Quem conecta é o gestor mestre, em
-          Painel do Gestor → Instagram.
-        </p>
+        <Alerta
+          tom="atencao"
+          className="mb-4"
+          titulo="Enquanto a conta não for conectada, nada chega aqui. Quem conecta é o gestor mestre, em Painel do Gestor → Instagram."
+        />
       )}
 
       {aba === "mensagens" ? (
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-aura-mist bg-white">
+          <div className="aura-card overflow-hidden">
             {conversas.length === 0 ? (
               <p className="p-6 text-center text-sm text-aura-graphite-soft">
                 Nenhuma conversa ainda. No Instagram é sempre o cliente que escreve primeiro.
@@ -214,11 +215,11 @@ export default function InstagramPage() {
                     <button
                       type="button"
                       onClick={() => setSelecionada(c.id)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-aura-bg ${
-                        selecionada === c.id ? "bg-aura-bg" : ""
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-aura-sunken/60 ${
+                        selecionada === c.id ? "bg-aura-sunken" : ""
                       }`}
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-petrol-600/10 text-sm font-semibold text-aura-petrol-600">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-petrol-500/10 text-sm font-semibold text-aura-petrol-600">
                         {(c.cliente_nome ?? c.cliente_usuario ?? "?").slice(0, 1).toUpperCase()}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -241,7 +242,7 @@ export default function InstagramPage() {
                         )}
                       </span>
                       {c.nao_lidas > 0 && (
-                        <span className="ml-1 shrink-0 rounded-full bg-aura-success px-2 py-0.5 text-[11px] font-semibold text-white">
+                        <span className="ml-1 shrink-0 rounded-full bg-aura-petrol-600 px-1.5 py-px text-[0.65rem] font-semibold tabular-nums text-white">
                           {c.nao_lidas}
                         </span>
                       )}
@@ -252,7 +253,7 @@ export default function InstagramPage() {
             )}
           </div>
 
-          <div className="flex min-h-[420px] flex-col rounded-2xl border border-aura-mist bg-white">
+          <div className="aura-card flex min-h-[420px] flex-col overflow-hidden">
             {!atual ? (
               <p className="m-auto text-sm text-aura-graphite-soft">Escolha uma conversa ao lado.</p>
             ) : (
@@ -261,8 +262,8 @@ export default function InstagramPage() {
                   {mensagens.map((m) => (
                     <div key={m.id} className={`flex ${m.de_mim ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                          m.de_mim ? "bg-aura-petrol-600 text-white" : "bg-aura-bg text-aura-graphite"
+                        className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                          m.de_mim ? "bg-aura-petrol-600 text-white" : "bg-aura-sunken text-aura-graphite"
                         }`}
                       >
                         {m.midia_url && (
@@ -292,14 +293,14 @@ export default function InstagramPage() {
                         }
                       }}
                       placeholder="Responder…"
-                      className="max-h-32 flex-1 resize-none rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+                      className="aura-input max-h-32 flex-1 resize-none"
                     />
                     <button
                       type="button"
                       onClick={() => void responder()}
                       disabled={enviando || !texto.trim()}
                       aria-label="Enviar"
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-aura-petrol-600 text-white disabled:opacity-40"
+                      className={classeBotao("primario", "md", "w-10 shrink-0 px-0")}
                     >
                       {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                     </button>
@@ -315,7 +316,7 @@ export default function InstagramPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-aura-mist bg-white">
+        <div className="aura-card overflow-hidden">
           {comentarios.length === 0 ? (
             <p className="p-6 text-center text-sm text-aura-graphite-soft">
               Nenhum comentário ainda. Eles aparecem aqui assim que alguém comentar numa publicação da loja.
@@ -329,7 +330,7 @@ export default function InstagramPage() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -350,9 +351,9 @@ function ComentarioItem({
           <p className="text-sm font-medium text-aura-graphite">
             {comentario.autor_usuario ? `@${comentario.autor_usuario}` : "Alguém"}
             {comentario.respondido && (
-              <span className="ml-2 rounded-full bg-aura-success/10 px-2 py-0.5 text-[11px] text-aura-success">
+              <Selo tom="sucesso" className="ml-2">
                 respondido
-              </span>
+              </Selo>
             )}
           </p>
           <p className="mt-0.5 text-sm text-aura-graphite-soft">{comentario.texto}</p>
@@ -360,9 +361,9 @@ function ComentarioItem({
         <button
           type="button"
           onClick={() => setAberto((v) => !v)}
-          className="shrink-0 rounded-lg border border-aura-mist px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg"
+          className={classeBotao("secundario", "sm", "shrink-0")}
         >
-          <MessageSquare size={12} className="mr-1 inline" />
+          <MessageSquare size={12} />
           Responder
         </button>
       </div>
@@ -372,7 +373,7 @@ function ComentarioItem({
             value={resposta}
             onChange={(e) => setResposta(e.target.value)}
             placeholder="Sua resposta pública no comentário"
-            className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+            className="aura-input flex-1"
           />
           <button
             type="button"
@@ -382,7 +383,7 @@ function ComentarioItem({
               setResposta("");
               setAberto(false);
             }}
-            className="rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white"
+            className={classeBotao("primario")}
           >
             Enviar
           </button>

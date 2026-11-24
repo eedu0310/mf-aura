@@ -51,34 +51,36 @@ export function PosVendaResumoCard() {
   return (
     <Link
       href="/pos-venda"
-      className="block rounded-2xl border border-aura-mist bg-white p-5 transition hover:border-aura-petrol-500/40"
+      className="aura-card aura-card-interativo block p-5"
     >
-      <div className="flex items-center gap-2">
-        <Wrench size={16} className="text-aura-petrol-600" />
-        <p className="text-sm font-medium text-aura-graphite">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <Wrench size={16} className="text-aura-petrol-600" />
+        </span>
+        <p className="text-sm font-semibold text-aura-graphite">
           Pós-venda {multiLoja ? "— todas as lojas" : ""}
         </p>
         <ArrowRight size={13} className="ml-auto text-aura-graphite-soft" />
       </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-3">
+      <div className="mt-4 grid grid-cols-3 gap-3">
         <div>
-          <p className="flex items-center gap-1 text-xs text-aura-graphite-soft">
+          <p className="aura-rotulo flex items-center gap-1">
             <AlertTriangle size={11} className="text-aura-danger" />
             Atrasadas
           </p>
-          <p className="mt-0.5 font-display text-lg font-bold text-aura-graphite">{atrasadas}</p>
+          <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aura-graphite">{atrasadas}</p>
         </div>
         <div>
-          <p className="text-xs text-aura-graphite-soft">Reclamações</p>
-          <p className="mt-0.5 font-display text-lg font-bold text-aura-graphite">{reclamacoesAbertas}</p>
+          <p className="aura-rotulo">Reclamações</p>
+          <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aura-graphite">{reclamacoesAbertas}</p>
         </div>
         <div>
-          <p className="flex items-center gap-1 text-xs text-aura-graphite-soft">
+          <p className="aura-rotulo flex items-center gap-1">
             <Star size={11} className="text-aura-gold" />
             Nota média
           </p>
-          <p className="mt-0.5 font-display text-lg font-bold text-aura-graphite">
+          <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aura-graphite">
             {notaMedia > 0 ? notaMedia.toFixed(1) : "—"}
           </p>
         </div>

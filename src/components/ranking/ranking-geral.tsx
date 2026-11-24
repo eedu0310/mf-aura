@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Store, Trophy } from "lucide-react";
+import { Alerta, Segmentado } from "@/components/ui";
 
 interface Linha {
   id: string;
@@ -82,50 +83,32 @@ export function RankingGeral() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex rounded-full border border-aura-mist bg-white p-1">
-          {[
-            { v: 0, r: "Este mês" },
-            { v: 90, r: "90 dias" },
-            { v: 365, r: "12 meses" },
-          ].map((p) => (
-            <button
-              key={p.v}
-              type="button"
-              onClick={() => setDias(p.v)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                dias === p.v ? "bg-aura-navy-950 text-aura-gold" : "text-aura-graphite-soft hover:text-aura-graphite"
-              }`}
-            >
-              {p.r}
-            </button>
-          ))}
-        </div>
+        <Segmentado
+          rotulo="Período"
+          valor={String(dias)}
+          aoMudar={(v) => setDias(Number(v))}
+          opcoes={[
+            { valor: "0", rotulo: "Este mês" },
+            { valor: "90", rotulo: "90 dias" },
+            { valor: "365", rotulo: "12 meses" },
+          ]}
+        />
         {carregando && <Loader2 className="h-4 w-4 animate-spin text-aura-petrol-500" />}
       </div>
 
-      {erro && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
 
       {dados && (
         <>
-          <div className="flex flex-wrap gap-2">
-            {dados.rankings.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setAba(r.id)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  (disputa?.id ?? "") === r.id
-                    ? "border-aura-navy-950 bg-aura-navy-950 text-aura-gold"
-                    : "border-aura-mist bg-white text-aura-graphite hover:bg-aura-bg"
-                }`}
-              >
-                {r.titulo}
-              </button>
-            ))}
-          </div>
+          <Segmentado
+            rotulo="Disputa"
+            valor={disputa?.id ?? ""}
+            aoMudar={setAba}
+            opcoes={dados.rankings.map((r) => ({ valor: r.id, rotulo: r.titulo }))}
+          />
 
           {disputa && (
-            <section className="overflow-hidden rounded-2xl border border-aura-mist bg-white shadow-sm">
+            <section className="aura-card overflow-hidden">
               <header className="flex flex-wrap items-center justify-between gap-2 border-b border-aura-mist px-5 py-4">
                 <div>
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-aura-graphite">
@@ -137,7 +120,7 @@ export function RankingGeral() {
                   </p>
                 </div>
                 {minhaLinha && (
-                  <p className="text-xs font-medium text-aura-petrol-700">
+                  <p className="text-xs font-medium text-aura-petrol-600">
                     Você está em {minhaLinha.posicao}º de {disputa.linhas.length}
                   </p>
                 )}
@@ -150,21 +133,21 @@ export function RankingGeral() {
                   return (
                     <li
                       key={linha.id}
-                      className={`flex items-center gap-3 px-5 py-3 ${sou ? "bg-aura-gold/10" : ""}`}
+                      className={`flex items-center gap-3 px-5 py-3 ${sou ? "bg-aura-petrol-500/[0.06]" : ""}`}
                     >
                       <Posicao n={linha.posicao} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-aura-graphite">
                           {linha.nome}
-                          {sou && <span className="ml-2 text-xs font-semibold text-aura-petrol-700">você</span>}
+                          {sou && <span className="ml-2 text-xs font-medium text-aura-petrol-600">você</span>}
                         </p>
                         <p className="flex items-center gap-1 text-xs text-aura-graphite-soft">
                           <Store size={11} />
                           {linha.loja}
                         </p>
-                        <div className="mt-1.5 h-1.5 w-full max-w-56 rounded-full bg-aura-mist">
+                        <div className="mt-1.5 h-1.5 w-full max-w-56 rounded-full bg-aura-sunken">
                           <div
-                            className={`h-1.5 rounded-full ${sou ? "bg-aura-gold" : "bg-aura-petrol-600"}`}
+                            className={`h-1.5 rounded-full ${sou ? "bg-aura-petrol-500" : "bg-aura-graphite-soft/40"}`}
                             style={{ width: `${proporcao}%` }}
                           />
                         </div>
@@ -182,7 +165,7 @@ export function RankingGeral() {
                 )}
               </ul>
 
-              <p className="border-t border-aura-mist bg-aura-bg/50 px-5 py-3 text-xs text-aura-graphite-soft">
+              <p className="border-t border-aura-mist bg-aura-sunken/50 px-5 py-3 text-xs text-aura-graphite-soft">
                 O ranking é do grupo inteiro. A carteira de cada um continua privada: aqui aparece
                 só a posição e o número da disputa.
               </p>

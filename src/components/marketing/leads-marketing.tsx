@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { Loader2, Phone, MessageSquare } from "lucide-react";
 import { listarLeads, type Lead } from "@/lib/supabase/leads";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { EstadoVazio, StatCard } from "@/components/ui";
 
 const LABEL_STATUS: Record<string, { texto: string; cor: string }> = {
-  aguardando_sdr: { texto: "Em qualificação", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft" },
-  atribuido_sdr: { texto: "Com o SDR", cor: "bg-aura-petrol-700/10 text-aura-petrol-700" },
-  respondido: { texto: "Respondido", cor: "bg-aura-success/10 text-aura-success" },
-  repassado_vendedor: { texto: "Com o vendedor", cor: "bg-aura-petrol-700/10 text-aura-petrol-700" },
-  perdido: { texto: "Perdido", cor: "bg-aura-danger/10 text-aura-danger" },
+  aguardando_sdr: { texto: "Em qualificação", cor: "aura-selo-neutro" },
+  atribuido_sdr: { texto: "Com o SDR", cor: "aura-selo-marca" },
+  respondido: { texto: "Respondido", cor: "aura-selo-sucesso" },
+  repassado_vendedor: { texto: "Com o vendedor", cor: "aura-selo-marca" },
+  perdido: { texto: "Perdido", cor: "aura-selo-perigo" },
 };
 
 export function LeadsMarketing() {
@@ -48,7 +49,7 @@ export function LeadsMarketing() {
 
   if (carregando) {
     return (
-      <div className="flex justify-center rounded-2xl border border-aura-mist bg-white py-12 text-aura-graphite-soft">
+      <div className="aura-card flex justify-center py-12 text-aura-graphite-soft">
         <Loader2 size={20} className="animate-spin" />
       </div>
     );
@@ -56,27 +57,18 @@ export function LeadsMarketing() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
-        <div className="rounded-xl border border-aura-mist bg-white p-3 text-center">
-          <p className="font-display text-lg font-bold text-aura-graphite">{leads.length}</p>
-          <p className="text-[0.65rem] text-aura-graphite-soft">Total</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+        <StatCard rotulo="Total" valor={leads.length} />
         {Object.entries(LABEL_STATUS).map(([status, { texto }]) => (
-          <div key={status} className="rounded-xl border border-aura-mist bg-white p-3 text-center">
-            <p className="font-display text-lg font-bold text-aura-graphite">{porStatus[status] ?? 0}</p>
-            <p className="text-[0.65rem] text-aura-graphite-soft">{texto}</p>
-          </div>
+          <StatCard key={status} rotulo={texto} valor={porStatus[status] ?? 0} />
         ))}
-        <div className="rounded-xl border border-aura-mist bg-white p-3 text-center">
-          <p className="font-display text-lg font-bold text-aura-success">{taxaResposta}%</p>
-          <p className="text-[0.65rem] text-aura-graphite-soft">Taxa de resposta</p>
-        </div>
+        <StatCard rotulo="Taxa de resposta" valor={`${taxaResposta}%`} tom="sucesso" />
       </div>
 
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="text-sm font-medium text-aura-graphite">Todos os leads</p>
+      <div className="aura-card p-5">
+        <p className="text-sm font-semibold text-aura-graphite">Todos os leads</p>
         {leads.length === 0 ? (
-          <p className="mt-4 text-center text-sm text-aura-graphite-soft">Nenhum lead recebido ainda.</p>
+          <EstadoVazio titulo="Nenhum lead recebido ainda." className="mt-4" />
         ) : (
           <ul className="mt-3 flex flex-col divide-y divide-aura-mist">
             {leads.map((l) => (
@@ -89,7 +81,7 @@ export function LeadsMarketing() {
                       {l.telefone} · {l.origem}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${LABEL_STATUS[l.status]?.cor}`}>
+                  <span className={`aura-selo shrink-0 ${LABEL_STATUS[l.status]?.cor ?? "aura-selo-neutro"}`}>
                     {LABEL_STATUS[l.status]?.texto}
                   </span>
                 </div>

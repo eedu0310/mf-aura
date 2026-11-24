@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { HelpCircle, Plus, Trash2 } from "lucide-react";
 import { listarFaq, criarFaq, apagarFaq, type Faq } from "@/lib/supabase/faq";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { classeBotao } from "@/components/ui";
 
 export function FaqManager() {
   const { profile } = useUserProfile();
@@ -49,7 +50,7 @@ export function FaqManager() {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
+    <div className="aura-card p-5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <HelpCircle size={16} className="text-aura-petrol-600" />
@@ -58,7 +59,7 @@ export function FaqManager() {
         <button
           type="button"
           onClick={() => setMostrarForm((v) => !v)}
-          className="flex items-center gap-1 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
+          className={classeBotao("secundario", "sm")}
         >
           <Plus size={13} />
           Nova pergunta
@@ -66,32 +67,32 @@ export function FaqManager() {
       </div>
 
       {mostrarForm && (
-        <form onSubmit={salvar} className="mt-4 flex flex-col gap-3 rounded-xl border border-aura-mist bg-aura-bg p-4">
+        <form onSubmit={salvar} className="mt-4 flex flex-col gap-3 rounded-lg border border-aura-mist bg-aura-sunken p-4">
           <input
             type="text"
             value={pergunta}
             onChange={(e) => setPergunta(e.target.value)}
             placeholder="Pergunta"
-            className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input"
           />
           <textarea
             value={resposta}
             onChange={(e) => setResposta(e.target.value)}
             placeholder="Resposta"
             rows={3}
-            className="w-full resize-none rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input resize-none"
           />
           <input
             type="text"
             value={link}
             onChange={(e) => setLink(e.target.value)}
             placeholder="Link de apoio (opcional)"
-            className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+            className="aura-input"
           />
           <button
             type="submit"
             disabled={salvando || !pergunta.trim() || !resposta.trim()}
-            className="rounded-xl bg-aura-petrol-700 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+            className={classeBotao("primario")}
           >
             {salvando ? "Salvando..." : "Adicionar pergunta"}
           </button>
@@ -100,7 +101,7 @@ export function FaqManager() {
 
       <ul className="mt-4 flex flex-col divide-y divide-aura-mist">
         {faqs.length === 0 ? (
-          <p className="py-4 text-center text-xs text-aura-graphite-soft">
+          <p className="rounded-lg border border-dashed border-aura-mist py-6 text-center text-xs text-aura-graphite-soft">
             Nenhuma pergunta cadastrada ainda.
           </p>
         ) : (

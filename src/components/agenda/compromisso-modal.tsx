@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { classeBotao, Segmentado } from "@/components/ui";
 import { SearchRelationshipField } from "@/components/registrar-atividade/search-relationship-field";
 import type { Relacionamento } from "@/lib/types";
 import type { Compromisso, TipoCompromisso } from "@/lib/supabase/compromissos";
@@ -60,8 +61,8 @@ export function CompromissoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card max-h-[90vh] w-full max-w-md overflow-y-auto p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
           <p className="font-display text-lg font-semibold text-aura-graphite">
             {compromissoExistente ? "Editar compromisso" : "Novo compromisso"}
@@ -70,43 +71,33 @@ export function CompromissoModal({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="text-aura-graphite-soft hover:text-aura-graphite"
+            className={classeBotao("fantasma", "sm", "w-8 px-0")}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         <form onSubmit={salvar} className="flex flex-col gap-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Título</label>
+            <label className="aura-label">Título</label>
             <input
               type="text"
               autoFocus
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Ex.: Visita à Construtora Alpha"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Tipo</label>
-            <div className="flex flex-wrap gap-2">
-              {TIPOS.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipo(t)}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    tipo === t
-                      ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                      : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            <label className="aura-label">Tipo</label>
+            <Segmentado
+              rotulo="Tipo"
+              opcoes={TIPOS.map((t) => ({ valor: t, rotulo: t }))}
+              valor={tipo}
+              aoMudar={setTipo}
+            />
           </div>
 
           <SearchRelationshipField
@@ -117,52 +108,45 @@ export function CompromissoModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Data</label>
+              <label className="aura-label">Data</label>
               <input
                 type="date"
                 value={data}
                 onChange={(e) => setData(e.target.value)}
-                className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Hora</label>
+              <label className="aura-label">Hora</label>
               <input
                 type="time"
                 value={hora}
                 onChange={(e) => setHora(e.target.value)}
-                className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Duração
             </label>
-            <div className="flex flex-wrap gap-2">
-              {[30, 60, 90, 120].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setDuracao(String(m))}
-                  className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    Number(duracao) === m
-                      ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                      : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-                  }`}
-                >
-                  {m < 60 ? `${m} min` : `${m / 60}h`}
-                </button>
-              ))}
-            </div>
+            <Segmentado
+              rotulo="Duração"
+              opcoes={[30, 60, 90, 120].map((m) => ({
+                valor: String(m),
+                rotulo: m < 60 ? `${m} min` : `${m / 60}h`,
+              }))}
+              valor={String(Number(duracao))}
+              aoMudar={setDuracao}
+            />
             <p className="mt-1.5 text-xs text-aura-graphite-soft">
               Usada para reservar o horário no calendário do seu celular.
             </p>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Local (opcional)
             </label>
             <input
@@ -170,12 +154,12 @@ export function CompromissoModal({
               value={local}
               onChange={(e) => setLocal(e.target.value)}
               placeholder="Ex.: Obra na Av. Ipiranga, 300"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Observação (opcional)
             </label>
             <input
@@ -183,12 +167,12 @@ export function CompromissoModal({
               value={subtitulo}
               onChange={(e) => setSubtitulo(e.target.value)}
               placeholder="Ex.: Levar catálogo atualizado"
-              className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+            <label className="aura-label">
               Anotações para você (opcional)
             </label>
             <textarea
@@ -196,14 +180,14 @@ export function CompromissoModal({
               onChange={(e) => setObservacao(e.target.value)}
               rows={2}
               placeholder="O que precisa estar pronto, o que combinar..."
-              className="w-full resize-none rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input resize-none"
             />
           </div>
 
           <button
             type="submit"
             disabled={!podeSalvar}
-            className="mt-1 rounded-xl bg-aura-petrol-700 py-2.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className={classeBotao("primario", "lg", "mt-1 w-full")}
           >
             Salvar compromisso
           </button>

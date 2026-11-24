@@ -2,16 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, Medal, Star, TrendingUp, Wallet } from "lucide-react";
+import { EstadoVazio, Segmentado, Selo, StatCard } from "@/components/ui";
 
 /**
  * Painel avançado do ranking.
  *
- * Fundo escuro, na linha do resto do AURA. A paleta das séries foi validada
- * para daltonismo e contraste contra a superfície escura — por isso a ordem
- * das cores é fixa e não pode ser embaralhada: trocar a ordem quebra a
- * separação entre as barras vizinhas.
+ * Segue o tema (claro ou escuro), como o resto da AURA. As séries usam as
+ * cores do tema, numa ordem fixa: ouro, verde, marca, vermelho — trocar a
+ * ordem junta cores parecidas em barras vizinhas.
  */
-const SERIE = ["#b8862a", "#1fa873", "#2f8fd4", "#d4564a"];
+const SERIE = ["var(--aura-gold)", "var(--aura-success)", "var(--aura-petrol-500)", "var(--aura-danger)"];
 
 interface Parcela {
   criterioId: string;
@@ -70,15 +70,13 @@ export function RankingAvancado() {
   if (carregando && !dados) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-aura-gold" />
+        <Loader2 className="h-6 w-6 animate-spin text-aura-petrol-500" />
       </div>
     );
   }
   if (!dados?.notas?.length) {
     return (
-      <p className="rounded-2xl bg-aura-navy-900 px-5 py-8 text-center text-sm text-white/60">
-        Ainda não há vendedores no ranking deste período.
-      </p>
+      <EstadoVazio icone={Medal} titulo="Ainda não há vendedores no ranking deste período." />
     );
   }
 
@@ -108,46 +106,33 @@ export function RankingAvancado() {
   ];
 
   return (
-    <div className="space-y-5 rounded-2xl bg-aura-navy-950 p-4 sm:p-6">
+    <div className="space-y-5">
       {/* Período */}
       <div className="flex flex-wrap items-center gap-2">
-        {[
-          { v: 0, r: "Este mês" },
-          { v: 90, r: "90 dias" },
-          { v: 365, r: "12 meses" },
-        ].map((p) => (
-          <button
-            key={p.v}
-            type="button"
-            onClick={() => setDias(p.v)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-              dias === p.v
-                ? "bg-aura-gold text-aura-navy-950"
-                : "bg-white/5 text-white/70 hover:bg-white/10"
-            }`}
-          >
-            {p.r}
-          </button>
-        ))}
+        <Segmentado
+          rotulo="Período"
+          valor={String(dias)}
+          aoMudar={(v) => setDias(Number(v))}
+          opcoes={[
+            { valor: "0", rotulo: "Este mês" },
+            { valor: "90", rotulo: "90 dias" },
+            { valor: "365", rotulo: "12 meses" },
+          ]}
+        />
+        {carregando && <Loader2 className="h-4 w-4 animate-spin text-aura-petrol-500" />}
       </div>
 
       {/* Indicadores */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cartoes.map((c) => (
-          <div key={c.rotulo} className="rounded-2xl bg-aura-navy-900 p-4">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/50">
-              <c.Icone size={13} /> {c.rotulo}
-            </p>
-            <p className="mt-2 text-3xl font-bold tabular-nums text-white">{c.valor}</p>
-            {c.sufixo && <p className="mt-0.5 text-xs text-white/50">{c.sufixo}</p>}
-          </div>
+          <StatCard key={c.rotulo} rotulo={c.rotulo} valor={c.valor} detalhe={c.sufixo || undefined} icone={c.Icone} />
         ))}
       </div>
 
       {/* Notas por vendedor */}
-      <section className="rounded-2xl bg-aura-navy-900 p-5">
-        <h3 className="text-sm font-semibold text-white">Nota do período</h3>
-        <p className="mb-4 text-xs text-white/50">
+      <section className="aura-card p-5">
+        <h3 className="text-sm font-semibold text-aura-graphite">Nota do período</h3>
+        <p className="mb-4 text-xs text-aura-graphite-soft">
           Toque numa pessoa para ver de onde veio a nota dela.
         </p>
 
@@ -160,32 +145,32 @@ export function RankingAvancado() {
                 <button
                   type="button"
                   onClick={() => setAberto(aberto === n.vendedorId ? null : n.vendedorId)}
-                  className={`w-full rounded-xl px-3 py-2.5 text-left transition hover:bg-white/5 ${
-                    eu ? "bg-white/5 ring-1 ring-aura-gold/40" : ""
+                  className={`w-full rounded-lg px-3 py-2.5 text-left transition hover:bg-aura-sunken ${
+                    eu ? "bg-aura-petrol-500/[0.06] ring-1 ring-aura-petrol-500/30" : ""
                   }`}
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="flex min-w-0 items-baseline gap-2">
-                      <span className="w-5 shrink-0 text-xs tabular-nums text-white/40">
+                      <span className="w-5 shrink-0 text-xs tabular-nums text-aura-graphite-soft">
                         {n.posicao}º
                       </span>
-                      <span className="truncate text-sm font-medium text-white">{n.nome}</span>
-                      <span className="hidden truncate text-xs text-white/40 sm:inline">
+                      <span className="truncate text-sm font-medium text-aura-graphite">{n.nome}</span>
+                      <span className="hidden truncate text-xs text-aura-graphite-soft sm:inline">
                         {n.loja}
                       </span>
                       {n.bonus && (
-                        <span className="shrink-0 rounded-full bg-aura-gold/20 px-1.5 py-0.5 text-[10px] font-semibold text-aura-gold-soft">
+                        <Selo tom="ouro" className="shrink-0">
                           bônus
-                        </span>
+                        </Selo>
                       )}
                     </span>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-white">
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-aura-graphite">
                       {n.nota.toFixed(1)}
                     </span>
                   </div>
 
                   {/* barra: uma série só, então rótulo direto dispensa legenda */}
-                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-aura-sunken">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${largura}%`, backgroundColor: SERIE[0] }}
@@ -194,9 +179,9 @@ export function RankingAvancado() {
                 </button>
 
                 {aberto === n.vendedorId && (
-                  <div className="mb-2 ml-3 mr-3 rounded-xl bg-aura-navy-950 p-4">
-                    <p className="mb-3 text-xs text-white/50">
-                      CRM preenchido em <strong className="text-white/80">{n.crmEmDia}%</strong>
+                  <div className="mb-2 ml-3 mr-3 rounded-lg border border-aura-mist bg-aura-sunken/50 p-4">
+                    <p className="mb-3 text-xs text-aura-graphite-soft">
+                      CRM preenchido em <strong className="font-semibold text-aura-graphite">{n.crmEmDia}%</strong>
                       {n.bonus
                         ? " — bônus liberado."
                         : ` — faltam ${Math.max(0, dados.bonus.crmMinimo - n.crmEmDia)} pontos para o bônus.`}
@@ -207,12 +192,12 @@ export function RankingAvancado() {
                         return (
                           <li key={p.criterioId}>
                             <div className="flex items-baseline justify-between gap-2 text-xs">
-                              <span className="truncate text-white/80">{p.titulo}</span>
-                              <span className="shrink-0 tabular-nums text-white/50">
+                              <span className="truncate text-aura-graphite">{p.titulo}</span>
+                              <span className="shrink-0 tabular-nums text-aura-graphite-soft">
                                 {p.feito}/{p.meta} · {p.pontos.toFixed(1)} de {p.peso}
                               </span>
                             </div>
-                            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                            <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-aura-mist">
                               <div
                                 className="h-full rounded-full"
                                 style={{
@@ -233,7 +218,7 @@ export function RankingAvancado() {
         </ul>
       </section>
 
-      <p className="text-center text-xs text-white/40">
+      <p className="text-center text-xs text-aura-graphite-soft">
         O ranking é do grupo. A carteira de cada um continua privada: aqui aparece só a posição,
         a nota e o quanto cada um fez em cada critério.
       </p>

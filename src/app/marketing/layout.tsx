@@ -3,22 +3,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Sparkles,
-  ChevronDown,
-  User,
-  Settings,
-  LogOut,
-  LayoutGrid,
-  UserPlus,
-  Megaphone,
-  Calendar,
-  Table2,
-} from "lucide-react";
+import { ChevronUp, User, Settings, LogOut } from "lucide-react";
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
+import { AuraLogoFull } from "@/components/aura-logo";
+import { BotaoTema, SeletorTema } from "@/components/tema";
 import { ABAS_MARKETING, AbaMarketingContext, type AbaMarketing, type AbaMarketingContextValue } from "@/components/marketing/aba-marketing";
 
 function PerfilMenu() {
@@ -51,18 +42,19 @@ function PerfilMenu() {
       <button
         type="button"
         onClick={() => setMenuAberto((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-white/5"
+        aria-expanded={menuAberto}
+        className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition hover:bg-aura-sunken"
       >
-        <AvatarUsuario foto={profile.fotoUrl} iniciais={profile.avatarIniciais} className="h-8 w-8 bg-aura-gold font-display text-xs font-semibold text-aura-navy-950" />
+        <AvatarUsuario foto={profile.fotoUrl} iniciais={profile.avatarIniciais} className="h-8 w-8 bg-aura-petrol-600 text-xs font-semibold text-white" />
         <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-sm font-medium leading-tight text-white">{profile.nome}</p>
-          <p className="truncate text-xs leading-tight text-white/50">{profile.cargo}</p>
+          <p className="truncate text-[0.8125rem] font-medium leading-tight text-aura-graphite">{profile.nome}</p>
+          <p className="truncate text-xs leading-tight text-aura-graphite-soft">{profile.cargo}</p>
         </div>
-        <ChevronDown size={14} className="shrink-0 text-white/50" />
+        <ChevronUp size={14} className="shrink-0 text-aura-graphite-soft" />
       </button>
 
       {menuAberto && (
-        <div className="absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden rounded-2xl border border-aura-mist bg-white py-1.5 shadow-lg shadow-black/20">
+        <div className="aura-card absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden py-1.5 shadow-xl">
           <div className="border-b border-aura-mist px-4 py-2.5">
             <p className="text-sm font-medium text-aura-graphite">{profile.nome}</p>
             <p className="text-xs text-aura-graphite-soft">
@@ -72,24 +64,24 @@ function PerfilMenu() {
           <Link
             href="/configuracoes"
             onClick={() => setMenuAberto(false)}
-            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-aura-graphite hover:bg-aura-bg"
+            className="flex items-center gap-2.5 px-4 py-2 text-[0.8125rem] text-aura-graphite transition hover:bg-aura-sunken"
           >
-            <User size={15} />
+            <User size={15} className="text-aura-graphite-soft" />
             Meu perfil
           </Link>
           <Link
             href="/configuracoes"
             onClick={() => setMenuAberto(false)}
-            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-aura-graphite hover:bg-aura-bg"
+            className="flex items-center gap-2.5 px-4 py-2 text-[0.8125rem] text-aura-graphite transition hover:bg-aura-sunken"
           >
-            <Settings size={15} />
+            <Settings size={15} className="text-aura-graphite-soft" />
             Configurações
           </Link>
           <button
             type="button"
             onClick={sair}
             disabled={saindo}
-            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-aura-danger hover:bg-aura-danger/5 disabled:opacity-60"
+            className="flex w-full items-center gap-2.5 border-t border-aura-mist px-4 py-2 text-left text-[0.8125rem] text-aura-danger transition hover:bg-aura-danger/5 disabled:opacity-60"
           >
             <LogOut size={15} />
             {saindo ? "Saindo..." : "Sair da conta"}
@@ -102,16 +94,20 @@ function PerfilMenu() {
 
 function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
   return (
-    <aside className="flex shrink-0 flex-row items-center gap-1 overflow-x-auto bg-aura-navy-950 px-4 py-3 sm:h-screen sm:w-60 sm:flex-col sm:items-stretch sm:justify-between sm:overflow-visible sm:px-4 sm:py-6">
-      <div className="flex flex-row items-center gap-6 sm:flex-col sm:items-stretch sm:gap-8">
-        <div className="hidden items-center gap-2 px-2.5 text-white sm:flex">
-          <Sparkles size={18} className="text-aura-gold" />
-          <span className="font-display text-sm font-semibold tracking-wide">
-            AURA <span className="font-normal text-white/50">MKT</span>
-          </span>
-        </div>
+    <aside className="flex shrink-0 flex-col border-b border-aura-mist bg-aura-surface sm:sticky sm:top-0 sm:h-dvh sm:w-60 sm:border-b-0 sm:border-r">
+      <div className="flex h-14 items-center justify-between gap-2 px-4">
+        <Link href="/marketing" aria-label="Central de Marketing" className="flex items-center gap-2">
+          <AuraLogoFull />
+          <span className="aura-selo aura-selo-neutro">MKT</span>
+        </Link>
+        <BotaoTema className="sm:hidden" />
+      </div>
 
-        <nav className="flex flex-row gap-1 sm:flex-col">
+      <div className="overflow-x-auto px-2.5 pb-2.5 sm:flex-1 sm:overflow-y-auto sm:pb-4">
+        <p className="hidden px-2.5 pb-1.5 pt-3 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80 sm:block">
+          Marketing
+        </p>
+        <nav className="flex flex-row gap-0.5 sm:flex-col" aria-label="Marketing">
           {ABAS_MARKETING.map((a) => {
             const Icon = a.icon;
             const ativo = aba === a.id;
@@ -120,11 +116,18 @@ function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
                 key={a.id}
                 type="button"
                 onClick={() => setAba(a.id)}
-                className={`flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  ativo ? "bg-white/10 text-white" : "text-white/50 hover:bg-white/5 hover:text-white/80"
+                aria-current={ativo ? "page" : undefined}
+                className={`group flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[0.8125rem] font-medium transition ${
+                  ativo
+                    ? "bg-aura-sunken text-aura-graphite"
+                    : "text-aura-graphite-soft hover:bg-aura-sunken/70 hover:text-aura-graphite"
                 }`}
               >
-                <Icon size={16} className={ativo ? "text-aura-gold" : ""} />
+                <Icon
+                  size={17}
+                  strokeWidth={1.9}
+                  className={ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft group-hover:text-aura-graphite"}
+                />
                 <span className="whitespace-nowrap">{a.label}</span>
               </button>
             );
@@ -132,8 +135,11 @@ function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
         </nav>
       </div>
 
-      <div className="hidden sm:block">
-        <PerfilMenu />
+      <div className="hidden border-t border-aura-mist p-3 sm:block">
+        <SeletorTema compacto />
+        <div className="mt-2.5">
+          <PerfilMenu />
+        </div>
       </div>
     </aside>
   );
@@ -146,7 +152,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
     <OnboardingGuard>
       <RoleGuard papeisPermitidos={["Marketing", "Gestor"]}>
         <AbaMarketingContext.Provider value={{ aba, setAba }}>
-          <div className="flex min-h-screen flex-col bg-aura-bg sm:flex-row-reverse">
+          <div className="flex min-h-screen flex-col bg-aura-bg sm:flex-row">
             <BarraLateral aba={aba} setAba={setAba} />
             <div className="min-w-0 flex-1">{children}</div>
           </div>

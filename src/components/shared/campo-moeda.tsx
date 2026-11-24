@@ -50,12 +50,12 @@ export function CampoMoeda({
           placeholder={placeholder ?? "200.000"}
           className={
             className ??
-            "w-full rounded-lg border border-aura-mist py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+            "aura-input pl-10"
           }
         />
       </div>
       {extenso && (
-        <p className="mt-1 text-xs font-medium text-aura-petrol-700">{extenso}</p>
+        <p className="mt-1 text-xs font-medium text-aura-petrol-600">{extenso}</p>
       )}
     </div>
   );

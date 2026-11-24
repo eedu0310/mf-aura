@@ -9,8 +9,9 @@
  * mesmo número, que é o que permite comparar uma semana com a outra.
  */
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, CalendarRange, TrendingUp, AlertTriangle } from "lucide-react";
+import { Loader2, TrendingUp, ChevronDown } from "lucide-react";
 import { SeloOrigem } from "@/components/origem/selo-origem";
+import { Alerta, Card, EstadoVazio, Segmentado, Selo, StatCard } from "@/components/ui";
 
 interface Contagem {
   item: string;
@@ -98,137 +99,106 @@ export function RelatorioSemanalTab() {
   }, [carregar, dias]);
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <CalendarRange size={20} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-            <div>
-              <h3 className="font-display text-lg font-semibold text-aura-graphite">
-                Relatório do período
-              </h3>
-              <p className="mt-1 text-sm text-aura-graphite-soft">
-                Fechamentos, perdas e o padrão de erro de cada vendedor.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {PERIODOS.map((p) => (
-              <button
-                key={p.dias}
-                type="button"
-                onClick={() => setDias(p.dias)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                  dias === p.dias
-                    ? "bg-aura-petrol-700 text-white"
-                    : "border border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-400"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {erro && (
-          <p className="mt-4 rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
-            {erro}
-          </p>
-        )}
-
-        {carregando ? (
-          <p className="mt-6 flex items-center gap-2 text-sm text-aura-graphite-soft">
-            <Loader2 size={15} className="animate-spin" /> Carregando…
-          </p>
-        ) : !dados || dados.totais.decididos === 0 ? (
-          <p className="mt-6 text-sm text-aura-graphite-soft">
-            Nenhum negócio decidido neste período. O relatório se monta conforme
-            a equipe fecha e perde negócios — cada decisão gera um laudo da AURA
-            que entra aqui.
-          </p>
-        ) : (
-          <>
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { rotulo: "Fechou", valor: String(dados.totais.fechou), cor: "text-aura-success" },
-                { rotulo: "Perdeu", valor: String(dados.totais.perdeu), cor: "text-aura-danger" },
-                {
-                  rotulo: "Conversão",
-                  valor: dados.totais.conversao === null ? "—" : `${dados.totais.conversao}%`,
-                  cor: "text-aura-graphite",
-                },
-                {
-                  rotulo: "Faturamento",
-                  valor: moeda(dados.totais.faturamento),
-                  cor: "text-aura-graphite",
-                },
-              ].map((k) => (
-                <div key={k.rotulo} className="rounded-xl border border-aura-mist p-4">
-                  <p className="text-xs text-aura-graphite-soft">{k.rotulo}</p>
-                  <p className={`mt-1 font-display text-xl font-bold ${k.cor}`}>{k.valor}</p>
-                </div>
-              ))}
-            </div>
-
-            {dados.lojaPontosFracos.length > 0 && (
-              <div className="mt-5 rounded-xl border border-aura-warning/40 bg-aura-warning/5 p-4">
-                <p className="flex items-center gap-2 text-sm font-semibold text-aura-graphite">
-                  <AlertTriangle size={15} className="text-aura-warning" />
-                  Onde a loja está perdendo negócio
-                </p>
-                <p className="mt-2 text-sm text-aura-graphite-soft">
-                  {dados.lojaPontosFracos
-                    .map((p) => `${p.item} (${p.vezes}×)`)
-                    .join(" · ")}
-                </p>
-                {dados.lojaErros.length > 0 && (
-                  <ul className="mt-3 space-y-1">
-                    {dados.lojaErros.map((e, i) => (
-                      <li key={i} className="text-sm text-aura-graphite">
-                        · {e.item}{" "}
-                        <span className="text-aura-graphite-soft">({e.vezes}×)</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </>
-        )}
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-aura-graphite-soft">
+          Fechamentos, perdas e o padrão de erro de cada vendedor.
+        </p>
+        <Segmentado
+          rotulo="Período"
+          opcoes={PERIODOS.map((p) => ({ valor: String(p.dias), rotulo: p.label }))}
+          valor={String(dias)}
+          aoMudar={(v) => setDias(Number(v))}
+        />
       </div>
+
+      {erro && <Alerta tom="perigo" titulo={erro} />}
+
+      {carregando ? (
+        <p className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+          <Loader2 size={15} className="animate-spin" /> Carregando…
+        </p>
+      ) : !dados || dados.totais.decididos === 0 ? (
+        <EstadoVazio
+          titulo="Nenhum negócio decidido neste período."
+          descricao="O relatório se monta conforme a equipe fecha e perde negócios — cada decisão gera um laudo da AURA que entra aqui."
+        />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard rotulo="Fechou" valor={String(dados.totais.fechou)} tom="sucesso" />
+            <StatCard rotulo="Perdeu" valor={String(dados.totais.perdeu)} tom="perigo" />
+            <StatCard
+              rotulo="Conversão"
+              valor={dados.totais.conversao === null ? "—" : `${dados.totais.conversao}%`}
+            />
+            <StatCard rotulo="Faturamento" valor={moeda(dados.totais.faturamento)} />
+          </div>
+
+          {dados.lojaPontosFracos.length > 0 && (
+            <Alerta
+              tom="atencao"
+              titulo="Onde a loja está perdendo negócio"
+              descricao={
+                <>
+                  <p className="text-sm">
+                    {dados.lojaPontosFracos
+                      .map((p) => `${p.item} (${p.vezes}×)`)
+                      .join(" · ")}
+                  </p>
+                  {dados.lojaErros.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {dados.lojaErros.map((e, i) => (
+                        <li key={i} className="text-sm text-aura-graphite">
+                          · {e.item}{" "}
+                          <span className="text-aura-graphite-soft">({e.vezes}×)</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              }
+            />
+          )}
+        </>
+      )}
 
       {/* Por vendedor */}
       {dados && dados.porVendedor.length > 0 && (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           {dados.porVendedor.map((v) => (
-            <div key={v.id} className="rounded-2xl border border-aura-mist bg-white p-5">
+            <Card key={v.id} semPadding>
               <button
                 type="button"
                 onClick={() => setAberto(aberto === v.id ? null : v.id)}
-                className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                aria-expanded={aberto === v.id}
+                className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl px-5 py-4 text-left transition hover:bg-aura-sunken/60"
               >
-                <div>
-                  <p className="font-display text-base font-semibold text-aura-graphite">
-                    {v.nome}
-                  </p>
-                  <p className="mt-0.5 text-sm text-aura-graphite-soft">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-aura-graphite">{v.nome}</p>
+                  <p className="mt-0.5 text-xs text-aura-graphite-soft">
                     {v.fechou} fechou · {v.perdeu} perdeu
                     {v.conversao !== null && ` · ${v.conversao}% de conversão`}
                     {v.pularamEtapa > 0 && ` · ${v.pularamEtapa} pularam etapa`}
                   </p>
                 </div>
-                <p className="flex items-center gap-1.5 font-display text-lg font-bold text-aura-graphite">
-                  <TrendingUp size={16} className="text-aura-petrol-600" />
-                  {moeda(v.faturamento)}
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className="flex items-center gap-1.5 font-display text-base font-semibold tabular-nums text-aura-graphite">
+                    <TrendingUp size={15} className="text-aura-petrol-600" />
+                    {moeda(v.faturamento)}
+                  </p>
+                  <ChevronDown
+                    size={16}
+                    className={`text-aura-graphite-soft transition ${aberto === v.id ? "rotate-180" : ""}`}
+                    aria-hidden
+                  />
+                </div>
               </button>
 
               {aberto === v.id && (
-                <div className="mt-4 grid gap-4 border-t border-aura-mist pt-4 sm:grid-cols-2">
+                <div className="grid gap-5 border-t border-aura-mist px-5 py-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                      Onde erra sempre
-                    </p>
+                    <p className="aura-rotulo">Onde erra sempre</p>
                     {v.pontosFracos.length === 0 ? (
                       <p className="mt-1.5 text-sm text-aura-graphite-soft">
                         Nenhum padrão de falha no período.
@@ -255,9 +225,7 @@ export function RelatorioSemanalTab() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                      O que está funcionando
-                    </p>
+                    <p className="aura-rotulo">O que está funcionando</p>
                     {v.acertosRecorrentes.length === 0 ? (
                       <p className="mt-1.5 text-sm text-aura-graphite-soft">
                         Sem padrão de acerto registrado ainda.
@@ -274,9 +242,7 @@ export function RelatorioSemanalTab() {
                     )}
                     {v.etapasMaisPuladas.length > 0 && (
                       <>
-                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                          Etapas que pula
-                        </p>
+                        <p className="aura-rotulo mt-3">Etapas que pula</p>
                         <p className="mt-1 text-sm text-aura-graphite">
                           {v.etapasMaisPuladas.map((e) => `${e.item} (${e.vezes}×)`).join(" · ")}
                         </p>
@@ -286,32 +252,21 @@ export function RelatorioSemanalTab() {
 
                   {/* Os negócios dessa pessoa, caso a caso. */}
                   <div className="sm:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                      Negócios decididos
-                    </p>
+                    <p className="aura-rotulo">Negócios decididos</p>
                     <ul className="mt-2 space-y-2">
                       {dados.fechamentos
                         .filter((f) => f.vendedor === v.nome)
                         .map((f, i) => (
-                          <li
-                            key={i}
-                            className="rounded-lg border border-aura-mist bg-aura-bg/50 p-3"
-                          >
+                          <li key={i} className="rounded-lg border border-aura-mist bg-aura-sunken/50 p-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  f.resultado === "fechado"
-                                    ? "bg-aura-success text-white"
-                                    : "bg-aura-danger text-white"
-                                }`}
-                              >
+                              <Selo tom={f.resultado === "fechado" ? "sucesso" : "perigo"}>
                                 {f.resultado === "fechado" ? "Fechou" : "Perdeu"}
-                              </span>
+                              </Selo>
                               <span className="text-sm font-medium text-aura-graphite">
                                 {f.cliente ?? "Cliente"}
                               </span>
                               {f.valor != null && (
-                                <span className="text-sm text-aura-graphite-soft">
+                                <span className="text-sm tabular-nums text-aura-graphite-soft">
                                   {moeda(f.valor)}
                                 </span>
                               )}
@@ -324,7 +279,7 @@ export function RelatorioSemanalTab() {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}

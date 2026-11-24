@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
+import { CardHeader } from "@/components/ui";
 
 const TEMAS = [
   "Fechados",
@@ -49,26 +50,30 @@ export function ModoAcademia() {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
-      <div className="flex items-center gap-2">
-        <GraduationCap size={16} className="text-aura-petrol-600" />
-        <p className="text-sm font-medium text-aura-graphite">Modo Academia</p>
-      </div>
-      <p className="mt-1 text-xs text-aura-graphite-soft">
-        Escolha o que você quer melhorar — a AURA Coach sugere script, boas práticas e um
-        exercício, com base no manual da {profile.empresa}.
-      </p>
+    <div className="aura-card p-5">
+      <CardHeader
+        titulo="Modo Academia"
+        icone={GraduationCap}
+        className="mb-3"
+        descricao={
+          <>
+            Escolha o que você quer melhorar — a AURA Coach sugere script, boas práticas e um
+            exercício, com base no manual da {profile.empresa}.
+          </>
+        }
+      />
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {TEMAS.map((tema) => (
           <button
             key={tema}
             type="button"
             onClick={() => escolherTema(tema)}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+            aria-pressed={temaEscolhido === tema}
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
               temaEscolhido === tema
-                ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
+                ? "border-aura-petrol-500/40 bg-aura-petrol-500/10 text-aura-petrol-600"
+                : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
             }`}
           >
             {tema}
@@ -84,8 +89,8 @@ export function ModoAcademia() {
       )}
 
       {resposta && !carregando && (
-        <div className="mt-4 rounded-xl border border-aura-petrol-700/15 bg-aura-petrol-700/[0.04] p-4">
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-aura-petrol-700">
+        <div className="mt-4 rounded-lg border border-aura-mist bg-aura-sunken/50 p-4">
+          <p className="aura-rotulo mb-1.5 flex items-center gap-1.5 text-aura-petrol-600">
             <Sparkles size={12} />
             {temaEscolhido}
           </p>

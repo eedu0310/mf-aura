@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AlertCircle, Loader2, Paperclip, X } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
 import { CamposFaltando } from "./campos-faltando";
@@ -253,20 +254,20 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
         onChange={setQuemComprou}
       />
 
-      <div className="grid grid-cols-1 gap-4 rounded-xl border border-aura-mist bg-aura-bg p-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 rounded-xl border border-aura-mist bg-aura-sunken/60 p-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Possibilidade futura de venda *</label>
-          <input value={possibilidadeFutura} onChange={(e) => setPossibilidadeFutura(e.target.value)} placeholder="Ex.: churrasqueira, forno de pizza, solar..." className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500" />
+          <label className="aura-label">Possibilidade futura de venda *</label>
+          <input value={possibilidadeFutura} onChange={(e) => setPossibilidadeFutura(e.target.value)} placeholder="Ex.: churrasqueira, forno de pizza, solar..." className="aura-input" />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aura-graphite">Agendar retorno futuro *</label>
-          <input type="date" value={dataPossibilidadeFutura} onChange={(e) => setDataPossibilidadeFutura(e.target.value)} className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none focus:border-aura-petrol-500" />
+          <label className="aura-label">Agendar retorno futuro *</label>
+          <input type="date" value={dataPossibilidadeFutura} onChange={(e) => setDataPossibilidadeFutura(e.target.value)} className="aura-input" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <p className="mb-1.5 text-sm font-medium text-aura-graphite">
+          <p className="aura-label">
             Valor original
           </p>
           <input
@@ -275,11 +276,11 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
             value={valorOriginal}
             onChange={(event) => setValorOriginal(event.target.value)}
             placeholder="R$ 0,00"
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input"
           />
         </div>
         <div>
-          <p className="mb-1.5 text-sm font-medium text-aura-graphite">
+          <p className="aura-label">
             Valor fechado
           </p>
           <input
@@ -288,13 +289,13 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
             value={valorFechado}
             onChange={(event) => setValorFechado(event.target.value)}
             placeholder="R$ 0,00"
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input"
           />
         </div>
       </div>
 
       {original > 0 && fechado > 0 && (
-        <div className="grid grid-cols-2 gap-3 rounded-xl border border-aura-mist bg-aura-bg p-4 text-sm">
+        <div className="grid grid-cols-2 gap-3 rounded-xl border border-aura-mist bg-aura-sunken/60 p-4 text-sm">
           <div>
             <p className="text-xs text-aura-graphite-soft">Desconto</p>
             <p className="font-semibold text-aura-graphite">
@@ -310,7 +311,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between rounded-xl border border-aura-mist bg-aura-bg px-4 py-3">
+      <div className="flex items-center justify-between rounded-xl border border-aura-mist bg-aura-sunken/60 px-4 py-3">
         <span className="text-sm text-aura-graphite-soft">Empresa</span>
         <span className="text-sm font-medium text-aura-graphite">
           {profile.empresa}
@@ -318,13 +319,13 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       </div>
 
       <div>
-        <p className="mb-1.5 text-sm font-medium text-aura-graphite">Produto</p>
+        <p className="aura-label">Produto</p>
         <input
           type="text"
           value={produto}
           onChange={(event) => setProduto(event.target.value)}
           placeholder="Ex.: Lareira a pellet MF Forma 12 kW"
-          className="w-full rounded-xl border border-aura-mist bg-white px-4 py-3 text-sm outline-none focus:border-aura-petrol-500"
+          className="aura-input"
         />
       </div>
 
@@ -341,9 +342,9 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       />
 
       {!pagamentoAVista && formaPagamento && (
-        <div className="grid grid-cols-1 gap-4 rounded-xl border border-aura-mist bg-aura-bg p-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 rounded-xl border border-aura-mist bg-aura-sunken/60 p-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1.5 block text-xs text-aura-graphite-soft">
+            <label className="aura-label text-xs font-normal text-aura-graphite-soft">
               Parcelas
             </label>
             <input
@@ -352,11 +353,11 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
               max={120}
               value={quantidadeParcelas}
               onChange={(event) => setQuantidadeParcelas(event.target.value)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none"
+              className="aura-input"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs text-aura-graphite-soft">
+            <label className="aura-label text-xs font-normal text-aura-graphite-soft">
               Entrada
             </label>
             <input
@@ -364,11 +365,11 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
               inputMode="decimal"
               value={entradaValor}
               onChange={(event) => setEntradaValor(event.target.value)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none"
+              className="aura-input"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs text-aura-graphite-soft">
+            <label className="aura-label text-xs font-normal text-aura-graphite-soft">
               Taxa financeira %
             </label>
             <input
@@ -376,7 +377,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
               inputMode="decimal"
               value={taxaFinanceira}
               onChange={(event) => setTaxaFinanceira(event.target.value)}
-              className="w-full rounded-xl border border-aura-mist bg-white px-3 py-2.5 text-sm outline-none"
+              className="aura-input"
             />
           </div>
           <p className="sm:col-span-3 text-xs text-aura-graphite-soft">
@@ -411,7 +412,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       />
 
       {foiIndicada === "Sim" && (
-        <div className="rounded-xl border border-aura-mist bg-aura-bg p-4">
+        <div className="rounded-xl border border-aura-mist bg-aura-sunken/60 p-4">
           <SearchRelationshipField
             label="Quem indicou?"
             value={indicadoPor}
@@ -421,11 +422,11 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       )}
 
       <div>
-        <p className="mb-1.5 text-sm font-medium text-aura-graphite">
+        <p className="aura-label">
           Orçamento (opcional) — até {TAMANHO_MAXIMO_MB} MB
         </p>
         {orcamento ? (
-          <div className="flex items-center justify-between rounded-xl border border-aura-mist bg-aura-bg px-4 py-3">
+          <div className="flex items-center justify-between rounded-xl border border-aura-mist bg-aura-sunken/60 px-4 py-3">
             <span className="flex min-w-0 items-center gap-2 text-sm text-aura-graphite">
               <Paperclip size={14} className="shrink-0" />
               <span className="truncate">{orcamento.name}</span>
@@ -440,7 +441,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
             </button>
           </div>
         ) : (
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-aura-mist py-3 text-sm font-medium text-aura-graphite hover:bg-aura-bg">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-aura-mist py-3 text-sm font-medium text-aura-graphite hover:bg-aura-sunken">
             <Paperclip size={15} />
             Anexar PDF, imagem ou planilha
             <input
@@ -475,7 +476,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
         type="button"
         disabled={!podeConcluir}
         onClick={() => void concluir()}
-        className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+        className={classeBotao("primario", "lg", "mt-2 w-full")}
       >
         {enviando ? (
           <>

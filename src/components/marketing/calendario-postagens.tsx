@@ -24,13 +24,14 @@ import {
 } from "@/lib/supabase/postagens-marketing";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { StatCard, classeBotao } from "@/components/ui";
 
 const LABEL_STATUS: Record<StatusPostagem, { texto: string; cor: string; dot: string }> = {
-  planejado: { texto: "Planejado", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft", dot: "bg-aura-graphite-soft" },
-  aguardando_aprovacao: { texto: "Aguardando aprovação", cor: "bg-aura-warning/10 text-aura-warning", dot: "bg-aura-warning" },
-  aprovado: { texto: "Aprovado", cor: "bg-aura-petrol-700/10 text-aura-petrol-700", dot: "bg-aura-petrol-600" },
-  publicado: { texto: "Publicado", cor: "bg-aura-success/10 text-aura-success", dot: "bg-aura-success" },
-  rejeitado: { texto: "Rejeitado", cor: "bg-aura-danger/10 text-aura-danger", dot: "bg-aura-danger" },
+  planejado: { texto: "Planejado", cor: "aura-selo-neutro", dot: "bg-aura-graphite-soft" },
+  aguardando_aprovacao: { texto: "Aguardando aprovação", cor: "aura-selo-atencao", dot: "bg-aura-warning" },
+  aprovado: { texto: "Aprovado", cor: "aura-selo-marca", dot: "bg-aura-petrol-600" },
+  publicado: { texto: "Publicado", cor: "aura-selo-sucesso", dot: "bg-aura-success" },
+  rejeitado: { texto: "Rejeitado", cor: "aura-selo-perigo", dot: "bg-aura-danger" },
 };
 
 const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -86,7 +87,7 @@ function MiniCalendario({
         <button
           type="button"
           onClick={() => setMesRef(new Date(ano, mes - 1, 1))}
-          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-bg"
+          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
           aria-label="Mês anterior"
         >
           <ChevronLeft size={16} />
@@ -97,7 +98,7 @@ function MiniCalendario({
         <button
           type="button"
           onClick={() => setMesRef(new Date(ano, mes + 1, 1))}
-          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-bg"
+          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
           aria-label="Próximo mês"
         >
           <ChevronRight size={16} />
@@ -124,10 +125,10 @@ function MiniCalendario({
               title={doDia.map((p) => p.titulo).join(", ")}
               className={`flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-xs transition ${
                 selecionado
-                  ? "bg-aura-petrol-700 text-white"
+                  ? "bg-aura-petrol-600 text-white"
                   : ehHoje
-                    ? "bg-aura-petrol-700/10 font-semibold text-aura-petrol-700"
-                    : "text-aura-graphite hover:bg-aura-bg"
+                    ? "bg-aura-petrol-500/10 font-semibold text-aura-petrol-600"
+                    : "text-aura-graphite hover:bg-aura-sunken"
               }`}
             >
               {dia}
@@ -241,27 +242,15 @@ export function CalendarioPostagens() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="flex items-center gap-1.5 text-xs text-aura-graphite-soft">
-            <BarChart3 size={12} />
-            Publicadas
-          </p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{publicadas}</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="text-xs text-aura-graphite-soft">Aguardando aprovação</p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{aguardando}</p>
-        </div>
-        <div className="rounded-2xl border border-aura-mist bg-white p-4">
-          <p className="text-xs text-aura-graphite-soft">Total no calendário</p>
-          <p className="mt-1 font-display text-xl font-bold text-aura-graphite">{postagens.length}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatCard rotulo="Publicadas" valor={publicadas} icone={BarChart3} tom="sucesso" />
+        <StatCard rotulo="Aguardando aprovação" valor={aguardando} tom="atencao" />
+        <StatCard rotulo="Total no calendário" valor={postagens.length} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
         {visualizacao === "calendario" && (
-          <div className="rounded-2xl border border-aura-mist bg-white p-4">
+          <div className="aura-card p-4">
             <MiniCalendario
               postagens={postagens}
               mesRef={mesRef}
@@ -272,19 +261,20 @@ export function CalendarioPostagens() {
           </div>
         )}
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
+        <div className="aura-card p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
               <Calendar size={15} className="text-aura-petrol-600" />
               {diaSelecionado ? `Postagens em ${formatarData(diaSelecionado)}` : "Calendário de Postagens"}
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex rounded-full border border-aura-mist p-0.5">
+              <div className="aura-segmentado">
                 <button
                   type="button"
                   onClick={() => setVisualizacao("calendario")}
                   aria-label="Ver em calendário"
-                  className={`rounded-full p-1.5 ${visualizacao === "calendario" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite-soft"}`}
+                  aria-pressed={visualizacao === "calendario"}
+                  className="aura-segmento px-2"
                 >
                   <Grid3x3 size={13} />
                 </button>
@@ -292,7 +282,8 @@ export function CalendarioPostagens() {
                   type="button"
                   onClick={() => setVisualizacao("lista")}
                   aria-label="Ver em lista"
-                  className={`rounded-full p-1.5 ${visualizacao === "lista" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite-soft"}`}
+                  aria-pressed={visualizacao === "lista"}
+                  className="aura-segmento px-2"
                 >
                   <List size={13} />
                 </button>
@@ -301,7 +292,7 @@ export function CalendarioPostagens() {
                 <button
                   type="button"
                   onClick={() => setFormAberto((v) => !v)}
-                  className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-aura-petrol-600"
+                  className={classeBotao("primario", "sm")}
                 >
                   <Plus size={13} />
                   Nova
@@ -311,27 +302,27 @@ export function CalendarioPostagens() {
           </div>
 
           {formAberto && (
-            <form onSubmit={salvarNova} className="mt-4 flex flex-col gap-3 rounded-xl border border-aura-mist bg-aura-bg p-4">
+            <form onSubmit={salvarNova} className="mt-4 flex flex-col gap-3 rounded-lg border border-aura-mist bg-aura-sunken/50 p-4">
               <input
                 type="text"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Título da postagem"
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input"
               />
               <div className="grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={dataPlanejada}
                   onChange={(e) => setDataPlanejada(e.target.value)}
-                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                  className="aura-input"
                 />
                 <input
                   type="text"
                   value={linkDrive}
                   onChange={(e) => setLinkDrive(e.target.value)}
                   placeholder="Link do Google Drive (opcional)"
-                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                  className="aura-input"
                 />
               </div>
               <textarea
@@ -339,7 +330,7 @@ export function CalendarioPostagens() {
                 onChange={(e) => setDescricao(e.target.value)}
                 rows={2}
                 placeholder="Descrição / legenda (opcional)"
-                className="resize-none rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft/60 focus:border-aura-petrol-500"
+                className="aura-input resize-none"
               />
               <p className="text-xs text-aura-graphite-soft">
                 {linkDrive.trim()
@@ -349,7 +340,7 @@ export function CalendarioPostagens() {
               <button
                 type="submit"
                 disabled={salvando}
-                className="self-start rounded-lg bg-aura-petrol-700 px-4 py-2 text-xs font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-60"
+                className={classeBotao("primario", "md", "self-start")}
               >
                 {salvando ? "Salvando..." : "Adicionar ao calendário"}
               </button>
@@ -374,13 +365,13 @@ export function CalendarioPostagens() {
                         {p.dataPublicacao ? ` · Publicado: ${formatarData(p.dataPublicacao)}` : ""}
                       </p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${LABEL_STATUS[p.status].cor}`}>
+                    <span className={`aura-selo shrink-0 ${LABEL_STATUS[p.status].cor}`}>
                       {LABEL_STATUS[p.status].texto}
                     </span>
                   </div>
                   {p.descricao && <p className="text-xs text-aura-graphite-soft">{p.descricao}</p>}
                   {p.feedbackGestor && (
-                    <p className="rounded-lg bg-aura-danger/5 px-2.5 py-1.5 text-xs text-aura-danger">
+                    <p className="rounded-md border border-aura-danger/20 bg-aura-danger/5 px-2.5 py-1.5 text-xs text-aura-danger">
                       Feedback do gestor: {p.feedbackGestor}
                     </p>
                   )}
@@ -400,7 +391,7 @@ export function CalendarioPostagens() {
                       <button
                         type="button"
                         onClick={() => marcarPublicado(p)}
-                        className="rounded-full border border-aura-mist px-2.5 py-1 text-[0.65rem] font-medium text-aura-graphite hover:bg-aura-bg"
+                        className={classeBotao("secundario", "sm")}
                       >
                         Marcar como publicado
                       </button>
@@ -410,7 +401,7 @@ export function CalendarioPostagens() {
                         <button
                           type="button"
                           onClick={() => aprovar(p)}
-                          className="flex items-center gap-1 rounded-full bg-aura-success px-2.5 py-1 text-[0.65rem] font-medium text-white hover:opacity-90"
+                          className={classeBotao("secundario", "sm", "text-aura-success")}
                         >
                           <Check size={10} />
                           Aprovar
@@ -418,7 +409,7 @@ export function CalendarioPostagens() {
                         <button
                           type="button"
                           onClick={() => pedirAjuste(p)}
-                          className="flex items-center gap-1 rounded-full border border-aura-warning/40 px-2.5 py-1 text-[0.65rem] font-medium text-aura-warning hover:bg-aura-warning/10"
+                          className={classeBotao("secundario", "sm", "text-aura-gold-700")}
                         >
                           <MessageCircleWarning size={10} />
                           Pedir ajuste
@@ -426,7 +417,7 @@ export function CalendarioPostagens() {
                         <button
                           type="button"
                           onClick={() => rejeitar(p)}
-                          className="flex items-center gap-1 rounded-full border border-aura-danger/40 px-2.5 py-1 text-[0.65rem] font-medium text-aura-danger hover:bg-aura-danger/10"
+                          className={classeBotao("perigo-suave", "sm")}
                         >
                           <X size={10} />
                           Rejeitar

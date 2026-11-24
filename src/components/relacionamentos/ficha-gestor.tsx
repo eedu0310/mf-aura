@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { SeloOrigem } from "@/components/origem/selo-origem";
+import { classeBotao } from "@/components/ui";
 
 /**
  * A visão do gestor dentro da ficha do relacionamento.
@@ -63,8 +64,8 @@ function Linha({ rotulo, children }: { rotulo: string; children: React.ReactNode
 
 function Bloco({ icone, titulo, children }: { icone: React.ReactNode; titulo: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-aura-mist bg-white p-4">
-      <h4 className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-aura-petrol-700">
+    <section className="aura-card p-4">
+      <h4 className="aura-rotulo mb-1 flex items-center gap-2 [&>svg]:text-aura-petrol-600">
         {icone}
         {titulo}
       </h4>
@@ -74,9 +75,9 @@ function Bloco({ icone, titulo, children }: { icone: React.ReactNode; titulo: st
 }
 
 const COR_SINAL = {
-  alta: "border-aura-danger/30 bg-aura-danger/10 text-aura-danger",
-  media: "border-amber-300 bg-amber-50 text-amber-800",
-  baixa: "border-aura-mist bg-aura-bg text-aura-graphite-soft",
+  alta: "border-aura-danger/25 bg-aura-danger/5 text-aura-danger",
+  media: "border-aura-warning/30 bg-aura-warning/10 text-aura-gold-700",
+  baixa: "border-aura-mist bg-aura-sunken text-aura-graphite-soft",
 };
 
 export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) {
@@ -132,19 +133,19 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
   if (estado === "oculto") return null;
   if (estado === "carregando") {
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-aura-bg p-4 text-sm text-aura-graphite-soft">
+      <div className="flex items-center gap-2 rounded-xl border border-aura-mist bg-aura-sunken p-4 text-sm text-aura-graphite-soft">
         <Loader2 size={16} className="animate-spin" /> Montando a visão do gestor…
       </div>
     );
   }
   if (estado === "erro" || !ficha) {
-    return <p className="rounded-xl bg-aura-danger/10 p-3 text-sm text-aura-danger">{erro}</p>;
+    return <p className="rounded-lg border border-aura-danger/25 bg-aura-danger/5 p-3 text-sm text-aura-danger">{erro}</p>;
   }
 
   const f = ficha;
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">Visão do gestor</p>
+      <p className="aura-rotulo">Visão do gestor</p>
 
       {/* Atenção primeiro: é o motivo de o gestor abrir a ficha. */}
       {f.sinais.length > 0 ? (
@@ -157,7 +158,7 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
           ))}
         </div>
       ) : (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="rounded-lg border border-aura-success/25 bg-aura-success/5 px-3 py-2 text-sm text-aura-success">
           Em dia: contato recente e nada parado.
         </p>
       )}
@@ -172,7 +173,7 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
           )}
           <Linha rotulo="Lead chegou para">
             {f.pessoas.recebidoPor ?? "Cadastrado direto"}
-            {f.pessoas.repassado && <span className="ml-1 text-xs text-amber-700">(repassado)</span>}
+            {f.pessoas.repassado && <span className="ml-1 text-xs text-aura-gold-700">(repassado)</span>}
           </Linha>
           <Linha rotulo="Chegou em">{quando(f.pessoas.recebidoEm ?? f.contato.cadastradoEm)}</Linha>
           {f.pessoas.recebidoEm && <Linha rotulo="Primeira resposta">{f.pessoas.respondidoEm ? quando(f.pessoas.respondidoEm) : "não registrada"}</Linha>}
@@ -208,13 +209,13 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
           {f.valores.estimadoPelaIa != null && <Linha rotulo="Estimado pela IA">{moeda(f.valores.estimadoPelaIa)}</Linha>}
           <div className="mt-1 space-y-1">
             {f.negocios.map((n) => (
-              <div key={n.id} className="flex items-center justify-between gap-2 rounded-lg bg-aura-bg px-2.5 py-1.5 text-xs">
+              <div key={n.id} className="flex items-center justify-between gap-2 rounded-lg bg-aura-sunken px-2.5 py-1.5 text-xs">
                 <span className="min-w-0 truncate text-aura-graphite">
                   <b>{n.etapa}</b>
                   {n.produto ? ` · ${n.produto}` : ""}
                 </span>
                 <span className="shrink-0 text-aura-graphite-soft">
-                  {n.valor ? moeda(n.valor) : <span className="text-amber-700">sem valor</span>}
+                  {n.valor ? moeda(n.valor) : <span className="text-aura-gold-700">sem valor</span>}
                   {n.aberto && n.diasNaEtapa != null ? ` · ${n.diasNaEtapa}d` : ""}
                 </span>
               </div>
@@ -240,7 +241,7 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
       {f.whatsapp && (
         <Bloco icone={<Bot size={14} />} titulo="WhatsApp — leitura da IA">
           {f.whatsapp.ultimaMensagem && (
-            <p className="mb-2 flex items-start gap-2 rounded-lg bg-aura-bg px-3 py-2 text-xs text-aura-graphite">
+            <p className="mb-2 flex items-start gap-2 rounded-lg bg-aura-sunken px-3 py-2 text-xs text-aura-graphite">
               <MessageCircle size={14} className="mt-0.5 shrink-0 text-aura-petrol-600" />
               <span>
                 <b>Última mensagem: {f.whatsapp.ultimaMensagem.deQuem}</b>, {quando(f.whatsapp.ultimaMensagem.em)}
@@ -294,13 +295,13 @@ export function FichaGestor({ relacionamentoId }: { relacionamentoId: string }) 
             value={pedido}
             onChange={(e) => setPedido(e.target.value)}
             placeholder={`Ex.: Liga hoje para ${f.contato.nome.split(" ")[0]}, o orçamento venceu`}
-            className="min-w-0 flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input min-w-0 flex-1"
           />
           <button
             type="button"
             onClick={pedirAtencao}
             disabled={enviando || !pedido.trim()}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className={classeBotao("primario", "md", "h-[2.375rem]")}
           >
             {enviando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} Avisar
           </button>

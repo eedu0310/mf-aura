@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { classeBotao } from "@/components/ui";
 
 interface EditVendaModalProps {
   venda: {
@@ -47,47 +48,49 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card w-full max-w-md rounded-xl p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-aura-graphite">
+          <h2 className="font-display text-base font-semibold text-aura-graphite">
             Editar Venda
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg p-1 transition hover:bg-aura-bg"
+            aria-label="Fechar"
+            className={classeBotao("fantasma", "sm", "h-8 w-8 px-0")}
           >
-            <X size={20} className="text-aura-graphite-soft" />
+            <X size={18} />
           </button>
         </div>
 
         <form onSubmit={(e) => void salvar(e)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-aura-graphite mb-1">
+            <label className="aura-label">
               Cliente
             </label>
             <input
               type="text"
               value={cliente}
               onChange={(e) => setCliente(e.target.value)}
-              className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-aura-graphite mb-1">
+            <label className="aura-label">
               Produto
             </label>
             <input
               type="text"
               value={produto}
               onChange={(e) => setProduto(e.target.value)}
-              className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-aura-graphite mb-1">
+            <label className="aura-label">
               Valor (R$)
             </label>
             <input
@@ -95,7 +98,7 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               inputMode="decimal"
-              className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input"
             />
           </div>
 
@@ -103,14 +106,14 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-aura-mist bg-white px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+              className={classeBotao("secundario", "md", "flex-1")}
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={salvando}
-              className="flex-1 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+              className={classeBotao("primario", "md", "flex-1")}
             >
               {salvando ? "Salvando..." : "Salvar"}
             </button>

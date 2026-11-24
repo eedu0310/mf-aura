@@ -1,7 +1,8 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { classeBotao } from "@/components/ui";
 
 const FRASES_MOTIVACIONAIS = [
   "Alta performance não acontece por acaso. Ela é construída todos os dias.",
@@ -36,32 +37,36 @@ export function PopupMotivacional() {
   if (!aberto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="relative w-full max-w-md rounded-2xl bg-gradient-to-br from-aura-petrol-600 to-aura-petrol-700 p-8 text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-aura-navy-950/50 p-4 backdrop-blur-[2px]">
+      <div className="relative w-full max-w-md rounded-xl border border-aura-mist bg-aura-surface p-7 shadow-xl">
         <button
           onClick={() => setAberto(false)}
-          className="absolute right-4 top-4 rounded-lg p-1 transition hover:bg-white/20"
+          aria-label="Fechar"
+          className="absolute right-3 top-3 rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
         >
-          <X size={20} />
+          <X size={17} />
         </button>
 
-        <div className="space-y-4 text-center">
-          <p className="text-sm font-medium uppercase tracking-widest opacity-90">
-            💡 Inspiração do Dia
+        <div className="flex flex-col items-center space-y-4 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-aura-gold/15 ring-1 ring-inset ring-aura-gold/25">
+            <Sparkles size={18} className="text-aura-gold-700" />
+          </span>
+          <p className="aura-rotulo">
+            Inspiração do Dia
           </p>
-          <p className="font-display text-2xl font-bold leading-tight">
+          <p className="font-display text-xl font-semibold leading-snug text-aura-graphite">
             {frase}
           </p>
-          <p className="text-sm opacity-80">
+          <p className="text-sm text-aura-graphite-soft">
             Você é capaz de grandes coisas. Acredite em você.
           </p>
         </div>
 
         <button
           onClick={() => setAberto(false)}
-          className="mt-6 w-full rounded-lg bg-white px-4 py-3 font-medium text-aura-petrol-700 transition hover:bg-opacity-90"
+          className={classeBotao("primario", "lg", "mt-6 w-full")}
         >
-          Vamos Lá! 🚀
+          Vamos Lá!
         </button>
       </div>
     </div>

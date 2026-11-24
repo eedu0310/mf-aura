@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { Botao, StatCard, classeBotao } from "@/components/ui";
 import { NewOpportunityModal } from "./new-opportunity-modal";
 import { OportunidadeDetailsModal } from "./oportunidade-details-modal";
 import { MotivoPeridaModal } from "./motivo-perda-modal";
@@ -123,11 +124,11 @@ function OportunidadeCard({
                 {formatarMoeda(oportunidade.valor)}
               </span>
             ) : (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800" title="Abra o card e informe o valor estimado">
+              <span className="aura-selo aura-selo-atencao" title="Abra o card e informe o valor estimado">
                 sem valor
               </span>
             )}
-            <span className="inline-block rounded-full bg-aura-petrol-100 px-2 py-0.5 text-[11px] font-medium text-aura-petrol-700">
+            <span className="aura-selo aura-selo-marca">
               {oportunidade.probabilidade}
             </span>
           </div>
@@ -402,83 +403,21 @@ export function PipelineBoard({}: PipelineBoardProps) {
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col gap-6 pb-24">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-display text-xl font-semibold text-aura-graphite">
-              Pipeline
-            </p>
-            <p className="text-sm text-aura-graphite-soft">
-              Arraste as oportunidades entre as etapas
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setModalAberto(true)}
-            className="hidden shrink-0 items-center gap-1.5 rounded-full bg-aura-petrol-700 px-4 py-2 text-sm font-medium text-white hover:bg-aura-petrol-600 sm:flex"
-          >
-            <Plus size={15} />
-            Nova oportunidade
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setModalAberto(true)}
-          className="flex items-center justify-center gap-1.5 rounded-full bg-aura-petrol-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-petrol-600 sm:hidden"
-        >
-          <Plus size={15} />
-          Nova oportunidade
-        </button>
-
+      <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <Layers size={16} className="text-aura-petrol-600" />
-              <p className="text-sm text-aura-graphite-soft">
-                Valor em aberto (Proposta+)
-              </p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(valorTotal)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={16} className="text-aura-petrol-600" />
-              <p className="text-sm text-aura-graphite-soft">
-                Previsão ponderada (Proposta+)
-              </p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(previsaoPonderada)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <Target size={16} className="text-aura-petrol-600" />
-              <p className="text-sm text-aura-graphite-soft">
-                Oportunidades ativas
-              </p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {oportunidadesAtivas.length}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-aura-mist bg-white p-5">
-            <div className="flex items-center gap-2">
-              <Target size={16} className="text-aura-success" />
-              <p className="text-sm text-aura-graphite-soft">Fechamentos do mês</p>
-            </div>
-            <p className="mt-2 font-display text-2xl font-bold text-aura-graphite">
-              {formatarMoeda(fechamentosDoMes)}
-            </p>
-          </div>
+          <StatCard icone={Layers} rotulo="Valor em aberto (Proposta+)" valor={formatarMoeda(valorTotal)} />
+          <StatCard icone={TrendingUp} rotulo="Previsão ponderada (Proposta+)" valor={formatarMoeda(previsaoPonderada)} />
+          <StatCard icone={Target} rotulo="Oportunidades ativas" valor={oportunidadesAtivas.length} />
+          <StatCard icone={Target} tom="sucesso" rotulo="Fechamentos do mês" valor={formatarMoeda(fechamentosDoMes)} />
         </div>
 
-        {/* Escolher quais etapas aparecem. Fica logo acima do quadro, porque é
-            onde a pessoa está olhando quando percebe que tem coluna demais. */}
-        <div className="relative flex items-center justify-end gap-2">
+        {/* Barra do quadro: dica, setas de rolagem, escolher colunas e criar.
+            Fica logo acima do quadro, porque é onde a pessoa está olhando
+            quando percebe que tem coluna demais. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="mr-auto text-sm text-aura-graphite-soft">
+            Arraste as oportunidades entre as etapas
+          </p>
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -486,9 +425,9 @@ export function PipelineBoard({}: PipelineBoardProps) {
               disabled={!podeEsquerda}
               aria-label="Ver colunas à esquerda"
               title="Colunas à esquerda"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-aura-mist bg-white text-aura-graphite hover:bg-aura-bg disabled:opacity-35"
+              className={classeBotao("secundario", "sm", "w-[1.875rem] px-0")}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={15} />
             </button>
             <button
               type="button"
@@ -496,48 +435,53 @@ export function PipelineBoard({}: PipelineBoardProps) {
               disabled={!podeDireita}
               aria-label="Ver colunas à direita"
               title="Colunas à direita"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-aura-mist bg-white text-aura-graphite hover:bg-aura-bg disabled:opacity-35"
+              className={classeBotao("secundario", "sm", "w-[1.875rem] px-0")}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={15} />
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setMenuColunas((v) => !v)}
-            className="flex items-center gap-1.5 rounded-full border border-aura-mist bg-white px-3 py-1.5 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
-          >
-            <Columns3 size={14} />
-            Colunas
-            {escondidas.length > 0 && (
-              <span className="rounded-full bg-aura-petrol-700 px-1.5 text-[10px] text-white">
-                {todasAsColunas.length - escondidas.length}/{todasAsColunas.length}
-              </span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuColunas((v) => !v)}
+              className={classeBotao("secundario", "sm")}
+            >
+              <Columns3 size={13} />
+              Colunas
+              {escondidas.length > 0 && (
+                <span className="rounded-md bg-aura-sunken px-1.5 py-px text-[10px] tabular-nums text-aura-graphite-soft">
+                  {todasAsColunas.length - escondidas.length}/{todasAsColunas.length}
+                </span>
+              )}
+            </button>
+            {menuColunas && (
+              <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-aura-mist bg-aura-surface py-1 shadow-xl">
+                {todasAsColunas.map((c) => {
+                  const visivel = !escondidas.includes(c.nome);
+                  return (
+                    <button
+                      key={c.nome}
+                      type="button"
+                      onClick={() => alternarColuna(c.nome)}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-sunken"
+                    >
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-aura-mist">
+                        {visivel && <Check size={12} className="text-aura-petrol-600" />}
+                      </span>
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
+                      <span className="truncate">{c.nome}</span>
+                    </button>
+                  );
+                })}
+                <p className="border-t border-aura-mist px-3 py-2 text-[11px] text-aura-graphite-soft">
+                  Vale só para você, neste aparelho.
+                </p>
+              </div>
             )}
-          </button>
-          {menuColunas && (
-            <div className="absolute right-0 top-9 z-30 w-56 rounded-xl border border-aura-mist bg-white py-1 shadow-xl">
-              {todasAsColunas.map((c) => {
-                const visivel = !escondidas.includes(c.nome);
-                return (
-                  <button
-                    key={c.nome}
-                    type="button"
-                    onClick={() => alternarColuna(c.nome)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-aura-graphite hover:bg-aura-bg"
-                  >
-                    <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-aura-mist">
-                      {visivel && <Check size={12} className="text-aura-petrol-700" />}
-                    </span>
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: c.cor }} />
-                    <span className="truncate">{c.nome}</span>
-                  </button>
-                );
-              })}
-              <p className="border-t border-aura-mist px-3 py-2 text-[11px] text-aura-graphite-soft">
-                Vale só para você, neste aparelho.
-              </p>
-            </div>
-          )}
+          </div>
+          <Botao variante="primario" tamanho="sm" icone={Plus} onClick={() => setModalAberto(true)}>
+            Nova oportunidade
+          </Botao>
         </div>
 
         {/* As colunas são as etapas que o gestor deixou ativas, na ordem dele.

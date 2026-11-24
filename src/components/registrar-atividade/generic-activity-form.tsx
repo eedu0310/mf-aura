@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
 import { ResultRating } from "./result-rating";
@@ -148,7 +149,7 @@ export function GenericActivityForm({
 
       {tipoLabel === "Outro" && (
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+          <label className="aura-label">
             O que foi feito? *
           </label>
           <input
@@ -156,7 +157,7 @@ export function GenericActivityForm({
             value={outroDetalhe}
             onChange={(event) => setOutroDetalhe(event.target.value)}
             placeholder="Descreva a atividade"
-            className="w-full rounded-xl border border-aura-mist bg-white px-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500"
+            className="aura-input"
           />
         </div>
       )}
@@ -200,7 +201,7 @@ export function GenericActivityForm({
         type="button"
         disabled={!podeConcluir}
         onClick={() => void concluir()}
-        className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-aura-petrol-700 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+        className={classeBotao("primario", "lg", "mt-2 w-full")}
       >
         {salvando ? (
           <>

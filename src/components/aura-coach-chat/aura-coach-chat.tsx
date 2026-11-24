@@ -30,6 +30,7 @@ import {
 } from "@/lib/raio-x/montar";
 import { RaioXDaEquipe, RaioXDoDia } from "@/components/raio-x/raio-x-do-dia";
 import { saudacaoDoDia } from "@/lib/date-local";
+import { classeBotao } from "@/components/ui";
 
 /**
  * Uma mensagem do chat. A primeira da conversa é especial: em vez de texto,
@@ -388,19 +389,19 @@ export function AuraCoachChat() {
         />
       )}
 
-      <div className="flex flex-1 flex-col rounded-2xl border border-aura-mist bg-white">
-        <div className="flex items-center gap-2 border-b border-aura-mist px-5 py-4">
+      <div className="aura-card flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex items-center gap-2.5 border-b border-aura-mist px-5 py-3.5">
           {usandoSupabase && (
             <button
               type="button"
               onClick={() => setMostrarSidebarMobile((v) => !v)}
-              className="text-aura-graphite-soft sm:hidden"
+              className="rounded-lg p-1 text-aura-graphite-soft transition hover:bg-aura-sunken sm:hidden"
               aria-label="Ver conversas"
             >
               <Menu size={18} />
             </button>
           )}
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-aura-navy-950 text-aura-gold">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-aura-gold/15 text-aura-gold-700 ring-1 ring-inset ring-aura-gold/25">
             <Sparkles size={15} />
           </span>
           <div>
@@ -455,10 +456,10 @@ export function AuraCoachChat() {
                     className={`flex ${m.autor === "usuario" ? "justify-end" : "justify-start"}`}
                   >
                     <div
-                      className={`max-w-[80%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      className={`max-w-[80%] whitespace-pre-line rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
                         m.autor === "usuario"
-                          ? "bg-aura-petrol-700 text-white"
-                          : "bg-aura-bg text-aura-graphite"
+                          ? "rounded-br-md bg-aura-petrol-600 text-white"
+                          : "rounded-bl-md border border-aura-mist bg-aura-sunken text-aura-graphite"
                       }`}
                     >
                       {m.texto}
@@ -468,7 +469,7 @@ export function AuraCoachChat() {
               )}
               {digitando && (
                 <div className="flex justify-start">
-                  <div className="flex items-center gap-1 rounded-2xl bg-aura-bg px-4 py-3">
+                  <div className="flex items-center gap-1 rounded-xl rounded-bl-md border border-aura-mist bg-aura-sunken px-4 py-3">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aura-graphite-soft [animation-delay:-0.3s]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aura-graphite-soft [animation-delay:-0.15s]" />
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-aura-graphite-soft" />
@@ -480,13 +481,13 @@ export function AuraCoachChat() {
           )}
         </div>
 
-        <form onSubmit={enviar} className="flex items-center gap-2 border-t border-aura-mist p-4">
+        <form onSubmit={enviar} className="flex items-center gap-2 border-t border-aura-mist p-3 sm:p-4">
           <input
             type="text"
             value={rascunho}
             onChange={(e) => setRascunho(e.target.value)}
             placeholder="Pergunte algo à AURA, ou toque no microfone e fale..."
-            className="flex-1 rounded-full border border-aura-mist bg-aura-bg px-4 py-2.5 text-sm text-aura-graphite outline-none placeholder:text-aura-graphite-soft focus:border-aura-petrol-500"
+            className="aura-input !h-10 flex-1"
           />
           {/* Falar em vez de digitar. O texto é ACRESCENTADO ao que já está
               escrito, nunca substitui: quem começa digitando e termina falando
@@ -501,7 +502,7 @@ export function AuraCoachChat() {
             type="submit"
             disabled={!rascunho.trim()}
             aria-label="Enviar"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-petrol-700 text-white transition hover:bg-aura-petrol-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className={classeBotao("primario", "md", "!h-10 !w-10 shrink-0 !px-0")}
           >
             <Send size={16} />
           </button>

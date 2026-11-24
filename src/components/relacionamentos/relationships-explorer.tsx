@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin } from "lucide-react";
+import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Users } from "lucide-react";
+import { Alerta, Botao, EstadoVazio, PageContainer, PageHeader, Segmentado, Selo, type Tom } from "@/components/ui";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { useUserProfile } from "@/lib/user-profile-context";
@@ -128,186 +129,156 @@ export function RelationshipsExplorer() {
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   }, [relacionamentos, filtroLoja, nomesPorOwnerId]);
 
-  const temperaturaColors: Record<string, { bg: string; text: string; badge: string }> = {
-    quente: {
-      bg: "bg-red-50",
-      text: "text-red-900",
-      badge: "bg-red-100 text-red-700",
-    },
-    ativo: {
-      bg: "bg-green-50",
-      text: "text-green-900",
-      badge: "bg-green-100 text-green-700",
-    },
-    esfriando: {
-      bg: "bg-yellow-50",
-      text: "text-yellow-900",
-      badge: "bg-yellow-100 text-yellow-700",
-    },
-    frio: {
-      bg: "bg-blue-50",
-      text: "text-blue-900",
-      badge: "bg-blue-100 text-blue-700",
-    },
+  /** Temperatura vira um selo pequeno; o cartão fica neutro. */
+  const tomTemperatura: Record<string, Tom> = {
+    quente: "perigo",
+    ativo: "sucesso",
+    esfriando: "atencao",
+    frio: "neutro",
+  };
+  const pontoTemperatura: Record<string, string> = {
+    quente: "bg-aura-danger",
+    ativo: "bg-aura-success",
+    esfriando: "bg-aura-warning",
+    frio: "bg-aura-graphite-soft/50",
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-aura-navy-950 px-6 pb-10 pt-8 sm:px-8">
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-aura-gold/10 blur-3xl"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -bottom-32 left-1/3 h-72 w-72 rounded-full bg-aura-petrol-500/10 blur-3xl"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">Relacionamentos</h1>
-          <p className="mt-1 text-sm text-white/50">
-            Gerencie seus relacionamentos com clientes, parceiros e prospects.
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Relacionamentos"
+        descricao="Gerencie seus relacionamentos com clientes, parceiros e prospects."
+        icone={Users}
+        acoes={
+          <Botao
+            variante="primario"
+            icone={Plus}
+            onClick={() => setShowNovaModal(true)}
+            className="hidden sm:inline-flex"
+          >
+            Adicionar novo relacionamento
+          </Botao>
+        }
+      />
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
+      <div className="space-y-6">
         <AuraInsightCard pagina="relacionamentos" />
-      </div>
 
-      {/* Filtros e Busca */}
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-        <div className="space-y-4">
+        {/* Filtros e Busca */}
+        <div className="space-y-3">
           {/* Barra de Busca */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft" size={18} />
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft" size={16} />
             <input
               type="text"
               placeholder="Buscar por nome, categoria, telefone, email ou cidade..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-aura-mist bg-white pl-10 pr-4 py-2.5 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+              className="aura-input pl-9"
             />
           </div>
 
           {filtroAtencao && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-              <span>
-                Mostrando: <strong>{TEXTO_FILTRO_ATENCAO[filtroAtencao]}</strong> ({relacionamentosFiltrados.length})
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setFiltroAtencao(null);
-                  window.history.replaceState(null, "", "/relacionamentos");
-                }}
-                className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
-              >
-                Ver todos os clientes
-              </button>
-            </div>
+            <Alerta
+              tom="atencao"
+              titulo={
+                <>
+                  Mostrando: <strong className="font-semibold">{TEXTO_FILTRO_ATENCAO[filtroAtencao]}</strong> ({relacionamentosFiltrados.length})
+                </>
+              }
+              acao={
+                <Botao
+                  tamanho="sm"
+                  onClick={() => {
+                    setFiltroAtencao(null);
+                    window.history.replaceState(null, "", "/relacionamentos");
+                  }}
+                >
+                  Ver todos os clientes
+                </Botao>
+              }
+            />
           )}
 
           {/* Filtros */}
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setFiltroTemperatura("todos")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                filtroTemperatura === "todos"
-                  ? "bg-aura-petrol-700 text-white"
-                  : "border border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-300"
-              }`}
-            >
-              Todos
-            </button>
-            {["quente", "ativo", "esfriando", "frio"].map((temp) => (
-              <button
-                key={temp}
-                onClick={() => setFiltroTemperatura(temp)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  filtroTemperatura === temp
-                    ? `${temperaturaColors[temp].badge} ring-2 ring-offset-1`
-                    : `border border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-300`
-                }`}
-              >
-                {temp.charAt(0).toUpperCase() + temp.slice(1)}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmentado
+              rotulo="Temperatura"
+              valor={filtroTemperatura}
+              aoMudar={setFiltroTemperatura}
+              opcoes={[
+                { valor: "todos", rotulo: "Todos" },
+                ...["quente", "ativo", "esfriando", "frio"].map((temp) => ({
+                  valor: temp,
+                  rotulo: (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${pontoTemperatura[temp]}`} />
+                      {temp.charAt(0).toUpperCase() + temp.slice(1)}
+                    </span>
+                  ),
+                })),
+              ]}
+            />
+
+            {/* Loja e vendedor — só para quem vê mais de uma carteira. */}
+            {vejoMaisDeUmaCarteira && (
+              <>
+                <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+                  Loja
+                  <select
+                    value={filtroLoja}
+                    onChange={(e) => {
+                      setFiltroLoja(e.target.value);
+                      // Trocar de loja invalida o vendedor escolhido: ele pode
+                      // nem trabalhar na loja nova, e o filtro ficaria vazio.
+                      setFiltroVendedor("todos");
+                    }}
+                    className="aura-input w-auto"
+                  >
+                    <option value="todos">Todas ({relacionamentos.length})</option>
+                    {lojas.map((loja) => (
+                      <option key={loja} value={loja}>
+                        {loja}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+                  Vendedor
+                  <select
+                    value={filtroVendedor}
+                    onChange={(e) => setFiltroVendedor(e.target.value)}
+                    className="aura-input w-auto"
+                  >
+                    <option value="todos">Todos</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <span className="text-sm tabular-nums text-aura-graphite-soft">
+                  {relacionamentosFiltrados.length}{" "}
+                  {relacionamentosFiltrados.length === 1 ? "contato" : "contatos"}
+                </span>
+              </>
+            )}
           </div>
-
-          {/* Loja e vendedor — só para quem vê mais de uma carteira. */}
-          {vejoMaisDeUmaCarteira && (
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
-                Loja
-                <select
-                  value={filtroLoja}
-                  onChange={(e) => {
-                    setFiltroLoja(e.target.value);
-                    // Trocar de loja invalida o vendedor escolhido: ele pode
-                    // nem trabalhar na loja nova, e o filtro ficaria vazio.
-                    setFiltroVendedor("todos");
-                  }}
-                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
-                >
-                  <option value="todos">Todas ({relacionamentos.length})</option>
-                  {lojas.map((loja) => (
-                    <option key={loja} value={loja}>
-                      {loja}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex items-center gap-2 text-sm text-aura-graphite-soft">
-                Vendedor
-                <select
-                  value={filtroVendedor}
-                  onChange={(e) => setFiltroVendedor(e.target.value)}
-                  className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
-                >
-                  <option value="todos">Todos</option>
-                  {vendedores.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nome}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <span className="text-sm text-aura-graphite-soft">
-                {relacionamentosFiltrados.length}{" "}
-                {relacionamentosFiltrados.length === 1 ? "contato" : "contatos"}
-              </span>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Lista de Relacionamentos */}
-      <div className="mx-auto w-full max-w-7xl px-6 pb-24 sm:px-8">
+        {/* Lista de Relacionamentos */}
         {relacionamentosFiltrados.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-aura-mist bg-aura-bg px-6 py-12 text-center">
-            <p className="text-sm text-aura-graphite-soft">
-              {searchQuery ? "Nenhum relacionamento encontrado." : "Nenhum relacionamento criado."}
-            </p>
-          </div>
+          <EstadoVazio
+            icone={Users}
+            titulo={searchQuery ? "Nenhum relacionamento encontrado." : "Nenhum relacionamento criado."}
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {relacionamentosFiltrados.map((rel) => (
-              <div
-                key={rel.id}
-                className={`rounded-2xl border p-5 transition ${
-                  temperaturaColors[rel.temperatura].bg
-                } border-l-4 ${
-                  {
-                    quente: "border-l-red-500",
-                    ativo: "border-l-green-500",
-                    esfriando: "border-l-yellow-500",
-                    frio: "border-l-blue-500",
-                  }[rel.temperatura]
-                }`}
-              >
+              <div key={rel.id} className="aura-card aura-card-interativo flex flex-col p-4">
                 {/* Header do Card */}
                 <div className="flex items-start justify-between gap-3">
                   {/* min-w-0 + nome em até 2 linhas: sem isso um nome comprido
@@ -317,7 +288,7 @@ export function RelationshipsExplorer() {
                     <button
                       type="button"
                       onClick={() => setSelectedRelacionamento(rel)}
-                      className={`line-clamp-2 break-words text-left font-semibold hover:underline ${temperaturaColors[rel.temperatura].text}`}
+                      className="line-clamp-2 break-words text-left text-sm font-semibold text-aura-graphite transition hover:text-aura-petrol-600"
                     >
                       {rel.nome}
                     </button>
@@ -336,68 +307,70 @@ export function RelationshipsExplorer() {
                       </p>
                     )}
                   </div>
-                  <span
-                    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
-                      temperaturaColors[rel.temperatura].badge
-                    }`}
-                  >
+                  <Selo tom={tomTemperatura[rel.temperatura] ?? "neutro"} className="shrink-0">
+                    <span className={`h-1.5 w-1.5 rounded-full ${pontoTemperatura[rel.temperatura] ?? ""}`} />
                     {rel.temperatura}
-                  </span>
+                  </Selo>
                 </div>
 
                 {/* Contatos */}
-                <div className="mt-4 space-y-2">
+                <div className="mt-3 space-y-1.5">
                   {rel.telefone && (
                     <div className="flex items-center gap-2 text-xs">
-                      <Phone size={14} className="text-aura-graphite-soft" />
+                      <Phone size={13} className="shrink-0 text-aura-graphite-soft" />
                       <span className="text-aura-graphite">{rel.telefone}</span>
                     </div>
                   )}
                   {rel.email && (
                     <div className="flex items-center gap-2 text-xs">
-                      <Mail size={14} className="text-aura-graphite-soft" />
+                      <Mail size={13} className="shrink-0 text-aura-graphite-soft" />
                       <span className="truncate text-aura-graphite">{rel.email}</span>
                     </div>
                   )}
                   {rel.cidade && (
                     <div className="flex items-center gap-2 text-xs">
-                      <MapPin size={14} className="text-aura-graphite-soft" />
+                      <MapPin size={13} className="shrink-0 text-aura-graphite-soft" />
                       <span className="text-aura-graphite">{rel.cidade}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Datas de Contato */}
-                <div className="mt-4 space-y-1.5 border-t border-current border-opacity-10 pt-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-aura-graphite-soft">Último contato:</span>
-                    <span className={`font-medium ${temperaturaColors[rel.temperatura].text}`}>
-                      {rel.ultimoContato || "-"}
-                    </span>
+                <div className="mt-auto pt-3">
+                  <div className="space-y-1 border-t border-aura-mist pt-3">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-aura-graphite-soft">Último contato:</span>
+                      <span className="font-medium tabular-nums text-aura-graphite">
+                        {rel.ultimoContato || "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-aura-graphite-soft">Próximo contato:</span>
+                      <span className="font-medium tabular-nums text-aura-graphite">
+                        {rel.proximoContato}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-aura-graphite-soft">Próximo contato:</span>
-                    <span className={`font-medium ${temperaturaColors[rel.temperatura].text}`}>
-                      {rel.proximoContato}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Botões de Ação */}
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => setSelectedRelacionamento(rel)}
-                    className="flex-1 rounded-lg border border-aura-mist bg-white px-3 py-2 text-xs font-medium text-aura-graphite hover:bg-aura-bg transition flex items-center justify-center gap-1"
-                  >
-                    <Edit2 size={14} />
-                    {vejoMaisDeUmaCarteira ? "Abrir ficha" : "Editar"}
-                  </button>
-                  <button
-                    onClick={() => excluirRelacionamento(rel.id, rel.nome)}
-                    className="rounded-lg border border-aura-danger bg-aura-danger/10 px-3 py-2 text-xs font-medium text-aura-danger hover:bg-aura-danger/20 transition"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {/* Botões de Ação */}
+                  <div className="mt-3 flex gap-2">
+                    <Botao
+                      tamanho="sm"
+                      icone={Edit2}
+                      onClick={() => setSelectedRelacionamento(rel)}
+                      className="flex-1"
+                    >
+                      {vejoMaisDeUmaCarteira ? "Abrir ficha" : "Editar"}
+                    </Botao>
+                    <Botao
+                      tamanho="sm"
+                      variante="perigo-suave"
+                      onClick={() => excluirRelacionamento(rel.id, rel.nome)}
+                      aria-label={`Excluir ${rel.nome}`}
+                    >
+                      <Trash2 size={13} />
+                    </Botao>
+                  </div>
                 </div>
               </div>
             ))}
@@ -407,14 +380,15 @@ export function RelationshipsExplorer() {
 
       {/* Botão flutuante para adicionar. No celular fica acima do botão de
           registrar atividade — antes ele era escondido e não havia nenhum
-          outro caminho para cadastrar um cliente pelo telefone. */}
+          outro caminho para cadastrar um cliente pelo telefone. No
+          computador o mesmo botão fica no cabeçalho. */}
       <button
         onClick={() => setShowNovaModal(true)}
-        className="fixed bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-aura-petrol-700 text-white shadow-lg transition hover:bg-aura-petrol-600 sm:bottom-8 sm:right-8"
+        className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-aura-petrol-600 text-white shadow-lg transition hover:bg-aura-petrol-700 sm:hidden"
         title="Adicionar novo relacionamento"
         aria-label="Adicionar novo relacionamento"
       >
-        <Plus size={24} />
+        <Plus size={22} />
       </button>
 
       {/* Modal de Novo Relacionamento */}
@@ -435,6 +409,6 @@ export function RelationshipsExplorer() {
           onDelete={() => setSelectedRelacionamento(null)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

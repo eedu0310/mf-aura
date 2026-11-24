@@ -1,20 +1,18 @@
 "use client";
 
 import { ClipboardCheck } from "lucide-react";
+import { PageHeader } from "@/components/ui";
 import { AprovacaoCompromissosMensais } from "@/components/gestor/aprovacao-compromissos-mensais";
 
 export default function CompromissosMensaisPage() {
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-aura-graphite">
-          Compromissos Mensais
-        </h1>
-        <p className="text-sm text-aura-graphite-soft">
-          Aprove ou rejeite os compromissos de seus vendedores
-        </p>
-      </div>
+    <div>
+      {/* Cabeçalho: o layout do gestor já dá a largura e o respiro da página. */}
+      <PageHeader
+        titulo="Compromissos Mensais"
+        descricao="Aprove ou rejeite os compromissos de seus vendedores"
+        icone={ClipboardCheck}
+      />
 
       {/* Conteúdo */}
       <AprovacaoCompromissosMensais />

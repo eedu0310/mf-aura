@@ -130,7 +130,7 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
       valor: leads.length,
       nota: `${taxaResposta}% respondidos`,
       cor: "text-aura-petrol-600",
-      bg: "bg-aura-petrol-700/10",
+      bg: "bg-aura-petrol-500/10",
     },
     {
       aba: "campanhas" as const,
@@ -138,8 +138,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
       label: "Campanhas ativas",
       valor: campanhasAtivas,
       nota: `${campanhas.length} no total`,
-      cor: "text-aura-gold",
-      bg: "bg-aura-gold/10",
+      cor: "text-aura-gold-700",
+      bg: "bg-aura-gold/12",
     },
     {
       aba: "postagens" as const,
@@ -163,32 +163,32 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {CARDS.map((c) => (
           <button
             key={c.aba}
             type="button"
             onClick={() => onIrPara(c.aba)}
-            className="flex flex-col items-start gap-3 rounded-2xl border border-aura-mist bg-white p-4 text-left transition hover:border-aura-petrol-500/40 hover:shadow-sm"
+            className="aura-card aura-card-interativo flex flex-col items-start p-4 text-left"
           >
-            <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${c.bg} ${c.cor}`}>
-              <c.icon size={17} />
+            <div className="flex w-full items-center gap-2">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${c.bg} ${c.cor}`}>
+                <c.icon size={13} />
+              </span>
+              <p className="aura-rotulo truncate">{c.label}</p>
             </div>
-            <div>
-              <p className="font-display text-2xl font-bold text-aura-graphite">
-                {carregando ? "—" : c.valor}
-              </p>
-              <p className="text-xs font-medium text-aura-graphite">{c.label}</p>
-              <p className="text-[0.7rem] text-aura-graphite-soft">{c.nota}</p>
-            </div>
+            <p className="mt-2 font-display text-2xl font-semibold tabular-nums text-aura-graphite">
+              {carregando ? "—" : c.valor}
+            </p>
+            <p className="mt-0.5 text-xs text-aura-graphite-soft">{c.nota}</p>
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
+        <div className="aura-card p-5">
           <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
               <TrendingUp size={15} className="text-aura-petrol-600" />
               Leads nos últimos 14 dias
             </p>
@@ -218,12 +218,20 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
                   tickLine={false}
                   width={24}
                 />
-                <Tooltip contentStyle={{ borderRadius: 12, borderColor: "var(--aura-mist)", fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 8,
+                    borderColor: "var(--aura-mist)",
+                    background: "var(--aura-surface)",
+                    color: "var(--aura-graphite)",
+                    fontSize: 12,
+                  }}
+                />
                 <Area
                   type="monotone"
                   dataKey="Leads"
                   stroke="var(--aura-petrol-600)"
-                  strokeWidth={2.5}
+                  strokeWidth={2}
                   fill="url(#leadsFill)"
                 />
               </AreaChart>
@@ -231,8 +239,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
           </div>
         </div>
 
-        <div className="rounded-2xl border border-aura-mist bg-white p-5">
-          <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+        <div className="aura-card p-5">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
             <Trophy size={15} className="text-aura-gold" />
             Top campanhas
           </p>
@@ -247,8 +255,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
                 <li key={c.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2.5">
                     <span
-                      className={`w-5 shrink-0 text-center text-xs font-bold ${
-                        i === 0 ? "text-aura-gold" : "text-aura-graphite-soft"
+                      className={`w-5 shrink-0 text-center text-xs font-semibold tabular-nums ${
+                        i === 0 ? "text-aura-gold-700" : "text-aura-graphite-soft"
                       }`}
                     >
                       {i + 1}º
@@ -259,7 +267,7 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="font-data text-sm font-semibold text-aura-graphite">
+                    <p className="text-sm font-semibold tabular-nums text-aura-graphite">
                       {c.leadsGerados} {c.leadsGerados === 1 ? "lead" : "leads"}
                     </p>
                     <p className="text-xs text-aura-graphite-soft">
@@ -275,8 +283,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
         </div>
       </div>
 
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+      <div className="aura-card p-5">
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
           <Clock size={15} className="text-aura-petrol-600" />
           Atividade recente
         </p>
@@ -291,8 +299,8 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
             {atividade.map((item) => (
               <li key={item.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                 <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    item.tipo === "lead" ? "bg-aura-petrol-700/10 text-aura-petrol-700" : "bg-aura-gold/10 text-aura-gold"
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                    item.tipo === "lead" ? "bg-aura-petrol-500/10 text-aura-petrol-600" : "bg-aura-gold/12 text-aura-gold-700"
                   }`}
                 >
                   {item.tipo === "lead" ? <UserPlus size={13} /> : <CalendarIcon size={13} />}

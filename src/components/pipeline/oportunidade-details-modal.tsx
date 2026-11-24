@@ -13,6 +13,7 @@ import {
 } from "@/lib/supabase/orcamentos";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Oportunidade, Etapa, Probabilidade } from "@/lib/types";
+import { classeBotao } from "@/components/ui";
 
 const PROBABILIDADES: Probabilidade[] = ["Baixa", "Média", "Alta"];
 
@@ -146,15 +147,15 @@ export function OportunidadeDetailsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+      <div className="aura-card w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl p-6 shadow-xl">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <p className="font-display text-lg font-semibold text-aura-graphite">
+            <p className="font-display text-base font-semibold text-aura-graphite">
               {editando ? "Editar Oportunidade" : "Detalhes da Oportunidade"}
             </p>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
+            <p className="mt-0.5 text-xs tabular-nums text-aura-graphite-soft">
               ID: {oportunidade.id.slice(0, 8)}...
             </p>
           </div>
@@ -162,9 +163,10 @@ export function OportunidadeDetailsModal({
             type="button"
             onClick={onClose}
             disabled={salvando || deletando}
-            className="text-aura-graphite-soft hover:text-aura-graphite disabled:opacity-50"
+            className={classeBotao("fantasma", "sm", "h-8 w-8 px-0")}
+            aria-label="Fechar"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -172,55 +174,55 @@ export function OportunidadeDetailsModal({
           // MODO VISUALIZAÇÃO
           <div className="space-y-6">
             {/* Informações */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Cliente</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Cliente</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {oportunidade.cliente}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Produto</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Produto</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {oportunidade.produto || "-"}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Valor</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Valor</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {formatarMoeda(oportunidade.valor)}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Etapa</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Etapa</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {oportunidade.etapa}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Probabilidade</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Probabilidade</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {oportunidade.probabilidade}
                 </p>
               </div>
-              <div className="rounded-xl bg-aura-bg p-4">
-                <p className="text-xs font-medium text-aura-graphite-soft">Empresa</p>
-                <p className="mt-1 text-sm font-semibold text-aura-graphite">
+              <div className="rounded-lg border border-aura-mist bg-aura-sunken/50 px-3.5 py-2.5">
+                <p className="aura-rotulo">Empresa</p>
+                <p className="mt-1 text-sm font-medium text-aura-graphite">
                   {oportunidade.empresa || "-"}
                 </p>
               </div>
             </div>
 
             {/* Orçamentos anexados — vários por negócio */}
-            <div className="rounded-xl border border-aura-mist p-4">
+            <div className="rounded-lg border border-aura-mist p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Upload size={16} className="text-aura-petrol-600" />
-                  <p className="text-sm font-medium text-aura-graphite">
+                  <p className="text-sm font-semibold text-aura-graphite">
                     Orçamentos{orcamentos.length > 0 ? ` (${orcamentos.length})` : ""}
                   </p>
                 </div>
-                <label className="cursor-pointer rounded-lg bg-aura-petrol-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-aura-petrol-600">
+                <label className={classeBotao("secundario", "sm", "cursor-pointer")}>
                   {uploadandoOrcamento ? "Enviando..." : orcamentos.length ? "Anexar outro" : "Anexar orçamento"}
                   <input
                     type="file"
@@ -245,7 +247,7 @@ export function OportunidadeDetailsModal({
                   {orcamentos.map((o) => (
                     <li key={o.id} className="flex items-center justify-between gap-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="shrink-0 rounded-full bg-aura-petrol-100 px-2 py-0.5 text-[11px] font-semibold text-aura-petrol-700">
+                        <span className="aura-selo aura-selo-marca shrink-0 tabular-nums">
                           {o.versao}º
                         </span>
                         <FileText size={14} className="shrink-0 text-aura-graphite-soft" />
@@ -261,14 +263,15 @@ export function OportunidadeDetailsModal({
                         <button
                           type="button"
                           onClick={() => void abrirOrcamento(o)}
-                          className="flex items-center gap-1 rounded-lg border border-aura-mist px-2.5 py-1 text-xs font-medium text-aura-graphite hover:bg-aura-bg"
+                          className={classeBotao("secundario", "sm")}
                         >
                           <Download size={12} /> Abrir
                         </button>
                         <button
                           type="button"
                           onClick={() => void excluirOrcamento(o)}
-                          className="rounded-lg p-1.5 text-aura-graphite-soft hover:bg-red-50 hover:text-aura-danger"
+                          className={classeBotao("fantasma", "sm", "w-[1.875rem] px-0 hover:text-aura-danger")}
+                          aria-label="Remover"
                           title="Remover"
                         >
                           <Trash2 size={13} />
@@ -289,7 +292,7 @@ export function OportunidadeDetailsModal({
               <button
                 type="button"
                 onClick={() => setEditando(true)}
-                className="flex-1 rounded-lg bg-aura-petrol-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-petrol-600"
+                className={classeBotao("primario", "md", "flex-1")}
               >
                 Editar
               </button>
@@ -297,7 +300,8 @@ export function OportunidadeDetailsModal({
                 type="button"
                 onClick={excluir}
                 disabled={deletando}
-                className="rounded-lg border border-aura-danger bg-aura-danger/10 px-4 py-2.5 text-sm font-medium text-aura-danger hover:bg-aura-danger/20 disabled:opacity-50"
+                className={classeBotao("perigo-suave")}
+                aria-label="Excluir"
               >
                 {deletando ? (
                   <Loader2 size={16} className="animate-spin" />
@@ -311,53 +315,53 @@ export function OportunidadeDetailsModal({
           // MODO EDIÇÃO
           <form className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Cliente *
               </label>
               <input
                 type="text"
                 value={formData.cliente}
                 onChange={(e) => setFormData({ ...formData, cliente: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Produto
               </label>
               <input
                 type="text"
                 value={formData.produto}
                 onChange={(e) => setFormData({ ...formData, produto: e.target.value })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+              <label className="aura-label">
                 Valor (R$) *
               </label>
               <input
                 type="number"
                 value={formData.valor}
                 onChange={(e) => setFormData({ ...formData, valor: Number(e.target.value) })}
-                className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                className="aura-input"
                 disabled={salvando}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Etapa
                 </label>
                 <select
                   value={formData.etapa}
                   onChange={(e) => setFormData({ ...formData, etapa: e.target.value as Etapa })}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 >
                   {nomesDasEtapas(funil).map((e) => (
@@ -369,13 +373,13 @@ export function OportunidadeDetailsModal({
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Probabilidade
                 </label>
                 <select
                   value={formData.probabilidade}
                   onChange={(e) => setFormData({ ...formData, probabilidade: e.target.value as Probabilidade })}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 >
                   {PROBABILIDADES.map((p) => (
@@ -393,7 +397,7 @@ export function OportunidadeDetailsModal({
                 type="button"
                 onClick={salvarEdicoes}
                 disabled={salvando}
-                className="flex-1 rounded-lg bg-aura-petrol-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+                className={classeBotao("primario", "md", "flex-1")}
               >
                 {salvando ? (
                   <div className="flex items-center justify-center gap-2">
@@ -408,7 +412,7 @@ export function OportunidadeDetailsModal({
                 type="button"
                 onClick={() => setEditando(false)}
                 disabled={salvando}
-                className="flex-1 rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm font-medium text-aura-graphite hover:bg-aura-bg disabled:opacity-50"
+                className={classeBotao("secundario", "md", "flex-1")}
               >
                 Cancelar
               </button>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import type { Oportunidade } from "@/lib/types";
+import { classeBotao } from "@/components/ui";
 
 const MOTIVOS_PERDA = [
   "Sem Orçamento",
@@ -86,14 +87,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="aura-card w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-xl p-6 shadow-xl">
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <p className="font-display text-lg font-semibold text-aura-graphite">
+            <p className="font-display text-base font-semibold text-aura-graphite">
               Registrar Motivo da Perda
             </p>
-            <p className="mt-1 text-sm text-aura-graphite-soft">
+            <p className="mt-0.5 text-sm text-aura-graphite-soft">
               {clienteNome}
             </p>
           </div>
@@ -101,23 +102,24 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
             type="button"
             onClick={fechar}
             disabled={salvando}
-            className="text-aura-graphite-soft hover:text-aura-graphite disabled:opacity-50"
+            className={classeBotao("fantasma", "sm", "h-8 w-8 px-0")}
+            aria-label="Fechar"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         <div className="space-y-5">
           {/* Motivo da Perda - OBRIGATÓRIO */}
           <div>
-            <label className="mb-2.5 block text-sm font-semibold text-aura-graphite">
+            <label className="aura-label mb-2.5">
               Motivo da Perda *
             </label>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {MOTIVOS_PERDA.map((motivo) => (
                 <label
                   key={motivo}
-                  className="flex items-center gap-3 rounded-lg border-2 border-aura-mist p-3 cursor-pointer transition hover:border-aura-petrol-300"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border border-aura-mist p-3 transition hover:bg-aura-sunken has-[:checked]:border-aura-petrol-500 has-[:checked]:bg-aura-petrol-500/5"
                 >
                   <input
                     type="radio"
@@ -128,7 +130,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                       setFormData({ ...formData, motivoPerda: e.target.value })
                     }
                     disabled={salvando}
-                    className="w-4 h-4"
+                    className="h-4 w-4 accent-aura-petrol-600"
                   />
                   <span className="text-sm font-medium text-aura-graphite">
                     {motivo}
@@ -140,14 +142,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
 
           {/* Informações Adicionais */}
           <div className="border-t border-aura-mist pt-5">
-            <p className="mb-4 text-sm font-semibold text-aura-graphite">
+            <p className="aura-rotulo mb-4">
               Informações Adicionais
             </p>
 
             <div className="space-y-4">
               {/* Objeção */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Objeção
                 </label>
                 <textarea
@@ -157,14 +159,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                   }
                   placeholder="Qual foi a objeção principal?"
                   rows={2}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Concorrente */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Concorrente (se informado)
                 </label>
                 <input
@@ -174,14 +176,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                     setFormData({ ...formData, concorrente: e.target.value })
                   }
                   placeholder="Qual concorrente venceu?"
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Condição Solicitada */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Condição Solicitada
                 </label>
                 <textarea
@@ -194,14 +196,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                   }
                   placeholder="Quais condições o cliente solicitou?"
                   rows={2}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Desconto Solicitado */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Desconto Solicitado
                 </label>
                 <input
@@ -214,14 +216,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                     })
                   }
                   placeholder="Ex: 15%"
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Desconto Concedido */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Desconto Concedido
                 </label>
                 <input
@@ -234,14 +236,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                     })
                   }
                   placeholder="Ex: 10%"
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Contrapartida */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Contrapartida
                 </label>
                 <textarea
@@ -251,14 +253,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                   }
                   placeholder="Qual foi oferecido em troca?"
                   rows={2}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Responsável pela Aprovação */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Responsável pela Aprovação
                 </label>
                 <input
@@ -271,14 +273,14 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                     })
                   }
                   placeholder="Quem aprovou a negociação?"
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
 
               {/* Resultado */}
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-aura-graphite">
+                <label className="aura-label">
                   Resultado
                 </label>
                 <textarea
@@ -288,7 +290,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
                   }
                   placeholder="Qual foi o resultado final?"
                   rows={2}
-                  className="w-full rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm outline-none focus:border-aura-petrol-500 focus:ring-2 focus:ring-aura-petrol-500/20"
+                  className="aura-input"
                   disabled={salvando}
                 />
               </div>
@@ -301,7 +303,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
               type="button"
               onClick={salvar}
               disabled={salvando || !formData.motivoPerda}
-              className="flex-1 rounded-lg bg-aura-danger px-4 py-2.5 text-sm font-medium text-white hover:bg-aura-danger/90 disabled:opacity-50"
+              className={classeBotao("perigo", "md", "flex-1")}
             >
               {salvando ? (
                 <div className="flex items-center justify-center gap-2">
@@ -316,7 +318,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
               type="button"
               onClick={fechar}
               disabled={salvando}
-              className="flex-1 rounded-lg border border-aura-mist bg-white px-4 py-2.5 text-sm font-medium text-aura-graphite hover:bg-aura-bg disabled:opacity-50"
+              className={classeBotao("secundario", "md", "flex-1")}
             >
               Cancelar
             </button>

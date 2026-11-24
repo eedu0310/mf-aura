@@ -11,6 +11,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
+import { Alerta, EstadoVazio, Selo } from "@/components/ui";
 
 interface Linha {
   id: string;
@@ -59,7 +60,7 @@ function Comparado({ valor, media }: { valor: number; media: number }) {
   return (
     <span
       className={`ml-1.5 inline-flex items-center gap-0.5 text-[11px] ${
-        acima ? "text-emerald-600" : "text-amber-600"
+        acima ? "text-aura-success" : "text-aura-gold-700"
       }`}
       title={`Média dele nos dias trabalhados: ${media}`}
     >
@@ -81,8 +82,8 @@ function Numero({
 }) {
   return (
     <div>
-      <p className="text-[11px] uppercase tracking-wide text-aura-graphite-soft">{rotulo}</p>
-      <p className="font-display text-xl font-semibold text-aura-graphite">
+      <p className="aura-rotulo">{rotulo}</p>
+      <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aura-graphite">
         {valor}
         {media !== undefined && <Comparado valor={valor} media={media} />}
       </p>
@@ -122,56 +123,42 @@ export function MovimentacaoTab() {
   const ativos = dados?.vendedores.filter((v) => !v.semMovimento) ?? [];
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-aura-mist bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <Activity size={20} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-            <div>
-              <h3 className="font-display text-lg font-semibold text-aura-graphite">
-                Movimentação do dia
-              </h3>
-              <p className="mt-1 text-sm text-aura-graphite-soft">
-                O que cada pessoa fez. Cada número vem comparado com a média dela
-                nos dias em que trabalhou, não com a dos colegas.
-              </p>
-            </div>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-aura-graphite">
-            <CalendarDays className="h-4 w-4 text-aura-graphite-soft" />
-            <input
-              type="date"
-              value={dia}
-              max={hoje}
-              onChange={(e) => setDia(e.target.value)}
-              className="rounded-lg border border-aura-mist px-3 py-1.5 text-sm focus:border-aura-petrol-500 focus:outline-none"
-            />
-          </label>
-        </div>
-
-        {carregando && (
-          <p className="mt-4 flex items-center gap-2 text-sm text-aura-graphite-soft">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
-          </p>
-        )}
-        {erro && (
-          <p className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {erro}
-          </p>
-        )}
-
-        {dados && !carregando && (
-          <div className="mt-5 grid grid-cols-2 gap-4 border-t border-aura-mist pt-4 sm:grid-cols-4 lg:grid-cols-7">
-            <Numero rotulo="Atividades" valor={Number(t.atividades ?? 0)} />
-            <Numero rotulo="Contatos novos" valor={Number(t.contatosNovos ?? 0)} />
-            <Numero rotulo="Leads recebidos" valor={Number(t.leadsRecebidos ?? 0)} />
-            <Numero rotulo="Leads respondidos" valor={Number(t.leadsRespondidos ?? 0)} />
-            <Numero rotulo="Negócios novos" valor={Number(t.oportunidadesNovas ?? 0)} />
-            <Numero rotulo="Negócios movidos" valor={Number(t.oportunidadesMovidas ?? 0)} />
-            <Numero rotulo="Conversas" valor={Number(t.conversas ?? 0)} />
-          </div>
-        )}
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="max-w-2xl text-sm text-aura-graphite-soft">
+          O que cada pessoa fez. Cada número vem comparado com a média dela
+          nos dias em que trabalhou, não com a dos colegas.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-aura-graphite">
+          <CalendarDays className="h-4 w-4 text-aura-graphite-soft" />
+          <input
+            type="date"
+            value={dia}
+            max={hoje}
+            onChange={(e) => setDia(e.target.value)}
+            className="aura-input w-auto"
+          />
+        </label>
       </div>
+
+      {carregando && (
+        <p className="flex items-center gap-2 text-sm text-aura-graphite-soft">
+          <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+        </p>
+      )}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
+
+      {dados && !carregando && (
+        <div className="aura-card grid grid-cols-2 gap-4 p-5 sm:grid-cols-4 lg:grid-cols-7">
+          <Numero rotulo="Atividades" valor={Number(t.atividades ?? 0)} />
+          <Numero rotulo="Contatos novos" valor={Number(t.contatosNovos ?? 0)} />
+          <Numero rotulo="Leads recebidos" valor={Number(t.leadsRecebidos ?? 0)} />
+          <Numero rotulo="Leads respondidos" valor={Number(t.leadsRespondidos ?? 0)} />
+          <Numero rotulo="Negócios novos" valor={Number(t.oportunidadesNovas ?? 0)} />
+          <Numero rotulo="Negócios movidos" valor={Number(t.oportunidadesMovidas ?? 0)} />
+          <Numero rotulo="Conversas" valor={Number(t.conversas ?? 0)} />
+        </div>
+      )}
 
       {/*
         Quem não registrou NADA vem primeiro e separado de quem fez pouco.
@@ -180,111 +167,109 @@ export function MovimentacaoTab() {
         a coisa certa.
       */}
       {dados && !carregando && parados.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-          <h4 className="flex items-center gap-2 font-medium text-amber-900">
-            <MinusCircle className="h-4 w-4" />
-            Sem nenhum registro {dados.ehHoje ? "até agora" : "neste dia"}
-          </h4>
-          <p className="mt-1 text-sm text-amber-800">
-            {parados.map((p) => p.nome).join(", ")}
-          </p>
-          <p className="mt-2 text-xs text-amber-700">
-            Pode ser folga, pode ser dia sem registro. O sistema não sabe a
-            diferença — quem sabe é você.
-          </p>
+        <Alerta
+          tom="atencao"
+          icone={MinusCircle}
+          titulo={`Sem nenhum registro ${dados.ehHoje ? "até agora" : "neste dia"}`}
+          descricao={
+            <>
+              <p className="text-sm text-aura-graphite">{parados.map((p) => p.nome).join(", ")}</p>
+              <p className="mt-1">
+                Pode ser folga, pode ser dia sem registro. O sistema não sabe a
+                diferença — quem sabe é você.
+              </p>
+            </>
+          }
+        />
+      )}
+
+      {dados && !carregando && ativos.length > 0 && (
+        <div className="flex flex-col gap-3">
+          {ativos.map((v) => {
+            const expandido = aberto === v.id;
+            return (
+              <div key={v.id} className="aura-card overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setAberto(expandido ? null : v.id)}
+                  className="flex w-full items-start justify-between gap-3 px-5 py-4 text-left transition hover:bg-aura-sunken/50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-aura-graphite">
+                      {v.nome}{" "}
+                      <span className="font-normal text-aura-graphite-soft">· {v.cargo}</span>
+                    </p>
+                    <p className="mt-0.5 text-xs text-aura-graphite-soft">
+                      {v.primeiraEm
+                        ? `Primeiro registro ${v.primeiraEm} · último ${v.ultimaEm}`
+                        : "Sem atividade registrada à mão neste dia"}
+                      {v.diasAtivosNaSemana > 0 && ` · ativo em ${v.diasAtivosNaSemana} dos últimos 7 dias`}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`mt-1 h-4 w-4 shrink-0 text-aura-graphite-soft transition ${
+                      expandido ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                <div className="grid grid-cols-2 gap-4 border-t border-aura-mist px-5 py-4 sm:grid-cols-4">
+                  <Numero rotulo="Atividades" valor={v.atividades} media={v.media.atividades} />
+                  <Numero rotulo="Leads" valor={v.leadsRecebidos} media={v.media.leadsRecebidos} />
+                  <Numero rotulo="Conversas" valor={v.conversas} media={v.media.conversas} />
+                  <Numero rotulo="Negócios movidos" valor={v.oportunidadesNovas + v.oportunidadesMovidas} />
+                </div>
+
+                {expandido && (
+                  <div className="space-y-4 border-t border-aura-mist bg-aura-sunken/40 px-5 py-4 text-sm">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <p className="text-aura-graphite-soft">
+                        Contatos novos: <strong className="font-semibold tabular-nums text-aura-graphite">{v.contatosNovos}</strong>
+                      </p>
+                      <p className="text-aura-graphite-soft">
+                        Leads respondidos: <strong className="font-semibold tabular-nums text-aura-graphite">{v.leadsRespondidos}</strong>
+                      </p>
+                      <p className="text-aura-graphite-soft">
+                        Negócios novos: <strong className="font-semibold tabular-nums text-aura-graphite">{v.oportunidadesNovas}</strong>
+                      </p>
+                      <p className="text-aura-graphite-soft">
+                        Vendas: <strong className="font-semibold tabular-nums text-aura-graphite">{v.vendas}</strong>
+                        {v.faturamento > 0 && ` · ${moeda(v.faturamento)}`}
+                      </p>
+                    </div>
+
+                    {Object.keys(v.porTipo).length > 0 && (
+                      <div>
+                        <p className="aura-rotulo mb-1.5">Atividades por tipo</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {Object.entries(v.porTipo)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([tipo, n]) => (
+                              <Selo key={tipo} tom="neutro">
+                                {tipo} · {n}
+                              </Selo>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {v.leadsRecebidos > 0 && v.leadsRespondidos === 0 && (
+                      <p className="flex items-start gap-2 rounded-lg border border-aura-mist bg-aura-surface px-3 py-2 text-aura-graphite">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-aura-warning" />
+                        Recebeu {v.leadsRecebidos} lead{v.leadsRecebidos > 1 ? "s" : ""} e não
+                        respondeu nenhum neste dia.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {dados && !carregando && ativos.map((v) => {
-        const expandido = aberto === v.id;
-        return (
-          <div key={v.id} className="rounded-2xl border border-aura-mist bg-white">
-            <button
-              type="button"
-              onClick={() => setAberto(expandido ? null : v.id)}
-              className="flex w-full items-start justify-between gap-3 p-5 text-left"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-aura-graphite">
-                  {v.nome}{" "}
-                  <span className="text-sm font-normal text-aura-graphite-soft">· {v.cargo}</span>
-                </p>
-                <p className="mt-0.5 text-xs text-aura-graphite-soft">
-                  {v.primeiraEm
-                    ? `Primeiro registro ${v.primeiraEm} · último ${v.ultimaEm}`
-                    : "Sem atividade registrada à mão neste dia"}
-                  {v.diasAtivosNaSemana > 0 && ` · ativo em ${v.diasAtivosNaSemana} dos últimos 7 dias`}
-                </p>
-              </div>
-              <ChevronDown
-                className={`mt-1 h-4 w-4 shrink-0 text-aura-graphite-soft transition ${
-                  expandido ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            <div className="grid grid-cols-2 gap-4 border-t border-aura-mist px-5 py-4 sm:grid-cols-4">
-              <Numero rotulo="Atividades" valor={v.atividades} media={v.media.atividades} />
-              <Numero rotulo="Leads" valor={v.leadsRecebidos} media={v.media.leadsRecebidos} />
-              <Numero rotulo="Conversas" valor={v.conversas} media={v.media.conversas} />
-              <Numero rotulo="Negócios movidos" valor={v.oportunidadesNovas + v.oportunidadesMovidas} />
-            </div>
-
-            {expandido && (
-              <div className="space-y-3 border-t border-aura-mist px-5 py-4 text-sm">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <p className="text-aura-graphite-soft">
-                    Contatos novos: <strong className="text-aura-graphite">{v.contatosNovos}</strong>
-                  </p>
-                  <p className="text-aura-graphite-soft">
-                    Leads respondidos: <strong className="text-aura-graphite">{v.leadsRespondidos}</strong>
-                  </p>
-                  <p className="text-aura-graphite-soft">
-                    Negócios novos: <strong className="text-aura-graphite">{v.oportunidadesNovas}</strong>
-                  </p>
-                  <p className="text-aura-graphite-soft">
-                    Vendas: <strong className="text-aura-graphite">{v.vendas}</strong>
-                    {v.faturamento > 0 && ` · ${moeda(v.faturamento)}`}
-                  </p>
-                </div>
-
-                {Object.keys(v.porTipo).length > 0 && (
-                  <div>
-                    <p className="mb-1.5 text-xs uppercase tracking-wide text-aura-graphite-soft">
-                      Atividades por tipo
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {Object.entries(v.porTipo)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([tipo, n]) => (
-                          <span
-                            key={tipo}
-                            className="rounded-full bg-aura-bg px-2.5 py-1 text-xs text-aura-graphite"
-                          >
-                            {tipo} · {n}
-                          </span>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {v.leadsRecebidos > 0 && v.leadsRespondidos === 0 && (
-                  <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    Recebeu {v.leadsRecebidos} lead{v.leadsRecebidos > 1 ? "s" : ""} e não
-                    respondeu nenhum neste dia.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
       {dados && !carregando && dados.vendedores.length === 0 && (
-        <p className="rounded-2xl border border-aura-mist bg-white p-5 text-sm text-aura-graphite-soft">
-          Nenhum vendedor ativo nesta loja.
-        </p>
+        <EstadoVazio icone={Activity} titulo="Nenhum vendedor ativo nesta loja." />
       )}
     </div>
   );

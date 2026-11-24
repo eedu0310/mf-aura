@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, UserPlus, Users, X } from "lucide-react";
 import type { Relacionamento } from "@/lib/types";
+import { classeBotao } from "@/components/ui";
 
 interface Colega {
   id: string;
@@ -106,12 +107,14 @@ export function DuplaPanel({
     "um colega";
 
   return (
-    <div className="rounded-xl border border-aura-mist bg-aura-bg/40 p-4">
+    <div className="rounded-xl border border-aura-mist bg-aura-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-2.5">
-          <Users size={18} className="mt-0.5 shrink-0 text-aura-petrol-600" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+            <Users size={16} className="text-aura-petrol-600" />
+          </span>
           <div>
-            <p className="text-sm font-medium text-aura-graphite">
+            <p className="text-sm font-semibold text-aura-graphite">
               Atendimento em dupla
             </p>
             {temDupla ? (
@@ -144,16 +147,16 @@ export function DuplaPanel({
                 ? undefined
                 : "Só quem atende o cliente (ou o gestor da loja) pode passar o atendimento."
             }
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm font-medium text-aura-petrol-600 transition hover:bg-white disabled:opacity-50"
+            className={classeBotao("secundario", "sm", "shrink-0")}
           >
-            <UserPlus size={15} />
+            <UserPlus size={14} />
             {temDupla ? "Mudar" : "Chamar colega"}
           </button>
         )}
       </div>
 
       {recado && (
-        <p className="mt-3 rounded-lg bg-aura-success/10 px-3 py-2 text-sm text-aura-success">
+        <p className="mt-3 rounded-lg border border-aura-success/25 bg-aura-success/8 px-3 py-2 text-sm text-aura-success">
           {recado}
         </p>
       )}
@@ -161,7 +164,7 @@ export function DuplaPanel({
       {abrindo && (
         <div className="mt-4 flex flex-col gap-3 border-t border-aura-mist pt-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-aura-graphite">
+            <label className="aura-label mb-0 text-xs">
               Quem entra no atendimento
             </label>
             {colegas === null ? (
@@ -177,7 +180,7 @@ export function DuplaPanel({
               <select
                 value={escolhido}
                 onChange={(e) => setEscolhido(e.target.value)}
-                className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+                className="aura-input"
               >
                 <option value="">Escolha um colega</option>
                 {colegas.map((c) => (
@@ -190,7 +193,7 @@ export function DuplaPanel({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-aura-graphite">
+            <label className="aura-label mb-0 text-xs">
               Divisão da venda
             </label>
             <div className="flex items-center gap-3">
@@ -203,7 +206,7 @@ export function DuplaPanel({
                 onChange={(e) => setPercentual(Number(e.target.value))}
                 className="flex-1 accent-aura-petrol-500"
               />
-              <span className="w-14 shrink-0 text-right text-sm font-medium text-aura-graphite">
+              <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums text-aura-graphite">
                 {percentual}%
               </span>
             </div>
@@ -214,25 +217,25 @@ export function DuplaPanel({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-aura-graphite">
+            <label className="aura-label mb-0 text-xs">
               Por quê? <span className="font-normal">(aparece no aviso do colega)</span>
             </label>
             <input
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ex.: cliente vai até a loja e quem atende presencial continua"
-              className="rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500"
+              className="aura-input"
             />
           </div>
 
-          <p className="rounded-lg bg-white px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
+          <p className="rounded-lg bg-aura-sunken px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
             O cliente continua na carteira de quem já era dono. A dupla vale para
             a conversa e para os negócios <strong>ainda em aberto</strong> — venda
             já fechada não muda de divisão.
           </p>
 
           {erro && (
-            <p className="rounded-lg bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">
+            <p className="rounded-lg border border-aura-danger/25 bg-aura-danger/8 px-3 py-2 text-sm text-aura-danger">
               {erro}
             </p>
           )}
@@ -242,7 +245,7 @@ export function DuplaPanel({
               type="button"
               disabled={salvando || !escolhido}
               onClick={() => salvar(escolhido)}
-              className="inline-flex items-center gap-2 rounded-lg bg-aura-petrol-500 px-3 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-600 disabled:opacity-50"
+              className={classeBotao("primario")}
             >
               {salvando && <Loader2 size={14} className="animate-spin" />}
               Confirmar dupla
@@ -252,7 +255,7 @@ export function DuplaPanel({
                 type="button"
                 disabled={salvando}
                 onClick={() => salvar(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-2 text-sm font-medium text-aura-danger transition hover:bg-red-50 disabled:opacity-50"
+                className={classeBotao("perigo-suave")}
               >
                 <X size={14} />
                 Encerrar dupla
@@ -264,7 +267,7 @@ export function DuplaPanel({
                 setAbrindo(false);
                 setErro(null);
               }}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-aura-graphite-soft transition hover:text-aura-graphite"
+              className={classeBotao("fantasma")}
             >
               Cancelar
             </button>

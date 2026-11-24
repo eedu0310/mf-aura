@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Filter, RefreshCw, TrendingUp } from "lucide-react";
+import { Download, Filter, RefreshCw, Table2, TrendingUp } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Alerta, EstadoVazio, PageContainer, PageHeader, StatCard, classeBotao } from "@/components/ui";
 
 interface DadosVendedor {
   usuario_nome: string;
@@ -186,26 +187,21 @@ export default function PlanilhaLeadsPage() {
   }).format(new Date(anoSelecionado, mesSelecionado - 1, 1));
 
   return (
-    <div className="space-y-6 pb-24">
-      <div className="relative overflow-hidden bg-gradient-to-r from-aura-petrol-700 to-aura-petrol-500 px-6 pb-10 pt-8 sm:px-8">
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
-            Planilha de Leads — Controle de Marketing
-          </h1>
-          <p className="mt-1 text-sm text-white/70">
-            Acompanhe os indicadores de leads de todos os vendedores.
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Planilha de Leads — Controle de Marketing"
+        descricao="Acompanhe os indicadores de leads de todos os vendedores."
+        icone={Table2}
+      />
 
-      <div className="mx-auto w-full max-w-7xl px-6 sm:px-8">
-        <div className="mb-6 rounded-xl border border-aura-mist bg-white p-4 shadow-sm">
+      <div>
+        <div className="aura-card mb-6 p-4">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-2">
-              <Filter size={18} className="text-aura-petrol-500" />
+              <Filter size={16} className="text-aura-graphite-soft" />
               <label
                 htmlFor="mes-leads"
-                className="text-sm font-medium text-aura-graphite"
+                className="text-[0.8125rem] font-medium text-aura-graphite"
               >
                 Mês:
               </label>
@@ -215,7 +211,7 @@ export default function PlanilhaLeadsPage() {
                 onChange={(event) =>
                   setMesSelecionado(Number(event.target.value))
                 }
-                className="rounded border border-aura-mist px-3 py-1.5 text-sm capitalize focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input h-9 w-auto capitalize"
               >
                 {Array.from({ length: 12 }, (_, index) => index + 1).map(
                   (mes) => (
@@ -230,7 +226,7 @@ export default function PlanilhaLeadsPage() {
             <div className="flex items-center gap-2">
               <label
                 htmlFor="ano-leads"
-                className="text-sm font-medium text-aura-graphite"
+                className="text-[0.8125rem] font-medium text-aura-graphite"
               >
                 Ano:
               </label>
@@ -240,7 +236,7 @@ export default function PlanilhaLeadsPage() {
                 onChange={(event) =>
                   setAnoSelecionado(Number(event.target.value))
                 }
-                className="rounded border border-aura-mist px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input h-9 w-auto"
               >
                 {Array.from(
                   { length: 5 },
@@ -256,7 +252,7 @@ export default function PlanilhaLeadsPage() {
             <div className="flex min-w-[220px] flex-1 items-center gap-2">
               <label
                 htmlFor="vendedor-leads"
-                className="text-sm font-medium text-aura-graphite"
+                className="text-[0.8125rem] font-medium text-aura-graphite"
               >
                 Vendedor:
               </label>
@@ -266,7 +262,7 @@ export default function PlanilhaLeadsPage() {
                 value={vendedorFiltro}
                 onChange={(event) => setVendedorFiltro(event.target.value)}
                 placeholder="Buscar vendedor..."
-                className="flex-1 rounded border border-aura-mist px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+                className="aura-input h-9 flex-1"
               />
             </div>
 
@@ -274,53 +270,43 @@ export default function PlanilhaLeadsPage() {
               type="button"
               onClick={() => void carregarDados()}
               disabled={carregando}
-              className="flex items-center gap-2 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite hover:bg-aura-bg disabled:cursor-not-allowed disabled:opacity-50"
+              className={classeBotao("secundario")}
             >
               <RefreshCw
-                size={16}
+                size={15}
                 className={carregando ? "animate-spin" : ""}
               />
-              Actualizar
+              Atualizar
             </button>
 
             <button
               type="button"
               onClick={exportarExcel}
               disabled={vendedores.length === 0}
-              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className={classeBotao("primario")}
             >
-              <Download size={16} />
+              <Download size={15} />
               Exportar CSV
             </button>
           </div>
         </div>
 
         {erro && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            Não foi possível carregar a planilha: {erro}
-          </div>
+          <Alerta tom="perigo" className="mb-6" titulo={<>Não foi possível carregar a planilha: {erro}</>} />
         )}
 
         {carregando ? (
-          <div className="rounded-lg border border-aura-mist bg-white p-8 text-center">
-            <p className="text-aura-graphite-soft">Carregando dados...</p>
+          <div className="aura-card p-8 text-center">
+            <p className="text-sm text-aura-graphite-soft">Carregando dados...</p>
           </div>
         ) : vendedores.length === 0 ? (
-          <div className="rounded-lg border border-aura-mist bg-white p-8 text-center">
-            <TrendingUp
-              size={32}
-              className="mx-auto mb-3 text-aura-graphite-soft"
-            />
-            <p className="text-aura-graphite-soft">
-              Nenhum dado disponível para este período ou filtro.
-            </p>
-          </div>
+          <EstadoVazio icone={TrendingUp} titulo="Nenhum dado disponível para este período ou filtro." />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-aura-mist bg-white shadow-sm">
+          <div className="aura-card overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10 border-b border-aura-mist bg-aura-bg">
+              <thead className="sticky top-0 z-10 border-b border-aura-mist bg-aura-sunken">
                 <tr>
-                  <th className="sticky left-0 min-w-[150px] bg-aura-bg px-4 py-3 text-left font-semibold text-aura-graphite">
+                  <th className="sticky left-0 min-w-[150px] bg-aura-sunken px-4 py-3 text-left font-semibold text-aura-graphite">
                     Vendedor
                   </th>
                   {indicadores.map((indicador) => (
@@ -334,7 +320,7 @@ export default function PlanilhaLeadsPage() {
                   ))}
                 </tr>
                 <tr>
-                  <th className="sticky left-0 bg-aura-bg px-4 py-2 text-left text-xs font-semibold text-aura-graphite-soft" />
+                  <th className="sticky left-0 bg-aura-sunken px-4 py-2 text-left text-xs font-semibold text-aura-graphite-soft" />
                   {indicadores.map((indicador) => (
                     <React.Fragment key={indicador}>
                       {(["S1", "S2", "S3", "S4"] as const).map(
@@ -347,7 +333,7 @@ export default function PlanilhaLeadsPage() {
                           </th>
                         ),
                       )}
-                      <th className="bg-aura-petrol-50 px-1.5 py-2 text-center text-xs font-semibold text-aura-petrol-600">
+                      <th className="bg-aura-petrol-500/[0.06] px-1.5 py-2 text-center text-xs font-semibold text-aura-petrol-600">
                         ∑
                       </th>
                     </React.Fragment>
@@ -358,9 +344,9 @@ export default function PlanilhaLeadsPage() {
                 {vendedores.map(([vendedor, items]) => (
                   <tr
                     key={vendedor}
-                    className="border-b border-aura-mist transition hover:bg-aura-bg/50"
+                    className="border-b border-aura-mist transition hover:bg-aura-sunken/50"
                   >
-                    <td className="sticky left-0 bg-white px-4 py-3 font-medium text-aura-graphite">
+                    <td className="sticky left-0 bg-aura-surface px-4 py-3 font-medium text-aura-graphite">
                       {vendedor}
                     </td>
                     {indicadores.map((indicador) => {
@@ -382,12 +368,12 @@ export default function PlanilhaLeadsPage() {
                           {valores.map((valor, index) => (
                             <td
                               key={`${indicador}-${index}`}
-                              className={`px-1.5 py-3 text-center text-aura-graphite ${index === 0 ? "border-l border-aura-mist" : ""}`}
+                              className={`px-1.5 py-3 text-center tabular-nums text-aura-graphite ${index === 0 ? "border-l border-aura-mist" : ""}`}
                             >
                               {valor}
                             </td>
                           ))}
-                          <td className="bg-aura-petrol-50 px-1.5 py-3 text-center font-bold text-aura-petrol-600">
+                          <td className="bg-aura-petrol-500/[0.06] px-1.5 py-3 text-center font-semibold tabular-nums text-aura-petrol-600">
                             {total}
                           </td>
                         </React.Fragment>
@@ -401,41 +387,17 @@ export default function PlanilhaLeadsPage() {
         )}
 
         {vendedores.length > 0 && (
-          <div className="mt-6 rounded-lg border border-aura-mist bg-white p-4">
-            <p className="mb-3 text-sm font-semibold text-aura-graphite">
-              Resumo
-            </p>
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <div className="rounded-lg bg-aura-bg p-3">
-                <p className="text-xs text-aura-graphite-soft">
-                  Total de vendedores
-                </p>
-                <p className="text-lg font-bold text-aura-graphite">
-                  {vendedores.length}
-                </p>
-              </div>
-              <div className="rounded-lg bg-aura-bg p-3">
-                <p className="text-xs text-aura-graphite-soft">
-                  Indicadores rastreados
-                </p>
-                <p className="text-lg font-bold text-aura-graphite">
-                  {indicadores.length}
-                </p>
-              </div>
-              <div className="rounded-lg bg-aura-bg p-3">
-                <p className="text-xs text-aura-graphite-soft">Período</p>
-                <p className="text-lg font-bold capitalize text-aura-graphite">
-                  {mesFormatado}
-                </p>
-              </div>
-              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                <p className="text-xs text-green-700">Total de leads</p>
-                <p className="text-lg font-bold text-green-600">{totalGeral}</p>
-              </div>
+          <div className="mt-6">
+            <p className="aura-rotulo mb-3">Resumo</p>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <StatCard rotulo="Total de vendedores" valor={vendedores.length} />
+              <StatCard rotulo="Indicadores rastreados" valor={indicadores.length} />
+              <StatCard rotulo="Período" valor={<span className="capitalize">{mesFormatado}</span>} />
+              <StatCard rotulo="Total de leads" valor={totalGeral} tom="sucesso" />
             </div>
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trophy, Medal, Zap } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { CardHeader, EstadoVazio } from "@/components/ui";
 
 export function RankingGamificado() {
   const { vendas, atividades, nomesPorOwnerId } = useAppData();
@@ -72,10 +73,10 @@ export function RankingGamificado() {
     : pontuacaoVendedores;
 
   function getMedalha(posicao: number) {
-    if (posicao === 1) return { icon: Trophy, cor: "text-yellow-500", bg: "bg-yellow-100" };
-    if (posicao === 2) return { icon: Medal, cor: "text-gray-400", bg: "bg-gray-100" };
-    if (posicao === 3) return { icon: Medal, cor: "text-orange-600", bg: "bg-orange-100" };
-    return { icon: Zap, cor: "text-blue-500", bg: "bg-blue-100" };
+    if (posicao === 1) return { icon: Trophy, cor: "text-aura-gold", bg: "bg-aura-gold/15" };
+    if (posicao === 2) return { icon: Medal, cor: "text-aura-graphite-soft", bg: "bg-aura-sunken" };
+    if (posicao === 3) return { icon: Medal, cor: "text-aura-gold-700", bg: "bg-aura-gold/10" };
+    return { icon: Zap, cor: "text-aura-graphite-soft", bg: "bg-aura-sunken" };
   }
 
   function formatarMoeda(valor: number) {
@@ -87,28 +88,28 @@ export function RankingGamificado() {
   }
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-6 pb-24">
+    <div className="w-full min-w-0 space-y-6">
       {/* Top 3 Destaque */}
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {pontuacaoVendedoresExibida.slice(0, 3).map((v, idx) => {
           const medalha = getMedalha(idx + 1);
           const Icon = medalha.icon;
           return (
             <div
               key={v.id}
-              className={`rounded-2xl border-2 border-aura-mist bg-white p-6 text-center transition ${
-                idx === 0 ? "ring-2 ring-yellow-300 shadow-lg" : ""
+              className={`aura-card p-5 text-center ${
+                idx === 0 ? "border-aura-gold/50" : ""
               }`}
             >
-              <div className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full ${medalha.bg}`}>
-                <Icon size={32} className={medalha.cor} />
+              <div className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl ${medalha.bg}`}>
+                <Icon size={20} className={medalha.cor} />
               </div>
-              <p className="font-display text-2xl font-bold text-aura-graphite">
+              <p className="font-display text-2xl font-semibold tabular-nums text-aura-graphite">
                 {idx + 1}º
               </p>
-              <p className="mt-2 font-semibold text-aura-graphite">{v.nomeVendedor}</p>
+              <p className="mt-1 text-sm font-medium text-aura-graphite">{v.nomeVendedor}</p>
               <div className="mt-3 space-y-1 text-sm text-aura-graphite-soft">
-                <p className="font-medium text-lg text-aura-petrol-700">{v.pontos.toLocaleString()} pontos</p>
+                <p className="text-base font-semibold tabular-nums text-aura-petrol-600">{v.pontos.toLocaleString()} pontos</p>
                 <p>{v.vendas} vendas • {v.atividades} atividades</p>
                 <p className="text-xs">{formatarMoeda(v.valor)}</p>
               </div>
@@ -118,31 +119,31 @@ export function RankingGamificado() {
       </div>
 
       {/* Ranking Completo */}
-      <div className="rounded-2xl border border-aura-mist bg-white p-6">
-        <p className="mb-4 text-lg font-semibold text-aura-graphite">Ranking Completo</p>
+      <div className="aura-card p-5">
+        <CardHeader titulo="Ranking Completo" icone={Trophy} />
         {pontuacaoVendedoresExibida.length > 0 ? (
-          <div className="space-y-2">
+          <div className="divide-y divide-aura-mist">
             {pontuacaoVendedoresExibida.map((v, idx) => {
               const medalha = getMedalha(idx + 1);
               const Icon = medalha.icon;
               return (
                 <div
                   key={v.id}
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-aura-mist bg-aura-bg p-4 hover:shadow-md transition"
+                  className="flex min-w-0 items-center justify-between gap-3 py-3"
                 >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-full ${medalha.bg}`}>
-                      <Icon size={20} className={medalha.cor} />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${medalha.bg}`}>
+                      <Icon size={15} className={medalha.cor} />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-aura-graphite">{v.nomeVendedor}</p>
+                      <p className="truncate text-sm font-medium text-aura-graphite">{v.nomeVendedor}</p>
                       <p className="text-xs text-aura-graphite-soft">
                         {v.vendas} vendas • {v.atividades} atividades
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-display text-lg font-bold text-aura-graphite">
+                    <p className="font-display text-base font-semibold tabular-nums text-aura-graphite">
                       {v.pontos.toLocaleString()}
                     </p>
                     <p className="text-xs text-aura-graphite-soft">pontos</p>
@@ -152,13 +153,13 @@ export function RankingGamificado() {
             })}
           </div>
         ) : (
-          <p className="text-center text-sm text-aura-graphite-soft py-8">Sem dados de vendas</p>
+          <EstadoVazio icone={Trophy} titulo="Sem dados de vendas" />
         )}
       </div>
 
       {/* Dicas de Pontuação */}
-      <div className="rounded-2xl border border-aura-mist bg-aura-bg p-6">
-        <p className="mb-3 font-medium text-aura-graphite">Como ganhar pontos:</p>
+      <div className="rounded-xl border border-aura-mist bg-aura-sunken/50 p-5">
+        <p className="mb-3 text-sm font-semibold text-aura-graphite">Como ganhar pontos:</p>
         <div className="space-y-2 text-sm text-aura-graphite-soft">
           <p>🎯 <span className="font-medium text-aura-graphite">Venda fechada:</span> 100 pontos</p>
           <p>📞 <span className="font-medium text-aura-graphite">Atividade registrada:</span> 10 pontos</p>

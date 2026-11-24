@@ -10,8 +10,19 @@
  */
 import { Store, Factory, Megaphone, Footprints, Users } from "lucide-react";
 import { INFO_ORIGEM, ORIGENS, type OrigemLead } from "@/lib/origem-lead";
+import type { Tom } from "@/components/ui";
 
 const ICONES = { Store, Factory, Megaphone, Footprints, Users } as const;
+
+// Selo discreto (tom do tema) em vez do bloco cheio de cor: a origem continua
+// reconhecível pelo ícone, sem gritar mais que o nome do cliente.
+const TOM_ORIGEM: Record<OrigemLead, Tom> = {
+  loja: "marca",
+  mf: "neutro",
+  marketing: "ouro",
+  proprio: "sucesso",
+  indicacao: "marca",
+};
 
 export function SeloOrigem({
   origem,
@@ -29,7 +40,7 @@ export function SeloOrigem({
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${info.cor}`}
+      className={`aura-selo aura-selo-${TOM_ORIGEM[origem as OrigemLead]} shrink-0`}
       title={info.ajuda}
     >
       <Icone size={tamanho} />
@@ -53,7 +64,7 @@ export function SeletorOrigem({
 }) {
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-aura-graphite">
+      <label className="aura-label">
         De onde veio este lead?
       </label>
       <div className="flex flex-wrap gap-2">
@@ -67,13 +78,13 @@ export function SeletorOrigem({
               type="button"
               onClick={() => onChange(o)}
               title={info.ajuda}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[0.8125rem] font-medium transition ${
                 ativo
-                  ? info.cor
-                  : "border border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-400"
+                  ? "border-aura-petrol-500 bg-aura-petrol-500/10 text-aura-petrol-600"
+                  : "border-aura-mist bg-aura-surface text-aura-graphite hover:bg-aura-sunken"
               }`}
             >
-              <Icone size={15} />
+              <Icone size={14} className={ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft"} />
               {info.label}
             </button>
           );
@@ -90,7 +101,7 @@ export function SeletorOrigem({
         <select
           value={campanhaId ?? ""}
           onChange={(e) => onCampanhaChange?.(e.target.value || null)}
-          className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-500"
+          className="aura-input"
         >
           <option value="">Qual campanha? (opcional)</option>
           {campanhas.map((c) => (

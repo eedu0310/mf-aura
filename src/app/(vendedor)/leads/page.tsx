@@ -17,6 +17,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { donoDoLead, SEM_VENDEDOR } from "@/lib/leads/atendimento";
 import { RelatorioAtendimento } from "@/components/leads/relatorio-atendimento";
+import { EstadoVazio, PageContainer, PageHeader, Segmentado, classeBotao } from "@/components/ui";
 
 const STATUS_LABEL: Record<StatusLead, string> = {
   aguardando_sdr: "Aguardando distribuição",
@@ -28,18 +29,18 @@ const STATUS_LABEL: Record<StatusLead, string> = {
 };
 
 const STATUS_COR: Record<StatusLead, string> = {
-  aguardando_sdr: "bg-aura-graphite-soft/15 text-aura-graphite-soft",
-  atribuido_sdr: "bg-aura-petrol-700/10 text-aura-petrol-700",
-  respondido: "bg-aura-success/10 text-aura-success",
-  repassado_vendedor: "bg-aura-petrol-700/10 text-aura-petrol-700",
-  perdido: "bg-aura-danger/10 text-aura-danger",
-  lead_frio: "bg-sky-100 text-sky-800",
+  aguardando_sdr: "aura-selo-neutro",
+  atribuido_sdr: "aura-selo-marca",
+  respondido: "aura-selo-sucesso",
+  repassado_vendedor: "aura-selo-marca",
+  perdido: "aura-selo-perigo",
+  lead_frio: "aura-selo-neutro",
 };
 
 const URGENCIA_LABEL: Record<string, { texto: string; cor: string }> = {
-  alta: { texto: "Urgente", cor: "bg-aura-danger/10 text-aura-danger" },
-  media: { texto: "Moderada", cor: "bg-aura-warning/10 text-aura-warning" },
-  baixa: { texto: "Baixa urgência", cor: "bg-aura-graphite-soft/15 text-aura-graphite-soft" },
+  alta: { texto: "Urgente", cor: "aura-selo-perigo" },
+  media: { texto: "Moderada", cor: "aura-selo-atencao" },
+  baixa: { texto: "Baixa urgência", cor: "aura-selo-neutro" },
 };
 
 function tempoRestante(prazo: string | null) {
@@ -155,25 +156,25 @@ export default function LeadsPage() {
   const respondidos = leadsDaLoja.filter((l) => l.status === "respondido");
 
   return (
-    <div className={`mx-auto flex w-full flex-col gap-6 pb-24 ${aba === "relatorio" ? "max-w-6xl" : "max-w-3xl"}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3 print:hidden">
-        <div>
-          <p className="font-display text-xl font-semibold text-aura-graphite">Leads Recebidos</p>
-          <p className="text-sm text-aura-graphite-soft">
-            {aba === "fila"
-              ? "Novos contatos chegando automaticamente — responda antes do prazo esgotar."
-              : "Quantos leads chegaram, quem atendeu, em quanto tempo e quem ficou sem resposta."}
-          </p>
-        </div>
-        <div className="flex rounded-full border border-aura-mist bg-white p-0.5" role="tablist" aria-label="Fila ou relatório">
+    <PageContainer largura={aba === "relatorio" ? "normal" : "estreita"}>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        className="mb-0! print:hidden"
+        titulo="Leads Recebidos"
+        icone={Users}
+        descricao={
+          aba === "fila"
+            ? "Novos contatos chegando automaticamente — responda antes do prazo esgotar."
+            : "Quantos leads chegaram, quem atendeu, em quanto tempo e quem ficou sem resposta."
+        }
+        acoes={
+        <div className="aura-segmentado" role="tablist" aria-label="Fila ou relatório">
           <button
             type="button"
             role="tab"
             aria-selected={aba === "fila"}
             onClick={() => setAba("fila")}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              aba === "fila" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:text-aura-petrol-700"
-            }`}
+            className="aura-segmento flex items-center gap-1.5"
           >
             <ListChecks size={13} />
             Fila de leads
@@ -183,44 +184,26 @@ export default function LeadsPage() {
             role="tab"
             aria-selected={aba === "relatorio"}
             onClick={() => setAba("relatorio")}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              aba === "relatorio" ? "bg-aura-petrol-700 text-white" : "text-aura-graphite hover:text-aura-petrol-700"
-            }`}
+            className="aura-segmento flex items-center gap-1.5"
           >
             <FileBarChart size={13} />
             Relatório de atendimento
           </button>
         </div>
-      </div>
+        }
+      />
 
       {multiLoja && (
-        <div className="flex flex-wrap gap-2 print:hidden">
-          <button
-            type="button"
-            onClick={() => setEmpresaFiltro("todas")}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-              empresaFiltro === "todas"
-                ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-            }`}
-          >
-            Todas as lojas
-          </button>
-          {lojas.map((loja) => (
-            <button
-              key={loja}
-              type="button"
-              onClick={() => setEmpresaFiltro(loja)}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
-                empresaFiltro === loja
-                  ? "border-aura-petrol-700 bg-aura-petrol-700 text-white"
-                  : "border-aura-mist bg-white text-aura-graphite hover:border-aura-petrol-500/50"
-              }`}
-            >
-              {loja}
-            </button>
-          ))}
-        </div>
+        <Segmentado
+          className="print:hidden"
+          rotulo="Loja"
+          valor={empresaFiltro}
+          aoMudar={setEmpresaFiltro}
+          opcoes={[
+            { valor: "todas", rotulo: "Todas as lojas" },
+            ...lojas.map((loja) => ({ valor: loja, rotulo: loja })),
+          ]}
+        />
       )}
 
       {multiVendedor && (
@@ -229,7 +212,7 @@ export default function LeadsPage() {
           <select
             value={vendedorAtivo}
             onChange={(e) => setVendedorFiltro(e.target.value)}
-            className="rounded-full border border-aura-mist bg-white px-3 py-1.5 text-sm text-aura-graphite"
+            className="aura-input w-auto"
           >
             <option value="todos">Todos os vendedores</option>
             {vendedores.map((v) => (
@@ -259,18 +242,16 @@ export default function LeadsPage() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : leadsDaLoja.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-16 text-center">
-          <Users size={24} className="text-aura-graphite-soft" />
-          <p className="text-sm text-aura-graphite-soft">
-            Nenhum lead recebido ainda. Assim que a integração com o WhatsApp estiver ativa, eles
-            aparecem aqui automaticamente.
-          </p>
-        </div>
+        <EstadoVazio
+          icone={Users}
+          className="py-16"
+          titulo="Nenhum lead recebido ainda. Assim que a integração com o WhatsApp estiver ativa, eles aparecem aqui automaticamente."
+        />
       ) : (
         <>
           {pendentes.length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-medium text-aura-graphite">Pendentes de resposta</p>
+              <p className="aura-rotulo mb-2">Pendentes de resposta</p>
               <div className="flex flex-col gap-2">
                 {pendentes.map((lead) => {
                   const restante = tempoRestante(lead.prazoResposta);
@@ -279,7 +260,7 @@ export default function LeadsPage() {
                   return (
                     <div
                       key={lead.id}
-                      className={`rounded-2xl border bg-white p-4 ${urgente ? "border-aura-danger/40" : "border-aura-mist"}`}
+                      className={`aura-card p-4 ${urgente ? "border-aura-danger/40" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -293,27 +274,27 @@ export default function LeadsPage() {
                           </p>
                           {/* Veio do site da MF: de qual formulário ou do chat. */}
                           {lead.origem?.startsWith("Site MF") && (
-                            <span className="mt-1 inline-block w-fit rounded-full bg-[#CD1C1B]/10 px-2 py-0.5 text-[0.65rem] font-medium text-[#9b1515]">
+                            <span className="aura-selo aura-selo-perigo mt-1 w-fit">
                               {lead.origem.replace(/^Site MF · /, "Site MF: ")}
                             </span>
                           )}
                           {multiVendedor && vendedorAtivo === "todos" && (
-                            <span className="mt-1 mr-1 inline-block w-fit rounded-full bg-aura-graphite-soft/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-graphite">
+                            <span className="aura-selo aura-selo-neutro mt-1 mr-1 w-fit">
                               {nomeDoVendedor(donoDoLead(lead))}
                             </span>
                           )}
                           {multiLoja && empresaFiltro === "todas" && (
-                            <span className="mt-1 inline-block w-fit rounded-full bg-aura-petrol-700/10 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-petrol-700">
+                            <span className="aura-selo aura-selo-marca mt-1 w-fit">
                               {lead.empresa}
                             </span>
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span className={`rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${STATUS_COR[lead.status]}`}>
+                          <span className={`aura-selo ${STATUS_COR[lead.status]}`}>
                             {STATUS_LABEL[lead.status]}
                           </span>
                           {lead.urgencia && (
-                            <span className={`rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${URGENCIA_LABEL[lead.urgencia].cor}`}>
+                            <span className={`aura-selo ${URGENCIA_LABEL[lead.urgencia].cor}`}>
                               {URGENCIA_LABEL[lead.urgencia].texto}
                             </span>
                           )}
@@ -325,14 +306,14 @@ export default function LeadsPage() {
                         </p>
                       )}
                       {lead.mensagemInicial && (
-                        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-aura-bg px-3 py-2 text-xs text-aura-graphite">
+                        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-aura-sunken px-3 py-2 text-xs text-aura-graphite">
                           <MessageSquare size={12} className="mt-0.5 shrink-0" />
                           {lead.mensagemInicial}
                         </p>
                       )}
                       {lead.respostasQualificacao.length > 0 && (
-                        <div className="mt-2 rounded-lg border border-aura-petrol-500/20 bg-aura-petrol-700/5 px-3 py-2">
-                          <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-wide text-aura-petrol-600">
+                        <div className="mt-2 rounded-lg border border-aura-mist bg-aura-sunken/50 px-3 py-2">
+                          <p className="aura-rotulo mb-1 text-aura-petrol-600">
                             Pré-qualificação
                           </p>
                           <ul className="flex flex-col gap-1">
@@ -375,9 +356,9 @@ export default function LeadsPage() {
                           {lead.telefone && (
                             <a
                               href={`/whatsapp?numero=${lead.telefone.replace(/\D/g, "")}`}
-                              className="flex items-center gap-1.5 rounded-full bg-[#00a884] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                              className={classeBotao("secundario", "sm")}
                             >
-                              <MessageSquare size={12} />
+                              <MessageSquare size={13} className="text-aura-success" />
                               Chamar no WhatsApp
                             </a>
                           )}
@@ -385,7 +366,7 @@ export default function LeadsPage() {
                             type="button"
                             onClick={() => esfriar(lead)}
                             title="Curioso ou ainda sem interesse de compra: vai para a coluna Leads frios do Pipeline"
-                            className="flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite-soft hover:border-sky-300 hover:text-sky-800"
+                            className={classeBotao("fantasma", "sm")}
                           >
                             <Snowflake size={12} />
                             Lead frio / curioso
@@ -393,7 +374,7 @@ export default function LeadsPage() {
                           <button
                             type="button"
                             onClick={() => perder(lead)}
-                            className="flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs font-medium text-aura-graphite-soft hover:border-aura-danger/40 hover:text-aura-danger"
+                            className={classeBotao("fantasma", "sm", "hover:text-aura-danger")}
                           >
                             <XCircle size={12} />
                             Perdido
@@ -401,7 +382,7 @@ export default function LeadsPage() {
                           <button
                             type="button"
                             onClick={() => responder(lead)}
-                            className="flex items-center gap-1.5 rounded-full bg-aura-petrol-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-aura-petrol-600"
+                            className={classeBotao("primario", "sm")}
                           >
                             <CheckCircle2 size={12} />
                             Marcar como respondido
@@ -409,8 +390,9 @@ export default function LeadsPage() {
                           <button
                             type="button"
                             onClick={() => excluir(lead)}
-                            className="rounded-full border border-aura-danger/40 px-3 py-1.5 text-xs text-aura-danger hover:bg-aura-danger/10"
+                            className={classeBotao("perigo-suave", "sm")}
                             title="Excluir lead"
+                            aria-label="Excluir lead"
                           >
                             <Trash2 size={12} />
                           </button>
@@ -425,28 +407,28 @@ export default function LeadsPage() {
 
           {frios.length > 0 && (
             <div>
-              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
-                <Snowflake size={14} className="text-sky-700" />
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
+                <Snowflake size={14} className="text-aura-graphite-soft" />
                 Leads frios / curiosos
-                <Link href="/pipeline" className="ml-auto text-xs font-normal text-aura-petrol-700 hover:underline">
+                <Link href="/pipeline" className="ml-auto text-xs font-medium text-aura-petrol-600 hover:underline">
                   Ver no Pipeline
                 </Link>
               </p>
               <div className="flex flex-col gap-2">
                 {frios.slice(0, 20).map((lead) => (
-                  <div key={lead.id} className="rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+                  <div key={lead.id} className="aura-card p-4">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-medium text-aura-graphite">{lead.nome || "Contato novo"}</p>
                       <div className="flex items-center gap-3">
                         {lead.telefone && (
                           <a
                             href={`/whatsapp?numero=${lead.telefone.replace(/\D/g, "")}`}
-                            className="text-xs font-medium text-[#008f6f] hover:underline"
+                            className="text-xs font-medium text-aura-success hover:underline"
                           >
                             Chamar de novo
                           </a>
                         )}
-                        <button type="button" onClick={() => excluir(lead)} className="text-aura-danger" title="Excluir lead"><Trash2 size={14} /></button>
+                        <button type="button" onClick={() => excluir(lead)} className={classeBotao("fantasma", "sm", "h-7 w-7 px-0 text-aura-danger")} title="Excluir lead" aria-label="Excluir lead"><Trash2 size={14} /></button>
                       </div>
                     </div>
                     <p className="text-xs text-aura-graphite-soft">{lead.telefone}</p>
@@ -458,16 +440,16 @@ export default function LeadsPage() {
 
           {perdidos.length > 0 && (
             <div>
-              <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
+              <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-aura-graphite">
                 <XCircle size={14} className="text-aura-danger" />
                 Perdidos
               </p>
               <div className="flex flex-col gap-2">
                 {perdidos.map((lead) => (
-                  <div key={lead.id} className="rounded-2xl border border-aura-danger/20 bg-aura-danger/5 p-4">
+                  <div key={lead.id} className="aura-card p-4">
                     <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-aura-graphite">{lead.nome || "Contato novo"}</p>
-                    <button type="button" onClick={() => excluir(lead)} className="text-aura-danger" title="Excluir lead"><Trash2 size={14} /></button>
+                    <button type="button" onClick={() => excluir(lead)} className={classeBotao("fantasma", "sm", "h-7 w-7 px-0 text-aura-danger")} title="Excluir lead" aria-label="Excluir lead"><Trash2 size={14} /></button>
                     </div>
                     <p className="text-xs text-aura-graphite-soft">{lead.telefone}</p>
                     {lead.motivoPerda && (
@@ -481,13 +463,13 @@ export default function LeadsPage() {
 
           {respondidos.length > 0 && (
             <div>
-              <p className="mb-2 text-sm font-medium text-aura-graphite">Já respondidos</p>
+              <p className="aura-rotulo mb-2">Já respondidos</p>
               <div className="flex flex-col gap-2">
                 {respondidos.slice(0, 10).map((lead) => (
-                  <div key={lead.id} className="rounded-2xl border border-aura-mist bg-white p-4 opacity-70">
+                  <div key={lead.id} className="aura-card p-4 opacity-70">
                     <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-aura-graphite">{lead.nome || "Contato novo"}</p>
-                    <button type="button" onClick={() => excluir(lead)} className="text-aura-danger" title="Excluir lead"><Trash2 size={14} /></button>
+                    <button type="button" onClick={() => excluir(lead)} className={classeBotao("fantasma", "sm", "h-7 w-7 px-0 text-aura-danger")} title="Excluir lead" aria-label="Excluir lead"><Trash2 size={14} /></button>
                     </div>
                     <p className="text-xs text-aura-graphite-soft">{lead.telefone}</p>
                   </div>
@@ -498,5 +480,6 @@ export default function LeadsPage() {
         </>
       )}
     </div>
+    </PageContainer>
   );
 }

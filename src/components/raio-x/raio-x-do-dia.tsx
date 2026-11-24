@@ -84,7 +84,7 @@ function Bloco({ bloco }: { bloco: BlocoDoRaioX }) {
   const urgentes = bloco.itens.filter((i) => i.urgente).length;
 
   return (
-    <section className="rounded-xl border border-aura-mist bg-white">
+    <section className="aura-card overflow-hidden">
       <header className="flex items-baseline gap-2 border-b border-aura-mist px-3.5 py-2.5">
         <Icone size={15} className="relative top-0.5 shrink-0 text-aura-petrol-600" />
         <div className="min-w-0 flex-1">
@@ -97,14 +97,14 @@ function Bloco({ bloco }: { bloco: BlocoDoRaioX }) {
           )}
         </div>
         {urgentes > 0 && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-aura-gold/15 px-2 py-0.5 text-xs font-medium text-aura-gold-700">
+          <span className="inline-flex shrink-0 items-center gap-1 aura-selo aura-selo-ouro">
             <AlertTriangle size={11} />
             {urgentes}
           </span>
         )}
       </header>
 
-      <ul className="divide-y divide-aura-mist/70">
+      <ul className="divide-y divide-aura-mist">
         {bloco.itens.map((item, i) => {
           const miolo = (
             <>
@@ -126,7 +126,7 @@ function Bloco({ bloco }: { bloco: BlocoDoRaioX }) {
                 )}
               </span>
               {item.hora && (
-                <span className="shrink-0 rounded-md bg-aura-mist/60 px-1.5 py-0.5 text-xs font-medium tabular-nums text-aura-graphite">
+                <span className="shrink-0 rounded-md bg-aura-sunken px-1.5 py-0.5 text-xs font-medium tabular-nums text-aura-graphite">
                   {item.hora}
                 </span>
               )}
@@ -141,7 +141,7 @@ function Bloco({ bloco }: { bloco: BlocoDoRaioX }) {
               {item.link ? (
                 <Link
                   href={item.link}
-                  className="flex items-center gap-2 px-3.5 py-2 transition hover:bg-aura-bg/60"
+                  className="flex items-center gap-2 px-3.5 py-2 transition hover:bg-aura-sunken"
                 >
                   {miolo}
                 </Link>
@@ -210,12 +210,12 @@ export function RaioXDaEquipe({
         );
 
         return (
-          <section key={v.id} className="rounded-xl border border-aura-mist bg-white">
+          <section key={v.id} className="aura-card overflow-hidden">
             <button
               type="button"
               onClick={() => setAberto(estaAberto ? null : v.id)}
               aria-expanded={estaAberto}
-              className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left transition hover:bg-aura-bg/50"
+              className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left transition hover:bg-aura-sunken"
             >
               <User size={15} className="shrink-0 text-aura-petrol-600" />
               <span className="min-w-0 flex-1">
@@ -227,7 +227,7 @@ export function RaioXDaEquipe({
                 </span>
               </span>
               {urgentes > 0 && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-aura-gold/15 px-2 py-0.5 text-xs font-medium text-aura-gold-700">
+                <span className="inline-flex shrink-0 items-center gap-1 aura-selo aura-selo-ouro">
                   <AlertTriangle size={11} />
                   {urgentes}
                 </span>
@@ -241,7 +241,7 @@ export function RaioXDaEquipe({
             </button>
 
             {estaAberto && (
-              <div className="flex flex-col gap-2.5 border-t border-aura-mist bg-aura-bg/30 p-3">
+              <div className="flex flex-col gap-2.5 border-t border-aura-mist bg-aura-sunken/50 p-3">
                 {v.raioX.blocos.map((bloco) => (
                   <Bloco key={bloco.tipo} bloco={bloco} />
                 ))}

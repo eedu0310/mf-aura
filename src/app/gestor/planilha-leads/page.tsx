@@ -1,25 +1,23 @@
 "use client";
 
+import { Table2 } from "lucide-react";
+import { PageHeader } from "@/components/ui";
 import { PlanilhaLeadsDashboard } from "@/components/planilha-leads/planilha-leads-dashboard";
 import { PlanilhaLinhasCard } from "@/components/gestor/planilha-linhas-card";
 
 export default function PlanilhaLeadsGestorPage() {
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-aura-navy-950 to-aura-navy-900 px-6 pb-10 pt-8 sm:px-8">
-        <div className="relative mx-auto max-w-7xl">
-          <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
-            📊 Planilha de Leads — Gestão
-          </h1>
-          <p className="mt-1 text-sm text-white/70">
-            Monitore todos os indicadores de leads da equipe
-          </p>
-        </div>
-      </div>
+    <div className="pb-24">
+      {/* Cabeçalho claro no lugar da faixa escura; o layout do gestor já dá a
+          largura e o respiro da página. */}
+      <PageHeader
+        titulo="Planilha de Leads — Gestão"
+        descricao="Monitore todos os indicadores de leads da equipe"
+        icone={Table2}
+      />
 
       {/* Conteúdo */}
-      <div className="mx-auto w-full max-w-7xl space-y-6 px-6 sm:px-8">
+      <div className="flex flex-col gap-6">
         <PlanilhaLinhasCard />
         <PlanilhaLeadsDashboard />
       </div>

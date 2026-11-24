@@ -18,7 +18,7 @@ import {
 import { PaginaPublica } from "./pagina-publica";
 import { UploadArquivo } from "./upload-arquivo";
 
-const entrada = "min-h-10 w-full rounded-xl border border-aura-mist bg-white px-3 text-sm text-aura-graphite outline-none focus:border-aura-petrol-500";
+const entrada = "aura-input font-normal";
 
 export function PaginasSite() {
   const [lista, setLista] = useState<Pagina[]>([]);
@@ -78,7 +78,7 @@ export function PaginasSite() {
               publicada: false,
             })
           }
-          className="inline-flex min-h-10 items-center gap-2 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
+          className="aura-btn aura-btn-primario"
         >
           <Plus size={16} /> Nova página
         </button>
@@ -89,16 +89,16 @@ export function PaginasSite() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : lista.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-12 text-center text-sm text-aura-graphite-soft">
+        <p className="rounded-xl border border-dashed border-aura-mist px-6 py-12 text-center text-sm text-aura-graphite-soft">
           Nenhuma LP ainda. Comece por “Nova página”. Os formulários e as páginas de materiais que já estão no ar ficam logo abaixo.
         </p>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {lista.map((p) => (
-            <li key={p.id} className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4">
+            <li key={p.id} className="aura-card flex flex-col gap-2 p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-medium text-aura-graphite">{p.titulo}</p>
-                <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${p.publicada ? "bg-emerald-100 text-emerald-900" : "bg-aura-mist text-aura-graphite-soft"}`}>
+                <p className="text-sm font-semibold text-aura-graphite">{p.titulo}</p>
+                <span className={`aura-selo ${p.publicada ? "aura-selo-sucesso" : "aura-selo-neutro"}`}>
                   {p.publicada ? "No ar" : "Rascunho"}
                 </span>
               </div>
@@ -107,11 +107,11 @@ export function PaginasSite() {
                 {formularios.find((f) => f.id === p.formulario_id)?.nome ?? "Sem formulário"} · {p.blocos.length} blocos
               </p>
               <div className="mt-1 flex flex-wrap gap-2">
-                <button type="button" onClick={() => setEditando(p)} className="min-h-9 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+                <button type="button" onClick={() => setEditando(p)} className="aura-btn aura-btn-secundario aura-btn-sm">
                   Editar
                 </button>
                 {p.publicada && (
-                  <a href={`/s/${p.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+                  <a href={`/s/${p.slug}`} target="_blank" rel="noopener noreferrer" className="aura-btn aura-btn-secundario aura-btn-sm">
                     <ExternalLink size={13} /> Abrir
                   </a>
                 )}
@@ -149,20 +149,20 @@ function PaginasProntas({ formularios }: { formularios: Formulario[] }) {
   }
 
   const item = ({ nome, caminho, texto, ativo = true }: { nome: string; caminho: string; texto: string; ativo?: boolean }) => (
-    <li key={caminho} className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4">
+    <li key={caminho} className="aura-card flex flex-col gap-2 p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-medium text-aura-graphite">{nome}</p>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.7rem] font-medium ${ativo ? "bg-emerald-100 text-emerald-900" : "bg-aura-mist text-aura-graphite-soft"}`}>
+        <p className="text-sm font-semibold text-aura-graphite">{nome}</p>
+        <span className={`aura-selo shrink-0 ${ativo ? "aura-selo-sucesso" : "aura-selo-neutro"}`}>
           {ativo ? "No ar" : "Desligado"}
         </span>
       </div>
       <p className="font-data text-xs text-aura-graphite-soft">{caminho}</p>
       <p className="text-xs text-aura-graphite-soft">{texto}</p>
       <div className="mt-1 flex flex-wrap gap-2">
-        <a href={caminho} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+        <a href={caminho} target="_blank" rel="noopener noreferrer" className="aura-btn aura-btn-secundario aura-btn-sm">
           <ExternalLink size={13} /> Abrir
         </a>
-        <button type="button" onClick={() => copiar(caminho)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50">
+        <button type="button" onClick={() => copiar(caminho)} className="aura-btn aura-btn-secundario aura-btn-sm">
           {copiado === caminho ? <Check size={13} /> : <Copy size={13} />} {copiado === caminho ? "Copiado" : "Copiar link"}
         </button>
       </div>
@@ -172,7 +172,7 @@ function PaginasProntas({ formularios }: { formularios: Formulario[] }) {
   return (
     <>
       <div className="mt-4 border-t border-aura-mist pt-5">
-        <h2 className="font-display text-base font-semibold text-aura-graphite">Formulários dos materiais</h2>
+        <h2 className="text-sm font-semibold text-aura-graphite">Formulários dos materiais</h2>
         <p className="mt-1 text-xs text-aura-graphite-soft">
           Onde o cliente preenche os dados. Depois de enviar, ele recebe o material. Use estes links nos botões do site, no Instagram e nas campanhas.
         </p>
@@ -189,7 +189,7 @@ function PaginasProntas({ formularios }: { formularios: Formulario[] }) {
       </ul>
 
       <div className="mt-4 border-t border-aura-mist pt-5">
-        <h2 className="font-display text-base font-semibold text-aura-graphite">Páginas de download</h2>
+        <h2 className="text-sm font-semibold text-aura-graphite">Páginas de download</h2>
         <p className="mt-1 text-xs text-aura-graphite-soft">As páginas para onde o cliente vai depois do formulário, com os botões de baixar.</p>
       </div>
       <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -279,18 +279,20 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
         <button type="button" onClick={onVoltar} className="inline-flex items-center gap-1.5 text-sm text-aura-graphite-soft hover:text-aura-graphite">
           <ArrowLeft size={15} /> Páginas
         </button>
-        <div className="flex gap-1 rounded-full border border-aura-mist bg-white p-1">
+        <div className="aura-segmentado">
           <button
             type="button"
             onClick={() => setVendo(false)}
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${!vendo ? "bg-aura-petrol-700 text-white" : "text-aura-graphite"}`}
+            aria-pressed={!vendo}
+            className="aura-segmento inline-flex items-center gap-1.5"
           >
             <Pencil size={13} /> Editar
           </button>
           <button
             type="button"
             onClick={() => setVendo(true)}
-            className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${vendo ? "bg-aura-petrol-700 text-white" : "text-aura-graphite"}`}
+            aria-pressed={vendo}
+            className="aura-segmento inline-flex items-center gap-1.5"
           >
             <Eye size={13} /> Ver como fica
           </button>
@@ -298,7 +300,7 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
       </div>
 
       {vendo ? (
-        <div className="overflow-hidden rounded-2xl border border-aura-mist">
+        <div className="overflow-hidden rounded-xl border border-aura-mist">
           <PaginaPublica
             slug={p.slug || "previa"}
             blocos={p.blocos}
@@ -312,21 +314,21 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-3">
             {p.blocos.map((b, i) => (
-              <section key={b.id} className="flex flex-col gap-2.5 rounded-2xl border border-aura-mist bg-white p-4">
+              <section key={b.id} className="flex flex-col gap-2.5 aura-card p-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-medium text-aura-graphite">{ROTULO_DO_BLOCO[b.tipo]}</p>
                   <div className="flex gap-1">
-                    <button type="button" aria-label="Subir bloco" onClick={() => mover(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                    <button type="button" aria-label="Subir bloco" onClick={() => mover(i, -1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                       <ArrowUp size={15} />
                     </button>
-                    <button type="button" aria-label="Descer bloco" onClick={() => mover(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg">
+                    <button type="button" aria-label="Descer bloco" onClick={() => mover(i, 1)} className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken">
                       <ArrowDown size={15} />
                     </button>
                     <button
                       type="button"
                       aria-label="Tirar bloco"
                       onClick={() => mudar("blocos", p.blocos.filter((_, j) => j !== i))}
-                      className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-red-700"
+                      className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-danger"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -336,14 +338,14 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
               </section>
             ))}
 
-            <div className="flex flex-wrap gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 p-3">
+            <div className="flex flex-wrap gap-2 rounded-xl border border-dashed border-aura-mist p-3">
               <span className="w-full text-xs text-aura-graphite-soft">Acrescentar bloco:</span>
               {TIPOS_DE_BLOCO.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => mudar("blocos", [...p.blocos, blocoNovo(t as TipoBloco)])}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-full border border-aura-mist bg-white px-3 text-xs font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+                  className="aura-btn aura-btn-secundario aura-btn-sm"
                 >
                   <Plus size={13} /> {ROTULO_DO_BLOCO[t as TipoBloco].split(" (")[0]}
                 </button>
@@ -352,19 +354,19 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
           </div>
 
           <aside className="flex flex-col gap-3 lg:sticky lg:top-4 lg:self-start">
-            <section className="flex flex-col gap-3 rounded-2xl border border-aura-mist bg-white p-4">
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+            <section className="flex flex-col gap-3 aura-card p-4">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Título da página
                 <input className={entrada} value={p.titulo} onChange={(e) => mudar("titulo", e.target.value)} />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Endereço
                 <div className="flex items-center gap-2">
                   <span className="shrink-0 text-xs text-aura-graphite-soft">/s/</span>
                   <input className={entrada} value={p.slug} placeholder={paraSlug(p.titulo)} onChange={(e) => mudar("slug", paraSlug(e.target.value))} />
                 </div>
               </label>
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Formulário
                 <select className={entrada} value={p.formulario_id ?? ""} onChange={(e) => mudar("formulario_id", e.target.value || null)}>
                   <option value="">Sem formulário</option>
@@ -376,36 +378,36 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
                 </select>
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+                <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                   Fundo
                   <select className={entrada} value={p.tema} onChange={(e) => mudar("tema", e.target.value === "claro" ? "claro" : "escuro")}>
                     <option value="escuro">Escuro</option>
                     <option value="claro">Claro</option>
                   </select>
                 </label>
-                <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+                <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                   Cor de destaque
-                  <input type="color" aria-label="Cor de destaque" value={p.cor} onChange={(e) => mudar("cor", e.target.value.toUpperCase())} className="h-10 w-full rounded-xl border border-aura-mist" />
+                  <input type="color" aria-label="Cor de destaque" value={p.cor} onChange={(e) => mudar("cor", e.target.value.toUpperCase())} className="h-[2.375rem] w-full rounded-lg border border-aura-mist bg-aura-surface" />
                 </label>
               </div>
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Título no Google
                 <input className={entrada} value={p.seo_titulo ?? ""} placeholder={p.titulo} onChange={(e) => mudar("seo_titulo", e.target.value)} />
               </label>
-              <label className="flex flex-col gap-1 text-sm text-aura-graphite">
+              <label className="flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
                 Descrição no Google
                 <textarea rows={2} className={`${entrada} py-2`} value={p.seo_descricao ?? ""} onChange={(e) => mudar("seo_descricao", e.target.value)} />
               </label>
             </section>
 
-            {erro && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+            {erro && <p role="alert" className="rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
 
             <div className="flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => void salvar()}
                 disabled={salvando}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-aura-mist bg-white px-5 text-sm font-medium text-aura-graphite disabled:opacity-60"
+                className="aura-btn aura-btn-secundario aura-btn-lg"
               >
                 {salvando ? <Loader2 size={16} className="animate-spin" /> : salvo ? <Check size={16} /> : null} {salvo ? "Salvo" : "Salvar"}
               </button>
@@ -413,17 +415,17 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
                 type="button"
                 onClick={() => void salvar(!p.publicada)}
                 disabled={salvando}
-                className={`min-h-11 rounded-full px-5 text-sm font-medium disabled:opacity-60 ${p.publicada ? "border border-aura-mist bg-white text-aura-graphite" : "bg-aura-petrol-700 text-white hover:bg-aura-petrol-600"}`}
+                className={`aura-btn aura-btn-lg ${p.publicada ? "aura-btn-secundario" : "aura-btn-primario"}`}
               >
                 {p.publicada ? "Tirar do ar" : "Salvar e pôr no ar"}
               </button>
-              <button type="button" onClick={() => void apagar()} className="min-h-11 rounded-full px-5 text-sm font-medium text-red-700">
+              <button type="button" onClick={() => void apagar()} className="aura-btn aura-btn-lg aura-btn-fantasma text-aura-danger hover:bg-aura-danger/10 hover:text-aura-danger">
                 {novo ? "Descartar" : "Apagar página"}
               </button>
             </div>
 
             {p.publicada && (
-              <section className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white p-4">
+              <section className="aura-card flex flex-col gap-2 p-4">
                 <p className="text-sm font-medium text-aura-graphite">No ar em</p>
                 <a href={link} target="_blank" rel="noopener noreferrer" className="break-all text-sm text-aura-petrol-600 underline">
                   {link}
@@ -435,7 +437,7 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
                     setCopiado(true);
                     setTimeout(() => setCopiado(false), 2000);
                   }}
-                  className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite"
+                  className="aura-btn aura-btn-secundario aura-btn-sm w-fit"
                 >
                   {copiado ? <Check size={14} /> : <Copy size={14} />} {copiado ? "Copiado" : "Copiar link"}
                 </button>
@@ -495,7 +497,7 @@ function CamposDoBloco({ bloco: b, onMudar }: { bloco: Bloco; onMudar: (patch: P
                 type="button"
                 aria-label="Tirar vantagem"
                 onClick={() => onMudar({ itens: (b.itens ?? []).filter((_, j) => j !== i) })}
-                className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-bg hover:text-red-700"
+                className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-danger"
               >
                 <Trash2 size={15} />
               </button>
@@ -504,7 +506,7 @@ function CamposDoBloco({ bloco: b, onMudar }: { bloco: Bloco; onMudar: (patch: P
           <button
             type="button"
             onClick={() => onMudar({ itens: [...(b.itens ?? []), { titulo: "Vantagem", texto: "" }] })}
-            className="inline-flex min-h-9 w-fit items-center gap-1 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite"
+            className="aura-btn aura-btn-secundario aura-btn-sm w-fit"
           >
             <Plus size={13} /> Vantagem
           </button>

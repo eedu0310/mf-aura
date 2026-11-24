@@ -55,7 +55,7 @@ export function ListaModelos({
               aria-selected={grupo === g}
               onClick={() => setGrupo(g)}
               className={`whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-                grupo === g ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500"
+                grupo === g ? "border-neutral-900 bg-neutral-900 text-white dark:border-[#CD1C1B] dark:bg-[#CD1C1B]" : "border-neutral-300 bg-white text-neutral-700 hover:border-neutral-500"
               }`}
             >
               {g === "Todos" ? "Todos" : g} <span className={grupo === g ? "text-white/60" : "text-neutral-400"}>{contagem(g)}</span>
@@ -82,7 +82,7 @@ export function ListaModelos({
       {grupos.length === 0 && (
         <p className="mt-12 text-center text-neutral-500">
           Nenhum modelo com esse nome.{" "}
-          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#CD1C1B] underline">
+          <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#CD1C1B] dark:text-aura-danger underline">
             Fale com a gente pelo WhatsApp
           </a>
           .
@@ -129,7 +129,7 @@ export function ListaModelos({
                             href={pedir}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex min-h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-[4px] border border-neutral-300 px-2 text-[12px] font-semibold uppercase text-neutral-800 sm:gap-2 sm:px-3 sm:text-[13px] sm:tracking-wide transition-colors hover:border-neutral-900"
+                            className="flex min-h-11 w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-[4px] border border-neutral-300 px-2 text-[12px] font-semibold uppercase text-neutral-800 dark:text-aura-graphite sm:gap-2 sm:px-3 sm:text-[13px] sm:tracking-wide transition-colors hover:border-neutral-900"
                           >
                             <MessageCircle size={16} aria-hidden /> <span className="sm:hidden">WhatsApp</span>
                             <span className="hidden sm:inline">Pedir no WhatsApp</span>

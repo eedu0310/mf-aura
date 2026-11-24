@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { TrendingUp } from "lucide-react";
+import { classeBotao } from "@/components/ui";
 import { CampoMoeda } from "@/components/shared/campo-moeda";
 import { digitosParaNumero, formatarReais } from "@/lib/formato/moeda";
 
@@ -56,13 +58,17 @@ export function MetaDoMesCard({ valor, atingido, onDefinir }: MetaDoMesCardProps
   }
   if (!valor) {
     return (
-      <div className="rounded-lg border border-aura-mist bg-white p-4">
-        <p className="text-sm text-aura-graphite-soft">Meta não definida para este mês.</p>
-        {onDefinir && !editando && <button type="button" onClick={() => setEditando(true)} className="mt-3 rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-medium text-white hover:bg-aura-petrol-600">Definir meta</button>}
+      <div className="aura-card p-4">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp size={13} className="text-aura-petrol-600" />
+          <h3 className="aura-rotulo">Meta do Mês</h3>
+        </div>
+        <p className="mt-2 text-sm text-aura-graphite-soft">Meta não definida para este mês.</p>
+        {onDefinir && !editando && <button type="button" onClick={() => setEditando(true)} className={classeBotao("primario", "sm", "mt-3")}>Definir meta</button>}
         {editando && <div className="mt-3 space-y-2">
           <CampoMoeda autoFocus valor={entrada} onChange={setEntrada} placeholder="50.000" />
           {erro && <p className="text-xs text-aura-danger">{erro}</p>}
-          <div className="flex gap-2"><button type="button" disabled={salvando} onClick={() => void salvarMeta()} className="rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{salvando ? "Salvando..." : "Salvar meta"}</button><button type="button" onClick={() => { setEditando(false); setErro(""); }} className="rounded-lg border border-aura-mist px-3 py-2 text-xs">Cancelar</button></div>
+          <div className="flex gap-2"><button type="button" disabled={salvando} onClick={() => void salvarMeta()} className={classeBotao("primario", "sm")}>{salvando ? "Salvando..." : "Salvar meta"}</button><button type="button" onClick={() => { setEditando(false); setErro(""); }} className={classeBotao("secundario", "sm")}>Cancelar</button></div>
         </div>}
       </div>
     );
@@ -72,30 +78,31 @@ export function MetaDoMesCard({ valor, atingido, onDefinir }: MetaDoMesCardProps
   const restante = Math.max(0, valor - atingido);
 
   return (
-    <div className="rounded-lg border border-aura-mist bg-white p-4">
-      <h3 className="text-sm font-semibold text-aura-graphite mb-3">
-        📈 Meta do Mês
-      </h3>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-aura-graphite-soft">Progresso</span>
-          <span className="font-bold text-aura-graphite">{percentual}%</span>
+    <div className="aura-card p-4">
+      <div className="flex items-center gap-1.5">
+        <TrendingUp size={13} className="text-aura-petrol-600" />
+        <h3 className="aura-rotulo">Meta do Mês</h3>
+      </div>
+      <div className="mt-2 space-y-2">
+        <div className="flex items-end justify-between">
+          <span className="font-display text-3xl font-semibold tabular-nums text-aura-graphite">{percentual}%</span>
+          <span className="pb-1 text-xs text-aura-graphite-soft">Progresso</span>
         </div>
-        <div className="w-full h-2 bg-aura-bg rounded-full overflow-hidden">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-aura-sunken">
           <div
             className={`h-full rounded-full transition-all ${
               percentual >= 100
-                ? "bg-green-600"
+                ? "bg-aura-success"
                 : percentual >= 75
-                ? "bg-yellow-600"
+                ? "bg-aura-gold"
                 : percentual >= 50
-                ? "bg-blue-600"
-                : "bg-red-600"
+                ? "bg-aura-petrol-500"
+                : "bg-aura-danger"
             }`}
             style={{ width: `${Math.min(percentual, 100)}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-xs pt-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-2 pt-1 text-xs tabular-nums">
           <span className="text-aura-graphite-soft">
             {moeda(atingido)} de {moeda(valor)}
           </span>

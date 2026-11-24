@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, ExternalLink, Loader2, Star } from "lucide-react";
+import { Alerta, Card, CardHeader, EstadoVazio, StatCard, classeBotao } from "@/components/ui";
 
 interface Config {
   empresa: string;
@@ -103,29 +104,24 @@ export function AvaliacoesTab() {
   const semLink = config.filter((c) => !c.link_google);
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-6">
       {semLink.length > 0 && (
-        <p className="rounded-xl border border-aura-warning/40 bg-aura-warning/5 px-4 py-3 text-sm text-aura-graphite">
-          <strong>Falta o link do Google</strong> em{" "}
-          {semLink.map((c) => c.empresa).join(", ")}. Enquanto estiver vazio, o vendedor não
-          consegue pedir avaliação dessa loja.
-        </p>
+        <Alerta
+          tom="atencao"
+          titulo={<>Falta o link do Google em {semLink.map((c) => c.empresa).join(", ")}.</>}
+          descricao="Enquanto estiver vazio, o vendedor não consegue pedir avaliação dessa loja."
+        />
       )}
 
       {resumo && resumo.total > 0 && (
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-4">
           {[
             { r: "Vendas no período", v: resumo.total },
             { r: "Link enviado", v: resumo.enviados },
             { r: "Cliente abriu", v: resumo.abertos },
             { r: "Avaliou", v: resumo.confirmados },
           ].map((c) => (
-            <div key={c.r} className="rounded-2xl border border-aura-mist bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                {c.r}
-              </p>
-              <p className="mt-2 text-3xl font-bold tabular-nums text-aura-graphite">{c.v}</p>
-            </div>
+            <StatCard key={c.r} rotulo={c.r} valor={c.v} />
           ))}
         </div>
       )}
@@ -133,15 +129,12 @@ export function AvaliacoesTab() {
       {/* Links por loja */}
       <section className="space-y-4">
         {config.map((c) => (
-          <div key={c.empresa} className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-aura-graphite">
-              <Star size={15} className="text-aura-gold" />
-              {c.empresa}
-            </h3>
+          <Card key={c.empresa}>
+            <CardHeader icone={Star} corIcone="text-aura-gold" titulo={c.empresa} />
 
             <div className="grid gap-3 lg:grid-cols-3">
               {CAMPOS.map((campo) => (
-                <label key={campo.chave} className="text-sm text-aura-graphite">
+                <label key={campo.chave} className="text-sm font-medium text-aura-graphite">
                   {campo.rotulo}
                   <input
                     type="url"
@@ -152,7 +145,7 @@ export function AvaliacoesTab() {
                       }
                     }}
                     placeholder={campo.dica}
-                    className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                    className="aura-input mt-1.5 font-normal"
                   />
                   <span className="mt-1 flex items-center gap-2 text-xs text-aura-graphite-soft">
                     {salvo === `${c.empresa}:${campo.corpo}` ? (
@@ -167,7 +160,7 @@ export function AvaliacoesTab() {
                         href={c[campo.chave] as string}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-aura-petrol-700 hover:underline"
+                        className="inline-flex items-center gap-1 text-aura-petrol-600 hover:underline"
                       >
                         testar <ExternalLink size={10} />
                       </a>
@@ -177,7 +170,7 @@ export function AvaliacoesTab() {
               ))}
             </div>
 
-            <label className="mt-3 block text-sm text-aura-graphite">
+            <label className="mt-4 block text-sm font-medium text-aura-graphite">
               1ª mensagem — agradecimento e avaliação no Google
               <textarea
                 defaultValue={c.mensagem_padrao ?? ""}
@@ -187,7 +180,7 @@ export function AvaliacoesTab() {
                   }
                 }}
                 rows={7}
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1.5 font-normal"
               />
               <span className="mt-1 block text-xs text-aura-graphite-soft">
                 {salvo === `${c.empresa}:mensagem` ? (
@@ -200,7 +193,7 @@ export function AvaliacoesTab() {
               </span>
             </label>
 
-            <label className="mt-3 block text-sm text-aura-graphite">
+            <label className="mt-4 block text-sm font-medium text-aura-graphite">
               2ª mensagem — redes sociais (vai logo depois da 1ª)
               <textarea
                 defaultValue={c.mensagem_redes ?? ""}
@@ -211,7 +204,7 @@ export function AvaliacoesTab() {
                 }}
                 rows={7}
                 placeholder="Deixe vazio para mandar só a 1ª mensagem."
-                className="mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:border-aura-petrol-500 focus:outline-none"
+                className="aura-input mt-1.5 font-normal"
               />
               <span className="mt-1 block text-xs text-aura-graphite-soft">
                 {salvo === `${c.empresa}:mensagemRedes` ? (
@@ -223,22 +216,19 @@ export function AvaliacoesTab() {
                 )}
               </span>
             </label>
-          </div>
+          </Card>
         ))}
       </section>
 
       {/* Acompanhamento */}
-      <section className="rounded-2xl border border-aura-mist bg-white p-5 shadow-sm">
-        <h3 className="mb-1 text-sm font-semibold text-aura-graphite">Últimas vendas</h3>
-        <p className="mb-3 text-xs text-aura-graphite-soft">
-          O sistema sabe quando o cliente abriu o link. Quem de fato avaliou, só você consegue
-          confirmar — o Google não avisa ninguém.
-        </p>
+      <Card>
+        <CardHeader
+          titulo="Últimas vendas"
+          descricao="O sistema sabe quando o cliente abriu o link. Quem de fato avaliou, só você consegue confirmar — o Google não avisa ninguém."
+        />
 
         {pedidos.length === 0 ? (
-          <p className="py-4 text-center text-sm text-aura-graphite-soft">
-            Nenhuma venda registrada ainda.
-          </p>
+          <EstadoVazio titulo="Nenhuma venda registrada ainda." />
         ) : (
           <ul className="divide-y divide-aura-mist">
             {pedidos.map((p) => (
@@ -261,11 +251,11 @@ export function AvaliacoesTab() {
                 <button
                   type="button"
                   onClick={() => void confirmar(p.id, !p.confirmado_em)}
-                  className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium ${
+                  className={
                     p.confirmado_em
-                      ? "bg-aura-success/10 text-aura-success"
-                      : "border border-aura-mist text-aura-graphite-soft hover:border-aura-petrol-500 hover:text-aura-petrol-700"
-                  }`}
+                      ? "aura-btn aura-btn-sm shrink-0 bg-aura-success/10 text-aura-success"
+                      : classeBotao("secundario", "sm", "shrink-0")
+                  }
                 >
                   {p.confirmado_em ? "Avaliou ✓" : "Marcar como avaliou"}
                 </button>
@@ -273,7 +263,7 @@ export function AvaliacoesTab() {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

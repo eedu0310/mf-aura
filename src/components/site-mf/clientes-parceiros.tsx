@@ -68,10 +68,10 @@ export function ClientesParceiros({
         {ETAPAS.map((etapa) => {
           const lista = envios.filter((e) => (e.etapa ?? "novo") === etapa.id);
           return (
-            <section key={etapa.id} className="flex flex-col gap-2 rounded-2xl border border-aura-mist bg-white/60 p-3">
+            <section key={etapa.id} className="flex flex-col gap-2 rounded-xl border border-aura-mist bg-aura-sunken/40 p-3">
               <p className="flex items-center justify-between px-1 text-sm font-medium text-aura-graphite">
                 {etapa.nome}
-                <span className="rounded-full bg-aura-mist px-2 py-0.5 text-xs text-aura-graphite-soft">{lista.length}</span>
+                <span className="rounded-md bg-aura-surface px-1.5 py-0.5 text-xs tabular-nums text-aura-graphite-soft">{lista.length}</span>
               </p>
               {lista.length === 0 ? (
                 <p className="px-1 py-6 text-center text-xs text-aura-graphite-soft">Nada aqui.</p>
@@ -81,13 +81,13 @@ export function ClientesParceiros({
                   <button
                     type="button"
                     onClick={() => setAberto(e)}
-                    className="flex w-full flex-col gap-1.5 rounded-xl border border-aura-mist bg-white p-3 text-left transition hover:border-aura-petrol-500/40"
+                    className="aura-card aura-card-interativo flex w-full flex-col gap-1.5 rounded-lg p-3 text-left"
                   >
                     <span className={`flex items-start justify-between gap-2 ${onExcluir ? "pr-7" : ""}`}>
                       <span className="truncate text-sm font-medium text-aura-graphite">{e.nome || e.telefone || "Sem nome"}</span>
                       <span className="shrink-0 text-xs text-aura-graphite-soft">{quando(e.created_at)}</span>
                     </span>
-                    <span className="w-fit rounded-full bg-aura-petrol-700/10 px-2 py-0.5 text-[0.7rem] font-medium text-aura-petrol-700">{e.formulario ?? "Formulário do site"}</span>
+                    <span className="aura-selo aura-selo-marca w-fit">{e.formulario ?? "Formulário do site"}</span>
                     <span className="flex items-center gap-1 text-xs text-aura-graphite-soft">
                       <MapPin size={12} /> {e.cidade || "Cidade não informada"}
                       {e.perfil ? ` · ${e.perfil}` : ""}
@@ -100,7 +100,7 @@ export function ClientesParceiros({
                       onClick={() => onExcluir(e.id)}
                       aria-label={`Excluir ${e.nome || "contato"}`}
                       title="Excluir"
-                      className="absolute right-1.5 top-1.5 rounded-full p-1.5 text-aura-graphite-soft transition hover:bg-red-50 hover:text-red-700"
+                      className="absolute right-1.5 top-1.5 rounded-lg p-1.5 text-aura-graphite-soft transition hover:bg-aura-danger/10 hover:text-aura-danger"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -166,8 +166,8 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
   const proxima = envio.etapa === "novo" ? "em_atendimento" : envio.etapa === "em_atendimento" ? "resolvido" : null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/30 sm:items-center sm:p-4" onClick={onFechar}>
-      <div role="dialog" aria-label={`Pedido de ${envio.nome ?? "cliente"}`} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-6 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onClick={onFechar}>
+      <div role="dialog" aria-label={`Pedido de ${envio.nome ?? "cliente"}`} className="max-h-[90vh] w-full max-w-lg overflow-y-auto aura-card rounded-b-none p-6 shadow-xl sm:rounded-b-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="font-display text-lg font-semibold text-aura-graphite">{envio.nome || "Sem nome"}</p>
@@ -175,7 +175,7 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
               {envio.formulario ?? "Formulário do site"} · {new Date(envio.created_at).toLocaleString("pt-BR")}
             </p>
           </div>
-          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-full p-2 text-aura-graphite-soft hover:bg-aura-bg">
+          <button type="button" onClick={onFechar} aria-label="Fechar" className="rounded-lg p-2 text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite">
             <X size={18} />
           </button>
         </div>
@@ -202,7 +202,7 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
               href={`https://wa.me/${envio.telefone.replace(/\D/g, "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600"
+              className="aura-btn aura-btn-primario"
             >
               <MessageCircle size={15} /> WhatsApp
             </a>
@@ -210,7 +210,7 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
           <button
             type="button"
             onClick={onEditar}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50"
+            className="aura-btn aura-btn-secundario"
           >
             <Pencil size={15} /> Editar
           </button>
@@ -219,7 +219,7 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
               type="button"
               disabled={ocupado}
               onClick={() => void fazer({ acao: "etapa", etapa: proxima, nota })}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+              className="aura-btn aura-btn-secundario"
             >
               <ArrowRight size={15} /> {proxima === "em_atendimento" ? "Estou atendendo" : "Resolvido"}
             </button>
@@ -228,17 +228,17 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
 
         <section className="mt-5 flex flex-col gap-2 rounded-xl border border-aura-mist p-4">
           <p className="flex items-center gap-1.5 text-sm font-medium text-aura-graphite">
-            <UserCheck size={15} /> Direcionar para alguém
+            <UserCheck size={15} className="text-aura-petrol-600" /> Direcionar para alguém
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
-            <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className="min-h-10 rounded-xl border border-aura-mist bg-white px-3 text-sm" aria-label="Loja">
+            <select value={empresa} onChange={(e) => setEmpresa(e.target.value)} className="aura-input" aria-label="Loja">
               {EMPRESAS.map((e) => (
                 <option key={e.id} value={e.nome}>
                   {e.nome}
                 </option>
               ))}
             </select>
-            <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} className="min-h-10 rounded-xl border border-aura-mist bg-white px-3 text-sm" aria-label="Pessoa">
+            <select value={pessoa} onChange={(e) => setPessoa(e.target.value)} className="aura-input" aria-label="Pessoa">
               <option value="">Escolha a pessoa</option>
               {pessoas.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -251,27 +251,27 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
             value={recado}
             onChange={(e) => setRecado(e.target.value)}
             placeholder="Recado (ex.: precisa do manual da Adatto 90)"
-            className="min-h-10 rounded-xl border border-aura-mist px-3 text-sm"
+            className="aura-input"
           />
           <button
             type="button"
             disabled={ocupado || !pessoa}
             onClick={() => void fazer({ acao: "responsavel", vendedorId: pessoa, recado })}
-            className="inline-flex min-h-10 w-fit items-center gap-1.5 rounded-full bg-aura-petrol-700 px-4 text-sm font-medium text-white hover:bg-aura-petrol-600 disabled:opacity-50"
+            className="aura-btn aura-btn-primario w-fit"
           >
             {ocupado && <Loader2 size={15} className="animate-spin" />} Direcionar e avisar
           </button>
         </section>
 
-        <label className="mt-4 flex flex-col gap-1.5 text-sm font-medium text-aura-graphite">
+        <label className="mt-4 flex flex-col gap-1.5 text-[0.8125rem] font-medium text-aura-graphite">
           Anotação
-          <textarea rows={2} value={nota} onChange={(e) => setNota(e.target.value)} className="rounded-xl border border-aura-mist px-3 py-2 text-sm font-normal" placeholder="O que foi feito, o que falta" />
+          <textarea rows={2} value={nota} onChange={(e) => setNota(e.target.value)} className="aura-input font-normal" placeholder="O que foi feito, o que falta" />
         </label>
         <button
           type="button"
           disabled={ocupado}
           onClick={() => void fazer({ acao: "etapa", etapa: envio.etapa ?? "novo", nota })}
-          className="mt-2 min-h-9 rounded-full border border-aura-mist px-3 text-xs font-medium text-aura-graphite disabled:opacity-60"
+          className="mt-2 aura-btn aura-btn-secundario aura-btn-sm"
         >
           Salvar anotação
         </button>
@@ -283,13 +283,13 @@ function DetalheCliente({ envio, onFechar, onMudou, onEditar }: { envio: EnvioCl
             onClick={() =>
               void fazer({ acao: "virar_lead" }, "Mandar para a fila de leads da MF como venda nova? Ele sai de Clientes e parceiros e entra no pipeline quando for atendido.")
             }
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-aura-mist px-4 text-sm font-medium text-aura-graphite hover:border-aura-petrol-500/50 disabled:opacity-60"
+            className="aura-btn aura-btn-secundario"
           >
             <Sparkles size={15} /> É venda nova: virar lead
           </button>
         </div>
 
-        {erro && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{erro}</p>}
+        {erro && <p role="alert" className="mt-3 rounded-lg border border-aura-danger/30 bg-aura-danger/10 px-3 py-2 text-sm text-aura-danger">{erro}</p>}
       </div>
     </div>
   );

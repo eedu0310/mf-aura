@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Circle, Trash2, Plus, Loader2, Lock } from "lucide-react";
+import { CheckCircle2, Circle, Trash2, Plus, Loader2, Lock, ListTodo } from "lucide-react";
+import { CardHeader, classeBotao } from "@/components/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { gravarExigindoLinha } from "@/lib/supabase/gravar";
 
@@ -155,12 +156,13 @@ export function TarefasInteligentes() {
   const tarefasConcluidas = tarefas.filter((t) => t.concluida);
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white p-5">
-      <p className="font-medium text-aura-graphite mb-4">Tarefas Inteligentes</p>
+    // O cartão vem de fora (Meu Dia): aqui só o conteúdo, sem cartão dentro de cartão.
+    <div>
+      <CardHeader icone={ListTodo} titulo="Tarefas Inteligentes" />
 
       {carregando ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-aura-petrol-600" />
+          <Loader2 className="h-5 w-5 animate-spin text-aura-graphite-soft" />
         </div>
       ) : (
         <div className="space-y-4">
@@ -173,39 +175,41 @@ export function TarefasInteligentes() {
               onChange={(e) => setNovaTarefa(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && adicionarTarefa()}
               placeholder="Adicionar nova tarefa..."
-              className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500"
+              className="aura-input flex-1"
             />
             <button
               type="button"
               onClick={adicionarTarefa}
               disabled={adicionando}
-              className="rounded-lg bg-aura-petrol-600 p-2 text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+              aria-label="Adicionar tarefa"
+              className={classeBotao("primario", "md", "w-[2.375rem] shrink-0 !px-0")}
             >
-              {adicionando ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+              {adicionando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
             </button>
           </div>
 
           {/* Tarefas Ativas */}
           {tarefasAtivas.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-aura-graphite-soft">
-                PENDENTES ({tarefasAtivas.length})
+            <div>
+              <p className="aura-rotulo mb-1.5">
+                Pendentes ({tarefasAtivas.length})
               </p>
+              <div className="divide-y divide-aura-mist overflow-hidden rounded-lg border border-aura-mist">
               {tarefasAtivas.map((tarefa) => (
                 <div
                   key={tarefa.id}
-                  className="flex items-center gap-3 rounded-lg bg-aura-bg p-3 transition hover:bg-opacity-70"
+                  className="group flex items-center gap-3 px-3 py-2.5 transition hover:bg-aura-sunken"
                 >
                   <button
                     onClick={() => toggleTarefa(tarefa.id, tarefa.concluida)}
-                    className="text-aura-petrol-600 transition hover:text-aura-petrol-700"
+                    className="text-aura-graphite-soft transition hover:text-aura-petrol-600"
                   >
-                    <Circle size={18} />
+                    <Circle size={17} />
                   </button>
                   <span className="flex-1 text-sm text-aura-graphite">
                     {tarefa.titulo}
                     {ehObrigatoria(tarefa) && (
-                      <span className="ml-2 rounded-full bg-aura-gold/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-aura-graphite">
+                      <span className="aura-selo aura-selo-ouro ml-2 align-middle">
                         Obrigatória
                       </span>
                     )}
@@ -220,44 +224,47 @@ export function TarefasInteligentes() {
                   ) : (
                     <button
                       onClick={() => deletarTarefa(tarefa.id)}
-                      className="text-aura-graphite-soft transition hover:text-aura-danger"
+                      className="text-aura-graphite-soft/70 transition hover:text-aura-danger"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={15} />
                     </button>
                   )}
                 </div>
               ))}
+              </div>
             </div>
           )}
 
           {/* Tarefas Concluídas */}
           {tarefasConcluidas.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-aura-graphite-soft">
-                CONCLUÍDAS ({tarefasConcluidas.length})
+            <div>
+              <p className="aura-rotulo mb-1.5">
+                Concluídas ({tarefasConcluidas.length})
               </p>
+              <div className="divide-y divide-aura-mist overflow-hidden rounded-lg border border-aura-mist">
               {tarefasConcluidas.map((tarefa) => (
                 <div
                   key={tarefa.id}
-                  className="flex items-center gap-3 rounded-lg bg-green-50 p-3 opacity-60"
+                  className="flex items-center gap-3 px-3 py-2.5"
                 >
                   <button
                     onClick={() => toggleTarefa(tarefa.id, tarefa.concluida)}
-                    className="text-green-600 transition hover:text-green-700"
+                    className="text-aura-success transition hover:opacity-80"
                   >
-                    <CheckCircle2 size={18} />
+                    <CheckCircle2 size={17} />
                   </button>
-                  <span className="flex-1 text-sm text-aura-graphite line-through">
+                  <span className="flex-1 text-sm text-aura-graphite-soft line-through">
                     {tarefa.titulo}
                   </span>
                   <button
                     onClick={() => deletarTarefa(tarefa.id)}
-                    className="text-aura-graphite-soft transition hover:text-aura-danger"
+                    className="text-aura-graphite-soft/70 transition hover:text-aura-danger"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={15} />
                   </button>
                 </div>
               ))}
+              </div>
             </div>
           )}
 

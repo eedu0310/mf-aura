@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Link2, Loader2 } from "lucide-react";
+import { ExternalLink, Link2, Loader2, Map as MapaIcone, UserRound } from "lucide-react";
 import { listarLinks, type LinkUtil } from "@/lib/supabase/links";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Alerta, EstadoVazio, PageContainer, PageHeader, Selo, classeBotao, type Tom } from "@/components/ui";
 
-const CORES_CATEGORIA: Record<string, string> = {
-  Catálogo: "bg-aura-petrol-700/10 text-aura-petrol-700",
-  Planilha: "bg-aura-success/10 text-aura-success",
-  Vendas: "bg-aura-gold/15 text-[#8a6a1c]",
-  Marketing: "bg-aura-warning/10 text-aura-warning",
+const TOM_CATEGORIA: Record<string, Tom> = {
+  Catálogo: "marca",
+  Planilha: "sucesso",
+  Vendas: "ouro",
+  Marketing: "atencao",
 };
 
 export default function AreaVendedorPage() {
@@ -46,26 +47,27 @@ export default function AreaVendedorPage() {
   }, []);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 pb-24">
-      <div>
-        <p className="font-display text-xl font-semibold text-aura-graphite">Área do Vendedor</p>
-        <p className="text-sm text-aura-graphite-soft">
-          Links importantes do dia a dia — catálogo, planilhas e materiais.
-        </p>
-      </div>
+    <PageContainer largura="estreita" className="flex flex-col gap-6">
+      <PageHeader
+        titulo="Área do Vendedor"
+        descricao="Links importantes do dia a dia — catálogo, planilhas e materiais."
+        icone={UserRound}
+        className="mb-0"
+      />
 
-      <a href="/mapa-comercial" className="flex items-center justify-between rounded-2xl border border-aura-petrol-200 bg-aura-petrol-700/5 p-4 transition hover:border-aura-petrol-500">
-        <div>
+      <a href="/mapa-comercial" className="aura-card aura-card-interativo flex items-center justify-between gap-3 p-4">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-petrol-500/10">
+          <MapaIcone size={17} className="text-aura-petrol-600" />
+        </span>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-aura-graphite">Mapa Comercial</p>
-          <p className="mt-1 text-xs text-aura-graphite-soft">Cadência, scripts, objeções e mensagens para facilitar o atendimento.</p>
+          <p className="mt-0.5 text-xs text-aura-graphite-soft">Cadência, scripts, objeções e mensagens para facilitar o atendimento.</p>
         </div>
-        <span className="rounded-lg bg-aura-petrol-700 px-3 py-2 text-xs font-semibold text-white">Abrir</span>
+        <span className={classeBotao("primario", "sm")}>Abrir</span>
       </a>
 
       {!usandoSupabase && (
-        <p className="rounded-xl bg-aura-warning/10 px-4 py-2.5 text-xs text-aura-warning">
-          Esta área está indisponível no momento. Avise seu gestor.
-        </p>
+        <Alerta tom="atencao" titulo="Esta área está indisponível no momento. Avise seu gestor." />
       )}
 
       {carregando ? (
@@ -73,23 +75,18 @@ export default function AreaVendedorPage() {
           <Loader2 size={20} className="animate-spin" />
         </div>
       ) : links.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-aura-mist bg-white/60 px-6 py-16 text-center">
-          <Link2 size={24} className="text-aura-graphite-soft" />
-          <p className="text-sm text-aura-graphite-soft">
-            Seu gestor ainda não cadastrou nenhum link nesta loja.
-          </p>
-        </div>
+        <EstadoVazio icone={Link2} titulo="Seu gestor ainda não cadastrou nenhum link nesta loja." />
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="aura-card flex flex-col divide-y divide-aura-mist overflow-hidden">
           {links.map((link) => (
             <a
               key={link.id}
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 rounded-2xl border border-aura-mist bg-white p-4 transition hover:border-aura-petrol-500/40 hover:shadow-sm"
+              className="group flex items-center gap-3 px-4 py-3.5 transition hover:bg-aura-sunken/60"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-petrol-700/10 text-aura-petrol-700">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-sunken text-aura-graphite-soft group-hover:text-aura-petrol-600">
                 <Link2 size={16} />
               </span>
               <div className="min-w-0 flex-1">
@@ -97,19 +94,15 @@ export default function AreaVendedorPage() {
                 <p className="truncate text-xs text-aura-graphite-soft">{link.url}</p>
               </div>
               {link.categoria && (
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-medium ${
-                    CORES_CATEGORIA[link.categoria] ?? "bg-aura-bg text-aura-graphite-soft"
-                  }`}
-                >
+                <Selo tom={TOM_CATEGORIA[link.categoria] ?? "neutro"} className="shrink-0">
                   {link.categoria}
-                </span>
+                </Selo>
               )}
               <ExternalLink size={14} className="shrink-0 text-aura-graphite-soft" />
             </a>
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

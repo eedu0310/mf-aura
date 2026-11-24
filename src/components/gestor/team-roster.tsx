@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, TrendingDown, Minus, AlertTriangle, UserX, UserCheck, Loader2, Target, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, AlertTriangle, UserX, UserCheck, Loader2, Target, Sparkles, Users } from "lucide-react";
+import { Selo } from "@/components/ui";
 import type { MembroEquipe } from "@/lib/supabase/team";
 import { MetasVendedorModal } from "./metas-vendedor-modal";
 import { useAppData } from "@/lib/app-data-context";
@@ -88,9 +89,12 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-aura-mist bg-white">
-      <div className="border-b border-aura-mist px-5 py-3.5">
-        <p className="text-sm font-medium text-aura-graphite">Equipe</p>
+    <div className="aura-card overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-aura-mist px-5 py-3.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-sunken">
+          <Users size={16} className="text-aura-petrol-600" />
+        </span>
+        <p className="text-sm font-semibold text-aura-graphite">Equipe</p>
       </div>
       {ordenado.length === 0 ? (
         <p className="px-5 py-8 text-center text-sm text-aura-graphite-soft">
@@ -107,16 +111,14 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
                 key={m.id}
                 className={`flex items-center gap-3 px-5 py-3.5 ${!ativo ? "opacity-50" : ""}`}
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-petrol-700/10 font-display text-xs font-semibold text-aura-petrol-700">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-petrol-500/10 font-display text-xs font-semibold text-aura-petrol-600">
                   {iniciais(m.nome)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 truncate text-sm font-medium text-aura-graphite">
                     {m.nome}
                     {!ativo && (
-                      <span className="rounded-full bg-aura-graphite-soft/15 px-1.5 py-0.5 text-[0.6rem] font-medium text-aura-graphite-soft">
-                        Inativo
-                      </span>
+                      <Selo tom="neutro">Inativo</Selo>
                     )}
                     {precisaAtencao && (
                       <AlertTriangle size={12} className="shrink-0 text-aura-warning" />
@@ -131,10 +133,7 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
                     const score = auraScoreDe(m);
                     if (score === null) return null;
                     return (
-                      <span
-                        className="flex items-center gap-1 rounded-full bg-aura-gold/10 px-2 py-0.5 text-xs font-semibold text-aura-gold"
-                        title="AURA Score"
-                      >
+                      <span className="aura-selo aura-selo-ouro gap-1 tabular-nums" title="AURA Score">
                         <Sparkles size={11} />
                         {score}
                       </span>
@@ -142,7 +141,7 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
                   })()}
                   <div className="flex items-center gap-1.5">
                     {ICONE_TENDENCIA[tendencia]}
-                    <span className="font-data text-sm font-medium text-aura-graphite">
+                    <span className="text-sm font-medium tabular-nums text-aura-graphite">
                       {formatarMoeda(m.vendasTotal)}
                     </span>
                   </div>
@@ -153,7 +152,7 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
                     onClick={() => setMembroMetas(m)}
                     aria-label="Definir metas"
                     title="Definir metas"
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-aura-graphite-soft hover:bg-aura-petrol-700/10 hover:text-aura-petrol-700"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-petrol-600"
                   >
                     <Target size={13} />
                   </button>
@@ -165,7 +164,7 @@ export function TeamRoster({ equipe }: { equipe: MembroEquipe[] }) {
                     disabled={processando === m.id}
                     aria-label={ativo ? "Desativar vendedor" : "Reativar vendedor"}
                     title={ativo ? "Desativar vendedor" : "Reativar vendedor"}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition ${
                       ativo
                         ? "text-aura-graphite-soft hover:bg-aura-danger/10 hover:text-aura-danger"
                         : "text-aura-success hover:bg-aura-success/10"
