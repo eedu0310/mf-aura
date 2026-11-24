@@ -58,13 +58,23 @@ async function chamar(caminho: string, token: string, corpo?: Record<string, unk
   return dados;
 }
 
-/** Responde uma DM. `destinatario` é o id do cliente no Instagram. */
+/**
+ * Responde uma DM. `destinatario` é o id do cliente no Instagram.
+ *
+ * Com o login unificado a Meta às vezes só aceita o envio pela Página do
+ * Facebook ligada ao Instagram (com o token da Página); por isso tenta a
+ * conta, depois a Página, depois o endereço do Instagram.
+ */
 export async function enviarMensagem(conta: ContaMeta, destinatario: string, texto: string) {
+  const corpo = { recipient: { id: destinatario }, message: { text: texto } };
   const alvo = conta.igUserId || "me";
-  return chamar(`${alvo}/messages`, conta.token, {
-    recipient: { id: destinatario },
-    message: { text: texto },
-  });
+  const pagina = await paginaDaConta(conta);
+  const opcoes: Opcao[] = [{ host: "fb", caminho: `${alvo}/messages`, corpo }];
+  if (pagina.ok) opcoes.push({ host: "fb", caminho: `${pagina.id}/messages`, corpo, token: pagina.token });
+  opcoes.push({ host: "ig", caminho: "me/messages", corpo });
+  const r = await tentar(opcoes, conta.token);
+  if (!r.ok) throw new Error(r.erros[r.erros.length - 1]?.split(" → ").pop() ?? "A Meta recusou o envio.");
+  return r.dados;
 }
 
 /** Responde um comentário de publicação. */
@@ -128,31 +138,115 @@ export async function chamarNo(host: Host, caminho: string, token: string, corpo
   return dados;
 }
 
+export interface Opcao {
+  host: Host;
+  caminho: string;
+  corpo?: Record<string, unknown>;
+  metodo?: string;
+  /** Token próprio desta tentativa (ex.: o da Página); sem ele vale o da conta. */
+  token?: string;
+}
+
 export async function tentar<T = any>(
-  opcoes: { host: Host; caminho: string; corpo?: Record<string, unknown>; metodo?: string }[],
+  opcoes: Opcao[],
   token: string,
 ): Promise<{ ok: true; dados: T; via: string } | { ok: false; erros: string[] }> {
   const erros: string[] = [];
   for (const o of opcoes) {
     try {
-      const dados = await chamarNo(o.host, o.caminho, token, o.corpo, o.metodo);
-      return { ok: true, dados, via: `${o.host}:${o.caminho.split("?")[0]}` };
+      const dados = await chamarNo(o.host, o.caminho, o.token ?? token, o.corpo, o.metodo);
+      return { ok: true, dados, via: `${o.host}:${o.caminho.split("?")[0]}${o.token ? " (Página)" : ""}` };
     } catch (e) {
-      erros.push(`${o.host}:${o.caminho.split("?")[0]} → ${(e as Error).message}`);
+      erros.push(`${o.host}:${o.caminho.split("?")[0]}${o.token ? " (Página)" : ""} → ${(e as Error).message}`);
     }
   }
   return { ok: false, erros };
 }
 
-/** Liga (ou religa) os avisos de mensagem, comentário e reação da conta. */
+// --- Página do Facebook ligada ao Instagram ---------------------------------
+//
+// Pelo login do Facebook, as DMs do Instagram passam pela Página ligada à
+// conta: listar conversas, assinar os avisos de mensagem e responder pedem o
+// id e o token da Página. O token da conta busca a Página uma vez por hora.
+
+type Pagina = { ok: true; id: string; nome: string | null; token: string } | { ok: false; erros: string[] };
+const paginas = new Map<string, { em: number; pagina: Pagina }>();
+
+export async function paginaDaConta(conta: ContaMeta): Promise<Pagina> {
+  const guardada = paginas.get(conta.id);
+  if (guardada && Date.now() - guardada.em < 3600_000) return guardada.pagina;
+
+  const erros: string[] = [];
+  let pagina: Pagina | null = null;
+  try {
+    const r = await chamarNo(
+      "fb",
+      "me/accounts?fields=id,name,access_token,instagram_business_account{id}&limit=100",
+      conta.token,
+    );
+    const lista: any[] = r?.data ?? [];
+    const achada =
+      lista.find((p) => String(p.instagram_business_account?.id ?? "") === String(conta.igUserId ?? "")) ??
+      (lista.length === 1 ? lista[0] : null);
+    if (achada?.access_token) {
+      pagina = { ok: true, id: String(achada.id), nome: achada.name ?? null, token: String(achada.access_token) };
+    } else {
+      erros.push(
+        lista.length
+          ? `me/accounts → ${lista.length} Página(s) liberada(s), nenhuma ligada a este Instagram`
+          : "me/accounts → nenhuma Página do Facebook liberada para o AURA",
+      );
+    }
+  } catch (e) {
+    erros.push(`me/accounts → ${(e as Error).message}`);
+  }
+  const final: Pagina = pagina ?? { ok: false, erros };
+  paginas.set(conta.id, { em: Date.now(), pagina: final });
+  return final;
+}
+
+/**
+ * Liga (ou religa) os avisos de mensagem, comentário e reação da conta.
+ * Assina pela Página (é o que faz as DMs chegarem pelo login do Facebook) e
+ * pela conta do Instagram; basta um dos dois aceitar.
+ */
 export async function ligarAvisos(conta: ContaMeta) {
   const campos = "messages,comments,message_reactions";
   const ig = conta.igUserId ?? "me";
-  return tentar(
+  const pagina = await paginaDaConta(conta);
+  const etapas: string[] = [];
+  let algumOk = false;
+  let via = "";
+
+  if (pagina.ok) {
+    const r = await tentar(
+      [
+        { host: "fb", caminho: `${pagina.id}/subscribed_apps?subscribed_fields=messages,feed`, metodo: "POST", token: pagina.token },
+        { host: "fb", caminho: `${pagina.id}/subscribed_apps?subscribed_fields=feed`, metodo: "POST", token: pagina.token },
+      ],
+      conta.token,
+    );
+    if (r.ok) {
+      algumOk = true;
+      via = r.via;
+      etapas.push(`Página ${pagina.nome ?? pagina.id}: assinada`);
+    } else etapas.push(...r.erros);
+  } else etapas.push(...pagina.erros);
+
+  const r2 = await tentar(
     [
       { host: "fb", caminho: `${ig}/subscribed_apps?subscribed_fields=${campos}`, metodo: "POST" },
       { host: "ig", caminho: `me/subscribed_apps?subscribed_fields=${campos}`, metodo: "POST" },
     ],
     conta.token,
   );
+  if (r2.ok) {
+    algumOk = true;
+    via = via ? `${via} + ${r2.via}` : r2.via;
+    etapas.push("Instagram: assinado");
+  } else etapas.push(...r2.erros);
+
+  return algumOk
+    ? { ok: true as const, via, dados: { etapas } }
+    : { ok: false as const, erros: etapas };
 }

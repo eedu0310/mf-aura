@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
-import { contaDaLoja, ligarAvisos, tentar } from "@/lib/meta/cliente";
+import { contaDaLoja, ligarAvisos, paginaDaConta, tentar, type Opcao } from "@/lib/meta/cliente";
 import { importarHistorico } from "@/lib/meta/importar";
 import { ultimosAvisos } from "@/lib/meta/registro";
 
@@ -32,8 +32,11 @@ export async function GET(request: NextRequest) {
   const { erro, conta } = await preparar(request);
   if (erro) return erro;
   const ig = conta!.igUserId ?? "me";
+  const pagina = await paginaDaConta(conta!);
+  const pelaPagina = (caminho: string): Opcao[] =>
+    pagina.ok ? [{ host: "fb", caminho: caminho.replace("{pagina}", pagina.id), token: pagina.token }] : [];
 
-  const [perfil, assinatura, conversas, midias] = await Promise.all([
+  const [perfil, assinatura, assinaturaPagina, conversas, midias] = await Promise.all([
     tentar(
       [
         { host: "fb", caminho: `${ig}?fields=id,username,name` },
@@ -48,8 +51,10 @@ export async function GET(request: NextRequest) {
       ],
       conta!.token,
     ),
+    pagina.ok ? tentar(pelaPagina("{pagina}/subscribed_apps"), conta!.token) : Promise.resolve({ ok: false as const, erros: pagina.erros }),
     tentar(
       [
+        ...pelaPagina("{pagina}/conversations?platform=instagram&limit=3"),
         { host: "fb", caminho: `${ig}/conversations?platform=instagram&limit=3` },
         { host: "ig", caminho: "me/conversations?platform=instagram&limit=3" },
       ],
@@ -71,7 +76,9 @@ export async function GET(request: NextRequest) {
     empresa: conta!.empresa,
     igUserId: conta!.igUserId,
     perfil: resumir(perfil),
+    pagina: pagina.ok ? { ok: true, id: pagina.id, nome: pagina.nome } : { ok: false, erros: pagina.erros },
     avisosAssinados: resumir(assinatura),
+    avisosDaPagina: resumir(assinaturaPagina),
     conversas: conversas.ok
       ? { ok: true, via: conversas.via, quantas: (conversas.dados as any)?.data?.length ?? 0 }
       : { ok: false, erros: conversas.erros },

@@ -340,7 +340,7 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
       setResultado(
         nome === "assinar"
           ? d.ok
-            ? "Avisos de mensagem e comentário ligados."
+            ? `Avisos ligados. ${(d.dados?.etapas ?? []).join(" | ")}`
             : `A Meta recusou: ${(d.erros ?? [d.erro]).join(" | ")}`
           : `Histórico: ${d.conversas ?? 0} conversas, ${d.mensagens ?? 0} mensagens, ${d.comentarios ?? 0} comentários.` +
               (d.avisos?.length ? ` Avisos: ${d.avisos.join(" | ")}` : ""),
@@ -379,6 +379,11 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
             <>
               <ul className="space-y-1">
                 {linha("Token e perfil da conta", dados.perfil)}
+                {linha(
+                  `Página do Facebook ligada${dados.pagina?.ok ? ` (${dados.pagina.nome ?? dados.pagina.id})` : ""}`,
+                  dados.pagina,
+                )}
+                {linha("Avisos (webhook) assinados pela Página", dados.avisosDaPagina)}
                 {linha("Avisos (webhook) assinados pela conta", dados.avisosAssinados)}
                 {linha(`Conversas do direct${dados.conversas?.ok ? ` (${dados.conversas.quantas} visíveis)` : ""}`, dados.conversas)}
                 {linha("Publicações e comentários", dados.publicacoes)}

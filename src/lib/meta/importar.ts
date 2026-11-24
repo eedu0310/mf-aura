@@ -8,7 +8,7 @@
  * não duplicam.
  */
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { tentar, type ContaMeta } from "@/lib/meta/cliente";
+import { paginaDaConta, tentar, type ContaMeta, type Opcao } from "@/lib/meta/cliente";
 
 const JANELA_MS = 24 * 3600_000;
 
@@ -31,13 +31,17 @@ export async function importarHistorico(conta: ContaMeta): Promise<Resumo> {
   // --- Direct ---------------------------------------------------------------
   const camposConversa =
     "fields=id,updated_time,participants,messages.limit(25){id,created_time,from,to,message,attachments{image_data,video_data,file_url,mime_type}}&limit=40";
-  const conversas = await tentar<{ data?: any[] }>(
-    [
-      { host: "fb", caminho: `${ig}/conversations?platform=instagram&${camposConversa}` },
-      { host: "ig", caminho: `me/conversations?platform=instagram&${camposConversa}` },
-    ],
-    conta.token,
+  // Pelo login do Facebook as conversas moram na Página ligada ao Instagram.
+  const pagina = await paginaDaConta(conta);
+  const opcoesConversa: Opcao[] = [];
+  if (pagina.ok)
+    opcoesConversa.push({ host: "fb", caminho: `${pagina.id}/conversations?platform=instagram&${camposConversa}`, token: pagina.token });
+  opcoesConversa.push(
+    { host: "fb", caminho: `${ig}/conversations?platform=instagram&${camposConversa}` },
+    { host: "ig", caminho: `me/conversations?platform=instagram&${camposConversa}` },
   );
+  const conversas = await tentar<{ data?: any[] }>(opcoesConversa, conta.token);
+  if (!pagina.ok) resumo.avisos.push(`Página: ${pagina.erros.join(" | ")}`);
   if (!conversas.ok) {
     resumo.avisos.push(`Conversas: ${conversas.erros.join(" | ")}`);
   } else {
