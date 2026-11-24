@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   let consulta = service
     .from("profiles")
     .select(
-      "id, nome, cargo, empresa, ativo, created_at, gestor_mestre, gestor_aprovado, excluido_em, excluido_motivo",
+      "id, nome, cargo, empresa, ativo, created_at, gestor_mestre, gestor_aprovado, excluido_em, excluido_motivo, telefone, permissoes",
     )
     .order("created_at", { ascending: false });
 

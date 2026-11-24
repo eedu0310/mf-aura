@@ -11,7 +11,10 @@ import {
   UserX,
   KeyRound,
   RotateCcw,
+  Pencil,
+  Phone,
 } from "lucide-react";
+import { NOMES_EMPRESAS } from "@/lib/companies";
 import { useUserProfile } from "@/lib/user-profile-context";
 import {
   TransferirCarteiraCard,
@@ -33,7 +36,11 @@ interface Usuario {
   excluido_em?: string | null;
   excluido_motivo?: string | null;
   semAcesso?: boolean;
+  telefone?: string | null;
+  permissoes?: Record<string, boolean> | null;
 }
+
+const CARGOS = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing", "Gestor"];
 
 interface Incompleto {
   id: string;
@@ -57,6 +64,30 @@ export function UsuariosTab() {
   const [credencial, setCredencial] = useState<{ email: string; senha: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<Usuario | null>(null);
+  const [editando, setEditando] = useState<Usuario | null>(null);
+  // Conta de teste/cadastro incompleto: primeiro clique pede confirmação.
+  const [apagandoIncompleto, setApagandoIncompleto] = useState<string | null>(null);
+  const [ocupadoIncompleto, setOcupadoIncompleto] = useState(false);
+
+  async function apagarIncompleto(c: Incompleto) {
+    setOcupadoIncompleto(true);
+    try {
+      const resposta = await fetch("/api/admin/excluir-cadastro-incompleto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: c.id }),
+      });
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui apagar.");
+      setAviso(`Conta ${c.email} apagada.`);
+      setApagandoIncompleto(null);
+      await carregar();
+    } catch (e) {
+      setAviso(e instanceof Error ? e.message : "Não consegui apagar.");
+    } finally {
+      setOcupadoIncompleto(false);
+    }
+  }
   const [senhaNova, setSenhaNova] = useState<{ nome: string; senha: string } | null>(null);
   const [novoUsuario, setNovoUsuario] = useState({
     nome: "",
@@ -292,12 +323,42 @@ export function UsuariosTab() {
               </p>
               <ul className="mt-3 space-y-1">
                 {incompletos.map((c) => (
-                  <li key={c.id} className="flex items-center gap-2 text-sm text-amber-900">
+                  <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm text-amber-900">
                     <Mail size={13} />
                     <span className="font-mono text-xs">{c.email}</span>
                     <span className="text-xs text-amber-700">
                       desde {new Date(c.created_at).toLocaleDateString("pt-BR")}
                     </span>
+                    {souMestre &&
+                      (apagandoIncompleto === c.id ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-xs font-medium text-red-700">Apagar de vez? Não dá para desfazer.</span>
+                          <button
+                            type="button"
+                            onClick={() => apagarIncompleto(c)}
+                            disabled={ocupadoIncompleto}
+                            className="rounded-md bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {ocupadoIncompleto ? "Apagando..." : "Sim, apagar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setApagandoIncompleto(null)}
+                            className="rounded-md px-2 py-0.5 text-xs text-amber-900 hover:bg-amber-100"
+                          >
+                            Cancelar
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setApagandoIncompleto(c.id)}
+                          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-xs text-red-700 hover:bg-red-50"
+                          title="Apagar esta conta (teste ou cadastro por engano)"
+                        >
+                          <Trash2 size={12} /> Apagar
+                        </button>
+                      ))}
                   </li>
                 ))}
               </ul>
@@ -393,6 +454,19 @@ export function UsuariosTab() {
         </div>
       )}
 
+      {editando && (
+        <ModalEditar
+          alvo={editando}
+          souMestre={souMestre}
+          aoFechar={() => setEditando(null)}
+          aoSalvar={async (mensagem) => {
+            setEditando(null);
+            setAviso(mensagem);
+            await carregar();
+          }}
+        />
+      )}
+
       {excluindo && (
         <ModalExcluir
           alvo={excluindo}
@@ -463,6 +537,12 @@ export function UsuariosTab() {
                     <Mail size={14} />
                     {user.email || "Sem e-mail de acesso"}
                   </div>
+                  {user.telefone && (
+                    <div className="mt-1 flex items-center gap-2 text-sm text-aura-graphite-soft">
+                      <Phone size={14} />
+                      {user.telefone}
+                    </div>
+                  )}
                   <p className="mt-1 text-xs text-aura-graphite-soft">
                     {user.cargo} · {user.empresa}
                   </p>
@@ -495,6 +575,18 @@ export function UsuariosTab() {
                   )
                 ) : (
                   <div className="flex shrink-0 gap-2">
+                    {(souMestre || !user.gestor_mestre) && (
+                      <button
+                        onClick={() => {
+                          setAviso(null);
+                          setEditando(user);
+                        }}
+                        className="rounded-lg bg-aura-petrol-100 p-2 text-aura-petrol-700 transition hover:bg-aura-petrol-200"
+                        title="Editar dados: nome, e-mail, telefone, cargo, loja e permissões"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
                     <button
                       onClick={() => redefinirSenha(user)}
                       className="rounded-lg bg-aura-mist p-2 text-aura-graphite transition hover:bg-aura-bg"
@@ -682,6 +774,202 @@ function ModalExcluir({
           >
             {enviando && <Loader2 size={15} className="animate-spin" />}
             Excluir
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface Permissao {
+  chave: string;
+  rotulo: string;
+  ajuda: string;
+  padrao: boolean;
+}
+
+/**
+ * Editar os dados de alguém da equipe. Pensado para a troca de pessoa numa
+ * vaga (24/11: a Sabrina saiu e o acesso passou para a Jaqueline): muda o
+ * nome, o e-mail de acesso e o telefone; o mestre também muda a loja e as
+ * permissões. A senha não muda aqui — use a chave para gerar uma provisória.
+ */
+function ModalEditar({
+  alvo,
+  souMestre,
+  aoFechar,
+  aoSalvar,
+}: {
+  alvo: Usuario;
+  souMestre: boolean;
+  aoFechar: () => void;
+  aoSalvar: (mensagem: string) => void | Promise<void>;
+}) {
+  const [nome, setNome] = useState(alvo.nome);
+  const [email, setEmail] = useState(alvo.email ?? "");
+  const [telefone, setTelefone] = useState(alvo.telefone ?? "");
+  const [cargo, setCargo] = useState(alvo.cargo);
+  const [empresa, setEmpresa] = useState(alvo.empresa);
+  const [catalogo, setCatalogo] = useState<Permissao[]>([]);
+  const [permissoes, setPermissoes] = useState<Record<string, boolean>>(alvo.permissoes ?? {});
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    if (!souMestre) return;
+    let vivo = true;
+    fetch("/api/gestor/permissoes", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!vivo || !j) return;
+        setCatalogo((j.permissoes ?? []) as Permissao[]);
+        const atual = (j.pessoas ?? []).find((p: { id: string }) => p.id === alvo.id);
+        if (atual?.permissoes) setPermissoes(atual.permissoes);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [souMestre, alvo.id]);
+
+  const ligada = (p: Permissao) => permissoes[p.chave] ?? p.padrao;
+  const mudouLoja = empresa !== alvo.empresa;
+  const mudouEmail = email.trim().toLowerCase() !== (alvo.email ?? "").toLowerCase();
+
+  async function salvar() {
+    setErro(null);
+    setEnviando(true);
+    try {
+      const corpo: Record<string, unknown> = { id: alvo.id, nome, telefone, cargo };
+      if (alvo.email || email.trim()) corpo.email = email;
+      if (souMestre) corpo.empresa = empresa;
+      const resposta = await fetch("/api/admin/editar-usuario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(corpo),
+      });
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui salvar.");
+
+      if (souMestre && catalogo.length) {
+        const original = alvo.permissoes ?? {};
+        const mudou = catalogo.some((p) => (permissoes[p.chave] ?? p.padrao) !== (original[p.chave] ?? p.padrao));
+        if (mudou) {
+          const limpo = Object.fromEntries(catalogo.map((p) => [p.chave, ligada(p)]));
+          const r2 = await fetch("/api/gestor/permissoes", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: alvo.id, permissoes: limpo }),
+          });
+          const d2 = await r2.json().catch(() => ({}));
+          if (!r2.ok) throw new Error(`Os dados foram salvos, mas as permissões não: ${d2.erro ?? "erro"}`);
+        }
+      }
+
+      await aoSalvar(
+        dados.emailTrocado
+          ? `Dados de ${nome.trim()} salvos. O acesso agora é pelo e-mail ${email.trim().toLowerCase()}; gere uma senha provisória na chave para entregar a ela.`
+          : `Dados de ${nome.trim()} salvos.`,
+      );
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não consegui salvar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const campo =
+    "mt-1 w-full rounded-lg border border-aura-mist px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-aura-petrol-500";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="editar-usuario-titulo">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+        <h2 id="editar-usuario-titulo" className="font-display text-xl font-bold text-aura-graphite">
+          Editar dados
+        </h2>
+        <p className="mt-1 text-sm text-aura-graphite-soft">{alvo.nome}</p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-nome">Nome completo</label>
+            <input id="ed-nome" value={nome} onChange={(e) => setNome(e.target.value)} className={campo} />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-email">E-mail de acesso</label>
+            <input id="ed-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={campo} />
+            {mudouEmail && alvo.email && (
+              <p className="mt-1 text-xs text-amber-700">
+                A pessoa passa a entrar com o e-mail novo. A senha não muda: gere uma provisória na chave depois de salvar.
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-tel">Telefone</label>
+            <input id="ed-tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(54) 99999-9999" className={campo} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-cargo">Cargo</label>
+            <select id="ed-cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} className={campo}>
+              {CARGOS.filter((c) => souMestre || c !== "Gestor" || alvo.cargo === "Gestor").map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          {souMestre && (
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-aura-graphite" htmlFor="ed-loja">Loja</label>
+              <select id="ed-loja" value={empresa} onChange={(e) => setEmpresa(e.target.value)} className={campo}>
+                {NOMES_EMPRESAS.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+              {mudouLoja && (
+                <p className="mt-1 text-xs text-amber-700">
+                  A pessoa passa a atuar na {empresa}. Os clientes que ela já tem continuam na {alvo.empresa}; se precisar, use Transferir carteira.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {souMestre && catalogo.length > 0 && (
+          <div className="mt-5">
+            <p className="text-sm font-medium text-aura-graphite">Permissões</p>
+            <ul className="mt-2 divide-y divide-aura-mist rounded-lg border border-aura-mist">
+              {catalogo.map((p) => (
+                <li key={p.chave} className="flex items-start gap-3 px-3 py-2">
+                  <input
+                    id={`perm-${p.chave}`}
+                    type="checkbox"
+                    checked={ligada(p)}
+                    onChange={(e) => setPermissoes((atual) => ({ ...atual, [p.chave]: e.target.checked }))}
+                    className="mt-1 h-4 w-4 accent-aura-petrol-600"
+                  />
+                  <label htmlFor={`perm-${p.chave}`} className="text-sm">
+                    <span className="text-aura-graphite">{p.rotulo}</span>
+                    <span className="block text-xs text-aura-graphite-soft">{p.ajuda}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {erro && <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+
+        <div className="mt-6 flex gap-2">
+          <button
+            onClick={aoFechar}
+            className="flex-1 rounded-lg border border-aura-mist px-4 py-2 text-sm font-medium text-aura-graphite transition hover:bg-aura-bg"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={salvar}
+            disabled={enviando || nome.trim().length < 2}
+            className="flex-1 rounded-lg bg-aura-petrol-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-aura-petrol-700 disabled:opacity-50"
+          >
+            {enviando ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </div>
