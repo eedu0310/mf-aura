@@ -53,3 +53,14 @@ ALVO=http://127.0.0.1:3000
 # Backup do banco todo dia às 22h. Guarda 7 diários e 4 domingos anteriores a
 # eles — cerca de 30 dias de cobertura — em /opt/aura/.backups.
 0 22 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/backup >> /var/log/aura-cron.log 2>&1
+
+# Sentinelas (operação, dados e segurança), 7h30 e 13h30: conferem se os
+# crons rodaram, se o backup está na nuvem, se a IA responde, se há lead
+# parado, negócio fora do pipeline, tabela sem RLS ou gestor mestre novo, e
+# avisam os gestores mestres no sino. Só avisam o que for novo; a tela é
+# Gestor › Saúde do sistema.
+30 7,13 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/sentinela >> /var/log/aura-cron.log 2>&1
+
+# O log dos crons cresce para sempre sem isto: todo domingo às 4h, se passou
+# de 50 MB, é zerado.
+0 4 * * 0 root find /var/log -maxdepth 1 -name 'aura-cron.log' -size +50M -exec truncate -s 0 {} \;

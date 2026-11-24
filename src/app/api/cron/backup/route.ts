@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { executarBackup, PASTA_PADRAO, diaDoArquivo, diaDasSessoes, BUCKET_NUVEM } from "@/lib/backup/executar";
+import { cronAutorizado, rodarCron } from "@/lib/cron/execucao";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -15,15 +16,16 @@ export const maxDuration = 300;
  * jeito de descobrir que o backup parou ANTES de precisar dele.
  */
 export async function GET(request: Request) {
-  const segredoEsperado = process.env.CRON_SECRET;
-  const cabecalho = request.headers.get("authorization");
-  if (segredoEsperado && cabecalho !== `Bearer ${segredoEsperado}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
-
   const pasta = process.env.AURA_PASTA_BACKUP || PASTA_PADRAO;
 
+  /*
+   * A listagem só confere o que existe: não entra no diário dos crons, senão
+   * a Sentinela leria "backup rodou" num dia em que ninguém gerou arquivo.
+   */
   if (new URL(request.url).searchParams.get("listar") === "1") {
+    if (!cronAutorizado(request)) {
+      return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
+    }
     try {
       const arquivos = fs
         .readdirSync(pasta)
@@ -60,17 +62,21 @@ export async function GET(request: Request) {
     }
   }
 
-  const supabase = getSupabaseServiceClient();
-  if (!supabase) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
+  /*
+   * Falha de backup precisa gritar: rodarCron responde 500 e grava a falha no
+   * diário. Devolver 200 com "ok: false" faria o cron registrar sucesso no log
+   * e ninguém olharia de novo.
+   */
+  return rodarCron(request, "backup", async () => {
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) throw new Error("Supabase não configurado.");
 
-  try {
     const r = await executarBackup(supabase, pasta);
     /*
      * Nuvem falhou? O backup local existe, então não é erro 500 — mas o log
      * do cron precisa mostrar "nuvem: <motivo>" em vez de um "ok" liso.
      */
-    return NextResponse.json({
-      ok: true,
+    return {
       arquivo: path.basename(r.arquivo),
       mb: Math.round((r.bytes / 1_048_576) * 100) / 100,
       tabelas: r.tabelas,
@@ -80,15 +86,6 @@ export async function GET(request: Request) {
       sessoes: r.sessoes ? path.basename(r.sessoes) : null,
       apagados: r.apagados,
       nuvem: r.nuvem.erro ? `FALHOU: ${r.nuvem.erro}` : `ok: ${r.nuvem.enviados.join(", ")}`,
-    });
-  } catch (e) {
-    /*
-     * Falha de backup precisa gritar. Devolver 200 com "ok: false" faria o
-     * cron registrar sucesso no log e ninguém olharia de novo.
-     */
-    return NextResponse.json(
-      { erro: e instanceof Error ? e.message : String(e) },
-      { status: 500 },
-    );
-  }
+    };
+  });
 }

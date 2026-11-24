@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import {
   contaDaLoja,
@@ -59,6 +59,19 @@ export async function GET(request: NextRequest) {
   const conversa = sp.get("conversa");
 
   if (conversa) {
+    /*
+     * O cliente de serviço ignora a RLS: sem esta conferência, quem tinha o
+     * Instagram liberado numa loja lia as DMs de qualquer outra (bastava o id
+     * da conversa) e ainda zerava o "não lidas" de lá. Mesma régua do POST.
+     */
+    const { data: dona } = await sb!
+      .from("meta_conversas")
+      .select("empresa")
+      .eq("id", conversa)
+      .maybeSingle();
+    if (!dona || (dona.empresa !== auth!.empresa && !vejoTodasAsLojas(auth))) {
+      return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
+    }
     const { data: msgs } = await sb!
       .from("meta_mensagens")
       .select("id, mid, de_mim, texto, tipo, midia_url, criado_em")

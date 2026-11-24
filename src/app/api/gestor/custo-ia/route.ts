@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { saldoIA } from "@/lib/aura/custo-ia";
+import { saldoIA, totaisIA } from "@/lib/aura/custo-ia";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,22 +26,33 @@ export async function GET() {
   if (!sb) return NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 });
 
   const agora = new Date();
-  const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
-  const inicioDia = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).toISOString();
   const trintaDias = new Date(agora.getTime() - 30 * 86400_000).toISOString();
 
-  const [saldo, { data: usos }, { data: creditos }] = await Promise.all([
+  /**
+   * Hoje e mês vêm somados do banco, no dia de Brasília (totaisIA).
+   *
+   * Antes as duas somas eram feitas em cima da lista dos últimos 30 dias — que
+   * o Supabase corta em 1000 linhas sem avisar, e o sistema faz bem mais de
+   * mil chamadas por mês. E "hoje" começava à meia-noite do RELÓGIO DO
+   * SERVIDOR, não de Brasília. A lista agora é lida inteira, página a página,
+   * só para os gráficos por função e por dia.
+   */
+  const [saldo, totais, lista, { data: creditos }] = await Promise.all([
     saldoIA(true),
-    sb.from("ia_uso").select("funcao, custo_usd, tokens_entrada, tokens_saida, criado_em").gte("criado_em", trintaDias),
+    totaisIA(agora),
+    todasAsLinhas<{ funcao: string; custo_usd: number; criado_em: string }>((de, ate) =>
+      sb
+        .from("ia_uso")
+        .select("funcao, custo_usd, criado_em")
+        .gte("criado_em", trintaDias)
+        .order("id")
+        .range(de, ate),
+    ),
     sb.from("ia_creditos").select("id, valor_usd, descricao, criado_em").order("criado_em", { ascending: false }).limit(20),
   ]);
 
-  const lista = usos ?? [];
-  const soma = (filtro: (u: any) => boolean) =>
-    lista.filter(filtro).reduce((s, u: any) => s + Number(u.custo_usd ?? 0), 0);
-
-  const gastoHoje = soma((u) => u.criado_em >= inicioDia);
-  const gastoMes = soma((u) => u.criado_em >= inicioMes);
+  const gastoHoje = totais.gastoHoje;
+  const gastoMes = totais.gastoMes;
 
   // Por onde o dinheiro foi
   const porFuncaoMapa = new Map<string, { custo: number; chamadas: number }>();
@@ -56,10 +69,10 @@ export async function GET() {
   // Últimos 30 dias, dia a dia
   const porDiaMapa = new Map<string, number>();
   for (let i = 29; i >= 0; i--) {
-    porDiaMapa.set(new Date(agora.getTime() - i * 86400_000).toISOString().slice(0, 10), 0);
+    porDiaMapa.set(diaEmSaoPaulo(new Date(agora.getTime() - i * 86400_000)), 0);
   }
   for (const u of lista as any[]) {
-    const dia = String(u.criado_em).slice(0, 10);
+    const dia = diaEmSaoPaulo(new Date(u.criado_em));
     if (porDiaMapa.has(dia)) porDiaMapa.set(dia, (porDiaMapa.get(dia) ?? 0) + Number(u.custo_usd ?? 0));
   }
   const porDia = [...porDiaMapa.entries()].map(([dia, custo]) => ({ dia, custo }));

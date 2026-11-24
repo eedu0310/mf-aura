@@ -1,4 +1,6 @@
-import { NextResponse } from "next/server";
+import { administra, vejoTodasAsLojas } from "@/lib/auth-empresa";
+import { rodarCron } from "@/lib/cron/execucao";
+import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
@@ -30,20 +32,18 @@ function hojeBR(quando = new Date()) {
 }
 
 export async function GET(request: Request) {
-  const segredoEsperado = process.env.CRON_SECRET;
-  const cabecalhoAutorizacao = request.headers.get("authorization");
-  if (segredoEsperado && cabecalhoAutorizacao !== `Bearer ${segredoEsperado}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
+  return rodarCron(request, "cobrar-metas", () => cobrar(request));
+}
 
+async function cobrar(request: Request): Promise<Record<string, unknown>> {
   const supabase = getSupabaseServiceClient();
-  if (!supabase) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
+  if (!supabase) throw new Error("Supabase não configurado.");
 
   const { dia, mes, numeroDoDia } = hojeBR();
   const forcar = new URL(request.url).searchParams.get("forcar") === "1";
 
   if (!forcar && (numeroDoDia < PRIMEIRO_DIA || numeroDoDia > ULTIMO_DIA)) {
-    return NextResponse.json({ ok: true, pulado: `dia ${numeroDoDia} fora da janela 1-${ULTIMO_DIA}` });
+    return { pulado: `dia ${numeroDoDia} fora da janela 1-${ULTIMO_DIA}` };
   }
 
   const [rPessoas, rMetas] = await Promise.all([
@@ -56,10 +56,10 @@ export async function GET(request: Request) {
 
   // Erro de leitura não pode virar "ninguém está devendo".
   if (rPessoas.error) {
-    return NextResponse.json({ erro: `Falha ao ler a equipe: ${rPessoas.error.message}` }, { status: 500 });
+    throw new Error(`Falha ao ler a equipe: ${rPessoas.error.message}`);
   }
   if (rMetas.error) {
-    return NextResponse.json({ erro: `Falha ao ler as metas: ${rMetas.error.message}` }, { status: 500 });
+    throw new Error(`Falha ao ler as metas: ${rMetas.error.message}`);
   }
 
   const jaMandaram = new Set((rMetas.data ?? []).map((m) => String(m.vendedor_id)));
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
   );
 
   if (devendo.length === 0) {
-    return NextResponse.json({ ok: true, mes, devendo: 0 });
+    return { mes, devendo: 0 };
   }
 
   /*
@@ -83,12 +83,11 @@ export async function GET(request: Request) {
     .from("notificacoes")
     .select("vendedor_id")
     .in("titulo", [TITULO_VENDEDOR, TITULO_GESTOR])
-    .gte("criada_em", `${dia}T00:00:00-03:00`);
+    // criada_em é timestamp sem fuso, gravado em UTC: o "-03:00" no texto era
+    // descartado e o corte caía às 21h da véspera. Vai o instante UTC.
+    .gte("criada_em", inicioDoDiaEmSaoPaulo());
   if (erroAvisos) {
-    return NextResponse.json(
-      { erro: `Falha ao conferir avisos já enviados: ${erroAvisos.message}` },
-      { status: 500 },
-    );
+    throw new Error(`Falha ao conferir avisos já enviados: ${erroAvisos.message}`);
   }
   const avisadoHoje = new Set((jaAvisadosHoje ?? []).map((n) => String(n.vendedor_id)));
 
@@ -122,14 +121,16 @@ export async function GET(request: Request) {
    *   oferece saída. Enquanto não for aprovado, a cobrança da equipe dele
    *   fica com o gestor mestre, que enxerga todas as lojas.
    */
-  const vêTodasAsLojas = (p: Record<string, unknown>) =>
-    String(p.cargo) === "Diretor" || p.gestor_mestre === true;
+  const comoAuth = (p: Record<string, unknown>) => ({
+    cargo: String(p.cargo),
+    gestorAprovado: p.gestor_aprovado === true,
+    gestorMestre: p.gestor_mestre === true,
+  });
+  // Mesma régua das rotas (auth-empresa): "Diretor" cru recebia a lista das
+  // quatro lojas sem aprovação nenhuma.
+  const vêTodasAsLojas = (p: Record<string, unknown>) => vejoTodasAsLojas(comoAuth(p));
 
-  const gestores = pessoas.filter(
-    (p) =>
-      (String(p.cargo) === "Gestor" || String(p.cargo) === "Diretor") &&
-      (String(p.cargo) === "Diretor" || p.gestor_aprovado === true),
-  );
+  const gestores = pessoas.filter((p) => administra(comoAuth(p)));
   for (const g of gestores) {
     if (avisadoHoje.has(String(g.id))) continue;
     const daLoja = vêTodasAsLojas(g)
@@ -154,19 +155,18 @@ export async function GET(request: Request) {
   }
 
   if (avisos.length === 0) {
-    return NextResponse.json({ ok: true, mes, devendo: devendo.length, enviados: 0, motivo: "já avisados hoje" });
+    return { mes, devendo: devendo.length, enviados: 0, motivo: "já avisados hoje" };
   }
 
   const { data, error } = await supabase.from("notificacoes").insert(avisos).select("id");
   if (error) {
-    return NextResponse.json({ erro: `Falha ao gravar as cobranças: ${error.message}` }, { status: 500 });
+    throw new Error(`Falha ao gravar as cobranças: ${error.message}`);
   }
 
-  return NextResponse.json({
-    ok: true,
+  return {
     mes,
     devendo: devendo.length,
     quem: devendo.map((p) => String(p.nome ?? "sem nome")),
     enviados: data?.length ?? 0,
-  });
+  };
 }

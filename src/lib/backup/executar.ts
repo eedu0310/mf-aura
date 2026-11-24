@@ -54,10 +54,28 @@ function diaBR(quando = new Date()) {
  * silenciosamente incompleto — o pior tipo, o que só parece existir.
  */
 async function lerTabela(sb: SupabaseClient, tabela: string): Promise<Record<string, unknown>[]> {
+  /**
+   * Paginar SEM ordem não é confiável: o Postgres não garante a mesma ordem
+   * entre um pedido e o seguinte, e uma linha gravada no meio do backup (o
+   * WhatsApp e os crons escrevem o tempo todo) empurra as outras — a página
+   * 2 repetia linhas da 1 e pulava outras. Ordena pelo id; a tabela que não
+   * tiver coluna id cai na leitura sem ordem, como antes.
+   */
+  let ordenar = true;
   const todas: Record<string, unknown>[] = [];
   for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await sb.from(tabela).select("*").range(de, de + PAGINA - 1);
-    if (error) throw new Error(error.message);
+    let consulta = sb.from(tabela).select("*");
+    if (ordenar) consulta = consulta.order("id", { ascending: true });
+    const { data, error } = await consulta.range(de, de + PAGINA - 1);
+    if (error) {
+      // 42703 = coluna não existe. Só faz sentido trocar na primeira página.
+      if (ordenar && de === 0 && (error as { code?: string }).code === "42703") {
+        ordenar = false;
+        de -= PAGINA;
+        continue;
+      }
+      throw new Error(error.message);
+    }
     const lote = data ?? [];
     todas.push(...lote);
     if (lote.length < PAGINA) break;

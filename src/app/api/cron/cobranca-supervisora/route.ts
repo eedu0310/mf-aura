@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { rodarCron } from "@/lib/cron/execucao";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import {
   ROTULO_COBRANCA,
@@ -30,12 +30,12 @@ const TITULO_GESTOR = "Cobrança da supervisora";
  * uma consulta que falhou é pior do que não cobrar.
  */
 export async function GET(request: Request) {
-  const segredo = process.env.CRON_SECRET;
-  if (segredo && request.headers.get("authorization") !== `Bearer ${segredo}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
+  return rodarCron(request, "cobranca-supervisora", () => cobrar(request));
+}
+
+async function cobrar(request: Request): Promise<Record<string, unknown>> {
   const sb = getSupabaseServiceClient();
-  if (!sb) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
+  if (!sb) throw new Error("Supabase não configurado.");
 
   const agora = new Date();
   const dia = agora.toLocaleDateString("en-CA", { timeZone: TZ });
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   const diaDoMes = Number(dia.slice(8, 10));
   const diaDaSemana = new Date(`${dia}T12:00:00-03:00`).getUTCDay();
   const forcar = new URL(request.url).searchParams.get("forcar") === "1";
-  if (!forcar && diaDaSemana === 0) return NextResponse.json({ ok: true, pulado: "domingo" });
+  if (!forcar && diaDaSemana === 0) return { pulado: "domingo" };
 
   const inicioMes = `${mes}-01T00:00:00-03:00`;
 
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
       todas("aura_cobrancas", "vendedor_id", (q) => q.eq("dia", dia)),
     ]);
   } catch (e) {
-    return NextResponse.json({ erro: `Falha ao ler o mês: ${(e as Error).message}` }, { status: 500 });
+    throw new Error(`Falha ao ler o mês: ${(e as Error).message}`);
   }
 
   const conta = (linhas: Record<string, unknown>[], id: string, passa: (l: Record<string, unknown>) => boolean = () => true) =>
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
   }
 
   if (!novas.length) {
-    return NextResponse.json({ ok: true, dia, zerados: resumo.length, enviadas: 0 });
+    return { dia, zerados: resumo.length, enviadas: 0 };
   }
 
   const { data: gravadas, error: erroGravar } = await sb
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
     .upsert(novas, { onConflict: "vendedor_id,dia", ignoreDuplicates: true })
     .select("vendedor_id");
   if (erroGravar) {
-    return NextResponse.json({ erro: `Falha ao gravar as cobranças: ${erroGravar.message}` }, { status: 500 });
+    throw new Error(`Falha ao gravar as cobranças: ${erroGravar.message}`);
   }
   const gravouPara = new Set((gravadas ?? []).map((g) => String(g.vendedor_id)));
 
@@ -157,12 +157,9 @@ export async function GET(request: Request) {
   if (avisos.length) {
     const { error } = await sb.from("notificacoes").insert(avisos);
     if (error) {
-      return NextResponse.json(
-        { ok: false, dia, cobrancas: gravouPara.size, erro: `Cobranças gravadas, mas os avisos falharam: ${error.message}` },
-        { status: 500 },
-      );
+      throw new Error(`Cobranças gravadas (${gravouPara.size}), mas os avisos falharam: ${error.message}`);
     }
   }
 
-  return NextResponse.json({ ok: true, dia, zerados: resumo.length, enviadas: gravouPara.size, avisos: avisos.length, quem: resumo });
+  return { dia, zerados: resumo.length, enviadas: gravouPara.size, avisos: avisos.length, quem: resumo };
 }

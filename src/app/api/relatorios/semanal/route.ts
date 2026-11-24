@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { gerarRelatorioSemanalDaLoja, VERSAO_RELATORIO } from "@/lib/relatorio-semanal/gerar";
 import { NOMES_EMPRESAS } from "@/lib/companies";
@@ -36,8 +36,10 @@ export async function GET(request: Request) {
   if (!sb) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
 
   const url = new URL(request.url);
-  const gestor = mandaNaLoja(auth) || auth.cargo === "Diretor";
-  const lojasQuePodeVer = auth.gestorMestre || auth.cargo === "Diretor" ? [...NOMES_EMPRESAS] : [auth.empresa];
+  // "Diretor" cru abria as quatro lojas para qualquer conta com esse cargo,
+  // aprovada ou não (auditoria de 24/11/2026). A régua é a de auth-empresa.
+  const gestor = administra(auth);
+  const lojasQuePodeVer = vejoTodasAsLojas(auth) ? [...NOMES_EMPRESAS] : [auth.empresa];
 
   const lojaPedida = url.searchParams.get("loja");
   /**
@@ -142,7 +144,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
-  if (!mandaNaLoja(auth) && !auth.gestorMestre && auth.cargo !== "Diretor") {
+  if (!administra(auth)) {
     return NextResponse.json({ erro: "Só o gestor da loja gera o relatório." }, { status: 403 });
   }
 
@@ -157,7 +159,7 @@ export async function POST(request: Request) {
     inicio?: string;
     fim?: string;
   };
-  const lojasQuePodeVer = auth.gestorMestre || auth.cargo === "Diretor" ? [...NOMES_EMPRESAS] : [auth.empresa];
+  const lojasQuePodeVer = vejoTodasAsLojas(auth) ? [...NOMES_EMPRESAS] : [auth.empresa];
   const loja = corpo.loja ?? auth.empresa;
   if (!lojasQuePodeVer.includes(loja)) {
     return NextResponse.json({ erro: "Esta loja não está no seu alcance." }, { status: 403 });

@@ -9,7 +9,7 @@
  * muda aqui e a IA passa a oferecer aquilo, sem deploy.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -34,10 +34,15 @@ async function somenteGestor() {
     .eq("id", auth.userId)
     .maybeSingle();
 
-  // Mesma régua do banco: gestor só vale depois de aprovado.
+  // Mesma régua do banco: gestor só vale depois de aprovado — e o Diretor
+  // também (antes "Diretor" cru passava sem aprovação nenhuma).
   const pode =
     !!eu && eu.ativo !== false &&
-    (eu.cargo === "Diretor" || (eu.cargo === "Gestor" && eu.gestor_aprovado));
+    administra({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    });
   if (!pode) {
     return { erro: NextResponse.json({ erro: "Só o gestor aprovado edita isto." }, { status: 403 }) };
   }

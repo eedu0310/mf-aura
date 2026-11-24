@@ -5,7 +5,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CARGOS_QUE_ATENDEM = ["Vendedor", "Vendedor Interno", "Gestor", "Diretor"];
+const CARGOS_QUE_ATENDEM = ["Vendedor", "Vendedor Interno", "Gestor"];
 
 /**
  * Atendimento em dupla: passar o atendimento de um cliente para um colega e

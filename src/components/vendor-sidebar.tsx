@@ -17,7 +17,7 @@ export function VendorSidebar() {
   // O Instagram nao e do cargo, e da pessoa: em cada loja so o vendedor
   // interno responde. Quem manda de verdade e a rota, que confere no
   // servidor; aqui so evitamos mostrar um caminho que vai recusar.
-  const podeInstagram = acesso.permissoes.usar_instagram || ["Gestor", "Diretor"].includes(acesso.cargo);
+  const podeInstagram = acesso.permissoes.usar_instagram || acesso.cargo === "Gestor";
   const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
   const itensGestao = menuDeGestao(profile.cargo);
   const naoLidasSite = useNaoLidasDoSite();

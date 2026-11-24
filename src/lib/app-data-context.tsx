@@ -67,6 +67,16 @@ interface AppDataContextValue {
   carregando: boolean;
   usandoSupabase: boolean;
 
+  /**
+   * O que falhou na última leitura do banco, ou null.
+   *
+   * Antes uma leitura que falhava (RLS, rede, sessão vencida) simplesmente não
+   * preenchia a lista, e a tela mostrava "nenhum cliente / nenhuma venda" —
+   * idêntico a uma carteira vazia de verdade. Com isto, o layout mostra uma
+   * faixa dizendo que os dados podem estar incompletos.
+   */
+  erroCarregamento: string | null;
+
   relacionamentos: Relacionamento[];
   addRelacionamento: (
     dados: Omit<Relacionamento, "id">,
@@ -167,6 +177,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
   const [leads, setLeads] = useState<Lead[]>([]);
   const [carregandoDados, setCarregandoDados] = useState(usandoSupabase);
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [playbook, setPlaybookState] = useState("");
   const [nomesPorOwnerId, setNomesPorOwnerId] = useState<
     Record<string, string>
@@ -178,6 +189,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!supabase || perfilCarregando || !empresaAtual) {
+      // Perfil já lido e sem loja: não há o que carregar. Sem desligar o
+      // "carregando" aqui, a tela girava para sempre (o OnboardingGuard do
+      // layout é quem leva essa pessoa para completar o cadastro).
+      if (!perfilCarregando && !empresaAtual) setCarregandoDados(false);
       return;
     }
 
@@ -227,6 +242,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         ]);
 
       if (!ativo) return;
+
+      const falhas = [
+        relRes.error && "clientes",
+        opRes.error && "pipeline",
+        vendaRes.error && "vendas",
+        ativRes.error && "atividades",
+        leadsRes.error && "leads",
+      ].filter(Boolean) as string[];
+      if (falhas.length) {
+        console.error("[dados] leitura falhou:", {
+          relacionamentos: relRes.error?.message,
+          oportunidades: opRes.error?.message,
+          vendas: vendaRes.error?.message,
+          atividades: ativRes.error?.message,
+          leads: leadsRes.error?.message,
+        });
+      }
+      setErroCarregamento(falhas.length ? `Não consegui carregar: ${falhas.join(", ")}.` : null);
 
       if (relRes.data) {
         const mapeados = relRes.data.map(relacionamentoDoBanco);
@@ -1248,7 +1281,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         empresa: dados.empresa,
         origem: dados.origem,
         mensagem_inicial: dados.mensagemInicial || null,
-        status: "novo",
+        // "novo" não existe na regra do banco (leads_recebidos_status_check):
+        // o insert falhava sempre. Lead cadastrado pelo próprio vendedor já
+        // nasce com dono, então entra como repassado a ele.
+        status: "repassado_vendedor",
         vendedor_id: user.id,
         created_at: new Date().toISOString(),
         gestor_notificado: false,
@@ -1405,6 +1441,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         funil,
         carregando: carregandoDados,
         usandoSupabase,
+        erroCarregamento,
         relacionamentos,
         addRelacionamento,
         updateRelacionamento,

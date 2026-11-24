@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { administra } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { equipeDoSite, primeiroNome } from "@/lib/site-mf/servidor";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
       conversasNaoLidas: (conversas ?? []).length,
       online: (nomesOnline ?? []).map((p) => ({ id: p.id, nome: limparNome(p.nome ?? "") })),
       disponivel: minha ? minha.disponivel : auth.empresa === EMPRESA_DO_SITE,
-      podeConfigurar: auth.cargo === "Gestor" || auth.cargo === "Diretor" || auth.gestorMestre,
+      podeConfigurar: administra(auth),
       config: config ? { ...config, atalhos: limparAtalhos(config.atalhos), horario: limparHorario(config.horario) } : null,
       equipe: (equipe ?? []).map((p) => ({ id: p.id, nome: limparNome(p.nome ?? "") })),
     });
@@ -104,7 +105,8 @@ export async function POST(request: Request) {
   }
 
   if (acao === "config") {
-    if (!(auth.cargo === "Gestor" || auth.cargo === "Diretor" || auth.gestorMestre)) {
+    // Cargo cru deixava gestor ainda não aprovado (e "Diretor" sem aprovação) mexer aqui.
+    if (!administra(auth)) {
       return NextResponse.json({ erro: "Só o gestor muda a configuração do chat." }, { status: 403 });
     }
     const saudacao = typeof corpo.saudacao === "string" ? corpo.saudacao.trim().slice(0, 300) : "";

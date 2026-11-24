@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { religarSessoesSalvas } from "@/lib/whatsapp/live-manager";
+import { rodarCron } from "@/lib/cron/execucao";
 
 export const runtime = "nodejs";
 
@@ -22,37 +22,25 @@ export const runtime = "nodejs";
  * continua desconectado: o religamento respeita essa escolha.
  */
 export async function GET(request: Request) {
-  const segredoEsperado = process.env.CRON_SECRET;
-  const cabecalhoAutorizacao = request.headers.get("authorization");
+  return rodarCron(request, "repassar-leads", async () => {
+    const supabase = getSupabaseServiceClient();
+    if (!supabase) throw new Error("Supabase não configurado.");
 
-  if (segredoEsperado && cabecalhoAutorizacao !== `Bearer ${segredoEsperado}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
+    const { data, error } = await supabase.rpc("repassar_leads_expirados");
+    if (error) throw new Error(`Erro ao repassar leads expirados: ${error.message}`);
 
-  const supabase = getSupabaseServiceClient();
-  if (!supabase) {
-    return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
-  }
+    /**
+     * Nunca derruba o cron: se o religamento falhar, os leads já foram
+     * repassados e isso é o que não pode deixar de acontecer.
+     */
+    const whatsapp = await religarSessoesSalvas().catch((e) => {
+      console.error("[cron] religamento do WhatsApp falhou:", e);
+      return { religadas: [], jaAtivas: [] };
+    });
 
-  const { data, error } = await supabase.rpc("repassar_leads_expirados");
-
-  if (error) {
-    console.error("Erro ao repassar leads expirados:", error);
-    return NextResponse.json({ erro: error.message }, { status: 500 });
-  }
-
-  /**
-   * Nunca derruba o cron: se o religamento falhar, os leads já foram
-   * repassados e isso é o que não pode deixar de acontecer.
-   */
-  const whatsapp = await religarSessoesSalvas().catch((e) => {
-    console.error("[cron] religamento do WhatsApp falhou:", e);
-    return { religadas: [], jaAtivas: [] };
-  });
-
-  return NextResponse.json({
-    ok: true,
-    leadsRepassados: data ?? 0,
-    whatsapp: { religadas: whatsapp.religadas.length, jaAtivas: whatsapp.jaAtivas.length },
+    return {
+      leadsRepassados: data ?? 0,
+      whatsapp: { religadas: whatsapp.religadas.length, jaAtivas: whatsapp.jaAtivas.length },
+    };
   });
 }

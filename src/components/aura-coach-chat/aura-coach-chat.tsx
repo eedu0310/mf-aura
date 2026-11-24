@@ -178,7 +178,7 @@ export function AuraCoachChat() {
      * saber DE QUEM é cada uma, para cobrar a pessoa certa — por isso aqui a
      * lista é quebrada por vendedor.
      */
-    const souGestor = profile.cargo === "Gestor" || profile.cargo === "Diretor";
+    const souGestor = profile.cargo === "Gestor";
     const dono = (x: unknown) => {
       const r = x as { ownerId?: string; responsavelId?: string; vendedorId?: string };
       return r.ownerId ?? r.responsavelId ?? r.vendedorId ?? null;

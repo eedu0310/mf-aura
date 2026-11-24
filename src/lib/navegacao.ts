@@ -116,9 +116,11 @@ export function menuDoCargo(cargo?: string | null): ItemMenu[] {
 export function menuDeGestao(cargo?: string | null): ItemMenu[] {
   const c = normalizar(cargo);
   if (c !== "gestor") return [];
+  // Sem "/leads": o gestor já recebe o menu de Vendedor, que tem Leads. Os
+  // dois juntos mostravam "Leads" duas vezes no celular (e o React reclamava
+  // da chave repetida) — o teste navegacao.teste.ts pegou.
   return [
     { href: "/gestor", label: "Visão do Gestor", icon: LayoutDashboard },
-    { href: "/leads", label: "Leads", icon: UserPlus },
     { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
     { href: "/marketing", label: "Marketing", icon: Megaphone },
   ];

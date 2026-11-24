@@ -8,6 +8,8 @@
  * O registro nunca derruba a funcionalidade: se falhar, apenas não anota.
  */
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+import { inicioDoDiaEmSaoPaulo, inicioDoMesEmSaoPaulo } from "@/lib/fuso";
 
 export interface SaldoIA {
   depositado: number;
@@ -42,6 +44,88 @@ async function lerConfig() {
   };
 }
 
+export interface TotaisIA {
+  gastoTotal: number;
+  gastoHoje: number;
+  gastoMes: number;
+  chamadasHoje: number;
+  depositado: number;
+  /**
+   * Gasto a partir do PRIMEIRO depósito registrado — é este que abate do
+   * saldo. O ia_uso tem gasto desde setembro, pago com crédito que nunca foi
+   * lançado aqui; contar tudo zeraria o saldo e, com o bloqueio ligado,
+   * desligaria a AURA no minuto seguinte à correção da soma.
+   */
+  gastoDesdeDeposito: number;
+}
+
+/**
+ * Somas do consumo da IA, feitas NO BANCO (função aura_ia_totais, migração
+ * 105).
+ *
+ * Antes a soma era feita aqui, em cima de `select custo_usd from ia_uso` — e o
+ * Supabase devolve no máximo 1000 linhas sem avisar. Com 21 mil chamadas
+ * registradas, o "gasto total" era o das últimas mil: o saldo parecia sobrar,
+ * o bloqueio por falta de saldo nunca disparava e o painel subestimava a
+ * conta (auditoria de 24/11/2026).
+ *
+ * Se a migração ainda não foi aplicada, cai na leitura paginada: mais lenta,
+ * mas com o número certo.
+ */
+export async function totaisIA(agora: Date = new Date()): Promise<TotaisIA> {
+  const sb = getSupabaseServiceClient();
+  const vazio: TotaisIA = {
+    gastoTotal: 0, gastoHoje: 0, gastoMes: 0, chamadasHoje: 0, depositado: 0, gastoDesdeDeposito: 0,
+  };
+  if (!sb) return vazio;
+
+  const inicioDia = inicioDoDiaEmSaoPaulo(agora);
+  const inicioMes = inicioDoMesEmSaoPaulo(agora);
+
+  const { data, error } = await sb.rpc("aura_ia_totais", {
+    p_inicio_dia: inicioDia,
+    p_inicio_mes: inicioMes,
+  });
+  const linha = Array.isArray(data) ? data[0] : data;
+  if (!error && linha) {
+    return {
+      gastoTotal: Number(linha.gasto_total ?? 0),
+      gastoHoje: Number(linha.gasto_hoje ?? 0),
+      gastoMes: Number(linha.gasto_mes ?? 0),
+      chamadasHoje: Number(linha.chamadas_hoje ?? 0),
+      depositado: Number(linha.depositado ?? 0),
+      gastoDesdeDeposito: Number(linha.gasto_desde_deposito ?? 0),
+    };
+  }
+
+  // Plano B: sem a função no banco, soma tudo página por página.
+  const [usos, creditos] = await Promise.all([
+    todasAsLinhas<{ custo_usd: number; criado_em: string }>((de, ate) =>
+      sb.from("ia_uso").select("custo_usd, criado_em").order("id").range(de, ate),
+    ),
+    todasAsLinhas<{ valor_usd: number; criado_em: string }>((de, ate) =>
+      sb.from("ia_creditos").select("valor_usd, criado_em").order("id").range(de, ate),
+    ),
+  ]);
+  const t = { ...vazio };
+  const primeiroDeposito = creditos.reduce<string | null>(
+    (min, c) => (min === null || c.criado_em < min ? c.criado_em : min),
+    null,
+  );
+  for (const u of usos) {
+    const custo = Number(u.custo_usd ?? 0);
+    t.gastoTotal += custo;
+    if (primeiroDeposito && u.criado_em >= primeiroDeposito) t.gastoDesdeDeposito += custo;
+    if (u.criado_em >= inicioMes) t.gastoMes += custo;
+    if (u.criado_em >= inicioDia) {
+      t.gastoHoje += custo;
+      t.chamadasHoje += 1;
+    }
+  }
+  t.depositado = creditos.reduce((s, c) => s + Number(c.valor_usd ?? 0), 0);
+  return t;
+}
+
 /** Quanto foi depositado, quanto já se gastou e o que sobra. */
 export async function saldoIA(forcar = false): Promise<SaldoIA> {
   const cache = g.__auraCustoCache;
@@ -54,12 +138,9 @@ export async function saldoIA(forcar = false): Promise<SaldoIA> {
   let gasto = 0;
 
   if (sb) {
-    const [{ data: creditos }, { data: usos }] = await Promise.all([
-      sb.from("ia_creditos").select("valor_usd"),
-      sb.from("ia_uso").select("custo_usd"),
-    ]);
-    depositado = (creditos ?? []).reduce((s, c: any) => s + Number(c.valor_usd ?? 0), 0);
-    gasto = (usos ?? []).reduce((s, u: any) => s + Number(u.custo_usd ?? 0), 0);
+    const totais = await totaisIA();
+    depositado = totais.depositado;
+    gasto = totais.gastoDesdeDeposito;
   }
 
   const valor: SaldoIA = {
@@ -95,10 +176,17 @@ export async function podeChamarIA(): Promise<boolean> {
 
 /**
  * Multiplicadores do cache de prompt, conforme a tabela da Anthropic.
- * Escrita com TTL de 1 hora custa 2x o token de entrada; toda leitura do cache
- * custa 0,1x. É isso que torna o manual barato de repetir.
+ *
+ * Escrita com o TTL PADRÃO (5 minutos) custa 1,25x o token de entrada; só o
+ * TTL estendido de 1 hora custa 2x. O sistema inteiro usa o padrão — o
+ * supervisor largou o "1h" quando se descobriu que ele nem valia sem o
+ * cabeçalho de beta (ver supervisor.ts) —, mas esta conta continuava em 2x e
+ * inflava toda escrita de cache em 60% (auditoria de 24/11/2026).
+ *
+ * A leitura do cache custa 0,1x na maioria dos modelos; os da geração 5.5
+ * cobram menos (ver PRECO_POR_MODELO).
  */
-const MULT_ESCRITA_CACHE = 2;    // usamos ttl de 1h no supervisor e no fechamento
+const MULT_ESCRITA_CACHE = 1.25;
 const MULT_LEITURA_CACHE = 0.1;
 
 /**
@@ -114,10 +202,20 @@ const MULT_LEITURA_CACHE = 0.1;
  * em ia_config continua valendo como PADRÃO para modelo que não esteja aqui —
  * assim um modelo novo nunca passa a custar zero por engano.
  */
-const PRECO_POR_MODELO: Record<string, { entrada: number; saida: number }> = {
+//
+// Conferida em 24/11/2026: o Sonnet 5 estava a 3/15 e o Opus 5 a 15/75 (os
+// preços de gerações antigas); os certos são 2/10 e 5/25.
+//
+// A ORDEM IMPORTA: a busca é pelo começo do nome, então "claude-sonnet-5-5"
+// precisa vir antes de "claude-sonnet-5", senão o 5.5 pegaria o preço do 5.
+// `leitura` é o preço da releitura do cache, quando foge do 0,1x padrão.
+const PRECO_POR_MODELO: Record<string, { entrada: number; saida: number; leitura?: number }> = {
+  "claude-haiku-5-5": { entrada: 0.1, saida: 0.5 },
   "claude-haiku-4-5": { entrada: 1, saida: 5 },
-  "claude-sonnet-5": { entrada: 3, saida: 15 },
-  "claude-opus-5": { entrada: 15, saida: 75 },
+  "claude-sonnet-5-5": { entrada: 2, saida: 10, leitura: 0.1 },
+  "claude-sonnet-5": { entrada: 2, saida: 10 },
+  "claude-opus-5-5": { entrada: 4, saida: 20, leitura: 0.2 },
+  "claude-opus-5": { entrada: 5, saida: 25 },
 };
 
 /**
@@ -129,7 +227,7 @@ const PRECO_POR_MODELO: Record<string, { entrada: number; saida: number }> = {
 function precoDoModelo(
   modelo: string,
   padrao: { entrada: number; saida: number },
-): { entrada: number; saida: number } {
+): { entrada: number; saida: number; leitura?: number } {
   const m = (modelo ?? "").toLowerCase();
   for (const [chave, preco] of Object.entries(PRECO_POR_MODELO)) {
     if (m.startsWith(chave)) return preco;
@@ -178,12 +276,13 @@ export async function registrarUsoIA(dados: {
       entrada: config.preco_entrada_usd,
       saida: config.preco_saida_usd,
     });
-    // Cada fatia tem o seu preço: entrada normal 1x, escrita no cache 2x,
-    // leitura do cache 0,1x.
+    // Cada fatia tem o seu preço: entrada normal 1x, escrita no cache 1,25x,
+    // leitura do cache 0,1x (ou o preço próprio do modelo).
+    const precoLeitura = preco.leitura ?? preco.entrada * MULT_LEITURA_CACHE;
     const custo =
       (entradaCrua / 1_000_000) * preco.entrada +
       (escritaCache / 1_000_000) * preco.entrada * MULT_ESCRITA_CACHE +
-      (leituraCache / 1_000_000) * preco.entrada * MULT_LEITURA_CACHE +
+      (leituraCache / 1_000_000) * precoLeitura +
       (saida / 1_000_000) * preco.saida;
 
     await sb.from("ia_uso").insert({
@@ -197,7 +296,7 @@ export async function registrarUsoIA(dados: {
        * As três fatias separadas, não só o total.
        *
        * O total sozinho diz quanto se gastou, mas não por quê: entrada crua
-       * custa 1x, escrita no cache custa 2x e leitura do cache custa 0,1x.
+       * custa 1x, escrita no cache custa 1,25x e leitura do cache custa 0,1x.
        * Guardando separado dá para ver se o cache está sendo APROVEITADO ou
        * só reescrito — que é a diferença entre pagar um décimo e pagar o
        * dobro pelo mesmo manual.

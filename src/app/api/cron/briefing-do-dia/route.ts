@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { montarBriefing, hojeBR } from "@/lib/aura/briefing";
+import { rodarCron } from "@/lib/cron/execucao";
+import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -13,69 +14,75 @@ export const maxDuration = 300;
  * rede de segurança para quem não abre.
  */
 export async function GET(request: Request) {
-  const segredo = process.env.CRON_SECRET;
-  const autorizacao = request.headers.get("authorization");
-  if (segredo && autorizacao !== `Bearer ${segredo}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
+  return rodarCron(request, "briefing-do-dia", async () => {
+    const sb = getSupabaseServiceClient();
+    if (!sb) throw new Error("Supabase não configurado.");
 
-  const sb = getSupabaseServiceClient();
-  if (!sb) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
-
-  const { data: time, error: erroTime } = await sb
-    .from("profiles")
-    .select("id")
-    .in("cargo", ["Vendedor", "Vendedor Interno", "SDR"])
-    .eq("ativo", true);
-
-  /**
-   * Sem essa checagem o erro virava lista vazia: o cron das 7h respondia
-   * {ok: true, enviados: 0} e a equipe inteira ficava sem briefing sem que
-   * nada no log indicasse falha.
-   */
-  if (erroTime) {
-    console.error("Cron do briefing: não consegui listar o time:", erroTime);
-    return NextResponse.json(
-      { ok: false, erro: `Não consegui listar o time: ${erroTime.message}` },
-      { status: 500 },
-    );
-  }
-
-  const dia = hojeBR();
-  let enviados = 0;
-
-  for (const pessoa of time ?? []) {
-    const briefing = await montarBriefing(pessoa.id);
-    if (!briefing) continue;
-
-    // Quem não tem nada marcado não recebe aviso: notificação que não pede
-    // nada vira ruído e a pessoa para de abrir as outras.
-    if (!briefing.itens.length) continue;
-
-    // Um por dia, mesmo que o cron rode duas vezes.
-    const { data: jaTem } = await sb
-      .from("notificacoes")
+    const { data: time, error: erroTime } = await sb
+      .from("profiles")
       .select("id")
-      .eq("vendedor_id", pessoa.id)
-      .eq("tipo", "saudacao")
-      .gte("created_at", `${dia}T00:00:00`)
-      .maybeSingle();
-    if (jaTem) continue;
+      .in("cargo", ["Vendedor", "Vendedor Interno", "SDR"])
+      .eq("ativo", true);
 
-    const primeiros = briefing.itens
-      .slice(0, 3)
-      .map((i) => (i.hora ? `${i.hora} ${i.titulo}` : i.titulo))
-      .join(" · ");
+    /**
+     * Sem essa checagem o erro virava lista vazia: o cron das 7h respondia
+     * {ok: true, enviados: 0} e a equipe inteira ficava sem briefing sem que
+     * nada no log indicasse falha.
+     */
+    if (erroTime) throw new Error(`Não consegui listar o time: ${erroTime.message}`);
 
-    await sb.from("notificacoes").insert({
-      vendedor_id: pessoa.id,
-      titulo: briefing.resumo,
-      mensagem: primeiros,
-      tipo: "saudacao",
-      acao_url: "/meu-dia",
-    });
-    enviados += 1;
-  }
+    const dia = hojeBR();
+    /*
+     * A trava "um por dia" nunca travou: filtrava por created_at, coluna que
+     * notificacoes não tem (a dela é criada_em), então a consulta dava erro,
+     * voltava vazia e o cron rodado duas vezes mandava dois briefings. E o
+     * corte "${dia}T00:00:00" sem fuso era meia-noite UTC — 21h de Brasília
+     * da véspera. criada_em é timestamp sem fuso gravado por now() em UTC,
+     * por isso o corte vai como o instante UTC da meia-noite de São Paulo.
+     */
+    const desde = inicioDoDiaEmSaoPaulo();
+    let enviados = 0;
+    let falhas = 0;
 
-  return NextResponse.json({ ok: true, dia, enviados });
+    for (const pessoa of time ?? []) {
+      const briefing = await montarBriefing(pessoa.id);
+      if (!briefing) continue;
+
+      // Quem não tem nada marcado não recebe aviso: notificação que não pede
+      // nada vira ruído e a pessoa para de abrir as outras.
+      if (!briefing.itens.length) continue;
+
+      // Um por dia, mesmo que o cron rode duas vezes.
+      const { data: jaTem, error: erroJaTem } = await sb
+        .from("notificacoes")
+        .select("id")
+        .eq("vendedor_id", pessoa.id)
+        .eq("tipo", "saudacao")
+        .gte("criada_em", desde)
+        .limit(1);
+      // Na dúvida, não manda (um briefing a menos é melhor que dois iguais),
+      // mas conta, para o diário do cron mostrar que algo falhou.
+      if (erroJaTem) {
+        falhas += 1;
+        continue;
+      }
+      if ((jaTem ?? []).length > 0) continue;
+
+      const primeiros = briefing.itens
+        .slice(0, 3)
+        .map((i) => (i.hora ? `${i.hora} ${i.titulo}` : i.titulo))
+        .join(" · ");
+
+      await sb.from("notificacoes").insert({
+        vendedor_id: pessoa.id,
+        titulo: briefing.resumo,
+        mensagem: primeiros,
+        tipo: "saudacao",
+        acao_url: "/meu-dia",
+      });
+      enviados += 1;
+    }
+
+    return { dia, enviados, falhas };
+  });
 }

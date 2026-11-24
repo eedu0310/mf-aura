@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { gerarRelatorioLoja } from "@/lib/gerar-relatorio";
 import { gerarRelatorioSemanalDaLoja } from "@/lib/relatorio-semanal/gerar";
 import { NOMES_EMPRESAS } from "@/lib/companies";
+import { rodarCron } from "@/lib/cron/execucao";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -58,14 +58,12 @@ function inicioDoMesPassado(): { inicio: Date; fim: Date } {
 }
 
 export async function GET(request: Request) {
-  const segredoEsperado = process.env.CRON_SECRET;
-  const cabecalhoAutorizacao = request.headers.get("authorization");
-  if (segredoEsperado && cabecalhoAutorizacao !== `Bearer ${segredoEsperado}`) {
-    return NextResponse.json({ erro: "Não autorizado." }, { status: 401 });
-  }
+  return rodarCron(request, "gerar-relatorios", () => gerar(request));
+}
 
+async function gerar(request: Request): Promise<Record<string, unknown>> {
   const supabase = getSupabaseServiceClient();
-  if (!supabase) return NextResponse.json({ erro: "Supabase não configurado." }, { status: 500 });
+  if (!supabase) throw new Error("Supabase não configurado.");
 
   const hoje = new Date();
   /**
@@ -86,9 +84,45 @@ export async function GET(request: Request) {
   const falhas: string[] = [];
 
   const avisos: string[] = [];
+  /** Lojas cujo relatório do período já existia e não foi refeito. */
+  const pulados: string[] = [];
 
-  if (ehSabado || forcar === "semanal") {
+  /**
+   * Já existe relatório desta loja para este período? Quando o dia 1 cai num
+   * sábado, o cron roda às 08h (linha do mensal) e às 16h (linha do semanal),
+   * e as duas execuções geravam tudo de novo: o mensal saía duplicado na tela
+   * e o semanal gastava duas rodadas de IA. ?forcar= refaz de propósito.
+   */
+  async function jaExiste(empresa: string, tipo: string, periodoInicio: string, periodoFim: string) {
+    const { data, error } = await supabase!
+      .from("relatorios_periodicos")
+      .select("id")
+      .eq("empresa", empresa)
+      .eq("tipo", tipo)
+      .eq("periodo_inicio", periodoInicio)
+      .eq("periodo_fim", periodoFim)
+      .is("vendedor_id", null)
+      .limit(1);
+    // Na dúvida, gera: relatório repetido é menos grave que relatório faltando.
+    if (error) return false;
+    return (data ?? []).length > 0;
+  }
+
+  /*
+   * O semanal é o das 16h. No dia 1 que cai num sábado, a execução das 08h
+   * vem pela linha do mensal: um semanal feito de manhã deixaria de fora as
+   * vendas do próprio sábado e, já existindo, ainda barraria o das 16h.
+   */
+  const horaBR = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", hourCycle: "h23" }).format(hoje),
+  );
+  const semanalDeVerdade = ehSabado && !(ehPrimeiroDiaDoMes && horaBR < 12);
+
+  if (semanalDeVerdade || forcar === "semanal") {
     const { inicio, fim } = semanaQueTermina(hoje);
+    // Os mesmos rótulos que coletarSemanaDaLoja grava (fim exclusivo → último dia coberto).
+    const periodoInicio = inicio.toISOString().slice(0, 10);
+    const periodoFim = new Date(fim.getTime() - 86_400_000).toISOString().slice(0, 10);
 
     /**
      * Uma loja por vez. O gerador já avalia os vendedores dela em paralelo,
@@ -97,6 +131,10 @@ export async function GET(request: Request) {
      * relatório de todo mundo.
      */
     for (const empresa of NOMES_EMPRESAS) {
+      if (forcar !== "semanal" && (await jaExiste(empresa, "semanal_gestor", periodoInicio, periodoFim))) {
+        pulados.push(`${empresa}: semanal ${periodoInicio} a ${periodoFim} já existia`);
+        continue;
+      }
       try {
         const { relatorio, avisos: avisosDaLoja } = await gerarRelatorioSemanalDaLoja(
           supabase,
@@ -125,18 +163,37 @@ export async function GET(request: Request) {
    */
   if (ehPrimeiroDiaDoMes || forcar === "mensal") {
     const { inicio, fim } = inicioDoMesPassado();
+    const periodoInicio = inicio.toISOString().slice(0, 10);
+    const periodoFim = fim.toISOString().slice(0, 10);
+    /*
+     * Uma loja que falha não derruba as outras. Antes o laço não tinha
+     * try/catch: uma exceção na primeira loja deixava as outras três sem o
+     * mensal, e o {erro} devolvido pelo gerador era ignorado em silêncio.
+     */
     for (const empresa of NOMES_EMPRESAS) {
-      const relatorioMensal = await gerarRelatorioLoja(supabase, empresa, inicio, fim, "mensal_diretor");
-      if (relatorioMensal.conteudo) gerados++;
+      if (forcar !== "mensal" && (await jaExiste(empresa, "mensal_diretor", periodoInicio, periodoFim))) {
+        pulados.push(`${empresa}: mensal ${periodoInicio} já existia`);
+        continue;
+      }
+      try {
+        const relatorioMensal = await gerarRelatorioLoja(supabase, empresa, inicio, fim, "mensal_diretor");
+        if (relatorioMensal.conteudo) gerados++;
+        else falhas.push(`${empresa} (mensal): ${relatorioMensal.erro}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "erro desconhecido";
+        console.error(`Cron de relatórios: mensal de ${empresa} falhou:`, err);
+        falhas.push(`${empresa} (mensal): ${msg}`);
+      }
     }
   }
 
-  return NextResponse.json({
+  return {
     ok: falhas.length === 0,
     gerados,
     ehSabado,
     ehPrimeiroDiaDoMes,
     ...(avisos.length ? { avisos } : {}),
+    ...(pulados.length ? { pulados } : {}),
     ...(falhas.length ? { falhas } : {}),
-  });
+  };
 }

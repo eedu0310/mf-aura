@@ -1,3 +1,17 @@
+-- ############################################################
+-- HISTÓRICO — NÃO USE ESTE ARQUIVO PARA RECRIAR O BANCO.
+--
+-- Este é o esquema de agosto de 2026, com 5 tabelas. O banco real tem
+-- dezenas de tabelas a mais e regras que este arquivo contradiz (ele ainda
+-- tem a coluna `etapa` com check antigo e a lista velha de categorias).
+--
+-- O esquema VERDADEIRO está em:
+--   supabase/esquema.sql              — DDL completo, exportado do banco
+--   supabase/migracoes-aplicadas/     — todas as migrações, na ordem
+-- Gerados por scripts/exportar-esquema.mjs. Rode de novo depois de
+-- aplicar qualquer migração (auditoria de 24/11/2026).
+-- ############################################################
+
 -- ============================================================
 -- AURA SALES OS — Schema do banco de dados (Supabase/PostgreSQL)
 -- ============================================================

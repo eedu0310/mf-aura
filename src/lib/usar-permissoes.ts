@@ -18,9 +18,11 @@ export interface MeuAcesso {
   permissoes: Record<string, boolean>;
   cargo: string;
   gestorMestre: boolean;
+  /** Sem aprovação, cargo Gestor não manda em nada (mesma régua do servidor). */
+  gestorAprovado: boolean;
 }
 
-const VAZIO: MeuAcesso = { permissoes: {}, cargo: "", gestorMestre: false };
+const VAZIO: MeuAcesso = { permissoes: {}, cargo: "", gestorMestre: false, gestorAprovado: false };
 
 let emCache: Promise<MeuAcesso> | null = null;
 
@@ -31,6 +33,7 @@ function buscar(): Promise<MeuAcesso> {
       permissoes: (d?.permissoes ?? {}) as Record<string, boolean>,
       cargo: String(d?.cargo ?? ""),
       gestorMestre: Boolean(d?.gestorMestre),
+      gestorAprovado: Boolean(d?.gestorAprovado),
     }))
     .catch(() => VAZIO);
   return emCache;

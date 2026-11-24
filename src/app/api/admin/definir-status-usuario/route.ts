@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!auth) {
     return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
   }
-  if (auth.cargo !== "Gestor" || !auth.gestorAprovado) {
+  if (!mandaNaLoja(auth)) {
     return NextResponse.json(
       { erro: "Só um gestor aprovado pode fazer isso." },
       { status: 403 },
@@ -27,9 +27,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "Parâmetros ausentes." }, { status: 400 });
   }
 
+  // Desativar a si mesmo tranca o gestor fora do CRM, e se ele for o único
+  // gestor da loja não sobra ninguém para reabrir a porta.
+  if (usuarioId === auth.userId) {
+    return NextResponse.json({ erro: "Você não pode mudar o seu próprio acesso." }, { status: 400 });
+  }
+
   const { data: alvo } = await auth.supabase
     .from("profiles")
-    .select("empresa, nome, excluido_em")
+    .select("empresa, nome, excluido_em, gestor_mestre")
     .eq("id", usuarioId)
     .single();
 
@@ -49,9 +55,18 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  // O Gestor agora têm acesso total às 4 lojas — sem
-  // restrição adicional aqui além de já ser um dos dois papéis
-  // (verificado acima).
+  // Mesma régua de editar-usuario e senha-provisoria. Esta rota não tinha
+  // nenhuma: qualquer gestor aprovado bloqueava o acesso de qualquer pessoa
+  // das outras três lojas — inclusive de um gestor mestre.
+  if (!auth.gestorMestre && alvo.empresa !== auth.empresa) {
+    return NextResponse.json({ erro: "Esta pessoa é de outra loja." }, { status: 403 });
+  }
+  if (alvo.gestor_mestre && !auth.gestorMestre) {
+    return NextResponse.json(
+      { erro: "Só um gestor mestre muda o acesso de outro gestor mestre." },
+      { status: 403 },
+    );
+  }
 
   const service = getSupabaseServiceClient();
   if (!service) {

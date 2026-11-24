@@ -3,6 +3,7 @@ import { getOpenAIClient } from "@/lib/openai-client";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { ehFechada, ehGanho, nomesDasEtapas } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
+import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -184,14 +185,35 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
 }
 
 export async function executarSupervisaoAura(supabase: SupabaseClient) {
+  /*
+   * Só quem está na equipe. Antes entravam também os desativados e os
+   * excluídos: a AURA gastava IA supervisionando quem saiu e deixava
+   * recomendações pendentes para contas que ninguém mais abre.
+   */
   const { data: vendedores, error } = await supabase
     .from("profiles")
     .select("id,nome,empresa")
-    .in("cargo", CARGOS_QUE_VENDEM);
+    .in("cargo", CARGOS_QUE_VENDEM)
+    .eq("ativo", true)
+    .is("excluido_em", null);
   if (error) throw error;
+
+  /*
+   * Uma supervisão por pessoa por dia (de São Paulo). O cron chamado duas
+   * vezes — repetição do crontab, deploy no meio, chamada manual — gravava a
+   * segunda supervisão e dobrava as recomendações no Meu Dia do vendedor.
+   * Se a conferência falhar, o cron falha: duplicar é pior que esperar amanhã.
+   */
+  const { data: deHoje, error: erroDeHoje } = await supabase
+    .from("aura_supervisoes")
+    .select("vendedor_id")
+    .gte("criado_em", inicioDoDiaEmSaoPaulo());
+  if (erroDeHoje) throw erroDeHoje;
+  const jaSupervisionados = new Set((deHoje ?? []).map((s) => String(s.vendedor_id)));
 
   const resultados = [];
   for (const vendedor of (vendedores ?? []) as Vendedor[]) {
+    if (jaSupervisionados.has(String(vendedor.id))) continue;
     try {
       resultados.push(await analisarVendedor(supabase, vendedor));
     } catch (erro) {

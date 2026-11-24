@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { administra } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { equipeDoSite } from "@/lib/site-mf/servidor";
 import { EMPRESA_DO_SITE } from "@/lib/site-mf/tipos";
@@ -135,7 +136,8 @@ export async function POST(request: Request) {
    * nem transferido; lead que já virou negócio no pipeline fica.
    */
   if (corpo.acao === "excluir") {
-    if (!(auth.cargo === "Gestor" || auth.cargo === "Diretor" || auth.gestorMestre)) {
+    // Cargo cru deixava gestor ainda não aprovado (e "Diretor" sem aprovação) excluir.
+    if (!administra(auth)) {
       return NextResponse.json({ erro: "Só o gestor exclui contatos do site." }, { status: 403 });
     }
     let leadExcluido = false;

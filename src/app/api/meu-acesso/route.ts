@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data } = await sb
     .from("profiles")
-    .select("permissoes, cargo, gestor_mestre")
+    .select("permissoes, cargo, gestor_mestre, gestor_aprovado")
     .eq("id", auth.userId)
     .maybeSingle();
 
@@ -23,5 +23,6 @@ export async function GET() {
     permissoes: data?.permissoes ?? {},
     cargo: data?.cargo ?? auth.cargo,
     gestorMestre: Boolean(data?.gestor_mestre),
+    gestorAprovado: Boolean(data?.gestor_aprovado),
   });
 }

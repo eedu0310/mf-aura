@@ -19,6 +19,7 @@
  * responderia sem saber da regra.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 /** Quanto do manual buscado cabe no prompt. O núcleo não conta aqui. */
 const LIMITE_TRECHOS = 6_000;
@@ -391,7 +392,20 @@ export async function trechosRelevantes(
   if (texto.length < 10) return [];
 
   try {
-    const { data, error } = await sb.rpc("aura_buscar_trechos", {
+    /**
+     * A busca roda com a chave de serviço, não com o login de quem perguntou.
+     *
+     * A migração 064 tirou o EXECUTE desta função de `authenticated` (ela
+     * aceita o nome de qualquer loja e daria para ler o material das outras),
+     * mas o Coach e o fechamento continuavam chamando com o cliente do
+     * usuário: toda busca voltava "permission denied", virava lista vazia, e
+     * a AURA respondia só com o núcleo do manual, sem os trechos do assunto
+     * (auditoria de 24/11/2026). Quem chama aqui já passa a loja validada no
+     * servidor — o perfil de quem está logado ou o registro lido com a RLS
+     * dele —, então a chave de serviço não abre a loja de ninguém.
+     */
+    const cliente = getSupabaseServiceClient() ?? sb;
+    const { data, error } = await cliente.rpc("aura_buscar_trechos", {
       p_empresa: empresa,
       // Só o fim da conversa: o começo costuma ser "bom dia" e atrapalha mais
       // do que ajuda a dizer do que se trata agora.

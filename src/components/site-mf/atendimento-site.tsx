@@ -89,7 +89,10 @@ export function AtendimentoSite() {
   const [conversando, setConversando] = useState<Envio | null>(null);
   const [editandoContato, setEditandoContato] = useState<Envio | null>(null);
   const acesso = usarMeuAcesso();
-  const podeExcluir = acesso.cargo === "Gestor" || acesso.cargo === "Diretor" || acesso.gestorMestre;
+  // Espelha administra() do servidor (que não pode ser importado no navegador):
+  // sem aprovação, o botão só levaria a um 403.
+  const podeExcluir =
+    acesso.gestorAprovado && (acesso.cargo === "Gestor" || acesso.gestorMestre);
   const [ocupado, setOcupado] = useState(false);
 
   const carregar = useCallback(async () => {

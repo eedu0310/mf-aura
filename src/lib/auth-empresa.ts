@@ -131,3 +131,25 @@ export function mandaNaLoja(
 ): boolean {
   return auth?.cargo === "Gestor" && auth.gestorAprovado === true;
 }
+
+/**
+ * Quem enxerga e administra as quatro lojas: o gestor mestre, aprovado.
+ *
+ * O cargo "Diretor" saiu da empresa, mas tinha ficado no código e no banco
+ * valendo como "vê tudo" sem aprovação nenhuma: como a regra de cadastro não
+ * limitava o cargo, qualquer conta sem perfil podia nascer "Diretor" e ler
+ * clientes, leads e vendas das quatro lojas (auditoria de 24/11/2026). A
+ * migração 105 tira o Diretor do banco; aqui ele também não vale nada.
+ */
+export function vejoTodasAsLojas(
+  auth: { cargo: string; gestorAprovado: boolean; gestorMestre: boolean } | null | undefined,
+): boolean {
+  return auth?.cargo === "Gestor" && auth.gestorAprovado === true && auth.gestorMestre === true;
+}
+
+/** Manda na própria loja OU em todas: a régua para telas de gestão. */
+export function administra(
+  auth: { cargo: string; gestorAprovado: boolean; gestorMestre: boolean } | null | undefined,
+): boolean {
+  return mandaNaLoja(auth) || vejoTodasAsLojas(auth);
+}

@@ -21,7 +21,7 @@ PASTA=/opt/aura
 USUARIO=aura
 SERVICO=aura
 CRON_DESTINO=/etc/cron.d/aura
-URL_SAUDE=http://127.0.0.1:3000/
+URL_VERSAO=http://127.0.0.1:3000/api/versao
 
 cd "$PASTA"
 
@@ -37,10 +37,17 @@ else
 fi
 
 echo "== 2/6 dependências"
-if [ "$ANTES" != "$DEPOIS" ] && sudo -u "$USUARIO" git diff --name-only "$ANTES" "$DEPOIS" | grep -q '^package-lock.json$'; then
+# Compara o package-lock com o que foi instalado da última vez, não só com o
+# pull de agora. Antes, um deploy que falhava DEPOIS do pull (build quebrado,
+# por exemplo) deixava o lock novo no disco e o node_modules velho; o deploy
+# seguinte não via mudança no lock e pulava o npm ci para sempre.
+MARCA_LOCK="$PASTA/node_modules/.aura-lock.sha256"
+LOCK_AGORA=$(sha256sum "$PASTA/package-lock.json" | cut -d' ' -f1)
+if [ ! -f "$MARCA_LOCK" ] || [ "$(cat "$MARCA_LOCK")" != "$LOCK_AGORA" ]; then
   sudo -u "$USUARIO" npm ci
+  echo "$LOCK_AGORA" | sudo -u "$USUARIO" tee "$MARCA_LOCK" > /dev/null
 else
-  echo "   package-lock.json não mudou; npm ci pulado"
+  echo "   node_modules já está no package-lock atual; npm ci pulado"
 fi
 
 echo "== 3/6 build"
@@ -80,13 +87,19 @@ echo "== 5/6 reiniciar o serviço"
 systemctl restart "$SERVICO"
 
 echo "== 6/6 conferir"
-for i in 1 2 3 4 5 6 7 8 9 10; do
+# Pergunta ao app QUAL versão está no ar (/api/versao devolve o commit do
+# build). Antes bastava a home responder 307 — e o proxy devolve 307 até com
+# o app meio quebrado, ou com o build ANTIGO ainda de pé. Agora o deploy só
+# passa quando o commit que está respondendo é o que acabou de ser construído.
+ESPERADA=$(sudo -u "$USUARIO" git rev-parse --short=12 HEAD)
+for i in $(seq 1 15); do
   sleep 2
-  CODIGO=$(curl -s -o /dev/null -w '%{http_code}' "$URL_SAUDE" || true)
-  if [ "$CODIGO" = "200" ] || [ "$CODIGO" = "307" ] || [ "$CODIGO" = "302" ]; then
-    echo "   site respondeu $CODIGO. Deploy ok: $(sudo -u "$USUARIO" git rev-parse --short HEAD)"
+  NO_AR=$(curl -s -m 5 "$URL_VERSAO" | sed -n 's/.*"versao":"\([^"]*\)".*/\1/p' || true)
+  if [ "$NO_AR" = "$ESPERADA" ]; then
+    echo "   no ar: $NO_AR. Deploy ok."
     exit 0
   fi
 done
-echo "   o site não respondeu em 20 s. Veja: journalctl -u $SERVICO -n 50 --no-pager"
+echo "   esperava a versão $ESPERADA e o site respondeu '${NO_AR:-nada}' em 30 s."
+echo "   Veja: journalctl -u $SERVICO -n 50 --no-pager"
 exit 1

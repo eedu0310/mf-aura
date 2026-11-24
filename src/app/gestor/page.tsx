@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target, GitBranch} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target, GitBranch, HeartPulse} from "lucide-react";
+import { usarMeuAcesso } from "@/lib/usar-permissoes";
+import { SaudeSistema } from "@/components/gestor/saude-sistema";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
 import { ConfiguracoesTab } from "@/components/gestor/configuracoes-tab";
@@ -40,7 +42,8 @@ import { EquipeTab } from "@/components/gestor/equipe-tab";
   | "atendimento"
   | "funil"
   | "pontuacao"
-  | "equipe";
+  | "equipe"
+  | "saude";
 
 /**
  * As dezesseis abas do painel, agora com um grupo cada.
@@ -79,6 +82,8 @@ const ABAS: Array<{
   descricao: string;
   icon: typeof BarChart3;
   grupo: GrupoDaAba;
+  /** Só aparece para quem enxerga as quatro lojas (o servidor confere de novo). */
+  soMestre?: boolean;
 }> = [
   {
     id: "aura",
@@ -206,10 +211,27 @@ const ABAS: Array<{
     icon: Megaphone,
     grupo: "ajustes",
   },
+  {
+    id: "saude",
+    label: "Saúde do sistema",
+    descricao: "O que as Sentinelas acharam: crons, backup, dados e acessos",
+    icon: HeartPulse,
+    grupo: "ajustes",
+    soMestre: true,
+  },
 ];
 
 export default function GestorPage() {
   const [aba, setAba] = useState<AbaGestor>("aura");
+  const acesso = usarMeuAcesso();
+  const souMestre = acesso.gestorMestre && acesso.gestorAprovado;
+
+  // O aviso das Sentinelas no sino leva para /gestor?aba=saude: abre direto
+  // na aba certa. Lido no navegador para não exigir Suspense no build.
+  useEffect(() => {
+    const pedida = new URLSearchParams(window.location.search).get("aba");
+    if (pedida && ABAS.some((a) => a.id === pedida)) setAba(pedida as AbaGestor);
+  }, []);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
@@ -224,7 +246,7 @@ export default function GestorPage() {
 
       <nav className="flex flex-col gap-4" aria-label="Navegação do painel do gestor">
         {GRUPOS.map((g) => {
-          const doGrupo = ABAS.filter((a) => a.grupo === g.id);
+          const doGrupo = ABAS.filter((a) => a.grupo === g.id && (!a.soMestre || souMestre));
           if (!doGrupo.length) return null;
           return (
             <div key={g.id}>
@@ -298,6 +320,7 @@ export default function GestorPage() {
       {aba === "ranking" && <RankingConfigTab />}
       {aba === "avaliacoes" && <AvaliacoesTab />}
       {aba === "custo-ia" && <CustoIAPainel />}
+      {aba === "saude" && souMestre && <SaudeSistema />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
       {aba === "marketing" && <MarketingTab />}
     </div>
