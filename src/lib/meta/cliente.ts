@@ -14,7 +14,8 @@
  */
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
-const BASE = process.env.META_API_BASE || "https://graph.instagram.com";
+// Login unificado: as chamadas vão para graph.facebook.com com o id da conta.
+const BASE = process.env.META_API_BASE || "https://graph.facebook.com";
 const VERSAO = process.env.META_API_VERSAO || "v23.0";
 
 export const FORA_DA_JANELA =

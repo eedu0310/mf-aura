@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Activity, BarChart3, Video, Settings, Users, Megaphone, Sparkles, Table2, Wallet, Star, Trophy, ShieldCheck, AtSign, GraduationCap, CalendarRange, Target, GitBranch} from "lucide-react";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
@@ -210,6 +210,12 @@ const ABAS: Array<{
 
 export default function GestorPage() {
   const [aba, setAba] = useState<AbaGestor>("aura");
+
+  // ?aba=instagram abre direto na aba (a volta do "Conectar com o Instagram").
+  useEffect(() => {
+    const pedida = new URLSearchParams(window.location.search).get("aba");
+    if (pedida && ABAS.some((a) => a.id === pedida)) setAba(pedida as AbaGestor);
+  }, []);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">

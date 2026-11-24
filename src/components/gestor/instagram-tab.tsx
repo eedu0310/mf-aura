@@ -43,6 +43,21 @@ export function InstagramTab() {
   const [token, setToken] = useState("");
   const [usuario, setUsuario] = useState("");
   const [salvando, setSalvando] = useState(false);
+  // Resultado da volta do Instagram (?ig=ok|erro&msg=...).
+  const [retorno, setRetorno] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const ig = sp.get("ig");
+    if (!ig) return;
+    setRetorno({ ok: ig === "ok", msg: sp.get("msg") ?? "" });
+    // Tira os parâmetros da barra para um F5 não repetir o aviso.
+    window.history.replaceState(null, "", "/gestor");
+  }, []);
+
+  function conectarComInstagram(empresa: string) {
+    window.location.href = `/api/meta/conectar?empresa=${encodeURIComponent(empresa)}`;
+  }
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -138,6 +153,15 @@ export function InstagramTab() {
         </p>
       </div>
 
+      {retorno && (
+        <p
+          className={`rounded-lg px-4 py-2 text-sm ${retorno.ok ? "bg-aura-success/10 text-aura-success" : "bg-aura-danger/10 text-aura-danger"}`}
+          role="status"
+        >
+          {retorno.msg || (retorno.ok ? "Conta conectada." : "Não consegui conectar.")}
+        </p>
+      )}
+
       {erro && <p className="rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
 
       {lojas.map((loja) => {
@@ -158,6 +182,16 @@ export function InstagramTab() {
                 )}
               </div>
               {loja.conectada ? (
+                <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => conectarComInstagram(loja.empresa)}
+                  title="Entrar de novo no Instagram e renovar a conexão"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-sm text-aura-graphite transition hover:bg-aura-bg"
+                >
+                  <AtSign size={14} />
+                  Reconectar
+                </button>
                 <button
                   type="button"
                   onClick={() => void desconectar(loja.empresa)}
@@ -166,22 +200,33 @@ export function InstagramTab() {
                   <Unlink size={14} />
                   Desconectar
                 </button>
+                </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setAbrindo(abrindo === loja.empresa ? null : loja.empresa)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
-                >
-                  <Link2 size={14} />
-                  Conectar conta
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => conectarComInstagram(loja.empresa)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#833ab4] via-[#e1306c] to-[#f77737] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+                  >
+                    <AtSign size={14} />
+                    Conectar com o Instagram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAbrindo(abrindo === loja.empresa ? null : loja.empresa)}
+                    className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs text-aura-graphite-soft underline-offset-2 hover:underline"
+                  >
+                    <Link2 size={12} />
+                    Colar token manualmente
+                  </button>
+                </div>
               )}
             </div>
 
             {dias != null && dias <= 10 && loja.conectada && (
               <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-graphite">
                 <AlertTriangle size={14} className="text-aura-warning" />
-                O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}. Renove o token antes disso,
+                O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}. Clique em Reconectar antes disso,
                 senão as mensagens param de chegar sem aviso.
               </p>
             )}
