@@ -1003,6 +1003,8 @@ export default function WhatsAppPage() {
           <div className="h-full w-full">
             <SupervisorPanel
               chatId={selectedChat.id}
+              nomeDoContato={selectedChat.name}
+              telefoneDoContato={selectedChat.phone}
               lead={lead}
               alertas={alertasChat}
               funil={funilDaLoja}

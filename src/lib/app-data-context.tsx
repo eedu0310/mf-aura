@@ -1293,6 +1293,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tipo: "Outro",
       titulo: `Oportunidade criada: ${oportunidade.cliente}`,
       contexto: `${oportunidade.produto || "Sem produto"} - ${formatarMoeda(oportunidade.valor)}`,
+      // Sem o nome, o "produto - R$ valor" do contexto ia para cliente_nome e o
+      // gatilho do banco renomeava a ficha do cliente com ele (fichas da Deise
+      // viraram "Adatto 70 PRO E - R$ 12.550", e o pedido de avaliação ficou
+      // sem como achar o cliente).
+      clienteNome: oportunidade.cliente,
       quando: new Date().toISOString(),
       relacionamentoId: oportunidade.relacionamentoId,
       empresa: oportunidade.empresa || empresaAtual,

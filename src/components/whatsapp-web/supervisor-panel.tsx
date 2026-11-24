@@ -9,6 +9,7 @@ import {
   ExternalLink,
   History,
   Lightbulb,
+  Star,
   Link2,
   Loader2,
   RefreshCw,
@@ -19,8 +20,11 @@ import {
 } from "lucide-react";
 import { estiloDaEtapa, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
 import { listarLinksParaWhatsapp, textoParaWhatsapp, type LinkUtil } from "@/lib/supabase/links";
+import { montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
 import {
+  ehGanho,
   ehPerda,
+  ehPosVenda,
   etapasVisiveis,
   FUNIL_PADRAO,
   nomeDaChave,
@@ -35,8 +39,36 @@ import {
   PALPITES_DE_CLIENTE_ANTIGO,
 } from "@/lib/categoria-contato";
 
+interface ConfigAvaliacao {
+  empresa: string;
+  link_google: string | null;
+  link_instagram: string | null;
+  link_facebook: string | null;
+  mensagem_padrao: string | null;
+  mensagem_redes: string | null;
+}
+
+interface PedidoAvaliacao {
+  id: string;
+  empresa: string;
+  cliente: string | null;
+  token: string;
+  enviado_em: string | null;
+  confirmado_em: string | null;
+}
+
+const SIGLA_DA_LOJA: Record<string, string> = {
+  "LF Lareiras": "LF",
+  "A&G Aquecimento": "A&G",
+  "Sole Aquecimento": "Sole",
+  "MF International": "MF",
+};
+
 interface Props {
   chatId: string;
+  /** Nome e telefone da conversa, para achar o pedido de avaliação. */
+  nomeDoContato?: string;
+  telefoneDoContato?: string;
   lead: LeadInfo | null;
   alertas: Alerta[];
   /** O funil da loja, como veio da API. Sem ele, o padrão. */
@@ -62,7 +94,17 @@ function Secao({ icone, titulo, children }: { icone: React.ReactNode; titulo: st
   );
 }
 
-export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, onClose, onChanged, onUsarTexto }: Props) {
+export function SupervisorPanel({
+  chatId,
+  nomeDoContato,
+  telefoneDoContato,
+  lead,
+  alertas,
+  funil = FUNIL_PADRAO,
+  onClose,
+  onChanged,
+  onUsarTexto,
+}: Props) {
   // Catálogo e outros links da loja que o gestor marcou com frase para o
   // WhatsApp. Lista curta, carregada uma vez por painel aberto.
   const [atalhos, setAtalhos] = useState<LinkUtil[]>([]);
@@ -73,6 +115,62 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
       vivo = false;
     };
   }, []);
+  // Avaliação: o link de cada loja (para o "Enviar rápido") e o pedido deste
+  // cliente, quando a venda já foi lançada.
+  const [avaliacao, setAvaliacao] = useState<{
+    empresa: string | null;
+    todas: boolean;
+    configs: ConfigAvaliacao[];
+    pedido: PedidoAvaliacao | null;
+  } | null>(null);
+  const [avaliacaoEnviada, setAvaliacaoEnviada] = useState(false);
+  const relacionamentoId = lead?.relacionamentoId ?? "";
+  useEffect(() => {
+    let vivo = true;
+    setAvaliacaoEnviada(false);
+    const q = new URLSearchParams({
+      relacionamento: relacionamentoId,
+      telefone: telefoneDoContato ?? "",
+      nome: nomeDoContato ?? "",
+    });
+    fetch(`/api/avaliacoes/contato?${q}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => vivo && j && setAvaliacao({ empresa: j.empresa ?? null, todas: !!j.todas, configs: j.configs ?? [], pedido: j.pedido ?? null }))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [chatId, relacionamentoId, telefoneDoContato, nomeDoContato]);
+
+  /** As mensagens de avaliação de uma loja, com o link certo. */
+  function mensagensDeAvaliacao(config: ConfigAvaliacao, pedido: PedidoAvaliacao | null) {
+    // Com pedido, o link passa pelo AURA (/av/...) e o gestor vê quem abriu.
+    const link = pedido ? `${window.location.origin}/av/${pedido.token}` : (config.link_google ?? "");
+    return montarMensagensDeAvaliacao(config, nomeDoContato ?? pedido?.cliente ?? "", link);
+  }
+
+  async function usarAvaliacao(texto: string) {
+    onUsarTexto?.(texto);
+    const p = avaliacao?.pedido;
+    if (p && !p.enviado_em && !avaliacaoEnviada) {
+      setAvaliacaoEnviada(true);
+      // Sai da lista de pendentes do Meu Dia: o texto já está na conversa.
+      await fetch("/api/avaliacoes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: p.id, enviado: true, canal: "whatsapp" }),
+      }).catch(() => {});
+    }
+  }
+
+  // Lojas com link de avaliação para o "Enviar rápido": a do vendedor; quem
+  // enxerga o grupo todo vê uma por loja.
+  const lojasComAvaliacao = (avaliacao?.configs ?? []).filter(
+    (c) => c.link_google && (avaliacao?.todas || c.empresa === avaliacao?.empresa),
+  );
+  const configDoPedido =
+    avaliacao?.configs.find((c) => c.empresa === (avaliacao.pedido?.empresa ?? avaliacao.empresa)) ?? lojasComAvaliacao[0] ?? null;
+
   // As etapas do caminho normal: as abertas mais a de ganho. Perdidos fica
   // fora da lista numerada porque perder não é um passo do caminho — tem
   // botão próprio embaixo.
@@ -99,6 +197,10 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
   const etapaAtual = (lead?.etapaPipeline ?? lead?.etapa) as Etapa | null;
   const idxAtual = etapaAtual ? etapasDoCaminho.findIndex((e) => e.nome === etapaAtual) : -1;
   const ehLead = !!lead && !lead.ignorado && (lead.ehLead || !!lead.oportunidadeId);
+  // Venda fechada ou cliente antigo: some a cobrança (próxima ação, dicas do
+  // manual) e aparece o pedido de avaliação.
+  const fechado =
+    ehGanho(etapaAtual, funil) || ehPosVenda(etapaAtual, funil) || lead?.natureza === "cliente" || !!avaliacao?.pedido;
 
   return (
     <aside className="flex h-full w-full flex-col border-l border-[#222d34] bg-[#0b141a] md:w-[360px]">
@@ -147,9 +249,69 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
         {/* Atalhos de envio: catálogo e links que o gestor cadastrou. Ficam no
             alto do painel porque são o que o vendedor mais manda; o texto cai
             no campo da conversa para ele conferir antes de enviar. */}
-        {onUsarTexto && atalhos.length > 0 && (
+        {onUsarTexto && fechado && configDoPedido && (
+          <Secao icone={<Star className="h-4 w-4 text-[#ffd279]" />} titulo="Pedir avaliação">
+            {configDoPedido.link_google ? (
+              <>
+                <p className="text-xs text-[#aebac1]">
+                  {avaliacao?.pedido?.confirmado_em
+                    ? "Este cliente já avaliou. Obrigado!"
+                    : avaliacao?.pedido?.enviado_em || avaliacaoEnviada
+                      ? "O pedido de avaliação já foi para a conversa. Pode mandar de novo se precisar."
+                      : "Venda fechada: peça a avaliação no Google enquanto o cliente está feliz."}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(() => {
+                    const msgs = mensagensDeAvaliacao(configDoPedido, avaliacao?.pedido ?? null);
+                    return (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => usarAvaliacao(msgs[0])}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[#00a884] px-3 py-1.5 text-[13px] font-medium text-[#111b21] hover:bg-[#06cf9c]"
+                        >
+                          <Star className="h-3.5 w-3.5" /> Avaliação no Google
+                        </button>
+                        {msgs[1] && (
+                          <button
+                            type="button"
+                            onClick={() => onUsarTexto(msgs[1])}
+                            className="rounded-full border border-[#00a884]/50 px-3 py-1.5 text-[13px] text-[#00a884] hover:bg-[#00a884]/10"
+                          >
+                            Convite para as redes
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                <p className="mt-2 text-[11px] text-[#8696a0]">
+                  Mande primeiro a avaliação, depois o convite. O texto vai para o campo de mensagem; confira e envie.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-[#ffd279]">
+                A loja {configDoPedido.empresa} ainda não tem o link de avaliação. O gestor cadastra em Painel do Gestor → Avaliações.
+              </p>
+            )}
+          </Secao>
+        )}
+
+        {onUsarTexto && (atalhos.length > 0 || lojasComAvaliacao.length > 0) && (
           <Secao icone={<Link2 className="h-4 w-4" />} titulo="Enviar rápido">
             <div className="flex flex-wrap gap-2">
+              {lojasComAvaliacao.map((c) => (
+                <button
+                  key={`aval-${c.empresa}`}
+                  type="button"
+                  onClick={() => onUsarTexto(mensagensDeAvaliacao(c, null)[0])}
+                  title={`Pedido de avaliação no Google da ${c.empresa}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-[#ffd279]/50 px-3 py-1.5 text-[13px] text-[#ffd279] hover:bg-[#ffd279]/10"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  {lojasComAvaliacao.length > 1 ? `Avaliação ${SIGLA_DA_LOJA[c.empresa] ?? c.empresa}` : "Avaliação Google"}
+                </button>
+              ))}
               {atalhos.map((l) => (
                 <button
                   key={l.id}
@@ -416,7 +578,7 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
               </p>
             </Secao>
 
-            {lead?.proximaAcao && (
+            {lead?.proximaAcao && !fechado && (
               <Secao icone={<Target className="h-4 w-4" />} titulo="Próxima ação">
                 <p className="text-sm text-[#e9edef]">{lead.proximaAcao}</p>
               </Secao>
@@ -436,7 +598,7 @@ export function SupervisorPanel({ chatId, lead, alertas, funil = FUNIL_PADRAO, o
               </Secao>
             )}
 
-            {lead && lead.dicas.length > 0 && (
+            {lead && lead.dicas.length > 0 && !fechado && (
               <Secao icone={<Lightbulb className="h-4 w-4 text-[#ffd279]" />} titulo="Dicas do manual">
                 <ul className="list-disc space-y-1.5 pl-4 text-sm text-[#e9edef]">
                   {lead.dicas.map((d, i) => (
