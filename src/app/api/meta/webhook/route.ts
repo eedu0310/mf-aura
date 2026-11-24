@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { contaDaLoja, perfilDoCliente } from "@/lib/meta/cliente";
+import { registrarAviso } from "@/lib/meta/registro";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,6 +136,13 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
   if (!sb) return;
   const conta = await contaDaLoja(empresa);
   if (!conta || !valor?.id) return;
+  // Resposta da própria loja: marca o comentário-pai como respondido.
+  if (valor?.from?.id && String(valor.from.id) === igUserId) {
+    if (valor?.parent_id) {
+      await sb.from("meta_comentarios").update({ respondido: true }).eq("comentario_id", String(valor.parent_id));
+    }
+    return;
+  }
 
   await sb.from("meta_comentarios").upsert(
     {
@@ -145,7 +153,7 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
       post_url: valor?.media?.media_url ?? null,
       autor_usuario: valor?.from?.username ?? null,
       texto: valor?.text ?? "",
-      criado_em: new Date().toISOString(),
+      criado_em: valor?.timestamp ? new Date(Number(valor.timestamp) * (String(valor.timestamp).length <= 10 ? 1000 : 1)).toISOString() : new Date().toISOString(),
     },
     { onConflict: "comentario_id" },
   );
@@ -154,25 +162,37 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
 /** POST — as mensagens e os comentários que a Meta empurra. */
 export async function POST(request: Request) {
   const corpoCru = await request.text();
-  if (!assinaturaConfere(corpoCru, request.headers.get("x-hub-signature-256"))) {
-    return new NextResponse("Assinatura inválida.", { status: 401 });
-  }
-
   let corpo: any = {};
   try {
     corpo = JSON.parse(corpoCru);
   } catch {
-    return new NextResponse("Corpo inválido.", { status: 400 });
+    corpo = {};
+  }
+  const envelope = {
+    em: new Date().toISOString(),
+    objeto: corpo?.object ?? null,
+    contas: (corpo?.entry ?? []).map((e: any) => String(e?.id ?? "")),
+    campos: (corpo?.entry ?? []).flatMap((e: any) => [
+      ...(e?.messaging?.length ? ["messaging"] : []),
+      ...(e?.changes ?? []).map((c: any) => String(c?.field ?? "?")),
+    ]),
+  };
+
+  if (!assinaturaConfere(corpoCru, request.headers.get("x-hub-signature-256"))) {
+    registrarAviso({ ...envelope, assinaturaOk: false, lojas: [], erro: "assinatura não confere (META_APP_SECRET?)" });
+    return new NextResponse("Assinatura inválida.", { status: 401 });
   }
 
   // A Meta reenvia o aviso se não receber 200 rápido. Por isso respondemos já
   // e processamos depois: um erro nosso não pode virar uma enxurrada de
   // reenvios nem mensagem duplicada (o upsert por mid também protege disso).
   void (async () => {
+    const lojas: (string | null)[] = [];
     try {
       for (const entrada of corpo?.entry ?? []) {
         const igUserId = String(entrada?.id ?? "");
         const empresa = await lojaDaConta(igUserId);
+        lojas.push(empresa);
         if (!empresa) continue;
 
         for (const evento of entrada?.messaging ?? []) {
@@ -180,9 +200,13 @@ export async function POST(request: Request) {
         }
         for (const mudanca of entrada?.changes ?? []) {
           if (mudanca?.field === "comments") await guardarComentario(empresa, igUserId, mudanca.value);
+          // Algumas contas mandam a DM como "change" e não em "messaging".
+          if (mudanca?.field === "messages") await guardarMensagem(empresa, igUserId, mudanca.value);
         }
       }
+      registrarAviso({ ...envelope, assinaturaOk: true, lojas });
     } catch (e: any) {
+      registrarAviso({ ...envelope, assinaturaOk: true, lojas, erro: e?.message ?? String(e) });
       console.error("[meta/webhook]", e?.message ?? e);
     }
   })();

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { SITE, assinarAvisos, contasLiberadas, credenciais, lerEstado, trocarCodigo } from "@/lib/meta/conectar";
+import { contaDaLoja, ligarAvisos } from "@/lib/meta/cliente";
+import { importarHistorico } from "@/lib/meta/importar";
+import { SITE, contasLiberadas, credenciais, lerEstado, trocarCodigo } from "@/lib/meta/conectar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,11 +82,16 @@ export async function GET(request: Request) {
     if (error) throw new Error(error.message);
 
     let aviso = "";
-    try {
-      await assinarAvisos(igUserId, token);
-    } catch (e) {
-      console.error("[instagram] conta conectada, mas os avisos não foram ligados:", e);
-      aviso = " Atenção: não consegui ligar os avisos de mensagem; confira o webhook no painel da Meta.";
+    const conta = await contaDaLoja(estado.empresa);
+    if (conta) {
+      const r = await ligarAvisos(conta);
+      if (!r.ok) {
+        console.error("[instagram] conta conectada, mas os avisos não foram ligados:", r.erros);
+        aviso = " Atenção: não consegui ligar os avisos de mensagem; use o Diagnóstico na aba Instagram.";
+      }
+      // O histórico recente vem junto; se falhar, a conexão vale igual.
+      const imp = await importarHistorico(conta).catch(() => null);
+      if (imp) aviso += ` Histórico: ${imp.conversas} conversas e ${imp.comentarios} comentários.`;
     }
     return voltar(true, `${estado.empresa} conectada como @${usuario ?? igUserId}.${aviso}`);
   } catch (e) {

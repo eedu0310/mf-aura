@@ -103,3 +103,56 @@ export function quantoFaltaDaJanela(respondeAte: string | null | undefined) {
   if (horas >= 1) return `${horas}h para responder`;
   return `${Math.max(1, Math.floor(ms / 60_000))} min para responder`;
 }
+
+// --- Chamadas para os dois endereços da Meta --------------------------------
+//
+// O token do login unificado é de usuário do sistema e fala com
+// graph.facebook.com usando o id da conta. Algumas rotas do Instagram, porém,
+// só existem em graph.instagram.com (/me/...). Quando não se sabe qual dos dois
+// responde, `tentar` passa pelos dois e devolve o primeiro que der certo,
+// guardando o motivo de cada recusa para o diagnóstico.
+
+const HOSTS = { fb: "https://graph.facebook.com", ig: "https://graph.instagram.com" } as const;
+type Host = keyof typeof HOSTS;
+
+export async function chamarNo(host: Host, caminho: string, token: string, corpo?: Record<string, unknown>, metodo?: string) {
+  const sep = caminho.includes("?") ? "&" : "?";
+  const url = `${HOSTS[host]}/${VERSAO}/${caminho}${sep}access_token=${encodeURIComponent(token)}`;
+  const res = await fetch(url, {
+    method: metodo ?? (corpo ? "POST" : "GET"),
+    headers: corpo ? { "Content-Type": "application/json" } : undefined,
+    body: corpo ? JSON.stringify(corpo) : undefined,
+  });
+  const dados = await res.json().catch(() => ({}));
+  if (!res.ok || dados?.error) throw new Error(dados?.error?.message ?? `Erro ${res.status} da Meta.`);
+  return dados;
+}
+
+export async function tentar<T = any>(
+  opcoes: { host: Host; caminho: string; corpo?: Record<string, unknown>; metodo?: string }[],
+  token: string,
+): Promise<{ ok: true; dados: T; via: string } | { ok: false; erros: string[] }> {
+  const erros: string[] = [];
+  for (const o of opcoes) {
+    try {
+      const dados = await chamarNo(o.host, o.caminho, token, o.corpo, o.metodo);
+      return { ok: true, dados, via: `${o.host}:${o.caminho.split("?")[0]}` };
+    } catch (e) {
+      erros.push(`${o.host}:${o.caminho.split("?")[0]} → ${(e as Error).message}`);
+    }
+  }
+  return { ok: false, erros };
+}
+
+/** Liga (ou religa) os avisos de mensagem, comentário e reação da conta. */
+export async function ligarAvisos(conta: ContaMeta) {
+  const campos = "messages,comments,message_reactions";
+  const ig = conta.igUserId ?? "me";
+  return tentar(
+    [
+      { host: "fb", caminho: `${ig}/subscribed_apps?subscribed_fields=${campos}`, metodo: "POST" },
+      { host: "ig", caminho: `me/subscribed_apps?subscribed_fields=${campos}`, metodo: "POST" },
+    ],
+    conta.token,
+  );
+}

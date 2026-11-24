@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AtSign, Clock, Loader2, MessageSquare, Send, ShieldOff } from "lucide-react";
+import { AtSign, Clock, Download, Loader2, MessageSquare, Send, ShieldOff } from "lucide-react";
 
 /**
  * O Instagram da loja, dentro do AURA.
@@ -47,8 +47,28 @@ interface Comentario {
 const hora = (iso: string | null) =>
   iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
 
+const SIGLA: Record<string, string> = {
+  "LF Lareiras": "LF Lareiras",
+  "A&G Aquecimento": "A&G",
+  "Sole Aquecimento": "Sole",
+  "MF International": "MF",
+};
+
 export default function InstagramPage() {
   const [aba, setAba] = useState<"mensagens" | "comentarios">("mensagens");
+  // Uma sub-aba por conta conectada que a pessoa enxerga (o gestor mestre vê
+  // todas). A escolhida fica lembrada neste navegador.
+  const [contas, setContas] = useState<{ empresa: string; usuario: string | null }[]>([]);
+  const [loja, setLoja] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("aura:instagram:loja");
+    } catch {
+      return null;
+    }
+  });
+  const [gestor, setGestor] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [conectada, setConectada] = useState(false);
   const [usuario, setUsuario] = useState<string | null>(null);
   const [conversas, setConversas] = useState<Conversa[]>([]);
@@ -64,7 +84,7 @@ export default function InstagramPage() {
 
   const carregar = useCallback(async () => {
     try {
-      const res = await fetch("/api/meta/live", { cache: "no-store" });
+      const res = await fetch(`/api/meta/live${loja ? `?empresa=${encodeURIComponent(loja)}` : ""}`, { cache: "no-store" });
       const d = await res.json();
       if (res.status === 403) {
         setSemAcesso(true);
@@ -73,6 +93,9 @@ export default function InstagramPage() {
       if (!res.ok) throw new Error(d.erro ?? "Não consegui carregar.");
       setConectada(Boolean(d.conectada));
       setUsuario(d.usuario ?? null);
+      setContas(d.contas ?? []);
+      setGestor(Boolean(d.gestor));
+      if (d.empresa && d.empresa !== loja) setLoja(d.empresa);
       setConversas(d.conversas ?? []);
       setComentarios(d.comentarios ?? []);
       setErro(null);
@@ -81,7 +104,41 @@ export default function InstagramPage() {
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [loja]);
+
+  function trocarLoja(empresa: string) {
+    if (empresa === loja) return;
+    try {
+      localStorage.setItem("aura:instagram:loja", empresa);
+    } catch {}
+    setSelecionada(null);
+    setMensagens([]);
+    setAviso(null);
+    setLoja(empresa);
+  }
+
+  async function puxarHistorico() {
+    setImportando(true);
+    setAviso(null);
+    try {
+      const res = await fetch("/api/meta/live", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "importar", empresa: loja }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.erro ?? "Não consegui puxar o histórico.");
+      setAviso(
+        `Histórico atualizado: ${d.conversas ?? 0} conversas, ${d.mensagens ?? 0} mensagens e ${d.comentarios ?? 0} comentários.` +
+          (d.avisos?.length ? ` Avisos da Meta: ${d.avisos.join(" · ")}` : ""),
+      );
+      void carregar();
+    } catch (e: any) {
+      setAviso(e?.message ?? "Não consegui puxar o histórico.");
+    } finally {
+      setImportando(false);
+    }
+  }
 
   useEffect(() => {
     void carregar();
@@ -124,7 +181,7 @@ export default function InstagramPage() {
       const res = await fetch("/api/meta/live", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "responder", conversa: selecionada, texto: t }),
+        body: JSON.stringify({ acao: "responder", conversa: selecionada, texto: t, empresa: loja }),
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.erro ?? "Não consegui enviar.");
@@ -141,7 +198,7 @@ export default function InstagramPage() {
     const res = await fetch("/api/meta/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "responder_comentario", comentario: comentarioId, texto: resposta }),
+      body: JSON.stringify({ acao: "responder_comentario", comentario: comentarioId, texto: resposta, empresa: loja }),
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok) setErro(d.erro ?? "Não consegui responder.");
@@ -190,6 +247,41 @@ export default function InstagramPage() {
           ))}
         </div>
       </div>
+
+      {contas.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2 border-b border-aura-mist pb-3" role="tablist" aria-label="Contas do Instagram">
+          {contas.map((c) => (
+            <button
+              key={c.empresa}
+              type="button"
+              role="tab"
+              aria-selected={c.empresa === loja}
+              onClick={() => trocarLoja(c.empresa)}
+              className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                c.empresa === loja ? "bg-aura-petrol-600 text-white" : "bg-white text-aura-graphite ring-1 ring-aura-mist hover:bg-aura-bg"
+              }`}
+            >
+              {SIGLA[c.empresa] ?? c.empresa}
+              {c.usuario && <span className="ml-1 opacity-70">@{c.usuario}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {gestor && conectada && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void puxarHistorico()}
+            disabled={importando}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg disabled:opacity-50"
+          >
+            {importando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+            Puxar histórico do Instagram
+          </button>
+          {aviso && <span className="text-xs text-aura-graphite-soft">{aviso}</span>}
+        </div>
+      )}
 
       {erro && <p className="mb-3 rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
 

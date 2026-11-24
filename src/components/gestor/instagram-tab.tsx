@@ -231,6 +231,8 @@ export function InstagramTab() {
               </p>
             )}
 
+            {loja.conectada && <DiagnosticoInstagram empresa={loja.empresa} />}
+
             {abrindo === loja.empresa && (
               <div className="mt-4 space-y-2 rounded-lg bg-aura-bg p-4">
                 <input
@@ -302,6 +304,122 @@ export function InstagramTab() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * O que a Meta responde para esta conta: se o token vale, se os avisos de
+ * mensagem estão ligados, se as conversas e publicações aparecem e os últimos
+ * avisos que chegaram ao AURA. Feito para descobrir na hora "por que a
+ * mensagem não chegou".
+ */
+function DiagnosticoInstagram({ empresa }: { empresa: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [dados, setDados] = useState<any>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<string | null>(null);
+  const q = `empresa=${encodeURIComponent(empresa)}`;
+
+  async function ver() {
+    setOcupado("ver");
+    try {
+      const r = await fetch(`/api/meta/diagnostico?${q}`, { cache: "no-store" });
+      setDados(await r.json());
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function acao(nome: "assinar" | "importar") {
+    setOcupado(nome);
+    setResultado(null);
+    try {
+      const r = await fetch(`/api/meta/diagnostico?${q}&acao=${nome}`, { method: "POST" });
+      const d = await r.json().catch(() => ({}));
+      setResultado(
+        nome === "assinar"
+          ? d.ok
+            ? "Avisos de mensagem e comentário ligados."
+            : `A Meta recusou: ${(d.erros ?? [d.erro]).join(" | ")}`
+          : `Histórico: ${d.conversas ?? 0} conversas, ${d.mensagens ?? 0} mensagens, ${d.comentarios ?? 0} comentários.` +
+              (d.avisos?.length ? ` Avisos: ${d.avisos.join(" | ")}` : ""),
+      );
+      void ver();
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  const linha = (rotulo: string, item: any) => (
+    <li className="flex gap-2">
+      <span className={item?.ok ? "text-aura-success" : "text-aura-danger"}>{item?.ok ? "OK" : "Falhou"}</span>
+      <span className="text-aura-graphite">{rotulo}</span>
+      {!item?.ok && item?.erros && <span className="text-aura-graphite-soft">— {item.erros.join(" | ")}</span>}
+    </li>
+  );
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => {
+          setAberto((v) => !v);
+          if (!aberto && !dados) void ver();
+        }}
+        className="text-xs text-aura-petrol-600 underline-offset-2 hover:underline"
+      >
+        {aberto ? "Fechar diagnóstico" : "Diagnóstico da conexão"}
+      </button>
+      {aberto && (
+        <div className="mt-2 space-y-2 rounded-lg bg-aura-bg p-3 text-xs">
+          {ocupado === "ver" && !dados && <p>Consultando a Meta…</p>}
+          {dados?.erro && <p className="text-aura-danger">{dados.erro}</p>}
+          {dados && !dados.erro && (
+            <>
+              <ul className="space-y-1">
+                {linha("Token e perfil da conta", dados.perfil)}
+                {linha("Avisos (webhook) assinados pela conta", dados.avisosAssinados)}
+                {linha(`Conversas do direct${dados.conversas?.ok ? ` (${dados.conversas.quantas} visíveis)` : ""}`, dados.conversas)}
+                {linha("Publicações e comentários", dados.publicacoes)}
+                <li className="flex gap-2">
+                  <span className={dados.webhook?.segredoConfigurado ? "text-aura-success" : "text-aura-danger"}>
+                    {dados.webhook?.segredoConfigurado ? "OK" : "Falta"}
+                  </span>
+                  <span className="text-aura-graphite">Chave secreta do app no servidor</span>
+                </li>
+              </ul>
+              <div>
+                <p className="font-medium text-aura-graphite">
+                  Últimos avisos recebidos da Meta ({dados.webhook?.ultimosAvisos?.length ?? 0})
+                </p>
+                {(dados.webhook?.ultimosAvisos ?? []).slice(0, 8).map((a: any, i: number) => (
+                  <p key={i} className="text-aura-graphite-soft">
+                    {new Date(a.em).toLocaleString("pt-BR")} · {a.objeto ?? "?"} · {a.campos.join(", ") || "—"} ·{" "}
+                    {a.assinaturaOk ? (a.lojas.some(Boolean) ? `loja: ${a.lojas.filter(Boolean).join(", ")}` : `conta ${a.contas.join(", ")} sem loja`) : "assinatura inválida"}
+                    {a.erro ? ` · ${a.erro}` : ""}
+                  </p>
+                ))}
+                {!dados.webhook?.ultimosAvisos?.length && (
+                  <p className="text-aura-graphite-soft">Nenhum aviso desde o último reinício do servidor.</p>
+                )}
+              </div>
+            </>
+          )}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button type="button" onClick={() => void ver()} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+              Atualizar
+            </button>
+            <button type="button" onClick={() => void acao("assinar")} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+              {ocupado === "assinar" ? "Ligando…" : "Religar avisos"}
+            </button>
+            <button type="button" onClick={() => void acao("importar")} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+              {ocupado === "importar" ? "Puxando…" : "Puxar histórico"}
+            </button>
+          </div>
+          {resultado && <p className="text-aura-graphite">{resultado}</p>}
+        </div>
+      )}
     </div>
   );
 }

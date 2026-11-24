@@ -10,6 +10,7 @@ import {
   quantoFaltaDaJanela,
   FORA_DA_JANELA,
 } from "@/lib/meta/cliente";
+import { importarHistorico } from "@/lib/meta/importar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,25 @@ async function quemPode() {
   if (!liberado) {
     return { erro: NextResponse.json({ erro: "Seu gestor ainda não liberou o Instagram para você." }, { status: 403 }) };
   }
-  return { auth, sb };
+
+  // Que contas a pessoa enxerga: o gestor mestre vê todas as conectadas (uma
+  // sub-aba por loja); os demais, só a da própria loja.
+  const { data: contas } = await sb
+    .from("meta_contas_visiveis")
+    .select("empresa, nome_usuario, conectada")
+    .order("empresa");
+  const visiveis = (contas ?? [])
+    .filter((c: any) => c.conectada && (auth.gestorMestre || c.empresa === auth.empresa))
+    .map((c: any) => ({ empresa: String(c.empresa), usuario: (c.nome_usuario as string) ?? null }));
+  const gestor = mandaNaLoja(auth) || auth.gestorMestre;
+  return { auth, sb, visiveis, gestor };
+}
+
+/** A loja pedida, se a pessoa pode vê-la; senão a primeira que ela vê (ou a dela). */
+function lojaPedida(pedida: string | null | undefined, auth: { empresa: string; gestorMestre?: boolean }, visiveis: { empresa: string }[]) {
+  if (pedida && (visiveis.some((v) => v.empresa === pedida) || pedida === auth.empresa)) return pedida;
+  if (visiveis.some((v) => v.empresa === auth.empresa)) return auth.empresa;
+  return visiveis[0]?.empresa ?? auth.empresa;
 }
 
 /**
@@ -52,13 +71,18 @@ async function quemPode() {
  * GET ?conversa=  → mensagens de uma conversa
  */
 export async function GET(request: NextRequest) {
-  const { erro, auth, sb } = await quemPode();
+  const { erro, auth, sb, visiveis, gestor } = await quemPode();
   if (erro) return erro;
 
   const sp = request.nextUrl.searchParams;
   const conversa = sp.get("conversa");
+  const empresa = lojaPedida(sp.get("empresa"), auth!, visiveis!);
 
   if (conversa) {
+    const { data: dona } = await sb!.from("meta_conversas").select("empresa").eq("id", conversa).maybeSingle();
+    if (!dona || !(dona.empresa === auth!.empresa || visiveis!.some((v) => v.empresa === dona.empresa))) {
+      return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
+    }
     const { data: msgs } = await sb!
       .from("meta_mensagens")
       .select("id, mid, de_mim, texto, tipo, midia_url, criado_em")
@@ -70,23 +94,26 @@ export async function GET(request: NextRequest) {
   }
 
   const [{ data: conta }, { data: conversas }, { data: comentarios }] = await Promise.all([
-    sb!.from("meta_contas_visiveis").select("*").eq("empresa", auth!.empresa).maybeSingle(),
+    sb!.from("meta_contas_visiveis").select("*").eq("empresa", empresa).maybeSingle(),
     sb!
       .from("meta_conversas")
       .select("*")
-      .eq("empresa", auth!.empresa)
+      .eq("empresa", empresa)
       .eq("ignorado", false)
       .order("ultima_em", { ascending: false, nullsFirst: false })
       .limit(100),
     sb!
       .from("meta_comentarios")
       .select("*")
-      .eq("empresa", auth!.empresa)
+      .eq("empresa", empresa)
       .order("criado_em", { ascending: false })
       .limit(60),
   ]);
 
   return NextResponse.json({
+    empresa,
+    contas: visiveis,
+    gestor,
     conectada: Boolean(conta?.conectada),
     usuario: conta?.nome_usuario ?? null,
     conversas: (conversas ?? []).map((c: any) => ({
@@ -100,13 +127,14 @@ export async function GET(request: NextRequest) {
 
 /** POST — responder uma DM, responder ou ocultar um comentário. */
 export async function POST(request: Request) {
-  const { erro, auth, sb } = await quemPode();
+  const { erro, auth, sb, visiveis, gestor } = await quemPode();
   if (erro) return erro;
 
   const body = await request.json().catch(() => ({}));
   const acao = String(body.acao ?? "");
+  const empresa = lojaPedida(body.empresa, auth!, visiveis!);
 
-  const conta = await contaDaLoja(auth!.empresa);
+  const conta = await contaDaLoja(empresa);
   if (!conta) {
     return NextResponse.json({ erro: "A conta do Instagram desta loja ainda não está conectada." }, { status: 503 });
   }
@@ -122,7 +150,7 @@ export async function POST(request: Request) {
         .select("id, cliente_ig_id, responde_ate, empresa")
         .eq("id", conversaId)
         .maybeSingle();
-      if (!conversa || conversa.empresa !== auth!.empresa) {
+      if (!conversa || conversa.empresa !== empresa) {
         return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
       }
       // Conferir a janela ANTES de chamar a Meta: assim o vendedor lê o
@@ -143,6 +171,23 @@ export async function POST(request: Request) {
         .update({ ultima_mensagem: texto.slice(0, 200), ultima_em: new Date().toISOString(), nao_lidas: 0 })
         .eq("id", conversaId);
       return NextResponse.json({ ok: true });
+    }
+
+    if (acao === "importar") {
+      if (!gestor) return NextResponse.json({ erro: "Só o gestor puxa o histórico." }, { status: 403 });
+      return NextResponse.json({ ok: true, ...(await importarHistorico(conta)) });
+    }
+
+    // Comentário de outra loja não se responde daqui.
+    if (body.comentario) {
+      const { data: dono } = await sb!
+        .from("meta_comentarios")
+        .select("empresa")
+        .eq("comentario_id", String(body.comentario))
+        .maybeSingle();
+      if (!dono || dono.empresa !== empresa) {
+        return NextResponse.json({ erro: "Comentário não encontrado." }, { status: 404 });
+      }
     }
 
     if (acao === "responder_comentario") {
