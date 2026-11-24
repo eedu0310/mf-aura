@@ -13,6 +13,7 @@ import { AppDataProvider } from "@/lib/app-data-context";
 import { PwaRegister } from "@/components/pwa-register";
 import { AtualizadorDeVersao } from "@/components/atualizador-de-versao";
 import { VigiaChatSite } from "@/components/site-mf/vigia-chat-site";
+import { SCRIPT_DO_TEMA } from "@/lib/tema-script";
 
 /**
  * O endereço do sistema. Sem ele, as imagens de compartilhamento viajam com
@@ -121,8 +122,8 @@ export const viewport: Viewport = {
    * claro, e o mesmo tom no escuro, porque o app é escuro na borda em ambos.
    */
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#071f24" },
-    { media: "(prefers-color-scheme: dark)", color: "#071f24" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0e13" },
   ],
 };
 
@@ -177,8 +178,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className="h-full antialiased">
+    // suppressHydrationWarning: o script do tema põe a classe "dark" no <html>
+    // antes do React; sem isto o React reclamaria da diferença de classe.
+    <html lang="pt-BR" className="h-full antialiased" suppressHydrationWarning>
       <head>
+        {/* Conteúdo fixo, sem nada vindo de usuário: só aplica o tema salvo. */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_DO_TEMA }} />
         <LinksDeCapa />
       </head>
       <body className="min-h-full flex flex-col font-sans bg-aura-bg text-aura-graphite">

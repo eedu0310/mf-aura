@@ -233,63 +233,56 @@ export default function GestorPage() {
     if (pedida && ABAS.some((a) => a.id === pedida)) setAba(pedida as AbaGestor);
   }, []);
 
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 pb-16">
-      <header>
-        <p className="font-display text-xl font-semibold text-aura-graphite">
-          Painel do Gestor
-        </p>
-        <p className="text-sm text-aura-graphite-soft">
-          Gerencie resultados, equipe, configurações e marketing em áreas separadas.
-        </p>
-      </header>
+  const visiveis = ABAS.filter((a) => !a.soMestre || souMestre);
+  const atual = visiveis.find((a) => a.id === aba) ?? visiveis[0];
+  const IconeAtual = atual.icon;
 
-      <nav className="flex flex-col gap-4" aria-label="Navegação do painel do gestor">
+  return (
+    <div className="flex flex-col gap-6 pb-16 lg:flex-row lg:items-start lg:gap-8">
+      {/*
+        Navegação do painel: antes eram 19 cartões grandes empilhados em cima do
+        conteúdo, e cada troca de aba empurrava a tela. Agora é um menu lateral
+        compacto e agrupado (no computador) e uma lista de seleção (no celular),
+        como nos CRMs de alto padrão. A descrição de cada aba aparece no
+        cabeçalho da aba aberta.
+      */}
+      <nav
+        className="hidden w-56 shrink-0 lg:sticky lg:top-20 lg:block"
+        aria-label="Navegação do painel do gestor"
+      >
         {GRUPOS.map((g) => {
-          const doGrupo = ABAS.filter((a) => a.grupo === g.id && (!a.soMestre || souMestre));
+          const doGrupo = visiveis.filter((a) => a.grupo === g.id);
           if (!doGrupo.length) return null;
           return (
-            <div key={g.id}>
-              <div className="mb-2 px-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-aura-graphite-soft">
-                  {g.titulo}
-                </p>
-                <p className="text-xs text-aura-graphite-soft/70">{g.descricao}</p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 rounded-2xl border border-aura-mist bg-white p-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div key={g.id} className="mb-5">
+              <p className="mb-1 px-2.5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft">
+                {g.titulo}
+              </p>
+              <div className="flex flex-col gap-0.5">
                 {doGrupo.map((item) => {
                   const Icon = item.icon;
                   const ativa = aba === item.id;
-
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => setAba(item.id)}
-                      className={`flex items-start gap-3 rounded-xl px-4 py-3 text-left transition ${
-                        ativa
-                          ? "bg-aura-navy-950 text-white"
-                          : "text-aura-graphite hover:bg-aura-bg"
-                      }`}
+                      title={item.descricao}
                       // aria-current, e não aria-selected: estes são botões de
                       // navegação, não abas de um tablist, e o leitor de tela
                       // ignora aria-selected num botão.
                       aria-current={ativa ? "page" : undefined}
+                      className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-left text-[0.8125rem] font-medium transition ${
+                        ativa
+                          ? "bg-aura-surface text-aura-graphite shadow-sm ring-1 ring-aura-mist"
+                          : "text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"
+                      }`}
                     >
                       <Icon
-                        size={18}
-                        className={ativa ? "mt-0.5 text-aura-gold" : "mt-0.5 text-aura-petrol-600"}
+                        size={16}
+                        className={ativa ? "text-aura-petrol-600" : "text-aura-graphite-soft group-hover:text-aura-graphite"}
                       />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold">{item.label}</span>
-                        <span
-                          className={`mt-0.5 block text-xs ${
-                            ativa ? "text-white/60" : "text-aura-graphite-soft"
-                          }`}
-                        >
-                          {item.descricao}
-                        </span>
-                      </span>
+                      <span className="truncate">{item.label}</span>
                     </button>
                   );
                 })}
@@ -298,6 +291,40 @@ export default function GestorPage() {
           );
         })}
       </nav>
+
+      <div className="min-w-0 flex-1">
+        <label className="mb-4 block lg:hidden">
+          <span className="sr-only">Área do painel</span>
+          <select
+            value={atual.id}
+            onChange={(e) => setAba(e.target.value as AbaGestor)}
+            className="h-11 w-full rounded-lg border border-aura-mist bg-aura-surface px-3 text-sm font-medium text-aura-graphite"
+          >
+            {GRUPOS.map((g) => {
+              const doGrupo = visiveis.filter((a) => a.grupo === g.id);
+              if (!doGrupo.length) return null;
+              return (
+                <optgroup key={g.id} label={g.titulo}>
+                  {doGrupo.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+        </label>
+
+        <header className="mb-6 flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-aura-mist bg-aura-surface">
+            <IconeAtual size={18} className="text-aura-petrol-600" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-semibold text-aura-graphite">{atual.label}</h1>
+            <p className="text-sm text-aura-graphite-soft">{atual.descricao}</p>
+          </div>
+        </header>
 
       {aba === "aura" && (
         <div className="space-y-5">
@@ -323,6 +350,7 @@ export default function GestorPage() {
       {aba === "saude" && souMestre && <SaudeSistema />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
       {aba === "marketing" && <MarketingTab />}
+      </div>
     </div>
   );
 }

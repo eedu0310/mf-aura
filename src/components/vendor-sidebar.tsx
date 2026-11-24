@@ -4,11 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sparkles, Settings, AtSign } from "lucide-react";
 import { AuraLogoFull } from "@/components/aura-logo";
+import { AvatarUsuario } from "@/components/avatar-usuario";
+import { SeletorTema } from "@/components/tema";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 
+/**
+ * Menu lateral: claro e silencioso, no padrão dos CRMs de alto padrão.
+ * O item ativo ganha fundo afundado e ícone na cor da marca; o resto fica em
+ * cinza. Grupos com rótulo pequeno: o dia a dia, as ferramentas e a gestão.
+ */
 export function VendorSidebar() {
   const pathname = usePathname();
   const { profile } = useUserProfile();
@@ -22,77 +29,111 @@ export function VendorSidebar() {
   const itensGestao = menuDeGestao(profile.cargo);
   const naoLidasSite = useNaoLidasDoSite();
 
+  const ativoEm = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
   const classe = (ativo: boolean) =>
-    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-      ativo ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/5 hover:text-white/90"
+    `group flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[0.8125rem] font-medium transition ${
+      ativo
+        ? "bg-aura-sunken text-aura-graphite"
+        : "text-aura-graphite-soft hover:bg-aura-sunken/70 hover:text-aura-graphite"
     }`;
+  const classeIcone = (ativo: boolean) =>
+    ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft group-hover:text-aura-graphite";
 
   return (
     <aside
       data-imprimir="esconder"
-      className="hidden w-64 shrink-0 flex-col bg-aura-navy-950 px-4 py-6 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:overflow-y-auto"
+      className="hidden w-60 shrink-0 flex-col border-r border-aura-mist bg-aura-surface lg:sticky lg:top-0 lg:flex lg:h-dvh"
     >
-      <div className="px-2">
-        <AuraLogoFull />
+      <div className="flex h-14 items-center px-4">
+        <Link href="/meu-dia" aria-label="Ir para o Meu Dia">
+          <AuraLogoFull />
+        </Link>
       </div>
 
-      <nav className="mt-8 flex flex-1 flex-col gap-1">
-        {itensNav.map((item) => {
-          const ativo = pathname === item.href;
-          const Icon = item.icon;
-          return (
-            <Link key={item.href} href={item.href} className={classe(ativo)}>
-              <Icon size={18} strokeWidth={ativo ? 2.25 : 1.75} />
-              {item.label}
-              {item.href === "/site-mf" && naoLidasSite > 0 && (
-                <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.65rem] font-semibold text-white">{naoLidasSite}</span>
-              )}
-            </Link>
-          );
-        })}
-
-        {podeInstagram && (
-          <Link href="/instagram" className={classe(pathname === "/instagram")}>
-            <AtSign size={18} strokeWidth={pathname === "/instagram" ? 2.25 : 1.75} />
-            Instagram
-          </Link>
-        )}
-
-        <Link href="/aura-coach" className={`mt-1 ${classe(pathname === "/aura-coach")}`}>
-          <Sparkles size={18} strokeWidth={1.75} className="text-aura-gold" />
-          AURA Coach
-          <span className="ml-auto rounded-full bg-aura-gold/15 px-2 py-0.5 text-[0.6rem] font-semibold tracking-wide text-aura-gold">
-            ATIVA
-          </span>
-        </Link>
-
-        <Link href="/configuracoes" className={classe(pathname === "/configuracoes")}>
-          <Settings size={18} strokeWidth={1.75} />
-          Configurações
-        </Link>
-      </nav>
-
-      {/* Só O Gestor enxergam as outras áreas */}
-      {itensGestao.length > 0 && (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <p className="mb-2 px-3 text-[0.65rem] font-semibold uppercase tracking-wide text-white/35">
-            Supervisão
-          </p>
-          {itensGestao.map((item) => {
+      <div className="flex-1 overflow-y-auto px-2.5 pb-4">
+        <p className="px-2.5 pb-1.5 pt-3 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
+          Trabalho
+        </p>
+        <nav className="flex flex-col gap-0.5" aria-label="Menu principal">
+          {itensNav.map((item) => {
+            const ativo = ativoEm(item.href);
             const Icon = item.icon;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="mb-2 flex items-center justify-center gap-2 rounded-xl border border-white/10 py-2.5 text-xs font-medium text-white/60 transition hover:border-white/20 hover:text-white"
-              >
-                <Icon size={14} />
+              <Link key={item.href} href={item.href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
+                <Icon size={17} strokeWidth={1.9} className={classeIcone(ativo)} />
                 {item.label}
+                {item.href === "/site-mf" && naoLidasSite > 0 && (
+                  <span className="ml-auto rounded-full bg-aura-danger px-1.5 py-px text-[0.65rem] font-semibold text-white">
+                    {naoLidasSite}
+                  </span>
+                )}
               </Link>
             );
           })}
-        </div>
-      )}
+
+          {podeInstagram && (
+            <Link href="/instagram" className={classe(ativoEm("/instagram"))}>
+              <AtSign size={17} strokeWidth={1.9} className={classeIcone(ativoEm("/instagram"))} />
+              Instagram
+            </Link>
+          )}
+        </nav>
+
+        <p className="px-2.5 pb-1.5 pt-5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
+          Inteligência
+        </p>
+        <nav className="flex flex-col gap-0.5" aria-label="AURA">
+          <Link href="/aura-coach" className={classe(ativoEm("/aura-coach"))}>
+            <Sparkles size={17} strokeWidth={1.9} className="text-aura-gold" />
+            AURA Coach
+            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-aura-success" aria-label="ativa" />
+          </Link>
+          <Link href="/configuracoes" className={classe(ativoEm("/configuracoes"))}>
+            <Settings size={17} strokeWidth={1.9} className={classeIcone(ativoEm("/configuracoes"))} />
+            Configurações
+          </Link>
+        </nav>
+
+        {/* Só o gestor enxerga as outras áreas */}
+        {itensGestao.length > 0 && (
+          <>
+            <p className="px-2.5 pb-1.5 pt-5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
+              Gestão
+            </p>
+            <nav className="flex flex-col gap-0.5" aria-label="Gestão">
+              {itensGestao.map((item) => {
+                const Icon = item.icon;
+                const ativo = ativoEm(item.href);
+                return (
+                  <Link key={item.href} href={item.href} className={classe(ativo)}>
+                    <Icon size={17} strokeWidth={1.9} className={classeIcone(ativo)} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
+      </div>
+
+      <div className="border-t border-aura-mist p-3">
+        <SeletorTema compacto />
+        <Link
+          href="/configuracoes"
+          className="mt-2.5 flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition hover:bg-aura-sunken"
+        >
+          <AvatarUsuario
+            foto={profile.fotoUrl}
+            iniciais={profile.avatarIniciais}
+            className="h-8 w-8 bg-aura-petrol-600 text-xs font-semibold text-white"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[0.8125rem] font-medium text-aura-graphite">{profile.nome}</span>
+            <span className="block truncate text-xs text-aura-graphite-soft">{profile.empresa}</span>
+          </span>
+        </Link>
+      </div>
     </aside>
   );
 }

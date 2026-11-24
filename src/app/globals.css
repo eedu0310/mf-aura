@@ -1,45 +1,109 @@
 @import "tailwindcss";
 
-:root {
-  /* Marca — Azul Petróleo */
-  --aura-petrol-950: #071f24;
-  --aura-petrol-900: #0a2e34;
-  --aura-petrol-700: #0e4c56;
-  --aura-petrol-600: #12626f;
-  --aura-petrol-500: #1a8496;
-  --aura-petrol-400: #3aa4b4;
+/*
+ * TEMA CLARO E ESCURO
+ *
+ * O tema é uma classe no <html>: sem classe = claro, `.dark` = escuro. Quem
+ * escolhe é a pessoa (menu do perfil ou Configurações › Aparência); na
+ * primeira vez vale o tema do aparelho. Ver components/tema.
+ *
+ * O sistema inteiro pinta com as variáveis --aura-* (mais de 4 mil usos), então
+ * trocar o tema é trocar estes valores — nenhuma tela precisa saber qual
+ * tema está valendo. A variante `dark:` do Tailwind fica disponível para os
+ * casos que precisarem de ajuste fino.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
 
-  /* Neutros */
-  --aura-bg: #f5f8f8;
+:root {
+  color-scheme: light;
+
+  /* Marca — petróleo (destaque, botão principal, foco) */
+  --aura-petrol-50: #eef8f7;
+  --aura-petrol-100: #d5efec;
+  --aura-petrol-200: #a9ddd8;
+  --aura-petrol-300: #74c4bd;
+  --aura-petrol-400: #3aa59d;
+  --aura-petrol-500: #138780;
+  --aura-petrol-600: #0f6f69;
+  --aura-petrol-700: #0c5a55;
+  --aura-petrol-900: #073633;
+  --aura-petrol-950: #042220;
+
+  /* Neutros — fundo, superfície, linhas e texto */
+  --aura-bg: #f6f7f9;
   --aura-surface: #ffffff;
-  --aura-mist: #e3ebec;
-  --aura-graphite: #17282b;
-  --aura-graphite-soft: #4c6165;
+  --aura-mist: #e6e8ec;
+  --aura-graphite: #14181f;
+  --aura-graphite-soft: #5d6673;
 
   /* Estados */
-  --aura-success: #1f9b6e;
-  --aura-warning: #d99a1b;
-  --aura-danger: #d1483f;
-  --aura-gold: #d4a441;
+  --aura-success: #16915f;
+  --aura-warning: #c98a12;
+  --aura-danger: #d1443b;
+  --aura-gold: #c99a33;
   --aura-gold-soft: #e8c583;
+  --aura-gold-700: #8a6514;
 
-  /* Navy — usado no dashboard (sidebar, painel AURA Coach) */
-  --aura-navy-950: #0a1622;
-  --aura-navy-900: #0e1e2e;
-  --aura-navy-800: #142838;
-  --aura-navy-700: #1c3648;
+  /* Tinta — faixas e painéis escuros de destaque (mesmo no tema claro) */
+  --aura-navy-950: #0d1117;
+  --aura-navy-900: #141a22;
+  --aura-navy-800: #1c232d;
+  --aura-navy-700: #283140;
+
+  /* Superfície "afundada" (hover, trilho de abas, coluna do kanban) */
+  --aura-sunken: #eef0f3;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --aura-petrol-50: #0f2523;
+  --aura-petrol-100: #12302d;
+  --aura-petrol-200: #1a4642;
+  --aura-petrol-300: #2a6c66;
+  --aura-petrol-400: #3fb3aa;
+  --aura-petrol-500: #2ea49b;
+  --aura-petrol-600: #34b0a7;
+  --aura-petrol-700: #17877f;
+  --aura-petrol-900: #0c2b28;
+  --aura-petrol-950: #071a18;
+
+  --aura-bg: #0b0e13;
+  --aura-surface: #12161d;
+  --aura-mist: #252c37;
+  --aura-graphite: #e8ecf1;
+  --aura-graphite-soft: #9aa5b3;
+
+  --aura-success: #3cc08a;
+  --aura-warning: #e6b043;
+  --aura-danger: #ef6b62;
+  --aura-gold: #ddb257;
+  --aura-gold-soft: #b8924a;
+  --aura-gold-700: #e8c583;
+
+  --aura-navy-950: #07090d;
+  --aura-navy-900: #0e1218;
+  --aura-navy-800: #161b23;
+  --aura-navy-700: #212834;
+
+  --aura-sunken: #171c24;
 }
 
 @theme inline {
-  --color-aura-petrol-950: var(--aura-petrol-950);
-  --color-aura-petrol-900: var(--aura-petrol-900);
-  --color-aura-petrol-700: var(--aura-petrol-700);
-  --color-aura-petrol-600: var(--aura-petrol-600);
-  --color-aura-petrol-500: var(--aura-petrol-500);
+  --color-aura-petrol-50: var(--aura-petrol-50);
+  --color-aura-petrol-100: var(--aura-petrol-100);
+  --color-aura-petrol-200: var(--aura-petrol-200);
+  --color-aura-petrol-300: var(--aura-petrol-300);
   --color-aura-petrol-400: var(--aura-petrol-400);
+  --color-aura-petrol-500: var(--aura-petrol-500);
+  --color-aura-petrol-600: var(--aura-petrol-600);
+  --color-aura-petrol-700: var(--aura-petrol-700);
+  --color-aura-petrol-900: var(--aura-petrol-900);
+  --color-aura-petrol-950: var(--aura-petrol-950);
 
   --color-aura-bg: var(--aura-bg);
   --color-aura-surface: var(--aura-surface);
+  --color-aura-sunken: var(--aura-sunken);
   --color-aura-mist: var(--aura-mist);
   --color-aura-graphite: var(--aura-graphite);
   --color-aura-graphite-soft: var(--aura-graphite-soft);
@@ -49,15 +113,107 @@
   --color-aura-danger: var(--aura-danger);
   --color-aura-gold: var(--aura-gold);
   --color-aura-gold-soft: var(--aura-gold-soft);
+  --color-aura-gold-700: var(--aura-gold-700);
 
   --color-aura-navy-950: var(--aura-navy-950);
   --color-aura-navy-900: var(--aura-navy-900);
   --color-aura-navy-800: var(--aura-navy-800);
   --color-aura-navy-700: var(--aura-navy-700);
 
+  /* Uma família só, como os CRMs de alto padrão: Inter para tudo, com os
+     títulos mais fechados. Mono só para números de relatório. */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Cantos um pouco mais contidos e sombras quase imperceptíveis: o
+     minimalismo vem da linha fina, não da sombra. */
+  --radius-xl: 0.75rem;
+  --radius-2xl: 0.875rem;
+  --shadow-sm: 0 1px 2px 0 rgb(16 24 40 / 0.04);
+  --shadow: 0 1px 3px 0 rgb(16 24 40 / 0.06), 0 1px 2px -1px rgb(16 24 40 / 0.04);
+  --shadow-lg: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+  --shadow-xl: 0 20px 48px -12px rgb(16 24 40 / 0.2);
+}
+
+/* Títulos: Inter com tracking negativo, peso semibold — a assinatura visual
+   dos CRMs modernos. */
+.font-display {
+  letter-spacing: -0.02em;
+}
+
+/* ---------------------------------------------------------------------------
+   TEMA ESCURO — cores fixas espalhadas pelas telas
+   ---------------------------------------------------------------------------
+   Cerca de 560 lugares usam `bg-white` e ~400 usam tons fixos de status
+   (bg-red-50, text-amber-800…). No escuro eles virariam cartões brancos e
+   faixas pastel acesas no meio da tela. Em vez de mexer arquivo por arquivo,
+   o tema escuro traduz essas classes aqui: superfície vira superfície, tom
+   pastel vira véu translúcido da mesma cor, texto escuro de status vira o
+   mesmo tom em versão clara.
+   --------------------------------------------------------------------------- */
+.dark .bg-white,
+.dark .hover\:bg-white:hover { background-color: var(--aura-surface); }
+.dark .bg-white\/60,
+.dark .bg-white\/80,
+.dark .bg-white\/90 { background-color: color-mix(in srgb, var(--aura-surface) 85%, transparent); }
+.dark .border-white { border-color: var(--aura-mist); }
+
+.dark .bg-gray-50, .dark .bg-gray-100, .dark .bg-slate-50, .dark .bg-slate-100,
+.dark .bg-neutral-50, .dark .bg-neutral-100, .dark .bg-zinc-100 { background-color: var(--aura-sunken); }
+.dark .text-neutral-900, .dark .text-gray-900, .dark .text-slate-900,
+.dark .text-neutral-700, .dark .text-gray-700, .dark .text-slate-700 { color: var(--aura-graphite); }
+.dark .text-neutral-600, .dark .text-gray-600, .dark .text-neutral-500,
+.dark .text-gray-500, .dark .text-neutral-400, .dark .text-gray-400 { color: var(--aura-graphite-soft); }
+.dark .border-neutral-200, .dark .border-neutral-300, .dark .border-gray-200,
+.dark .border-gray-300, .dark .border-slate-200 { border-color: var(--aura-mist); }
+
+/* Vermelho */
+.dark .bg-red-50, .dark .bg-rose-50 { background-color: rgb(239 107 98 / 0.1); }
+.dark .bg-red-100, .dark .bg-rose-100 { background-color: rgb(239 107 98 / 0.16); }
+.dark .text-red-600, .dark .text-red-700, .dark .text-red-800, .dark .text-red-900,
+.dark .text-rose-700 { color: #f4a19a; }
+.dark .border-red-100, .dark .border-red-200, .dark .border-red-300 { border-color: rgb(239 107 98 / 0.35); }
+
+/* Âmbar / amarelo / laranja */
+.dark .bg-amber-50, .dark .bg-yellow-50, .dark .bg-orange-50 { background-color: rgb(230 176 67 / 0.1); }
+.dark .bg-amber-100, .dark .bg-yellow-100, .dark .bg-orange-100 { background-color: rgb(230 176 67 / 0.16); }
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800, .dark .text-amber-900,
+.dark .text-yellow-700, .dark .text-yellow-800, .dark .text-orange-600,
+.dark .text-orange-700 { color: #f0c977; }
+.dark .border-amber-200, .dark .border-amber-300, .dark .border-yellow-200,
+.dark .border-yellow-300, .dark .border-orange-200 { border-color: rgb(230 176 67 / 0.35); }
+
+/* Verde */
+.dark .bg-green-50, .dark .bg-emerald-50, .dark .bg-teal-50 { background-color: rgb(60 192 138 / 0.1); }
+.dark .bg-green-100, .dark .bg-emerald-100, .dark .bg-teal-100 { background-color: rgb(60 192 138 / 0.16); }
+.dark .text-green-600, .dark .text-green-700, .dark .text-green-800,
+.dark .text-emerald-600, .dark .text-emerald-700, .dark .text-emerald-800,
+.dark .text-emerald-900, .dark .text-teal-700 { color: #7fd8b0; }
+.dark .border-green-200, .dark .border-green-300, .dark .border-emerald-200,
+.dark .border-emerald-300 { border-color: rgb(60 192 138 / 0.35); }
+
+/* Azul / violeta */
+.dark .bg-blue-50, .dark .bg-sky-50, .dark .bg-indigo-50, .dark .bg-violet-50,
+.dark .bg-purple-50 { background-color: rgb(120 165 245 / 0.1); }
+.dark .bg-blue-100, .dark .bg-sky-100, .dark .bg-indigo-100, .dark .bg-violet-100,
+.dark .bg-purple-100 { background-color: rgb(120 165 245 / 0.16); }
+.dark .text-blue-600, .dark .text-blue-700, .dark .text-blue-800, .dark .text-sky-700,
+.dark .text-indigo-700, .dark .text-violet-700, .dark .text-purple-700 { color: #a9c6f7; }
+.dark .border-blue-200, .dark .border-sky-200, .dark .border-indigo-200,
+.dark .border-violet-200 { border-color: rgb(120 165 245 / 0.35); }
+
+/* Campos de formulário: no escuro o navegador mantém o fundo claro do
+   autopreenchimento e a seta nativa do select some. */
+.dark input:-webkit-autofill {
+  -webkit-text-fill-color: var(--aura-graphite);
+  box-shadow: 0 0 0 1000px var(--aura-surface) inset;
+}
+
+/* Barra de rolagem discreta nos dois temas. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--aura-mist) transparent;
 }
 
 @keyframes aura-breathe {
