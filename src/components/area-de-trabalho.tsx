@@ -154,7 +154,7 @@ export function AreaDeTrabalho({
   return (
     <div className="flex min-h-screen flex-col bg-aura-bg lg:flex-row">
       {/* Computador: coluna fixa à esquerda. */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-aura-mist bg-aura-surface lg:sticky lg:top-0 lg:flex lg:h-dvh">
+      <aside data-menu className="hidden w-64 shrink-0 flex-col border-r border-aura-mist bg-aura-surface lg:sticky lg:top-0 lg:flex lg:h-dvh">
         <div className="flex h-14 items-center gap-2 px-4">
           <Link href={inicio} aria-label={nome} className="flex items-center gap-2">
             <AuraLogoFull />

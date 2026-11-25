@@ -50,6 +50,7 @@ export function VendorSidebar() {
   return (
     <aside
       data-imprimir="esconder"
+      data-menu
       className="hidden w-60 shrink-0 flex-col border-r border-aura-mist bg-aura-surface lg:sticky lg:top-0 lg:flex lg:h-dvh"
     >
       <div className="flex h-14 items-center px-4">
@@ -104,7 +105,7 @@ export function VendorSidebar() {
                 const Icon = item.icon;
                 const ativo = ativoEm(item.href);
                 return (
-                  <Link key={item.href} href={item.href} className={classe(ativo)}>
+                  <Link key={item.href} href={item.href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
                     <Icon size={17} strokeWidth={1.9} className={classeIcone(ativo)} />
                     {item.label}
                   </Link>

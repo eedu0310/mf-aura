@@ -708,3 +708,142 @@
   --color-wa-warning-text: var(--wa-warning-text);
   --color-wa-warning-bg: var(--wa-warning-bg);
 }
+
+/* ---------------------------------------------------------------------------
+ * PALETAS — a cor do sistema que o gestor escolhe (Painel do Gestor ›
+ * Ajustes › Aparência), inclusive as de datas comemorativas.
+ *
+ * O <html> recebe data-paleta="<id>" (src/lib/aparencia.ts). Cada paleta só
+ * diz cinco cores por tema: acento, fundo, menu, texto do menu e o texto do
+ * item ativo. O resto sai de mistura (color-mix): a escala --aura-petrol-*
+ * inteira — que pinta botão, foco, link e destaque em todo o sistema — é
+ * gerada a partir do acento. "aura" (ou sem atributo) é o visual original.
+ *
+ * O menu lateral leva data-menu: dentro dele as variáveis de superfície e de
+ * texto viram as do menu, então os mesmos componentes funcionam num menu
+ * claro ou escuro sem uma classe nova.
+ * ------------------------------------------------------------------------- */
+html[data-paleta="terracota"] { --pal-acento: #c2562b; --pal-fundo: #faf7f2; --pal-menu: #f3ebe0; --pal-menu-texto: #3b2f26; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="terracota"] { --pal-acento: #d0653a; --pal-fundo: #14110e; --pal-menu: #1d1814; --pal-menu-texto: #e9dfd4; }
+html[data-paleta="carvao"] { --pal-acento: #d9512a; --pal-fundo: #f7f5f3; --pal-menu: #26211e; --pal-menu-texto: #e8dfd8; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="carvao"] { --pal-acento: #e4572e; --pal-fundo: #0b0a09; --pal-menu: #120f0d; --pal-menu-texto: #e8dfd8; }
+html[data-paleta="inverno"] { --pal-acento: #e0602f; --pal-fundo: #f3f7fb; --pal-menu: #1d2b3a; --pal-menu-texto: #e3ebf3; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="inverno"] { --pal-acento: #ef7440; --pal-fundo: #080d14; --pal-menu: #0d151f; --pal-menu-texto: #dbe4ee; }
+html[data-paleta="ardosia"] { --pal-acento: #2f5d8a; --pal-fundo: #f5f8fb; --pal-menu: #e8eef5; --pal-menu-texto: #1c2a3a; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="ardosia"] { --pal-acento: #3f7bb5; --pal-fundo: #0c1118; --pal-menu: #141c26; --pal-menu-texto: #dbe4ee; }
+html[data-paleta="oliva"] { --pal-acento: #5b6b2e; --pal-fundo: #f8f8f2; --pal-menu: #eef0e4; --pal-menu-texto: #2c3120; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="oliva"] { --pal-acento: #8fa04a; --pal-fundo: #0f110b; --pal-menu: #171a12; --pal-menu-texto: #e2e6d4; --pal-ativo-texto: #171a12; }
+html[data-paleta="vinho"] { --pal-acento: #8c2f45; --pal-fundo: #fbf7f8; --pal-menu: #f5ecee; --pal-menu-texto: #3a1f26; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="vinho"] { --pal-acento: #b04a63; --pal-fundo: #140c0e; --pal-menu: #1e1215; --pal-menu-texto: #f0dfe3; }
+html[data-paleta="ameixa"] { --pal-acento: #5b4b9a; --pal-fundo: #f8f7fc; --pal-menu: #efedf8; --pal-menu-texto: #24203d; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="ameixa"] { --pal-acento: #6f5fc0; --pal-fundo: #0f0d1c; --pal-menu: #17142a; --pal-menu-texto: #e3e0f5; }
+html[data-paleta="natal"] { --pal-acento: #c0262d; --pal-fundo: #fbf7f4; --pal-menu: #14432a; --pal-menu-texto: #e6f2ea; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="natal"] { --pal-acento: #dc3f45; --pal-fundo: #0a0f0c; --pal-menu: #0b2417; --pal-menu-texto: #dcebe1; }
+html[data-paleta="blackfriday"] { --pal-acento: #b8862b; --pal-fundo: #f6f5f2; --pal-menu: #0d0d0d; --pal-menu-texto: #ece7dc; --pal-ativo-texto: #0d0d0d; }
+html.dark[data-paleta="blackfriday"] { --pal-acento: #ddb257; --pal-fundo: #08080a; --pal-menu: #050505; --pal-menu-texto: #ece7dc; }
+
+/* Escala e fundos, tema claro. */
+html[data-paleta]:not([data-paleta="aura"]) {
+  --aura-petrol-50: color-mix(in srgb, var(--pal-acento) 8%, #ffffff);
+  --aura-petrol-100: color-mix(in srgb, var(--pal-acento) 16%, #ffffff);
+  --aura-petrol-200: color-mix(in srgb, var(--pal-acento) 32%, #ffffff);
+  --aura-petrol-300: color-mix(in srgb, var(--pal-acento) 55%, #ffffff);
+  --aura-petrol-400: color-mix(in srgb, var(--pal-acento) 80%, #ffffff);
+  --aura-petrol-500: var(--pal-acento);
+  --aura-petrol-600: color-mix(in srgb, var(--pal-acento) 88%, #000000);
+  --aura-petrol-700: color-mix(in srgb, var(--pal-acento) 74%, #000000);
+  --aura-petrol-900: color-mix(in srgb, var(--pal-acento) 45%, #000000);
+  --aura-petrol-950: color-mix(in srgb, var(--pal-acento) 30%, #000000);
+  --aura-bg: var(--pal-fundo);
+  --aura-sunken: color-mix(in srgb, var(--pal-fundo) 95%, #3a2a1a);
+  --aura-mist: color-mix(in srgb, var(--pal-fundo) 89%, #3a2a1a);
+}
+/* Escala e fundos, tema escuro (a escala escura vai do quase preto tingido
+   ao acento clareado, como a original). */
+html.dark[data-paleta]:not([data-paleta="aura"]) {
+  --aura-petrol-50: color-mix(in srgb, var(--pal-acento) 14%, #0b0b0b);
+  --aura-petrol-100: color-mix(in srgb, var(--pal-acento) 20%, #0b0b0b);
+  --aura-petrol-200: color-mix(in srgb, var(--pal-acento) 32%, #0b0b0b);
+  --aura-petrol-300: color-mix(in srgb, var(--pal-acento) 52%, #0b0b0b);
+  --aura-petrol-400: color-mix(in srgb, var(--pal-acento) 80%, #ffffff);
+  --aura-petrol-500: var(--pal-acento);
+  --aura-petrol-600: color-mix(in srgb, var(--pal-acento) 88%, #ffffff);
+  --aura-petrol-700: color-mix(in srgb, var(--pal-acento) 76%, #000000);
+  --aura-petrol-900: color-mix(in srgb, var(--pal-acento) 18%, #0b0b0b);
+  --aura-petrol-950: color-mix(in srgb, var(--pal-acento) 10%, #0b0b0b);
+  --aura-bg: var(--pal-fundo);
+  --aura-surface: color-mix(in srgb, var(--pal-fundo) 93%, #ffffff);
+  --aura-sunken: color-mix(in srgb, var(--pal-fundo) 89%, #ffffff);
+  --aura-mist: color-mix(in srgb, var(--pal-fundo) 83%, #ffffff);
+}
+
+/* O menu lateral na cor da paleta. */
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] {
+  --aura-surface: var(--pal-menu);
+  --aura-graphite: var(--pal-menu-texto);
+  --aura-graphite-soft: color-mix(in srgb, var(--pal-menu-texto) 66%, var(--pal-menu));
+  --aura-sunken: color-mix(in srgb, var(--pal-menu-texto) 9%, var(--pal-menu));
+  --aura-mist: color-mix(in srgb, var(--pal-menu-texto) 14%, var(--pal-menu));
+}
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] {
+  background-color: var(--pal-acento);
+  color: var(--pal-ativo-texto, #ffffff);
+}
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] :is(svg, span) {
+  color: inherit;
+}
+html.dark[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] {
+  color: var(--pal-ativo-texto, #ffffff);
+}
+
+/* ---------------------------------------------------------------------------
+ * FUNDO DO PIPELINE — data-fundo-pipeline no <html>, escolhido junto com a
+ * paleta. Os desenhos usam a cor do texto com pouca opacidade, então seguem
+ * o tema claro/escuro e a paleta sem uma versão para cada um.
+ * ------------------------------------------------------------------------- */
+html[data-fundo-pipeline]:not([data-fundo-pipeline="liso"]) [data-quadro-pipeline] {
+  --linha: color-mix(in srgb, var(--aura-graphite) 10%, transparent);
+  --linha-fraca: color-mix(in srgb, var(--aura-graphite) 5%, transparent);
+  padding: 12px;
+  border-radius: 1rem;
+  border: 1px solid var(--aura-mist);
+  background-color: var(--aura-bg);
+}
+html[data-fundo-pipeline="pontos"] [data-quadro-pipeline] {
+  background-image: radial-gradient(var(--linha) 1.2px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+html[data-fundo-pipeline="quadriculado"] [data-quadro-pipeline] {
+  background-image: linear-gradient(var(--linha-fraca) 1px, transparent 1px),
+    linear-gradient(90deg, var(--linha-fraca) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+html[data-fundo-pipeline="diagonal"] [data-quadro-pipeline] {
+  background-image: repeating-linear-gradient(45deg, var(--linha-fraca) 0 2px, transparent 2px 14px);
+}
+html[data-fundo-pipeline="tijolo"] [data-quadro-pipeline] {
+  background-image: linear-gradient(var(--linha) 1px, transparent 1px),
+    linear-gradient(90deg, var(--linha) 1px, transparent 1px),
+    linear-gradient(90deg, var(--linha) 1px, transparent 1px);
+  background-size: 48px 20px, 48px 40px, 48px 40px;
+  background-position: 0 0, 0 0, 24px 20px;
+}
+html[data-fundo-pipeline="chamas"] [data-quadro-pipeline] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64'%3E%3Cpath d='M28 10c4 8 10 12 10 22a10 10 0 0 1-20 0c0-6 4-8 4-14 3 3 4 6 4 9 2-4 2-10 2-17z' fill='none' stroke='%23a0603a' stroke-opacity='0.16' stroke-width='1.4'/%3E%3C/svg%3E");
+  background-size: 56px 64px;
+}
+html.dark[data-fundo-pipeline="chamas"] [data-quadro-pipeline] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64'%3E%3Cpath d='M28 10c4 8 10 12 10 22a10 10 0 0 1-20 0c0-6 4-8 4-14 3 3 4 6 4 9 2-4 2-10 2-17z' fill='none' stroke='%23f0b48a' stroke-opacity='0.14' stroke-width='1.4'/%3E%3C/svg%3E");
+}
+html[data-fundo-pipeline="degrade"] [data-quadro-pipeline] {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--aura-petrol-500) 16%, transparent) 0%, transparent 65%);
+}
+/* Colunas: com desenho atrás, a coluna fica quase opaca para o texto não
+   brigar com o fundo; no modo "colunas", ganha um tom da cor da etapa. */
+html[data-fundo-pipeline]:not([data-fundo-pipeline="liso"]) [data-coluna-etapa] {
+  background-color: color-mix(in srgb, var(--aura-sunken) 80%, transparent);
+}
+html[data-fundo-pipeline="colunas"] [data-coluna-etapa] {
+  background-color: color-mix(in srgb, var(--cor-etapa, var(--aura-sunken)) 13%, var(--aura-sunken));
+  border-top: 3px solid var(--cor-etapa, transparent);
+}

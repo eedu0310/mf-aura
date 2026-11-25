@@ -164,6 +164,8 @@ function EtapaColuna({
   return (
     <div
       ref={setNodeRef}
+      data-coluna-etapa
+      style={{ "--cor-etapa": definicao.cor } as React.CSSProperties}
       className={`flex min-w-0 flex-col overflow-hidden rounded-xl bg-aura-sunken ${
         ehPerdidos ? "ring-1 ring-aura-danger/20" : ""
       }`}
@@ -506,6 +508,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
         */}
         <div
           ref={quadroRef}
+          data-quadro-pipeline
           onScroll={conferirSetas}
           className="grid gap-4 overflow-x-auto pb-2"
           style={{

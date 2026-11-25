@@ -12,7 +12,11 @@
  */
 export const CHAVE_DO_TEMA = "aura-tema";
 
+/** A mesma de src/lib/aparencia.ts: a paleta e o fundo que o gestor escolheu,
+ *  guardados para a tela já abrir com eles (sem piscar a cor antiga). */
+const CHAVE_APARENCIA = "aura-aparencia";
+
 /** Rotas públicas, de cliente, que nunca entram no tema escuro. */
 export const ROTAS_SEMPRE_CLARAS = /^\/(f|s|av|avaliar|materiais|privacidade|exclusao-de-dados)(\/|$)/;
 
-export const SCRIPT_DO_TEMA = `(function(){try{if(${ROTAS_SEMPRE_CLARAS}.test(location.pathname)){document.documentElement.classList.remove("dark");return;}var t=localStorage.getItem("${CHAVE_DO_TEMA}");var e=t==="escuro"||((!t||t==="sistema")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",e);}catch(_){}})();`;
+export const SCRIPT_DO_TEMA = `(function(){try{if(${ROTAS_SEMPRE_CLARAS}.test(location.pathname)){document.documentElement.classList.remove("dark");return;}var t=localStorage.getItem("${CHAVE_DO_TEMA}");var e=t==="escuro"||((!t||t==="sistema")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",e);var a=JSON.parse(localStorage.getItem("${CHAVE_APARENCIA}")||"null");if(a){var h=document.documentElement;if(/^[a-z]+$/.test(a.p))h.dataset.paleta=a.p;if(/^[a-z]+$/.test(a.f))h.dataset.fundoPipeline=a.f;}}catch(_){}})();`;

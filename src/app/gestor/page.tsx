@@ -22,6 +22,7 @@ import { AtendimentoTab } from "@/components/gestor/atendimento-tab";
 import { FunilTab } from "@/components/gestor/funil-tab";
 import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 import { EquipeTab } from "@/components/gestor/equipe-tab";
+import { AparenciaTab } from "@/components/gestor/aparencia-tab";
 import { hrefDaAbaGestor, useAbaGestor } from "@/components/gestor/areas";
 
 // A área Agentes só carrega o código dela quando alguém abre uma das abas.
@@ -114,6 +115,7 @@ export default function GestorPage() {
       {atual.id === "avaliacoes" && <AvaliacoesTab />}
       {atual.id === "custo-ia" && <CustoIAPainel />}
       {atual.id === "saude" && souMestre && <SaudeSistema />}
+      {atual.id === "aparencia" && souMestre && <AparenciaTab />}
       {atual.id === "configuracoes" && <ConfiguracoesTab />}
       {atual.id === "marketing" && <MarketingTab />}
     </div>

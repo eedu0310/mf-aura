@@ -14,6 +14,7 @@ import { PwaRegister } from "@/components/pwa-register";
 import { AtualizadorDeVersao } from "@/components/atualizador-de-versao";
 import { VigiaChatSite } from "@/components/site-mf/vigia-chat-site";
 import { SCRIPT_DO_TEMA } from "@/lib/tema-script";
+import { AparenciaDoSistema } from "@/components/aparencia-do-sistema";
 
 /**
  * O endereço do sistema. Sem ele, as imagens de compartilhamento viajam com
@@ -188,6 +189,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-aura-bg text-aura-graphite">
         <PwaRegister />
+        <AparenciaDoSistema />
         <AtualizadorDeVersao />
         <UserProfileProvider>
           <AppDataProvider>{children}</AppDataProvider>

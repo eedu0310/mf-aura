@@ -32,6 +32,7 @@ import {
   LayoutDashboard,
   Megaphone,
   MessagesSquare,
+  Palette,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -50,6 +51,7 @@ import { useSearchParams } from "next/navigation";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 
 export type AbaGestor =
+  | "aparencia"
   | "aura"
   | "dashboard"
   | "planilha"
@@ -124,6 +126,7 @@ export const ABAS_GESTOR: Array<{
   { id: "avaliacoes", label: "Avaliações", descricao: "Links do Google e redes, e quem já avaliou", icon: Star, area: "ajustes" },
   { id: "instagram", label: "Instagram", descricao: "Conectar a conta de cada loja e liberar quem atende", icon: AtSign, area: "ajustes" },
   { id: "marketing", label: "Marketing", descricao: "Dashboard, usuários e configurações de marketing", icon: Megaphone, area: "ajustes" },
+  { id: "aparencia", label: "Aparência", descricao: "Cores do sistema, fundo do pipeline e datas comemorativas", icon: Palette, area: "ajustes", soMestre: true },
   { id: "saude", label: "Saúde do sistema", descricao: "O que as Sentinelas acharam: crons, backup, dados e acessos", icon: HeartPulse, area: "ajustes", soMestre: true },
 ];
 
