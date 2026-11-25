@@ -24,6 +24,7 @@ import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 import { EquipeTab } from "@/components/gestor/equipe-tab";
 import { AparenciaTab } from "@/components/gestor/aparencia-tab";
 import { LeadsExcluidosTab } from "@/components/gestor/leads-excluidos-tab";
+import { RelatorioSemanalView } from "@/components/relatorio-semanal/relatorio-semanal-view";
 import { hrefDaAbaGestor, useAbaGestor } from "@/components/gestor/areas";
 
 // A área Agentes só carrega o código dela quando alguém abre uma das abas.
@@ -104,6 +105,7 @@ export default function GestorPage() {
       {atual.id === "movimentacao" && <MovimentacaoTab />}
       {atual.id === "atendimento" && <AtendimentoTab />}
       {atual.id === "funil" && <FunilTab />}
+      {atual.id === "relatorio-semanal" && <RelatorioSemanalView />}
       {atual.id === "semanal" && <RelatorioSemanalTab />}
       {atual.id === "pontuacao" && <PontuacaoTab />}
       {atual.id === "aprendizado" && <AprendizadoCard />}

@@ -9,7 +9,9 @@ import { PageContainer, PageHeader, Segmentado } from "@/components/ui";
 type Aba = "periodo" | "semanal";
 
 export default function RelatorioPage() {
-  const [aba, setAba] = useState<Aba>("periodo");
+  // O relatório semanal abre primeiro, como era: é o que a equipe e o gestor
+  // procuram (loja, vendedor por vendedor, acertos, erros e plano).
+  const [aba, setAba] = useState<Aba>("semanal");
 
   return (
     <PageContainer className="space-y-6">
@@ -31,8 +33,8 @@ export default function RelatorioPage() {
         className="print:hidden"
         rotulo="Tipo de relatório"
         opcoes={[
-          { valor: "periodo", rotulo: "Relatório do período" },
-          { valor: "semanal", rotulo: "Fechamento da semana" },
+          { valor: "semanal", rotulo: "Relatório semanal" },
+          { valor: "periodo", rotulo: "Indicadores do período" },
         ]}
         valor={aba}
         aoMudar={setAba}

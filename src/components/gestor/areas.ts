@@ -53,6 +53,7 @@ import { usarMeuAcesso } from "@/lib/usar-permissoes";
 
 export type AbaGestor =
   | "aparencia"
+  | "relatorio-semanal"
   | "leads-excluidos"
   | "aura"
   | "dashboard"
@@ -84,7 +85,7 @@ export const AREAS_GESTOR: Array<{ id: AreaGestor; titulo: string; descricao: st
   { id: "visao", titulo: "Visão geral", descricao: "Como a operação está agora", icone: LayoutDashboard },
   { id: "agentes", titulo: "Agentes", descricao: "A equipe de IA trabalhando", icone: Bot },
   { id: "equipe", titulo: "Equipe", descricao: "Conversas, metas e prêmios", icone: UsersRound },
-  { id: "relatorios", titulo: "Relatórios", descricao: "Fechou, perdeu e leads", icone: FileBarChart },
+  { id: "relatorios", titulo: "Relatórios", descricao: "Semanal por loja, ganhos e perdas, leads", icone: FileBarChart },
   { id: "acessos", titulo: "Pessoas e acessos", descricao: "Quem entra e o que pode", icone: KeyRound },
   { id: "aura", titulo: "AURA", descricao: "O que a IA sabe e custa", icone: Sparkles },
   { id: "ajustes", titulo: "Ajustes", descricao: "Funil, canais e regras", icone: SlidersHorizontal },
@@ -113,7 +114,11 @@ export const ABAS_GESTOR: Array<{
   { id: "pontuacao", label: "Metas e prêmios", descricao: "Meta por pessoa, pontos e premiação", icon: Target, area: "equipe" },
   { id: "ranking", label: "Regras do ranking", descricao: "O que conta, quanto pesa e o corte do bônus", icon: Trophy, area: "equipe" },
   // Relatórios
-  { id: "semanal", label: "Relatório do período", descricao: "Fechou, perdeu e onde cada um erra", icon: CalendarRange, area: "relatorios" },
+  // O relatório semanal por loja (o de antes, com vendedor por vendedor,
+  // WhatsApp, acertos, erros e plano da semana) vem primeiro: ele só existia
+  // na segunda aba de "Meu Relatório" e o gestor achava que tinha sumido.
+  { id: "relatorio-semanal", label: "Relatório semanal", descricao: "Loja por loja, vendedor por vendedor: CRM, WhatsApp, acertos, erros e plano da semana", icon: FileBarChart, area: "relatorios" },
+  { id: "semanal", label: "Ganhos e perdas", descricao: "Fechou, perdeu e onde cada um erra", icon: CalendarRange, area: "relatorios" },
   { id: "planilha", label: "Planilha de leads", descricao: "Indicadores de leads preenchidos pela equipe", icon: Table2, area: "relatorios" },
   { id: "leads-excluidos", label: "Leads excluídos", descricao: "A lixeira: quem excluiu, quando e de onde o lead veio", icon: Trash2, area: "relatorios" },
   // Pessoas e acessos
