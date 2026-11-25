@@ -296,12 +296,20 @@ function Legenda() {
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[0.6875rem] text-aura-graphite-soft">
       <span className={item}>
+        <LuzStatus estado="em_dia" className="!h-2 !w-2" />
+        Em dia
+      </span>
+      <span className={item}>
         <LuzStatus estado="trabalhando" className="!h-2 !w-2" />
-        Trabalhando
+        Trabalhando agora
+      </span>
+      <span className={item}>
+        <LuzStatus estado="atrasado" className="!h-2 !w-2" />
+        Atrasado
       </span>
       <span className={item}>
         <LuzStatus estado="ocioso" className="!h-2 !w-2" />
-        Ocioso
+        Ainda não rodou
       </span>
       <span className={item}>
         <LuzStatus estado="com_erro" className="!h-2 !w-2" />

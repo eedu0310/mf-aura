@@ -18,7 +18,7 @@ import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 import { BUCKET_NUVEM } from "@/lib/backup/executar";
 import { carregarRegistro, temMigracao108, type AgenteRegistrado } from "./motor";
-import { agendaTexto, proximaExecucao } from "./agenda";
+import { agendaTexto, estaAtrasado, proximaExecucao } from "./agenda";
 import { CRON_DO_AGENTE_DO_SISTEMA } from "./sistema";
 import { PASTA_CONHECIMENTO, diaDoCaminho } from "./guardiao";
 import { MOTIVO_SEM_108, faltaNoBanco, gestorDaFala } from "./util";
@@ -104,13 +104,20 @@ async function execucoesDosCrons(sb: SupabaseClient): Promise<Map<string, Execuc
   return mapa;
 }
 
-function estadoDaMesa(a: AgenteRegistrado, ultima: Execucao | undefined, com108: boolean): EstadoMesa {
+/*
+ * A luz da mesa. Antes, fora dos segundos da rodada, todo agente ficava
+ * cinza ("ocioso") — mesmo ligado e em dia — e o escritório parecia parado
+ * (25/11/2026). Agora: verde = em dia; verde piscando = trabalhando agora;
+ * amarelo = atrasado; vermelho = erro; cinza = ainda não rodou.
+ */
+function estadoDaMesa(a: AgenteRegistrado, ultima: Execucao | undefined, com108: boolean, agora: Date): EstadoMesa {
   if (a.tipo !== "sistema" && !com108) return "aguardando_ativacao";
   if (!a.ativo) return "desligado";
   if (!ultima) return "ocioso";
   if (ultima.status === "rodando" && Date.now() - new Date(ultima.inicio).getTime() < RODANDO_VALIDA_MS) return "trabalhando";
   if (ultima.status === "erro") return "com_erro";
-  return "ocioso";
+  if (estaAtrasado(a.agenda, new Date(ultima.inicio), agora)) return "atrasado";
+  return "em_dia";
 }
 
 function fazendoAgora(a: AgenteRegistrado, estado: EstadoMesa, ultima: Execucao | undefined, proxima: Date | null): string {
@@ -123,6 +130,8 @@ function fazendoAgora(a: AgenteRegistrado, estado: EstadoMesa, ultima: Execucao 
       return `Trabalhando agora (começou às ${hora(ultima!.inicio)}).`;
     case "com_erro":
       return ultima?.resumo || "A última rodada falhou.";
+    case "atrasado":
+      return `Atrasado: a última rodada foi às ${hora(ultima!.inicio)}${proxima ? `; deveria ter rodado antes de ${hora(proxima.toISOString())}` : ""}.`;
     default:
       if (ultima?.resumo) return ultima.resumo;
       return proxima ? `Ainda não rodou. Primeira rodada às ${hora(proxima.toISOString())}.` : "Ainda não rodou.";
@@ -325,7 +334,7 @@ export async function montarEstadoEscritorio(
   const mesas: MesaAgente[] = registro.map((a) => {
     const execucoes = (a.tipo === "sistema" ? execCrons.get(a.id) : execAgentes.get(a.id)) ?? [];
     const ultima = execucoes[0];
-    const estado = estadoDaMesa(a, ultima, com108);
+    const estado = estadoDaMesa(a, ultima, com108, agora);
     const proxima = a.ativo ? proximaExecucao(a.agenda, ultima ? new Date(ultima.inicio) : null, agora) : null;
     return {
       id: a.id,

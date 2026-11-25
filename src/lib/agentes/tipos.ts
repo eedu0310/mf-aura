@@ -212,7 +212,11 @@ export interface DefinicaoAgente {
 /* O que a tela do escritório recebe (GET /api/gestor/agentes).        */
 /* ------------------------------------------------------------------ */
 
-export type EstadoMesa = "trabalhando" | "ocioso" | "com_erro" | "desligado" | "aguardando_ativacao";
+/**
+ * trabalhando: rodando agora · em_dia: ligado e rodando no horário (última ok)
+ * atrasado: deveria ter rodado e não rodou · ocioso: ainda não rodou nenhuma vez
+ */
+export type EstadoMesa = "trabalhando" | "em_dia" | "atrasado" | "ocioso" | "com_erro" | "desligado" | "aguardando_ativacao";
 
 export interface MesaAgente {
   id: IdAgente;

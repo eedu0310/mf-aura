@@ -639,6 +639,8 @@ export function RetratoPixel({ ap, tamanho = 32, className }: { ap: Aparencia; t
 
 const COR_ESTADO: Record<EstadoMesa, string> = {
   trabalhando: "#43c463",
+  em_dia: "#43c463",
+  atrasado: "#e8b04a",
   ocioso: "#a3a9b2",
   com_erro: "#ef5a50",
   desligado: "#c3c8cf",

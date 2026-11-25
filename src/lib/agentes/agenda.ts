@@ -121,6 +121,24 @@ export function estaDevido(agenda: Agenda, ultimoInicio: Date | null, agora: Dat
   return !ultimoInicio || ultimoInicio.getTime() < marcado.getTime();
 }
 
+/**
+ * Deveria ter rodado e não rodou? É o amarelo do escritório.
+ *  - intervalo: passou mais de duas voltas (e mais 20 min de folga) sem rodar;
+ *  - diário: o último horário marcado passou há mais de 30 min e a última
+ *    rodada é de antes dele.
+ * Quem nunca rodou não entra aqui (é "ainda não rodou").
+ */
+export function estaAtrasado(agenda: Agenda, ultimoInicio: Date | null, agora: Date): boolean {
+  if (!ultimoInicio) return false;
+  if (agenda.tipo === "intervalo") {
+    const minutos = Math.max(1, agenda.minutos);
+    return agora.getTime() - ultimoInicio.getTime() > (minutos * 2 + 20) * MINUTO;
+  }
+  const marcado = ultimoHorario(agenda, agora);
+  if (!marcado || ultimoInicio.getTime() >= marcado.getTime()) return false;
+  return agora.getTime() - marcado.getTime() > 30 * MINUTO;
+}
+
 /** Quando roda de novo (para a mesa do escritório). */
 export function proximaExecucao(agenda: Agenda, ultimoInicio: Date | null, agora: Date): Date | null {
   if (agenda.tipo === "intervalo") {

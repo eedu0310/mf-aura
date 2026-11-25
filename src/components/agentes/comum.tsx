@@ -215,8 +215,10 @@ export function rotuloSetor(s: Setor | string) {
 }
 
 export const ESTADOS: Record<EstadoMesa, { rotulo: string; tom: Tom }> = {
-  trabalhando: { rotulo: "Trabalhando", tom: "sucesso" },
-  ocioso: { rotulo: "Ocioso", tom: "neutro" },
+  trabalhando: { rotulo: "Trabalhando agora", tom: "sucesso" },
+  em_dia: { rotulo: "Em dia", tom: "sucesso" },
+  atrasado: { rotulo: "Atrasado", tom: "atencao" },
+  ocioso: { rotulo: "Ainda não rodou", tom: "neutro" },
   com_erro: { rotulo: "Com erro", tom: "perigo" },
   desligado: { rotulo: "Desligado", tom: "neutro" },
   aguardando_ativacao: { rotulo: "Aguardando ativação", tom: "atencao" },
@@ -327,7 +329,14 @@ export function LuzStatus({ estado, className }: { estado: EstadoMesa; className
       />
     );
   }
-  const cor = estado === "trabalhando" ? "bg-aura-success" : estado === "com_erro" ? "bg-aura-danger" : "bg-aura-graphite-soft/45";
+  const cor =
+    estado === "trabalhando" || estado === "em_dia"
+      ? "bg-aura-success"
+      : estado === "atrasado"
+        ? "bg-aura-warning"
+        : estado === "com_erro"
+          ? "bg-aura-danger"
+          : "bg-aura-graphite-soft/45";
   return (
     <span className={cx("relative inline-flex h-2.5 w-2.5 shrink-0", className)} title={rotulo} aria-label={rotulo} role="img">
       {estado === "trabalhando" && (

@@ -6,7 +6,7 @@
  * Rodar com:
  *   node --experimental-strip-types --no-warnings --import <reg.mjs> src/lib/agentes/agenda.teste.ts
  */
-import { agendaTexto, agendaValida, escolherDevidos, estaDevido, proximaExecucao, venceAntesDaProximaRodada } from "./agenda";
+import { agendaTexto, agendaValida, escolherDevidos, estaAtrasado, estaDevido, proximaExecucao, venceAntesDaProximaRodada } from "./agenda";
 import type { Agenda } from "./tipos";
 
 let passou = 0;
@@ -132,6 +132,14 @@ conferir("texto segunda", agendaTexto({ tipo: "diario", horas: [10], diasSemana:
 conferir("agenda válida", agendaValida({ tipo: "intervalo", minutos: 60 }), { tipo: "intervalo", minutos: 60 });
 conferir("agenda sem horas", agendaValida({ tipo: "diario", horas: [] }), null);
 conferir("agenda lixo", agendaValida("todo dia"), null);
+
+// Luz do escritório: atrasado = deveria ter rodado e não rodou.
+conferir("atrasado: nunca rodou não é atraso", estaAtrasado(dezMin, null, sp("2026-11-25", "10:00")), false);
+conferir("atrasado: 10 min, rodou há 15 min = em dia", estaAtrasado(dezMin, sp("2026-11-25", "09:45"), sp("2026-11-25", "10:00")), false);
+conferir("atrasado: 10 min, rodou há 50 min = atrasado", estaAtrasado(dezMin, sp("2026-11-25", "09:10"), sp("2026-11-25", "10:00")), true);
+conferir("atrasado: diretora rodou 7h20, agora 16h = em dia", estaAtrasado(diretora, sp("2026-11-25", "07:21"), sp("2026-11-25", "16:00")), false);
+conferir("atrasado: diretora rodou ontem, 18h passou há 1 h = atrasado", estaAtrasado(diretora, sp("2026-11-24", "18:01"), sp("2026-11-25", "19:00")), true);
+conferir("atrasado: diretora rodou ontem, 7h20 passou há 10 min = ainda no prazo", estaAtrasado(diretora, sp("2026-11-24", "18:01"), sp("2026-11-25", "07:30")), false);
 
 if (falhas.length) {
   console.error(`${falhas.length} verificação(ões) falharam:\n\n${falhas.join("\n\n")}`);
