@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Pause,
   Play,
+  Reply,
   ShieldOff,
   Trash2,
 } from "lucide-react";
@@ -104,6 +105,7 @@ export default function InstagramPage() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [agente, setAgente] = useState<{ ativo: boolean; horas: number }>({ ativo: false, horas: 0 });
   const [soPendentes, setSoPendentes] = useState(true);
+  const [respondendo, setRespondendo] = useState<{ id: string; texto: string } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [semAcesso, setSemAcesso] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -176,6 +178,8 @@ export default function InstagramPage() {
     return () => clearInterval(t);
   }, [carregar]);
 
+  useEffect(() => setRespondendo(null), [selecionada]);
+
   const puxarMensagens = useCallback(async () => {
     if (!selecionada) return;
     const res = await fetch(`/api/meta/live?conversa=${encodeURIComponent(selecionada)}`, { cache: "no-store" });
@@ -228,6 +232,20 @@ export default function InstagramPage() {
     setMensagens((l) => l.map((x) => (x.id === m.id ? { ...x, reacao: x.reacao ? null : "❤️" } : x)));
     await acao({ acao: "reagir", conversa: selecionada, mensagem: m.id, ligar: !m.reacao }, "Não consegui reagir.");
     void puxarMensagens();
+  }
+
+  const [chamandoAgente, setChamandoAgente] = useState(false);
+  async function agenteAgora() {
+    if (!selecionada || chamandoAgente) return;
+    setChamandoAgente(true);
+    try {
+      if (await acao({ acao: "agente_agora", conversa: selecionada }, "O agente não conseguiu responder.")) {
+        void puxarMensagens();
+        void carregar();
+      }
+    } finally {
+      setChamandoAgente(false);
+    }
   }
 
   async function pausarAgente(pausada: boolean) {
@@ -397,6 +415,18 @@ export default function InstagramPage() {
                       {atual.prazo ?? "prazo de 24h encerrado"}
                     </p>
                   </div>
+                  {agente.ativo && gestor && !atual.ia_pausada && atual.podeResponder && (
+                    <button
+                      type="button"
+                      onClick={() => void agenteAgora()}
+                      disabled={chamandoAgente}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-aura-navy-950 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      title="O agente responde agora, sem esperar o tempo configurado"
+                    >
+                      {chamandoAgente ? <Loader2 size={12} className="animate-spin" /> : <Bot size={13} />}
+                      Agente responder agora
+                    </button>
+                  )}
                   {agente.ativo && (
                     <button
                       type="button"
@@ -413,7 +443,13 @@ export default function InstagramPage() {
 
                 <div className="flex-1 space-y-2 overflow-y-auto p-4">
                   {mensagens.map((m) => (
-                    <BolhaInstagram key={m.id} m={m} podeReagir={atual.podeResponder} onReagir={() => void reagir(m)} />
+                    <BolhaInstagram
+                      key={m.id}
+                      m={m}
+                      podeReagir={atual.podeResponder}
+                      onReagir={() => void reagir(m)}
+                      onResponder={() => setRespondendo({ id: m.id, texto: m.texto || resumoTipo(m.tipo) })}
+                    />
                   ))}
                   <div ref={fimRef} />
                 </div>
@@ -422,6 +458,8 @@ export default function InstagramPage() {
                   <ComposerInstagram
                     conversa={atual.id}
                     empresa={loja}
+                    respondendo={respondendo}
+                    onCancelarResposta={() => setRespondendo(null)}
                     onEnviado={() => {
                       void puxarMensagens();
                       void carregar();
@@ -473,7 +511,33 @@ export default function InstagramPage() {
   );
 }
 
-function BolhaInstagram({ m, podeReagir, onReagir }: { m: Mensagem; podeReagir: boolean; onReagir: () => void }) {
+function resumoTipo(tipo: string) {
+  if (tipo === "image") return "📷 Foto";
+  if (tipo === "video") return "🎬 Vídeo";
+  if (tipo === "audio") return "🎤 Áudio";
+  return "Mensagem";
+}
+
+function BolhaInstagram({
+  m,
+  podeReagir,
+  onReagir,
+  onResponder,
+}: {
+  m: Mensagem;
+  podeReagir: boolean;
+  onReagir: () => void;
+  onResponder: () => void;
+}) {
+  if (m.tipo === "like_heart") {
+    return (
+      <div className={`flex ${m.de_mim ? "justify-end" : "justify-start"}`}>
+        <span className="text-5xl" role="img" aria-label="Figurinha de coração">
+          ❤️
+        </span>
+      </div>
+    );
+  }
   const quem = m.de_mim ? (m.por_ia ? "Agente de IA" : m.autor_nome ?? null) : null;
   const link = m.midia_url && ["share", "ig_reel", "reel", "story_mention", "file", "fallback"].includes(m.tipo);
   return (
@@ -517,6 +581,17 @@ function BolhaInstagram({ m, podeReagir, onReagir }: { m: Mensagem; podeReagir: 
           </span>
         )}
       </div>
+      {!m.de_mim && m.mid && podeReagir && (
+        <button
+          type="button"
+          onClick={onResponder}
+          className="rounded-full p-1.5 text-aura-graphite-soft opacity-0 transition hover:text-aura-petrol-600 group-hover:opacity-100 focus:opacity-100"
+          aria-label="Responder esta mensagem"
+          title="Responder"
+        >
+          <Reply size={15} />
+        </button>
+      )}
       {!m.de_mim && m.mid && podeReagir && (
         <button
           type="button"

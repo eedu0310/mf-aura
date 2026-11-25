@@ -76,9 +76,24 @@ async function mandarNoDirect(conta: ContaMeta, corpo: Record<string, unknown>) 
   return r.dados;
 }
 
-/** Responde uma DM com texto. Devolve o id da mensagem na Meta. */
-export async function enviarMensagem(conta: ContaMeta, destinatario: string, texto: string) {
-  return mandarNoDirect(conta, { recipient: { id: destinatario }, message: { text: texto } });
+/**
+ * Responde uma DM com texto. Devolve o id da mensagem na Meta.
+ * `respondendoMid`: cita uma mensagem do cliente (como o "Responder" do
+ * Instagram). Se a Meta recusar a citação, manda o texto sem ela.
+ */
+export async function enviarMensagem(conta: ContaMeta, destinatario: string, texto: string, respondendoMid?: string | null) {
+  const simples = { recipient: { id: destinatario }, message: { text: texto } };
+  if (!respondendoMid) return mandarNoDirect(conta, simples);
+  try {
+    return await mandarNoDirect(conta, { ...simples, reply_to: { mid: respondendoMid } });
+  } catch {
+    return mandarNoDirect(conta, simples);
+  }
+}
+
+/** A figurinha de coração do Instagram (a única que a API deixa mandar). */
+export async function enviarFigurinha(conta: ContaMeta, destinatario: string) {
+  return mandarNoDirect(conta, { recipient: { id: destinatario }, message: { attachment: { type: "like_heart" } } });
 }
 
 /** Foto, vídeo ou áudio por um endereço público (a Meta baixa o arquivo). */

@@ -5,6 +5,7 @@ import {
   apagarComentario,
   contaDaLoja,
   dentroDaJanela,
+  enviarFigurinha,
   enviarMensagem,
   enviarMidia,
   ocultarComentario,
@@ -17,6 +18,7 @@ import {
 import { importarHistorico } from "@/lib/meta/importar";
 import { salvarMidia } from "@/lib/meta/midia";
 import { registrarEnviada } from "@/lib/meta/conversa";
+import { responderConversa } from "@/lib/meta/agente";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,6 +180,15 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (acao === "figurinha") {
+      const conversa = await conversaDaLoja(sb, String(body.conversa ?? ""), empresa);
+      if (!conversa) return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
+      if (!dentroDaJanela(conversa.responde_ate)) return NextResponse.json({ erro: FORA_DA_JANELA }, { status: 409 });
+      const r = await enviarFigurinha(conta, String(conversa.cliente_ig_id));
+      await registrarEnviada(sb!, conversa.id, { mid: r?.message_id, tipo: "like_heart", texto: "❤️", autorId: auth!.userId });
+      return NextResponse.json({ ok: true });
+    }
+
     if (acao === "responder" || acao === "midia") {
       const conversa = await conversaDaLoja(sb, String(body.conversa ?? ""), empresa);
       if (!conversa) return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
@@ -210,7 +221,17 @@ export async function POST(request: Request) {
       }
 
       if (!texto) return NextResponse.json({ erro: "Faltou a mensagem." }, { status: 400 });
-      const r = await enviarMensagem(conta, cliente, texto);
+      // Citação de uma mensagem do cliente: o id dela no AURA vira o mid da Meta.
+      let respondendoMid: string | null = null;
+      if (body.responder_a) {
+        const { data: citada } = await sb!
+          .from("meta_mensagens")
+          .select("mid, conversa_id")
+          .eq("id", String(body.responder_a))
+          .maybeSingle();
+        if (citada && citada.conversa_id === conversa.id) respondendoMid = citada.mid ?? null;
+      }
+      const r = await enviarMensagem(conta, cliente, texto, respondendoMid);
       await registrarEnviada(sb!, conversa.id, { mid: r?.message_id, texto, autorId: auth!.userId });
       return NextResponse.json({ ok: true });
     }
@@ -230,6 +251,25 @@ export async function POST(request: Request) {
       const ligar = body.ligar !== false;
       await reagirMensagem(conta, String(conversa.cliente_ig_id), String(msg.mid), ligar);
       await sb!.from("meta_mensagens").update({ reacao: ligar ? "❤️" : null }).eq("id", msg.id);
+      return NextResponse.json({ ok: true });
+    }
+
+    // O gestor pede para o agente responder já, sem esperar o tempo da loja
+    // (para testar, ou quando sabe que ninguém vai conseguir responder).
+    if (acao === "agente_agora") {
+      if (!gestor) return NextResponse.json({ erro: "Só o gestor chama o agente na hora." }, { status: 403 });
+      const conversa = await conversaDaLoja(sb, String(body.conversa ?? ""), empresa);
+      if (!conversa) return NextResponse.json({ erro: "Conversa não encontrada." }, { status: 404 });
+      const respondeu = await responderConversa(conversa.id, "demora");
+      if (!respondeu) {
+        return NextResponse.json(
+          {
+            erro:
+              "O agente não respondeu. Confira: o agente está ligado nesta loja (Gestor → Instagram), a última mensagem é do cliente, a conversa não está pausada e ainda está dentro das 24h do Instagram.",
+          },
+          { status: 409 },
+        );
+      }
       return NextResponse.json({ ok: true });
     }
 

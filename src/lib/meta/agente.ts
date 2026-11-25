@@ -84,7 +84,7 @@ const PERFIS: Record<string, Perfil> = {
       "a LF Lareiras, LOJA de aquecimento com showroom ao lado da fábrica MF, em São Sebastião do Caí/RS, com instalação própria",
     contato: "WhatsApp (51) 3536-1701 · ERS-122, km 8, nº 8250, Conceição, São Sebastião do Caí/RS",
     objetivo:
-      "Entenda o que o cliente quer aquecer (ambiente em m² e pé-direito), se é casa pronta ou obra, a cidade e o estilo. Convide para conhecer o showroom e peça o WhatsApp para o consultor mandar a proposta.",
+      "A LF é LOJA (não fábrica): vende lareiras e também outros produtos de aquecimento e área gourmet que estiverem no material dela. Entenda o que o cliente procura e, se for aquecimento, o ambiente (m² e pé-direito), se é casa pronta ou obra, a cidade e o estilo. Convide para conhecer o showroom e peça o WhatsApp para o consultor mandar a proposta.",
   },
   "A&G Aquecimento": {
     papel: "loja",
