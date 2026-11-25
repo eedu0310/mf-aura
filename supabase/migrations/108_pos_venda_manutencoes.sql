@@ -1,4 +1,4 @@
--- 106 · Manutenções do pós-venda: limpeza anual da chaminé e revisão (25/11/2026)
+-- 108 · Manutenções do pós-venda: limpeza anual da chaminé e revisão (25/11/2026)
 --
 -- Pedido do Elton: o pós-venda é um processo inteiro, e como a loja vende
 -- lareira, cerca de um ano depois da instalação oferece a limpeza da chaminé.
@@ -18,7 +18,7 @@
 -- PRECISA DA 105 (revisão de 25/11/2026): usa administro_a_loja(empresa),
 -- criada lá. Antes usava vejo_a_loja_toda() sozinha, que não confere a loja
 -- (o gestor de uma loja mexeria nas manutenções das outras), e aceitava o
--- cargo "Gestor" ainda sem aprovação. Ordem de aplicação: 105 → 106 → 107.
+-- cargo "Gestor" ainda sem aprovação. Ordem de aplicação: 105 → 108 → 109 → 110 (106 e 107 são do Instagram e do chat do site, já aplicadas).
 --
 -- Pode rodar mais de uma vez sem estragar nada.
 
@@ -27,7 +27,7 @@ begin;
 do $$
 begin
   if to_regprocedure('public.administro_a_loja(text)') is null then
-    raise exception 'Aplique a migração 105 antes da 106 (falta administro_a_loja).';
+    raise exception 'Aplique a migração 105 antes da 108 (falta administro_a_loja).';
   end if;
 end $$;
 

@@ -1,9 +1,9 @@
--- 107 · Correções do pente fino de 25/11/2026
+-- 109 · Correções do pente fino de 25/11/2026
 --
 -- Auditoria só de leitura, conferida contra a produção (consultas SELECT) e
 -- contra o código em src/. Cada bloco abaixo tem o número do achado.
 --
--- ORDEM: 105 → 106 → 107, juntas, depois da aprovação do dono.
+-- ORDEM: 105 → 108 → 109 → 110 (os números 106 e 107 são do Instagram e do chat do site, já aplicados). Juntas, depois da aprovação do dono.
 -- Esta migração USA a função administro_a_loja(text) criada pela 105 e
 -- depende de vejo_a_loja_toda() já sem o cargo "Diretor". Sem a 105 ela
 -- para logo no começo, sem mudar nada (bloco 0).
@@ -21,10 +21,10 @@ begin;
 do $$
 begin
   if to_regprocedure('public.administro_a_loja(text)') is null then
-    raise exception 'Aplique a migração 105 antes da 107 (falta administro_a_loja).';
+    raise exception 'Aplique a migração 105 antes da 109 (falta administro_a_loja).';
   end if;
   if pg_get_functiondef('public.vejo_a_loja_toda()'::regprocedure) like '%Diretor%' then
-    raise exception 'Aplique a migração 105 antes da 107 (vejo_a_loja_toda ainda aceita Diretor).';
+    raise exception 'Aplique a migração 105 antes da 109 (vejo_a_loja_toda ainda aceita Diretor).';
   end if;
 end $$;
 

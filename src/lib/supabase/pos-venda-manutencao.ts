@@ -10,7 +10,7 @@ import { diaEmSaoPaulo } from "@/lib/fuso";
  * ano. Então, cerca de um ano depois de instalar, a loja liga para o cliente
  * e oferece a limpeza — é atendimento e é venda de serviço.
  *
- * Os registros moram na tabela pos_venda_manutencoes (migração 106). Enquanto
+ * Os registros moram na tabela pos_venda_manutencoes (migração 108). Enquanto
  * ela não existir no banco, toda função aqui devolve `disponivel: false` em
  * vez de quebrar: a tela mostra a PREVISÃO calculada (instalação + 12 meses),
  * só para leitura, e avisa que agendar e registrar ligam quando o cadastro de
