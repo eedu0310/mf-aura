@@ -72,8 +72,18 @@ export function UsuariosTab() {
   // Conta de teste/cadastro incompleto: primeiro clique pede confirmação.
   const [apagandoIncompleto, setApagandoIncompleto] = useState<string | null>(null);
   const [ocupadoIncompleto, setOcupadoIncompleto] = useState(false);
+  /**
+   * Conta sem cadastro que TEM carteira (oportunidades, clientes, conversas do
+   * WhatsApp...): o banco apagaria tudo junto, em cascata. A rota recusa (409)
+   * e devolve o que existe; aqui o gestor escolhe para quem transferir.
+   */
+  const [carteiraIncompleto, setCarteiraIncompleto] = useState<{
+    id: string;
+    itens: Array<{ rotulo: string; quantidade: number }>;
+  } | null>(null);
+  const [destinoCarteira, setDestinoCarteira] = useState("");
 
-  async function apagarIncompleto(c: Incompleto) {
+  async function apagarIncompleto(c: Incompleto, transferirPara?: string) {
     setOcupadoIncompleto(true);
     setFalha(null);
     setAviso(null);
@@ -81,14 +91,22 @@ export function UsuariosTab() {
       const resposta = await fetch("/api/admin/excluir-cadastro-incompleto", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: c.id }),
+        body: JSON.stringify({ id: c.id, transferirPara }),
       });
       const dados = await resposta.json().catch(() => ({}));
+      if (resposta.status === 409 && Array.isArray(dados.carteira)) {
+        setCarteiraIncompleto({ id: c.id, itens: dados.carteira });
+        setDestinoCarteira("");
+        return;
+      }
       if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui apagar.");
+      const destino = usuarios.find((u) => u.id === transferirPara);
       setAviso(
         `Conta ${c.email} apagada.` +
-          (dados.leadsDevolvidos ? ` ${dados.leadsDevolvidos} lead(s) dela voltaram para a fila, sem vendedor.` : ""),
+          (dados.transferidos && destino ? ` A carteira dela (${dados.transferidos} registro(s)) passou para ${destino.nome}.` : "") +
+          (dados.leadsDevolvidos ? ` ${dados.leadsDevolvidos} lead(s) voltaram para a fila, sem vendedor.` : ""),
       );
+      setCarteiraIncompleto(null);
       setApagandoIncompleto(null);
       await carregar();
     } catch (e) {
@@ -343,7 +361,51 @@ export function UsuariosTab() {
                     <span className="text-xs text-aura-graphite-soft">
                       desde {new Date(c.created_at).toLocaleDateString("pt-BR")}
                     </span>
-                    {souMestre &&
+                    {souMestre && carteiraIncompleto?.id === c.id ? (
+                      <div className="mt-1 w-full rounded-lg border border-aura-warning/40 bg-aura-warning/5 p-3">
+                        <p className="text-xs text-aura-graphite">
+                          <strong>Essa conta tem carteira:</strong>{" "}
+                          {carteiraIncompleto.itens.map((i) => `${i.quantidade} ${i.rotulo}`).join(", ")}. Se apagar
+                          sem transferir, tudo isso some junto. Escolha quem fica com a carteira:
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <select
+                            value={destinoCarteira}
+                            onChange={(e) => setDestinoCarteira(e.target.value)}
+                            className="aura-input h-9 max-w-xs text-sm"
+                            aria-label="Quem recebe a carteira"
+                          >
+                            <option value="">Escolha uma pessoa…</option>
+                            {usuarios
+                              .filter((u) => u.ativo && !u.excluido && u.id !== c.id)
+                              .sort((x, y) => x.nome.localeCompare(y.nome))
+                              .map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.nome} · {u.empresa}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => apagarIncompleto(c, destinoCarteira)}
+                            disabled={!destinoCarteira || ocupadoIncompleto}
+                            className={classeBotao("perigo", "sm")}
+                          >
+                            {ocupadoIncompleto ? "Transferindo..." : "Transferir e apagar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCarteiraIncompleto(null);
+                              setApagandoIncompleto(null);
+                            }}
+                            className={classeBotao("fantasma", "sm")}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : souMestre &&
                       (apagandoIncompleto === c.id ? (
                         <span className="ml-auto flex items-center gap-1">
                           <span className="text-xs font-medium text-aura-danger">Apagar de vez? Não dá para desfazer.</span>

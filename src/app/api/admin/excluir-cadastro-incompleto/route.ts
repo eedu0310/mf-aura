@@ -56,6 +56,73 @@ export async function POST(request: Request) {
    * tarefas) vai junto. Conteúdo que ela criou no marketing não pode ficar sem
    * autor (a coluna é obrigatória): aí a exclusão para e explica.
    */
+  /**
+   * CARTEIRA: o banco apaga EM CASCATA tudo que é "dono" da conta (vendas,
+   * oportunidades, clientes, atividades, agenda, conversas analisadas do
+   * WhatsApp). Conta sem cadastro também pode ter carteira — o caso real tinha
+   * 1 oportunidade, 2 clientes, 2 atividades e 8 conversas, vindas do WhatsApp
+   * conectado antes de terminar o cadastro (pente fino de 25/11/2026). Apagar
+   * levaria tudo junto, sem volta.
+   *
+   * Então: com carteira, só apaga se vier `transferirPara` (uma pessoa ativa),
+   * e a carteira passa para ela ANTES. Sem isso, devolve 409 com o que existe,
+   * e a tela pede para escolher o destino.
+   */
+  const CARTEIRA: Array<[string, string, string]> = [
+    ["vendas", "owner_id", "venda(s)"],
+    ["oportunidades", "owner_id", "oportunidade(s)"],
+    ["relacionamentos", "owner_id", "cliente(s)"],
+    ["atividades", "owner_id", "atividade(s)"],
+    ["compromissos", "owner_id", "compromisso(s) na agenda"],
+    ["whatsapp_ia_leads", "owner_id", "conversa(s) do WhatsApp"],
+    ["whatsapp_transcricoes", "owner_id", "transcrição(ões) de áudio"],
+    ["leads_recebidos", "vendedor_id", "lead(s) recebido(s)"],
+  ];
+  const carteira: Array<{ rotulo: string; quantidade: number }> = [];
+  for (const [tabela, coluna, rotulo] of CARTEIRA) {
+    const { count, error: e } = await service.from(tabela).select("id", { count: "exact", head: true }).eq(coluna, id);
+    if (e) return NextResponse.json({ erro: "Não consegui conferir a carteira dessa conta. Nada foi apagado." }, { status: 500 });
+    if (count) carteira.push({ rotulo, quantidade: count });
+  }
+
+  const transferirPara = String(corpo.transferirPara ?? "").trim();
+  let transferidos = 0;
+  if (carteira.length > 0) {
+    if (!transferirPara) {
+      return NextResponse.json(
+        {
+          erro: `Essa conta tem carteira: ${carteira.map((c) => `${c.quantidade} ${c.rotulo}`).join(", ")}. Escolha para quem transferir antes de apagar.`,
+          carteira,
+        },
+        { status: 409 },
+      );
+    }
+    if (transferirPara === id) return NextResponse.json({ erro: "Escolha outra pessoa para receber a carteira." }, { status: 400 });
+    const { data: destino, error: eDestino } = await service
+      .from("profiles")
+      .select("id, ativo, excluido_em")
+      .eq("id", transferirPara)
+      .maybeSingle();
+    if (eDestino || !destino || destino.ativo === false || destino.excluido_em) {
+      return NextResponse.json({ erro: "A pessoa escolhida não está ativa. Escolha outra." }, { status: 400 });
+    }
+    for (const [tabela, coluna] of CARTEIRA) {
+      const { data, error: e } = await service
+        .from(tabela)
+        .update({ [coluna]: transferirPara })
+        .eq(coluna, id)
+        .select("id");
+      if (e) {
+        console.error(`[excluir-cadastro-incompleto] transferência em ${tabela}:`, e.message);
+        return NextResponse.json(
+          { erro: "Não consegui transferir toda a carteira. A conta NÃO foi apagada; tente de novo." },
+          { status: 500 },
+        );
+      }
+      transferidos += data?.length ?? 0;
+    }
+  }
+
   for (const tabela of ["campanhas_marketing", "postagens_marketing"] as const) {
     const { count, error: e } = await service
       .from(tabela)
@@ -100,5 +167,5 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-  return NextResponse.json({ ok: true, leadsDevolvidos });
+  return NextResponse.json({ ok: true, leadsDevolvidos, transferidos });
 }
