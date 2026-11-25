@@ -67,11 +67,17 @@ export async function GET(_request: Request, ctx: { params: Promise<{ token: str
 
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("id, nome, empresa")
+    .select("id, nome, empresa, ativo, excluido_em")
     .eq("agenda_token", token)
     .maybeSingle();
 
-  if (!perfil) return new NextResponse("Endereço inválido.", { status: 404 });
+  // Conta desativada ou excluída para de receber a agenda. O celular de quem
+  // saiu da loja seguia puxando, a cada meia hora, os compromissos e os
+  // follow-ups (com nome de cliente) que ainda estavam no nome dela — e o
+  // link não pede login, então desativar a conta não bastava.
+  if (!perfil || perfil.ativo === false || perfil.excluido_em) {
+    return new NextResponse("Endereço inválido.", { status: 404 });
+  }
 
   // Últimos 60 dias e próximos 365: o suficiente para o app do celular.
   const de = new Date(Date.now() - 60 * 86400_000).toISOString().slice(0, 10);

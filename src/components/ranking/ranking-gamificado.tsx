@@ -7,7 +7,7 @@ import { CardHeader, EstadoVazio } from "@/components/ui";
 
 export function RankingGamificado() {
   const { vendas, atividades, nomesPorOwnerId } = useAppData();
-  const [rankingGeral, setRankingGeral] = useState<Array<{ id: string; nome: string; faturamento: number; vendas: number; atividades: number; pontos: number }>>([]);
+  const [rankingGeral, setRankingGeral] = useState<Array<{ id: string; nome: string; faturamento: number | null; vendas: number; atividades: number; pontos: number }>>([]);
 
   useEffect(() => {
     fetch("/api/ranking/geral", { cache: "no-store" })
@@ -79,7 +79,10 @@ export function RankingGamificado() {
     return { icon: Zap, cor: "text-aura-graphite-soft", bg: "bg-aura-sunken" };
   }
 
-  function formatarMoeda(valor: number) {
+  // null é o R$ de um colega, que a rota só manda para o gestor: mostrar
+  // "R$ 0" daria a entender que a pessoa não vendeu nada.
+  function formatarMoeda(valor: number | null) {
+    if (valor === null) return "—";
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",

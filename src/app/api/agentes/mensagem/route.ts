@@ -56,6 +56,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "Esta recomendação não é sua." }, { status: 403 });
   }
 
+  /*
+   * O card ser dele não quer dizer que o cliente ainda seja.
+   *
+   * A transferência de carteira (aura_mover_carteira) move clientes, negócios,
+   * compromissos e leads, mas não os cards da AURA: o vendedor antigo seguia
+   * com o card pendente e, pelo "Gerar mensagem", recebia o WhatsApp e o
+   * resumo da conversa de um cliente que já era de outra pessoa — esta rota
+   * lê com a chave de serviço, que passa por cima da RLS. Para quem não é
+   * gestor, o cliente precisa continuar visível pelo próprio login dele.
+   * Pós-venda e manutenção ficam de fora da conferência: a régua de quem vê
+   * pós-venda é do papel (cargo Pós-venda), não do dono.
+   */
+  if (!ehGestorDaLoja) {
+    const tabela = TABELA_DO_DONO[String(rec.entidade_tipo ?? "")];
+    if (tabela && ehUuid(rec.entidade_id)) {
+      const { data: visivel } = await auth.supabase
+        .from(tabela)
+        .select("id")
+        .eq("id", rec.entidade_id as string)
+        .maybeSingle();
+      if (!visivel) {
+        return NextResponse.json({ erro: "Este cliente não está mais na sua carteira." }, { status: 403 });
+      }
+    }
+  }
+
   const entidade = await lerEntidade(sb, rec.entidade_tipo as string | null, rec.entidade_id as string | null);
   if (!entidade) {
     return NextResponse.json({ erro: "Esta recomendação não tem um cliente ligado para escrever a mensagem." }, { status: 400 });
@@ -104,6 +130,14 @@ REGRAS
   await sb.from("aura_recomendacoes").update({ mensagem_sugerida: mensagem }).eq("id", rec.id);
   return NextResponse.json({ mensagem, telefone: entidade.telefone });
 }
+
+/** Tipos de card cuja visibilidade é pelo dono (owner/parceiro/SDR), na RLS. */
+const TABELA_DO_DONO: Record<string, string> = {
+  relacionamento: "relacionamentos",
+  oportunidade: "oportunidades",
+  lead: "leads_recebidos",
+  compromisso: "compromissos",
+};
 
 interface Entidade {
   /** O que vai para a IA (sem telefone nem e-mail). */
