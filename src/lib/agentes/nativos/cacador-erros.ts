@@ -89,6 +89,11 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   }
   let cronsNunca = 0;
   for (const nome of Object.keys(INTERVALO_MAXIMO_DO_CRON_H)) {
+    // O cron "agentes" é quem roda este caçador: se ele está rodando, o cron
+    // está vivo. E a rodada de agora só é gravada no fim, então ele enxergava
+    // a anterior e acusava "parou de rodar" (25/11/2026, primeira rodada na
+    // VPS). Quem vigia esse cron é a Sentinela de Operação (7h30 e 13h30).
+    if (nome === "agentes") continue;
     const situacao = cronAtrasado(nome, ultimoCron.get(nome) ?? null, agora);
     if (situacao === "nunca") {
       cronsNunca += 1;

@@ -161,6 +161,9 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   // 2. Parecer da IA, em lotes, com o contexto de cada item.
   const materiaisDe = new Map<string, string>();
   let semIA = 0;
+  // Separado do semIA: lote que não coube no tempo da rodada não é falha da
+  // IA (o resumo dizia "50 adiados (sem IA)" e parecia defeito).
+  let semTempo = 0;
   /*
    * Cada lote leva ~1 minuto de IA. A rodada tem 240 s; as decisões só são
    * gravadas no passo 3. Na 2ª rodada real (25/11) os 6 lotes passaram do
@@ -179,7 +182,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     ctx.prazo !== undefined ? ctx.prazo - Date.now() < TEMPO_POR_LOTE_MS : Date.now() - comecou > PRAZO_LOTES_MS;
   for (const lote of emLotes(paraIA)) {
     if (semTempoParaOutroLote()) {
-      semIA += lote.length;
+      semTempo += lote.length;
       continue;
     }
     const entrada = await Promise.all(
@@ -327,8 +330,9 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       texto:
         `Revisei ${plural(contagem.aprovar + contagem.recusar + contagem.manter, "aprendizado")}: ${contagem.aprovar} aprovados, ` +
         `${contagem.recusar} recusados e ${contagem.manter} deixados para o gestor.` +
+        (semTempo ? ` ${semTempo} ficaram para a próxima rodada (não coube no tempo).` : "") +
         (semIA ? ` ${semIA} ficaram para a próxima rodada (IA indisponível).` : ""),
-      dados: { ...contagem, semIA },
+      dados: { ...contagem, semIA, semTempo },
     },
   ];
   if (destaques.length) {
@@ -343,7 +347,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   }
 
   return {
-    resumo: `${contagem.aprovar} aprovados, ${contagem.recusar} recusados, ${contagem.manter} para o gestor${semIA ? `, ${semIA} adiados (sem IA)` : ""}.`,
+    resumo: `${contagem.aprovar} aprovados, ${contagem.recusar} recusados, ${contagem.manter} para o gestor${semTempo ? `, ${semTempo} para a próxima rodada` : ""}${semIA ? `, ${semIA} adiados (sem IA)` : ""}.`,
     achados,
     mensagens,
     metricas: {
@@ -352,6 +356,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       recusados: contagem.recusar,
       mantidos: contagem.manter,
       adiadosSemIA: semIA,
+      adiadosPorTempo: semTempo,
       esperandoGestor: jaMantidos.length + mantidosAgora.length,
       filaRestante: Math.max(0, pendentes.length - jaMantidos.length - desfeitos.size - fila.length),
       colunasDaRevisao: temColunas ? 1 : 0,
