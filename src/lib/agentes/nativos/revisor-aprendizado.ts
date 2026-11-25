@@ -183,7 +183,10 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     const r = await ctx.ia({
       perfil: "redacao",
       json: true,
-      maxTokens: 2500,
+      // 10 pareceres com motivo e, às vezes, a resposta ajustada passam de
+      // 2.500 tokens: a 1ª rodada real (25/11) parou nos 2.500 nas 6 chamadas,
+      // o JSON veio cortado e nada foi decidido (US$ 0,30 gastos à toa).
+      maxTokens: 6000,
       sistema: SISTEMA,
       usuario: `Itens para revisar (JSON):\n${JSON.stringify(entrada)}`,
     });

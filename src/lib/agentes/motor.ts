@@ -249,6 +249,17 @@ export async function chamarIA(
       usuarioId: ch.usuarioId ?? null,
     });
     if ((resp.stop_reason as string) === "refusal") return null;
+    if (ch.json && resp.stop_reason === "max_tokens") {
+      // Resposta cortada no teto: o JSON vem pela metade. Registra como falha
+      // com o motivo (antes sumia calado e o agente só via "sem IA").
+      await registrarFalhaIA({
+        funcao: ch.funcao,
+        erro: new Error(`Resposta cortada no limite de ${ch.maxTokens ?? 1500} tokens (aumente maxTokens ou o lote é grande demais).`),
+        empresa: ch.empresa ?? null,
+        usuarioId: ch.usuarioId ?? null,
+      });
+      return null;
+    }
     const texto = resp.content
       .map((b) => (b.type === "text" ? b.text : ""))
       .join("")
