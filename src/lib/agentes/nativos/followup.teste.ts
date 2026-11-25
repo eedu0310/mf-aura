@@ -33,11 +33,12 @@ ok("marcado para hoje cedo (meio dia de folga) não vence", classe(rel({ proximo
 ok("marcado para amanhã: nada a cobrar", classe(rel({ proximo_contato_em: iso(-1) }), [op({})]), null);
 
 console.log("\n--- negócio aberto sem próximo contato ---");
-const semProx = classe(rel({ ultimo_contato_em: iso(9) }), [op({ valor: 18000, etapa: "Negociação" })]);
+const semProx = classe(rel({ ultimo_contato_em: iso(4) }), [op({ valor: 18000, etapa: "Negociação" })]);
 ok("negócio aberto sem data = sem_proximo", semProx?.tipo, "sem_proximo");
 ok("leva o valor do negócio", semProx?.valorAberto, 18000);
 ok("e a etapa mais avançada", semProx?.etapa, "Negociação");
 ok("Negociação com valor é alta", semProx && prioridadeFollowup(semProx), "alta");
+ok("parado há 9 dias fica com o Pipeline (sem cartão de follow-up)", classe(rel({ ultimo_contato_em: iso(9) }), [op({ valor: 18000, etapa: "Negociação" })]), null);
 ok("Prospecção sem valor é média", prioridadeFollowup(classe(rel({}), [op({ etapa: "Prospecção" })]) as ItemFollowup), "media");
 
 console.log("\n--- esfriando ---");

@@ -66,6 +66,8 @@ export interface ItemFollowup {
 export const CATEGORIAS_PARCEIRO = ["Arquiteto", "Construtora", "Engenheiro", "Designer de Interiores", "Obra", "Distribuidor"];
 
 export const DIAS_ESFRIANDO = 15;
+/** A partir daqui o negócio está "parado" e é do Analista de Pipeline (mesmo limite dele). */
+export const DIAS_NEGOCIO_PARADO = 7;
 export const DIAS_PARA_GESTOR = 7;
 
 /**
@@ -98,7 +100,15 @@ export function classificarFollowup(
   if (rel.proximo_contato_em) return null;
 
   const semContato = diasSemContato({ ultimoContatoEm: rel.ultimo_contato_em ?? undefined, criadoEm: rel.created_at }, agora) ?? 0;
-  if (ops.length > 0) return { tipo: "sem_proximo", dias: semContato, ...base };
+  /*
+   * Negócio aberto sem próximo contato: só enquanto a conversa é RECENTE
+   * (menos de 7 dias). Daí em diante o negócio está "parado" e quem cobra é o
+   * Analista de Pipeline — antes os dois mandavam cartão sobre o mesmo cliente
+   * (simulação de 25/11: ~17 cartões por vendedor no primeiro dia).
+   */
+  if (ops.length > 0) {
+    return semContato < DIAS_NEGOCIO_PARADO ? { tipo: "sem_proximo", dias: semContato, ...base } : null;
+  }
   if (semContato >= DIAS_ESFRIANDO && CATEGORIAS_PARCEIRO.includes(rel.categoria ?? "")) {
     return { tipo: "esfriando", dias: semContato, ...base };
   }

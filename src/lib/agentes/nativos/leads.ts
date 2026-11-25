@@ -79,7 +79,11 @@ export function donoDoLead(lead: Pick<LeadSla, "vendedor_id" | "sdr_id">): strin
 }
 
 function horaCurta(ms: number): string {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(ms);
+  // Com o dia quando não é hoje: "venceu às 14:20" de anteontem confundia.
+  const fuso = { timeZone: "America/Sao_Paulo" } as const;
+  const dia = (x: number) => new Intl.DateTimeFormat("pt-BR", { ...fuso, day: "2-digit", month: "2-digit" }).format(x);
+  const hora = new Intl.DateTimeFormat("pt-BR", { ...fuso, hour: "2-digit", minute: "2-digit" }).format(ms);
+  return dia(ms) === dia(Date.now()) ? hora : `${hora} de ${dia(ms)}`;
 }
 
 function atraso(min: number): string {
