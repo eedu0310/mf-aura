@@ -25,11 +25,13 @@ import { modeloDeVolume } from "@/lib/aura/modelos";
 import { dentroDoHorario, horarioEmTexto, limparHorario, type Horario } from "@/lib/site-mf/horario";
 import { contaDaLoja, dentroDaJanela, enviarMensagem, responderComentario } from "./cliente";
 import { registrarEnviada } from "./conversa";
+import { abrirLeadDoSite, telefoneDoSite } from "@/lib/site-mf/servidor";
 
 type ClienteServico = NonNullable<ReturnType<typeof getSupabaseServiceClient>>;
 
 export const NOME_DO_AGENTE = "assistente virtual";
-const MAX_RESPOSTAS_24H = 6;
+const MAX_RESPOSTAS_24H = 20;
+const ESPERA_CONVERSA_MS = 12_000;
 const ESPERA_NA_HORA_MS = 20_000;
 const MARGEM_DA_JANELA_MS = 10 * 60_000;
 const POR_RODADA = 15;
@@ -169,6 +171,11 @@ COMO ESCREVER
 
 OBJETIVO
 ${p.objetivo}
+${publico ? "" : `
+VOCÊ CONDUZ A CONVERSA ATÉ PASSAR PARA O VENDEDOR
+- Continue a conversa normalmente a cada nova mensagem do cliente, como um atendente faria.
+- Ao longo da conversa, colete (um item de cada vez, sem parecer formulário): o nome, o WhatsApp com DDD, a cidade e o que a pessoa procura.
+- Quando tiver nome, WhatsApp e o que ela procura, agradeça e diga que um consultor da ${p.papel === "fabrica" ? "equipe" : "loja"} vai chamar no WhatsApp em breve para continuar.`}
 
 REGRAS QUE NÃO PODEM SER QUEBRADAS
 - Fale SOMENTE do que está nos MATERIAIS DESTA ${p.papel === "fabrica" ? "FÁBRICA" : "LOJA"} abaixo: produtos, marcas, modelos, dados técnicos e serviços. Não cite produto, marca ou informação que não esteja lá, nem de outras lojas. Se não estiver lá, diga que o consultor confirma.
@@ -215,7 +222,10 @@ function descreverAnexo(tipo: string) {
  * Responde a conversa se ainda for a vez da loja. `motivo` só muda o que o
  * agente sabe da situação.
  */
-export async function responderConversa(conversaId: string, motivo: "demora" | "fora_do_horario"): Promise<boolean> {
+export async function responderConversa(
+  conversaId: string,
+  motivo: "demora" | "fora_do_horario" | "conversa",
+): Promise<boolean> {
   const sb = getSupabaseServiceClient();
   if (!sb || !ia() || emAndamento.has(conversaId)) return false;
   emAndamento.add(conversaId);
@@ -263,9 +273,11 @@ export async function responderConversa(conversaId: string, motivo: "demora" | "
     const mat = await material(sb, conversa.empresa, assunto);
     const nome = conversa.cliente_nome || (conversa.cliente_usuario ? `@${conversa.cliente_usuario}` : "não informado");
     const situacao =
-      motivo === "fora_do_horario"
+      motivo === "conversa"
+        ? "você já está atendendo este cliente nesta conversa; continue de onde parou, sem se apresentar de novo."
+        : motivo === "fora_do_horario"
         ? "agora é FORA do horário de atendimento da equipe."
-        : `o cliente está esperando há mais de ${cfg.esperar_horas} hora(s) e a equipe ainda não conseguiu responder. Agradeça a paciência de forma natural, sem se desculpar demais.`;
+        : `o cliente está esperando há mais de ${cfg.esperar_horas < 1 ? `${Math.round(cfg.esperar_horas * 60)} minutos` : `${cfg.esperar_horas} hora(s)`} e a equipe ainda não conseguiu responder. Agradeça a paciência de forma natural, sem se desculpar demais.`;
     const sistema = `${regras(conversa.empresa, cfg, situacao, false)}
 Cliente: ${nome}.
 
@@ -290,6 +302,7 @@ ${mat || "(nenhum material cadastrado: não fale de produto nenhum; cumprimente,
     if (!conta) return false;
     const r = await enviarMensagem(conta, String(conversa.cliente_ig_id), texto);
     await registrarEnviada(sb, conversaId, { mid: r?.message_id, texto, porIa: true });
+    await talvezPassarLead(sb, conversaId).catch((e) => console.error("[instagram/agente] passar lead:", (e as Error).message));
     return true;
   } catch (e) {
     console.error("[instagram/agente]", (e as Error).message);
@@ -300,16 +313,132 @@ ${mat || "(nenhum material cadastrado: não fale de produto nenhum; cumprimente,
 }
 
 /** Chamado pelo webhook: fora do horário, responde em seguida (se ligado). */
+/** O agente é quem está atendendo esta conversa agora? (respondeu por último, sem vendedor depois) */
+async function agenteEstaAtendendo(sb: ClienteServico, conversaId: string) {
+  const { data } = await sb
+    .from("meta_mensagens")
+    .select("por_ia")
+    .eq("conversa_id", conversaId)
+    .eq("de_mim", true)
+    .order("criado_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return Boolean(data?.por_ia);
+}
+
+/**
+ * Chamado pelo webhook a cada mensagem do cliente.
+ *  - Se o agente já está atendendo (a última resposta da loja foi dele), ele
+ *    continua a conversa na hora: pedido do Elton (25/11), atender 100% até
+ *    passar o lead para o vendedor.
+ *  - Fora do horário da loja (se ligado), entra na hora.
+ */
 export async function agenteNaHora(conversaId: string) {
   const sb = getSupabaseServiceClient();
   if (!sb) return;
-  const { data: c } = await sb.from("meta_conversas").select("empresa").eq("id", conversaId).maybeSingle();
-  if (!c) return;
+  const { data: c } = await sb.from("meta_conversas").select("empresa, ia_pausada").eq("id", conversaId).maybeSingle();
+  if (!c || c.ia_pausada) return;
   const cfg = await configDoAgente(sb, c.empresa);
-  if (!cfg.ativa || !cfg.fora_do_horario || dentroDoHorario(cfg.horario)) return;
+  if (!cfg.ativa) return;
+  const continuando = await agenteEstaAtendendo(sb, conversaId);
+  const fora = cfg.fora_do_horario && !dentroDoHorario(cfg.horario);
+  if (!continuando && !fora) return;
   // O cliente costuma mandar duas ou três mensagens seguidas: espera um pouco.
-  await esperar(ESPERA_NA_HORA_MS);
-  await responderConversa(conversaId, "fora_do_horario");
+  await esperar(continuando ? ESPERA_CONVERSA_MS : ESPERA_NA_HORA_MS);
+  await responderConversa(conversaId, continuando ? "conversa" : "fora_do_horario");
+}
+
+// --- Passar o lead para o vendedor ------------------------------------------
+
+/**
+ * Depois de cada resposta, se o cliente já deu um telefone, a IA lê a
+ * conversa e tira nome, WhatsApp, cidade e o que procura. Com WhatsApp e
+ * interesse, abre o lead na loja (cai na distribuição normal, com dono), avisa
+ * quem vai atender e pausa o agente nesta conversa — daí em diante é o
+ * vendedor.
+ */
+async function talvezPassarLead(sb: ClienteServico, conversaId: string) {
+  const { data: conversa } = await sb
+    .from("meta_conversas")
+    .select("id, empresa, cliente_nome, cliente_usuario, owner_id, ia_pausada")
+    .eq("id", conversaId)
+    .maybeSingle();
+  if (!conversa || conversa.owner_id || conversa.ia_pausada) return;
+
+  const { data: msgs } = await sb
+    .from("meta_mensagens")
+    .select("de_mim, texto, por_ia")
+    .eq("conversa_id", conversaId)
+    .order("criado_em", { ascending: true })
+    .limit(80);
+  const lista = msgs ?? [];
+  const doCliente = lista.filter((m) => !m.de_mim).map((m) => m.texto ?? "").join("\n");
+  // Sem nada que pareça telefone, nem gasta IA.
+  if (!/(\d[\s().-]*){10,}/.test(doCliente)) return;
+  if (!(await podeChamarIA())) return;
+
+  const conversaTexto = lista
+    .map((m) => `${m.de_mim ? (m.por_ia ? "Assistente" : "Loja") : "Cliente"}: ${m.texto ?? ""}`)
+    .join("\n")
+    .slice(-6000);
+  const bruto = await gerar(
+    `Leia a conversa de Instagram abaixo e responda SOMENTE um JSON, sem texto em volta, assim:
+{"nome": string|null, "whatsapp": string|null, "cidade": string|null, "procura": string|null, "resumo": string}
+- whatsapp: o telefone que o CLIENTE informou, só dígitos com DDD; null se não informou.
+- procura: o produto ou serviço que o cliente quer, em poucas palavras; null se ainda não disse.
+- resumo: 1 a 3 frases para o vendedor (ambiente, dúvidas, urgência).`,
+    [{ role: "user", content: conversaTexto }],
+    conversa.empresa,
+    300,
+  );
+  let dados: { nome?: string | null; whatsapp?: string | null; cidade?: string | null; procura?: string | null; resumo?: string } = {};
+  try {
+    dados = JSON.parse(bruto.slice(bruto.indexOf("{"), bruto.lastIndexOf("}") + 1));
+  } catch {
+    return;
+  }
+  const telefone = telefoneDoSite(dados.whatsapp);
+  if (!telefone || telefone.length < 12 || !dados.procura) return;
+
+  const nome = dados.nome || conversa.cliente_nome || (conversa.cliente_usuario ? `@${conversa.cliente_usuario}` : null);
+  const lead = await abrirLeadDoSite(sb, {
+    empresa: conversa.empresa,
+    nome,
+    telefone,
+    email: null,
+    origem: "Instagram · Direct",
+    mensagem:
+      `Instagram${conversa.cliente_usuario ? ` @${conversa.cliente_usuario}` : ""} · atendido pelo agente de IA\n` +
+      `Nome: ${nome ?? "-"}\nWhatsApp: ${telefone}\nCidade: ${dados.cidade ?? "-"}\nProcura: ${dados.procura}\n` +
+      (dados.resumo ? `Resumo: ${dados.resumo}` : ""),
+  });
+  if (!lead.id) {
+    console.error("[instagram/agente] lead:", lead.erro);
+    return;
+  }
+
+  const { data: dono } = await sb.from("leads_recebidos").select("vendedor_id, sdr_id").eq("id", lead.id).maybeSingle();
+  const responsavel = dono?.vendedor_id ?? dono?.sdr_id ?? null;
+  await sb
+    .from("meta_conversas")
+    .update({ ia_pausada: true, ...(responsavel ? { owner_id: responsavel } : {}) })
+    .eq("id", conversaId);
+
+  // Avisa quem vai atender e quem cuida do Instagram da loja.
+  const { data: equipe } = await sb.from("profiles").select("id, permissoes").eq("empresa", conversa.empresa).neq("ativo", false);
+  const ids = new Set<string>([dono?.vendedor_id, dono?.sdr_id].filter(Boolean) as string[]);
+  for (const p of equipe ?? []) if ((p.permissoes as any)?.usar_instagram) ids.add(String(p.id));
+  if (ids.size) {
+    await sb.from("notificacoes").insert(
+      [...ids].map((id) => ({
+        vendedor_id: id,
+        titulo: "Lead do Instagram",
+        mensagem: `${nome ?? "Cliente"} (${dados.cidade ?? "cidade não informada"}) quer ${dados.procura}. WhatsApp ${telefone}. O agente passou para você.`.slice(0, 300),
+        tipo: "lead",
+        acao_url: lead.novo ? "/leads" : "/instagram",
+      })),
+    );
+  }
 }
 
 // --- Comentários ------------------------------------------------------------
@@ -362,6 +491,25 @@ export async function rodadaDoAgente() {
         .limit(POR_RODADA);
       for (const c of candidatas ?? []) {
         if (await responderConversa(c.id, fora ? "fora_do_horario" : "demora")) resumo.conversas++;
+      }
+
+      // Rede de segurança da conversa contínua: onde o agente já está
+      // atendendo e o cliente escreveu há mais de 1 minuto sem resposta.
+      const { data: emAtendimento } = await sb
+        .from("meta_conversas")
+        .select("id")
+        .eq("empresa", empresa)
+        .eq("ignorado", false)
+        .eq("ia_pausada", false)
+        .not("ia_respondeu_em", "is", null)
+        .gt("responde_ate", new Date(Date.now() + MARGEM_DA_JANELA_MS).toISOString())
+        .gt("ultima_em", limite)
+        .lte("ultima_em", new Date(Date.now() - 60_000).toISOString())
+        .limit(POR_RODADA);
+      for (const c of emAtendimento ?? []) {
+        if (await agenteEstaAtendendo(sb, c.id)) {
+          if (await responderConversa(c.id, "conversa")) resumo.conversas++;
+        }
       }
 
       if (cfg.responder_comentarios) {
