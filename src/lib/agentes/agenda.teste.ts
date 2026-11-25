@@ -27,7 +27,8 @@ const guardiao: Agenda = { tipo: "diario", horas: [23], minuto: 30 };
 const dezMin: Agenda = { tipo: "intervalo", minutos: 10 };
 
 // ---- diário
-conferir("antes do primeiro horário não está devido", estaDevido(diretora, null, sp("2026-11-25", "07:10")), false);
+conferir("nunca rodou: roda já, mesmo antes do primeiro horário", estaDevido(diretora, null, sp("2026-11-25", "07:10")), true);
+conferir("depois da primeira, antes do horário não está devido", estaDevido(diretora, sp("2026-11-24", "07:20"), sp("2026-11-25", "07:10")), false);
 conferir("7h20: devido (nunca rodou)", estaDevido(diretora, null, sp("2026-11-25", "07:20")), true);
 conferir("7h30 depois de rodar às 7h20: não", estaDevido(diretora, sp("2026-11-25", "07:20"), sp("2026-11-25", "07:30")), false);
 conferir("rodou ontem às 18h: hoje 7h25 está devido", estaDevido(diretora, sp("2026-11-24", "18:00"), sp("2026-11-25", "07:25")), true);

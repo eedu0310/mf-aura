@@ -111,6 +111,10 @@ export function estaDevido(agenda: Agenda, ultimoInicio: Date | null, agora: Dat
     if (!ultimoInicio) return true;
     return agora.getTime() - ultimoInicio.getTime() >= minutos * MINUTO - FOLGA_INTERVALO_MS;
   }
+  // Agente diário que nunca rodou roda já, na primeira passada do cron: o
+  // Caçador de Brechas (6h) foi ligado às 15h20 de 25/11 e ficaria parado até
+  // a manhã seguinte, sem nenhum relatório. Depois da primeira, segue o horário.
+  if (!ultimoInicio) return true;
   const marcado = ultimoHorario(agenda, agora);
   if (!marcado) return false;
   if (agora.getTime() - marcado.getTime() > ATRASO_MAXIMO_MS) return false;
