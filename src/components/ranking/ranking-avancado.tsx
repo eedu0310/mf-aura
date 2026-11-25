@@ -16,11 +16,10 @@ const SERIE = ["var(--aura-gold)", "var(--aura-success)", "var(--aura-petrol-500
 interface Parcela {
   criterioId: string;
   titulo: string;
-  /** null na parcela em R$ de colega: só o gestor recebe esse número. */
-  feito: number | null;
+  feito: number;
   meta: number;
   peso: number;
-  pontos: number | null;
+  pontos: number;
 }
 
 interface Nota {
@@ -39,8 +38,7 @@ interface Resposta {
   eu: string;
   periodo: string;
   bonus: { crmMinimo: number; descricao: string };
-  ranking: { id: string; faturamento: number | null }[];
-  faturamentoVisivel?: "grupo" | "loja" | "proprio";
+  ranking: { id: string; faturamento: number }[];
 }
 
 const moeda = (v: number) =>
@@ -97,18 +95,7 @@ export function RankingAvancado() {
 
   const cartoes = [
     { rotulo: "Nota média da equipe", valor: media.toFixed(1), sufixo: "de 10", Icone: TrendingUp },
-    {
-      // A rota só manda o R$ que a pessoa pode ver; o rótulo diz de quem é a soma.
-      rotulo:
-        dados.faturamentoVisivel === "proprio"
-          ? "Seu faturamento no período"
-          : dados.faturamentoVisivel === "loja"
-            ? "Faturamento da sua loja"
-            : "Faturamento no período",
-      valor: moeda(faturamentoTotal),
-      sufixo: "",
-      Icone: Wallet,
-    },
+    { rotulo: "Faturamento no período", valor: moeda(faturamentoTotal), sufixo: "", Icone: Wallet },
     { rotulo: "Avaliações conquistadas", valor: String(avaliacoes), sufixo: "clientes", Icone: Star },
     {
       rotulo: dados.bonus.descricao,
@@ -201,15 +188,13 @@ export function RankingAvancado() {
                     </p>
                     <ul className="space-y-2.5">
                       {n.parcelas.map((p, i) => {
-                        const proporcao = p.feito !== null && p.meta > 0 ? Math.min(1, p.feito / p.meta) : 0;
+                        const proporcao = p.meta > 0 ? Math.min(1, p.feito / p.meta) : 0;
                         return (
                           <li key={p.criterioId}>
                             <div className="flex items-baseline justify-between gap-2 text-xs">
                               <span className="truncate text-aura-graphite">{p.titulo}</span>
                               <span className="shrink-0 tabular-nums text-aura-graphite-soft">
-                                {p.feito === null || p.pontos === null
-                                  ? `só o gestor vê · peso ${p.peso}`
-                                  : `${p.feito}/${p.meta} · ${p.pontos.toFixed(1)} de ${p.peso}`}
+                                {p.feito}/{p.meta} · {p.pontos.toFixed(1)} de {p.peso}
                               </span>
                             </div>
                             <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-aura-mist">

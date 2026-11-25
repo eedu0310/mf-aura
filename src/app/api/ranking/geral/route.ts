@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
@@ -162,40 +162,10 @@ export async function GET(request: Request) {
      */
   };
 
-  /*
-   * Dinheiro dos colegas é do gestor, não da disputa.
-   *
-   * Nome, loja, posição e nota de todo mundo continuam abertos: é o jogo. O
-   * valor em R$ que cada um vendeu, não. Antes esta rota (que usa a chave de
-   * serviço e passa por cima da RLS) mandava para qualquer vendedor o
-   * faturamento de cada colega das quatro lojas — e a tela mostrava. A régua
-   * é a mesma do banco: o mestre vê as quatro lojas, o gestor aprovado vê a
-   * loja dele, os demais só o próprio número. A posição continua calculada
-   * com o valor real; só o número sai da resposta.
-   */
-  const souMestre = vejoTodasAsLojas(auth);
-  const souGestor = mandaNaLoja(auth);
-  const vejoDinheiroDe = (id: string, loja: string) =>
-    id === auth.userId || souMestre || (souGestor && loja === auth.empresa);
-  const criteriosEmReais = new Set(criterios.filter((c) => c.medida === "faturamento").map((c) => c.id));
-
-  const notasCompletas = time
+  const notas = time
     .map((p) => calcularNota(p, criterios, insumos, desdeIso, bonusMinimo))
     .sort((a, b) => b.nota - a.nota || a.nome.localeCompare(b.nome, "pt-BR"))
     .map((n, i) => ({ ...n, posicao: i + 1 }));
-
-  // Na parcela em R$ saem o "feito" e os pontos: com a meta à vista, os
-  // pontos da parcela davam o faturamento de volta (pontos / peso × meta).
-  const notas = notasCompletas.map((n) =>
-    vejoDinheiroDe(n.vendedorId, n.loja)
-      ? n
-      : {
-          ...n,
-          parcelas: n.parcelas.map((p) =>
-            criteriosEmReais.has(p.criterioId) ? { ...p, feito: null, pontos: null } : p,
-          ),
-        },
-  );
 
   // Uma disputa por critério, para quem quiser ver o detalhe de cada frente.
   const rankings = criterios
@@ -205,21 +175,17 @@ export async function GET(request: Request) {
       titulo: c.titulo,
       descricao: c.descricao ?? "",
       unidade: c.medida === "faturamento" ? ("moeda" as const) : ("quantidade" as const),
-      linhas: notasCompletas
+      linhas: notas
         .map((n) => {
           const parcela = n.parcelas.find((p) => p.criterioId === c.id);
           return { id: n.vendedorId, nome: n.nome, loja: n.loja, valor: parcela?.feito ?? 0 };
         })
         .sort((a, b) => b.valor - a.valor || a.nome.localeCompare(b.nome, "pt-BR"))
-        .map((l, i) => ({
-          ...l,
-          posicao: i + 1,
-          valor: criteriosEmReais.has(c.id) && !vejoDinheiroDe(l.id, l.loja) ? null : l.valor,
-        })),
+        .map((l, i) => ({ ...l, posicao: i + 1 })),
     }));
 
   // Formato antigo, que as telas atuais ainda consomem.
-  const ranking = notasCompletas.map((n) => ({
+  const ranking = notas.map((n) => ({
     id: n.vendedorId,
     nome: n.nome,
     empresa: n.loja,
@@ -231,8 +197,7 @@ export async function GET(request: Request) {
     // A mesma conta do critério "faturamento" da nota (src/lib/kpis.ts): a
     // fatia de cada um na venda em dupla. Filtrar pelo dono dava a venda
     // inteira a ele e nada ao parceiro, e esta coluna não batia com a nota.
-    // De colega, só para o gestor (ver vejoDinheiroDe acima).
-    faturamento: vejoDinheiroDe(n.vendedorId, n.loja) ? totalVendido(insumos.vendas, n.vendedorId) : null,
+    faturamento: totalVendido(insumos.vendas, n.vendedorId),
     vendas: quantidadeDeVendas(insumos.vendas, n.vendedorId),
     atividades: insumos.atividades.filter((a) => a.owner_id === n.vendedorId && ehAtividadeDoVendedor(a)).length,
     relacionamentos: insumos.relacionamentos.filter((r) => r.owner_id === n.vendedorId).length,
@@ -244,8 +209,6 @@ export async function GET(request: Request) {
     rankings,
     criterios,
     eu: auth.userId,
-    // De quem o R$ veio na resposta, para a tela dizer o que está somando.
-    faturamentoVisivel: souMestre ? "grupo" : souGestor ? "loja" : "proprio",
     periodo: dias > 0 ? `Últimos ${dias} dias` : "Este mês",
     bonus: {
       crmMinimo: bonusMinimo,

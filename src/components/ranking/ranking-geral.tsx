@@ -8,8 +8,7 @@ interface Linha {
   id: string;
   nome: string;
   loja: string;
-  /** null: valor em R$ de colega, que só o gestor recebe da rota. */
-  valor: number | null;
+  valor: number;
   posicao: number;
 }
 
@@ -25,7 +24,6 @@ interface Resposta {
   eu: string;
   periodo: string;
   rankings: Disputa[];
-  faturamentoVisivel?: "grupo" | "loja" | "proprio";
 }
 
 const moeda = (v: number) =>
@@ -131,12 +129,7 @@ export function RankingGeral() {
               <ul className="divide-y divide-aura-mist">
                 {disputa.linhas.map((linha) => {
                   const sou = linha.id === dados.eu;
-                  // Sem o número do líder ou o da linha, a barra fica vazia: a
-                  // proporção sozinha devolveria o R$ do colega a partir do meu.
-                  const proporcao =
-                    lider > 0 && linha.valor !== null
-                      ? Math.max(2, Math.round((linha.valor / lider) * 100))
-                      : 0;
+                  const proporcao = lider > 0 ? Math.max(2, Math.round((linha.valor / lider) * 100)) : 0;
                   return (
                     <li
                       key={linha.id}
@@ -160,7 +153,7 @@ export function RankingGeral() {
                         </div>
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-aura-graphite">
-                        {linha.valor === null ? "—" : disputa.unidade === "moeda" ? moeda(linha.valor) : linha.valor}
+                        {disputa.unidade === "moeda" ? moeda(linha.valor) : linha.valor}
                       </p>
                     </li>
                   );
@@ -175,8 +168,6 @@ export function RankingGeral() {
               <p className="border-t border-aura-mist bg-aura-sunken/50 px-5 py-3 text-xs text-aura-graphite-soft">
                 O ranking é do grupo inteiro. A carteira de cada um continua privada: aqui aparece
                 só a posição e o número da disputa.
-                {disputa.unidade === "moeda" && dados.faturamentoVisivel !== "grupo" &&
-                  " Em disputa de faturamento, o valor em R$ de cada colega fica só com o gestor."}
               </p>
             </section>
           )}
