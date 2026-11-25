@@ -45,12 +45,18 @@ export function EscritorioPixel({
   diretoraId,
   abertoId,
   aoAbrir,
+  zoom = null,
 }: {
   mesas: MesaAgente[];
   falas: FalaEscritorio[];
   diretoraId: string | null;
   abertoId: string | null;
   aoAbrir: (id: string) => void;
+  /**
+   * null = a planta ocupa a largura toda do espaço (ajustar). Um número
+   * amplia: cada ladrilho fica com TILE × zoom pixels e a área rola.
+   */
+  zoom?: number | null;
 }) {
   const planta = useMemo(
     () => montarPlanta(mesas.map((m) => ({ id: m.id, setor: m.setor, chefe: m.id === diretoraId }))),
@@ -68,8 +74,14 @@ export function EscritorioPixel({
 
       {/* Tela média para cima: o prédio inteiro. */}
       <div className="hidden sm:block">
-        <div className="overflow-x-auto rounded-xl border border-aura-mist bg-aura-sunken/40">
-          <div style={{ minWidth: planta.largura * TILE * 1.15 }}>
+        <div className="overflow-auto rounded-xl border border-aura-mist bg-aura-sunken/40">
+          <div
+            style={
+              zoom
+                ? { width: planta.largura * TILE * zoom, maxWidth: "none" }
+                : { minWidth: planta.largura * TILE * 1.15 }
+            }
+          >
             <Quadro
               moldura={{ x: 0, y: 0, w: planta.largura, h: planta.altura }}
               salas={planta.salas}

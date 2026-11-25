@@ -38,7 +38,7 @@ function Casca({ children }: { children: React.ReactNode }) {
 
   return (
     <AreaDeTrabalho nome="Painel do Gestor" selo="GESTOR" inicio="/gestor" grupos={grupos}>
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+      <main className="mx-auto w-full max-w-screen-2xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </AreaDeTrabalho>
   );
 }

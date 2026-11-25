@@ -20,8 +20,23 @@
  * a equipe inteira aparece "aguardando ativação", com um aviso claro, e o
  * resto da tela fica vazio sem quebrar.
  */
-import { useCallback, useMemo, useState } from "react";
-import { Bot, Crown, DatabaseZap, LayoutGrid, Map as MapaIcone, MessageCircle, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Bot,
+  Crown,
+  DatabaseZap,
+  LayoutGrid,
+  Map as MapaIcone,
+  Maximize2,
+  MessageCircle,
+  Minus,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  RefreshCw,
+  Scan,
+  X,
+} from "lucide-react";
 import type { MesaAgente } from "@/lib/agentes/tipos";
 import { Alerta, Botao, Card, EstadoVazio, Selo, StatCard } from "@/components/ui";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
@@ -53,6 +68,31 @@ export function Escritorio() {
   const [vista, setVista] = useState<"planta" | "lista">("planta");
   const [conversaAberta, setConversaAberta] = useState(false);
   const fecharConversa = useCallback(() => setConversaAberta(false), []);
+
+  /*
+   * TELA CHEIA (pedido do Elton, 25/11: "ficou ruim de ver, usa mais a tela"):
+   * a planta ocupa a tela inteira, com zoom (−, ajustar, +) e o mural como um
+   * painel lateral que abre e fecha. Esc fecha. null no zoom = ajustar à largura.
+   */
+  const [telaCheia, setTelaCheia] = useState(false);
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [muralNaTela, setMuralNaTela] = useState(true);
+  useEffect(() => {
+    if (!telaCheia) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      // Com a ficha ou a conversa aberta, o Esc fecha elas primeiro.
+      if (e.key === "Escape" && !abertoId && !conversaAberta) setTelaCheia(false);
+    };
+    document.addEventListener("keydown", aoTeclar);
+    const overflowAntes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", aoTeclar);
+      document.body.style.overflow = overflowAntes;
+    };
+  }, [telaCheia, abertoId, conversaAberta]);
+  const ampliar = (passo: number) =>
+    setZoom((z) => Math.min(6, Math.max(1, Math.round(((z ?? 2) + passo) * 2) / 2)));
 
   const mesas = useMemo(() => estado?.mesas ?? [], [estado]);
   const falas = estado?.falas ?? [];
@@ -110,19 +150,38 @@ export function Escritorio() {
         <span className="hidden text-xs text-aura-graphite-soft sm:inline">
           · {vista === "planta" ? "passe o mouse em um agente para ver o que ele está fazendo" : "uma sala por setor, um cartão por agente"}
         </span>
-        <Botao
-          tamanho="sm"
-          variante="fantasma"
-          icone={vista === "planta" ? LayoutGrid : MapaIcone}
-          className="ml-auto"
-          onClick={() => setVista((v) => (v === "planta" ? "lista" : "planta"))}
-          aria-pressed={vista === "lista"}
-        >
-          {vista === "planta" ? "Ver como lista" : "Ver o escritório"}
-        </Botao>
+        <div className="ml-auto flex items-center gap-1.5">
+          {vista === "planta" && mesas.length > 0 && (
+            <Botao
+              tamanho="sm"
+              variante="primario"
+              icone={Maximize2}
+              className="hidden sm:inline-flex"
+              onClick={() => {
+                setZoom(null);
+                setTelaCheia(true);
+              }}
+            >
+              Tela cheia
+            </Botao>
+          )}
+          <Botao
+            tamanho="sm"
+            variante="fantasma"
+            icone={vista === "planta" ? LayoutGrid : MapaIcone}
+            onClick={() => setVista((v) => (v === "planta" ? "lista" : "planta"))}
+            aria-pressed={vista === "lista"}
+          >
+            {vista === "planta" ? "Ver como lista" : "Ver o escritório"}
+          </Botao>
+        </div>
       </div>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      {/*
+        A planta ocupa a largura toda; o mural vem logo abaixo. Antes os dois
+        dividiam a linha e o escritório ficava pequeno demais para ler.
+      */}
+      <div className="space-y-6">
         <section aria-label="Planta do escritório" className="min-w-0">
           {mesas.length > 0 && vista === "planta" ? (
             <EscritorioPixel
@@ -165,6 +224,66 @@ export function Escritorio() {
           aoAbrirAgente={setAbertoId}
         />
       </div>
+
+      {telaCheia && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Escritório em tela cheia"
+          className="fixed inset-0 z-40 flex flex-col bg-aura-bg"
+        >
+          <div className="flex flex-wrap items-center gap-2 border-b border-aura-mist bg-aura-surface px-4 py-2.5">
+            <h2 className="text-sm font-semibold text-aura-graphite">O escritório agora</h2>
+            <span className="hidden text-xs text-aura-graphite-soft md:inline">
+              · clique num agente para ver a ficha · Esc para sair
+            </span>
+            <div className="ml-auto flex items-center gap-1">
+              <Botao tamanho="sm" variante="secundario" icone={Minus} aria-label="Diminuir" onClick={() => ampliar(-0.5)} disabled={zoom === 1} />
+              <Botao tamanho="sm" variante={zoom === null ? "primario" : "secundario"} icone={Scan} onClick={() => setZoom(null)}>
+                Ajustar
+              </Botao>
+              <Botao tamanho="sm" variante="secundario" icone={Plus} aria-label="Aumentar" onClick={() => ampliar(0.5)} disabled={zoom === 6} />
+              <span className="mx-1 h-5 w-px bg-aura-mist" aria-hidden />
+              <Botao tamanho="sm" variante="secundario" icone={MessageCircle} onClick={() => setConversaAberta(true)}>
+                Diretora
+              </Botao>
+              <Botao
+                tamanho="sm"
+                variante="secundario"
+                icone={muralNaTela ? PanelRightClose : PanelRightOpen}
+                onClick={() => setMuralNaTela((v) => !v)}
+                aria-pressed={muralNaTela}
+              >
+                Mural
+              </Botao>
+              <Botao tamanho="sm" variante="fantasma" icone={X} aria-label="Sair da tela cheia" onClick={() => setTelaCheia(false)} />
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-auto p-4">
+              <EscritorioPixel
+                mesas={mesas}
+                falas={falas}
+                diretoraId={diretora?.id ?? null}
+                abertoId={abertoId}
+                aoAbrir={setAbertoId}
+                zoom={zoom}
+              />
+            </div>
+            {muralNaTela && (
+              <aside className="hidden w-[24rem] shrink-0 overflow-y-auto border-l border-aura-mist bg-aura-surface p-4 lg:block">
+                <ConversaEquipe
+                  falas={falas}
+                  mesas={mesas}
+                  carregando={carregando}
+                  equipeAtiva={equipeAtiva}
+                  aoAbrirAgente={setAbertoId}
+                />
+              </aside>
+            )}
+          </div>
+        </div>
+      )}
 
       <GavetaAgente
         mesa={aberta}
