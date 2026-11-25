@@ -23,6 +23,7 @@ import { FunilTab } from "@/components/gestor/funil-tab";
 import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 import { EquipeTab } from "@/components/gestor/equipe-tab";
 import { AparenciaTab } from "@/components/gestor/aparencia-tab";
+import { LeadsExcluidosTab } from "@/components/gestor/leads-excluidos-tab";
 import { hrefDaAbaGestor, useAbaGestor } from "@/components/gestor/areas";
 
 // A área Agentes só carrega o código dela quando alguém abre uma das abas.
@@ -108,6 +109,7 @@ export default function GestorPage() {
       {atual.id === "aprendizado" && <AprendizadoCard />}
       {atual.id === "dashboard" && <DashboardTab />}
       {atual.id === "planilha" && <PlanilhaLeadsDashboard />}
+      {atual.id === "leads-excluidos" && <LeadsExcluidosTab />}
       {atual.id === "usuarios" && <UsuariosTab />}
       {atual.id === "permissoes" && <PermissoesTab />}
       {atual.id === "instagram" && <InstagramTab />}

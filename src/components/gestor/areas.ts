@@ -39,6 +39,7 @@ import {
   Sparkles,
   Star,
   Table2,
+  Trash2,
   Target,
   Trophy,
   Users,
@@ -52,6 +53,7 @@ import { usarMeuAcesso } from "@/lib/usar-permissoes";
 
 export type AbaGestor =
   | "aparencia"
+  | "leads-excluidos"
   | "aura"
   | "dashboard"
   | "planilha"
@@ -113,6 +115,7 @@ export const ABAS_GESTOR: Array<{
   // Relatórios
   { id: "semanal", label: "Relatório do período", descricao: "Fechou, perdeu e onde cada um erra", icon: CalendarRange, area: "relatorios" },
   { id: "planilha", label: "Planilha de leads", descricao: "Indicadores de leads preenchidos pela equipe", icon: Table2, area: "relatorios" },
+  { id: "leads-excluidos", label: "Leads excluídos", descricao: "A lixeira: quem excluiu, quando e de onde o lead veio", icon: Trash2, area: "relatorios" },
   // Pessoas e acessos
   { id: "usuarios", label: "Usuários", descricao: "Gerencie os acessos da empresa", icon: Users, area: "acessos" },
   { id: "permissoes", label: "Permissões", descricao: "Aprovar gestores e definir o que cada um faz", icon: ShieldCheck, area: "acessos" },

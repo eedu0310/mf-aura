@@ -240,8 +240,8 @@ create index if not exists treinamento_progresso_treinamento_idx
 -- ===================================================================
 alter table public.aura_agentes drop constraint if exists aura_agentes_setor_check;
 alter table public.aura_agentes add constraint aura_agentes_setor_check
-  check (setor in (direcao, vendas, pos-venda, marketing, gestao,
-                   conhecimento, dados, atendimento, seguranca));
+  check (setor in ('direcao', 'vendas', 'pos-venda', 'marketing', 'gestao',
+                   'conhecimento', 'dados', 'atendimento', 'seguranca'));
 
 -- ===================================================================
 -- Conferência: o que esta migração promete, ficou.

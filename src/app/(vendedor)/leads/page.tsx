@@ -137,7 +137,7 @@ export default function LeadsPage() {
   }
 
   async function excluir(lead: Lead) {
-    if (!window.confirm(`Excluir o lead ${lead.nome || lead.telefone}? Esta ação não pode ser desfeita.`)) return;
+    if (!window.confirm(`Excluir o lead ${lead.nome || lead.telefone}? Ele sai da sua lista; o gestor ainda consegue ver na lixeira.`)) return;
     try {
       await excluirLead(lead.id);
       setLeads((prev) => prev.filter((item) => item.id !== lead.id));
