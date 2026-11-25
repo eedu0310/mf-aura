@@ -113,11 +113,17 @@ export function semRepetidos<T extends RecomendacaoBase>(lista: T[]): T[] {
   const melhor = new Map<string, T>();
   const soltos: T[] = [];
   for (const r of lista) {
-    if (!r.entidade_tipo || !r.entidade_id || r.entidade_tipo === "perfil") {
+    // Sem cliente ligado ("Aumentar o ritmo de execução"), o mesmo aviso
+    // voltava a cada rodada da supervisão: havia vendedor com 18 cópias.
+    // Aí o que identifica é quem mandou + o título.
+    const semCliente = !r.entidade_tipo || !r.entidade_id || r.entidade_tipo === "perfil";
+    const chave = semCliente
+      ? `aviso:${r.agente ?? "supervisao"}:${(r.titulo ?? "").trim().toLowerCase()}`
+      : `${r.entidade_tipo}:${r.entidade_id}`;
+    if (semCliente && !r.titulo) {
       soltos.push(r);
       continue;
     }
-    const chave = `${r.entidade_tipo}:${r.entidade_id}`;
     const atual = melhor.get(chave);
     if (!atual) {
       melhor.set(chave, r);

@@ -43,6 +43,13 @@ const repetidos = semRepetidos([
 ]);
 igual(repetidos.map((x) => x.id).sort(), ["b", "c"], "cliente repetido fica uma vez, preferindo o card do agente");
 
+const avisos = semRepetidos([
+  r("r1", "Aumentar o ritmo de execução", "media", { criado_em: "2026-11-20T10:00:00Z" }),
+  r("r2", "Aumentar o ritmo de execução", "urgente", { criado_em: "2026-11-24T10:00:00Z" }),
+  r("r3", "Registrar a rotina comercial", "baixa"),
+]);
+igual(avisos.map((x) => x.id).sort(), ["r2", "r3"], "aviso repetido a cada rodada aparece uma vez (o mais urgente)");
+
 const grupos = agruparPorCategoria([
   r("x1", "Contatar Rudi", "baixa", { entidade_tipo: "relacionamento", entidade_id: "c1" }),
   r("x2", "Lead sem resposta", "urgente", { agente: "leads", entidade_tipo: "lead", entidade_id: "l1" }),
