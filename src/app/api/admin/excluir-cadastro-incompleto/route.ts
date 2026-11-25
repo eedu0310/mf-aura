@@ -154,8 +154,18 @@ export async function POST(request: Request) {
     if (e) return NextResponse.json({ erro: "Não consegui liberar os registros dessa conta. Nada foi apagado." }, { status: 500 });
     if (tabela === "leads_recebidos" && coluna === "vendedor_id") leadsDevolvidos = data?.length ?? 0;
   }
-  for (const tabela of ["notificacoes", "tarefas"] as const) {
-    const { error: e } = await service.from(tabela).delete().eq("vendedor_id", id);
+  // O que era só da pessoa vai junto. Metas, compromissos mensais e
+  // indicadores entram aqui porque a migração 107 troca a cascata desses por
+  // bloqueio: sem esta limpeza, a exclusão voltaria a falhar.
+  const PESSOAIS: Array<[string, string]> = [
+    ["notificacoes", "vendedor_id"],
+    ["tarefas", "vendedor_id"],
+    ["metas", "owner_id"],
+    ["compromissos_mensais", "vendedor_id"],
+    ["indicadores_semanais", "vendedor_id"],
+  ];
+  for (const [tabela, coluna] of PESSOAIS) {
+    const { error: e } = await service.from(tabela).delete().eq(coluna, id);
     if (e) return NextResponse.json({ erro: "Não consegui limpar os avisos dessa conta. A conta não foi apagada." }, { status: 500 });
   }
 

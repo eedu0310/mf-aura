@@ -550,14 +550,17 @@ export async function executarFerramenta(
       if (args.observacao) payload.observacao = args.observacao;
       if (args.reclamacao) payload.reclamacao = args.reclamacao;
 
-      const { error } = await ctx.supabase.from("pos_vendas").update(payload).eq("venda_id", vendaId);
+      // .select() devolve as linhas mudadas: sem permissão (RLS), o update
+      // não dá erro, só muda zero linhas — e a AURA dizia "atualizado" mesmo assim.
+      const { data: mudadas, error } = await ctx.supabase.from("pos_vendas").update(payload).eq("venda_id", vendaId).select("id");
       if (error) return `Não consegui atualizar o pós-venda: ${error.message}`;
+      if (!mudadas?.length) return `Não tenho permissão para mudar o pós-venda de "${args.cliente_nome}". Peça ao pós-venda ou ao gestor da loja.`;
       return `Pós-venda de "${args.cliente_nome}" atualizado para "${args.novo_status}".`;
     }
 
     // registrar_avaliacao_cliente
     const nota = Math.min(5, Math.max(1, Math.round(Number(args.nota))));
-    const { error } = await ctx.supabase
+    const { data: mudadasAval, error } = await ctx.supabase
       .from("pos_vendas")
       .update({
         avaliou_loja: true,
@@ -565,9 +568,11 @@ export async function executarFerramenta(
         comentario_avaliacao: args.comentario || null,
         updated_at: new Date().toISOString(),
       })
-      .eq("venda_id", vendaId);
+      .eq("venda_id", vendaId)
+      .select("id");
 
     if (error) return `Não consegui registrar a avaliação: ${error.message}`;
+    if (!mudadasAval?.length) return `Não tenho permissão para registrar a avaliação de "${args.cliente_nome}". Peça ao pós-venda ou ao gestor da loja.`;
     return `Avaliação de "${args.cliente_nome}" registrada: ${nota} estrela${nota !== 1 ? "s" : ""}.`;
   }
 

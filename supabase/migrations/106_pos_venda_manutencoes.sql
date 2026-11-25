@@ -10,15 +10,26 @@
 -- sem agendar nem registrar.
 --
 -- Permissões no mesmo espírito de pos_vendas:
---   ver     → quem é da mesma loja, quem vê a loja toda (Diretor e Gestor
---             aprovado) e quem vê todas as lojas;
---   mexer   → Pós-venda ou Gestor daquela loja, ou quem vê a loja toda.
--- Só usa funções que já existem em produção: meu_cargo(), minha_empresa(),
--- vejo_a_loja_toda() e pode_ver_todas_empresas() (nada da migração 105).
+--   ver     → quem é da mesma loja, o gestor aprovado DAQUELA loja e o
+--             gestor mestre (todas as lojas);
+--   mexer   → Pós-venda daquela loja, o gestor aprovado daquela loja ou o
+--             gestor mestre.
+--
+-- PRECISA DA 105 (revisão de 25/11/2026): usa administro_a_loja(empresa),
+-- criada lá. Antes usava vejo_a_loja_toda() sozinha, que não confere a loja
+-- (o gestor de uma loja mexeria nas manutenções das outras), e aceitava o
+-- cargo "Gestor" ainda sem aprovação. Ordem de aplicação: 105 → 106 → 107.
 --
 -- Pode rodar mais de uma vez sem estragar nada.
 
 begin;
+
+do $$
+begin
+  if to_regprocedure('public.administro_a_loja(text)') is null then
+    raise exception 'Aplique a migração 105 antes da 106 (falta administro_a_loja).';
+  end if;
+end $$;
 
 create table if not exists public.pos_venda_manutencoes (
   id uuid primary key default gen_random_uuid(),
@@ -78,9 +89,8 @@ grant select, insert, update, delete on public.pos_venda_manutencoes to authenti
 drop policy if exists "Ver manutenções conforme papel" on public.pos_venda_manutencoes;
 create policy "Ver manutenções conforme papel" on public.pos_venda_manutencoes
   for select to authenticated using (
-    empresa = minha_empresa()
-    or vejo_a_loja_toda()
-    or pode_ver_todas_empresas()
+    empresa = public.minha_empresa()
+    or public.administro_a_loja(empresa)
   );
 
 -- Na criação, a loja da manutenção tem de ser a do próprio pós-venda (e a
@@ -89,8 +99,8 @@ drop policy if exists "Criar manutenções conforme papel" on public.pos_venda_m
 create policy "Criar manutenções conforme papel" on public.pos_venda_manutencoes
   for insert to authenticated with check (
     (
-      vejo_a_loja_toda()
-      or (meu_cargo() = any (array['Pós-venda', 'Gestor']) and empresa = minha_empresa())
+      public.administro_a_loja(empresa)
+      or (public.meu_cargo() = 'Pós-venda' and empresa = public.minha_empresa())
     )
     and exists (
       select 1 from public.pos_vendas pv
@@ -103,19 +113,19 @@ drop policy if exists "Atualizar manutenções conforme papel" on public.pos_ven
 create policy "Atualizar manutenções conforme papel" on public.pos_venda_manutencoes
   for update to authenticated
   using (
-    vejo_a_loja_toda()
-    or (meu_cargo() = any (array['Pós-venda', 'Gestor']) and empresa = minha_empresa())
+    public.administro_a_loja(empresa)
+    or (public.meu_cargo() = 'Pós-venda' and empresa = public.minha_empresa())
   )
   with check (
-    vejo_a_loja_toda()
-    or (meu_cargo() = any (array['Pós-venda', 'Gestor']) and empresa = minha_empresa())
+    public.administro_a_loja(empresa)
+    or (public.meu_cargo() = 'Pós-venda' and empresa = public.minha_empresa())
   );
 
 drop policy if exists "Apagar manutenções conforme papel" on public.pos_venda_manutencoes;
 create policy "Apagar manutenções conforme papel" on public.pos_venda_manutencoes
   for delete to authenticated using (
-    vejo_a_loja_toda()
-    or (meu_cargo() = any (array['Pós-venda', 'Gestor']) and empresa = minha_empresa())
+    public.administro_a_loja(empresa)
+    or (public.meu_cargo() = 'Pós-venda' and empresa = public.minha_empresa())
   );
 
 -- Sincronização ao vivo na tela (como pos_vendas), se a publicação existir.
