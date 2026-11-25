@@ -1,11 +1,53 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { carregarRegistro, temMigracao108 } from "@/lib/agentes/motor";
 import { MOTIVO_SEM_108 } from "@/lib/agentes/util";
+import { TabelaFaltando, montarPainelDoAgente } from "@/lib/agentes/painel-dados";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * O painel do agente (o que abre ao clicar nele no escritório): o que ele
+ * falou e ouviu, as rodadas dele, os achados que criou e o resumo de hoje.
+ * Formato em src/lib/agentes/painel.ts (PainelDoAgente).
+ *
+ * Só gestor aprovado. O gestor de uma loja vê as falas e os achados da
+ * própria loja; o gestor mestre vê tudo. Só leitura: nada é gravado aqui.
+ * Sem a migração 110 responde 409 com o motivo (a ficha continua na tela).
+ */
+export async function GET(request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+  const auth = await getEmpresaAutenticada(request);
+  if (!auth) return NextResponse.json({ erro: "Faça login novamente." }, { status: 401 });
+  if (!administra(auth)) {
+    return NextResponse.json({ erro: "Só o gestor aprovado vê o escritório dos agentes." }, { status: 403 });
+  }
+  const sb = getSupabaseServiceClient();
+  if (!sb) return NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 });
+
+  try {
+    const com108 = await temMigracao108(sb);
+    if (!com108) return NextResponse.json({ erro: MOTIVO_SEM_108, motivo: MOTIVO_SEM_108 }, { status: 409 });
+    const registro = await carregarRegistro(sb, true);
+    const agente = registro.find((a) => a.id === id);
+    if (!agente) return NextResponse.json({ erro: "Agente não encontrado." }, { status: 404 });
+
+    const painel = await montarPainelDoAgente(sb, {
+      agente,
+      registro,
+      empresa: vejoTodasAsLojas(auth) ? null : auth.empresa,
+    });
+    return NextResponse.json(painel);
+  } catch (e) {
+    if (e instanceof TabelaFaltando) {
+      return NextResponse.json({ erro: MOTIVO_SEM_108, motivo: MOTIVO_SEM_108 }, { status: 409 });
+    }
+    console.error("[gestor/agentes/[id] GET]", e);
+    return NextResponse.json({ erro: "Não consegui abrir o painel deste agente agora." }, { status: 500 });
+  }
+}
 
 /** Teto de sanidade do orçamento de um agente: erro de digitação não vira conta. */
 const ORCAMENTO_MAXIMO_USD = 200;

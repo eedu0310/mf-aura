@@ -414,13 +414,21 @@ function useFecharNoEsc(aberto: boolean, aoFechar: () => void) {
   }, [aberto, aoFechar]);
 }
 
-/** Gaveta lateral (direita). Fecha no Esc, no X e clicando fora. */
+/**
+ * Gaveta lateral (direita). Fecha no Esc, no X e clicando fora. No celular
+ * ocupa a tela toda. Opcionais: `rotulo` (nome para leitor de tela quando o
+ * título não é texto puro), `larga` (painel com mais coluna) e `faixa`
+ * (conteúdo fixo logo abaixo do cabeçalho, que não rola — as abas do painel).
+ */
 export function Gaveta({
   aberto,
   aoFechar,
   titulo,
   subtitulo,
   icone,
+  rotulo,
+  larga = false,
+  faixa,
   children,
 }: {
   aberto: boolean;
@@ -428,15 +436,28 @@ export function Gaveta({
   titulo: ReactNode;
   subtitulo?: ReactNode;
   icone?: ReactNode;
+  rotulo?: string;
+  larga?: boolean;
+  faixa?: ReactNode;
   children: ReactNode;
 }) {
   useFecharNoEsc(aberto, aoFechar);
   if (!aberto) return null;
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={typeof titulo === "string" ? titulo : undefined}>
+    <div
+      className="fixed inset-0 z-50 flex justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label={rotulo ?? (typeof titulo === "string" ? titulo : undefined)}
+    >
       <button type="button" aria-label="Fechar" onClick={aoFechar} className="absolute inset-0 bg-aura-navy-950/40 backdrop-blur-[1px]" />
-      <aside className="relative flex h-full w-full max-w-md flex-col border-l border-aura-mist bg-aura-surface shadow-xl">
-        <header className="flex items-start gap-3 border-b border-aura-mist px-5 py-4">
+      <aside
+        className={cx(
+          "relative flex h-full w-full flex-col border-l border-aura-mist bg-aura-surface shadow-xl",
+          larga ? "max-w-xl" : "max-w-md",
+        )}
+      >
+        <header className={cx("flex items-start gap-3 px-5 py-4", !faixa && "border-b border-aura-mist")}>
           {icone}
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold text-aura-graphite">{titulo}</h2>
@@ -446,6 +467,7 @@ export function Gaveta({
             <X size={15} />
           </button>
         </header>
+        {faixa && <div className="border-b border-aura-mist px-5">{faixa}</div>}
         <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
       </aside>
     </div>

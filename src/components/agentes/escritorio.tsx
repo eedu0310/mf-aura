@@ -10,7 +10,8 @@
  * No centro, o ESCRITÓRIO EM PIXEL (escritorio-pixel/): um escritoriozinho
  * visto de cima, com uma sala por setor (Diretoria, Sala de Vendas,
  * Pós-venda, Marketing, Gestão, Conhecimento, Dados e a Copa), cada agente
- * sentado na sua mesa com crachá e balão de fala. Clicar abre a ficha.
+ * sentado na sua mesa com crachá e balão de fala. Clicar abre o painel
+ * do agente (painel-agente.tsx): o que ele fez e falou, o que encontrou e a ficha.
  * "Ver como lista" volta para a grade de cartões de antes (nada se perdeu).
  *
  * Ao lado (embaixo no celular), o Mural da equipe: a conversa dos agentes,
@@ -57,8 +58,8 @@ import {
 import { ConversaEquipe } from "./conversa";
 import { ConversaDiretora } from "./conversa-diretora";
 import { EscritorioPixel } from "./escritorio-pixel";
-import { GavetaAgente } from "./gaveta-agente";
 import { Mesa } from "./mesa";
+import { PainelAgente } from "./painel-agente";
 
 export function Escritorio() {
   const { estado, erro, carregando, recarregar } = useEscritorio({ vivo: true });
@@ -285,13 +286,16 @@ export function Escritorio() {
         </div>
       )}
 
-      <GavetaAgente
+      {/* Por cima de tudo (z-50), inclusive da tela cheia (z-40). */}
+      <PainelAgente
         mesa={aberta}
+        mesas={mesas}
         falas={falas}
         equipeAtiva={equipeAtiva}
         souMestre={souMestre}
         aoFechar={() => setAbertoId(null)}
         aoMudar={recarregar}
+        aoAbrirAgente={setAbertoId}
       />
 
       {conversaAberta && (

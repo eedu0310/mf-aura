@@ -24,7 +24,7 @@ import {
   useEscritorio,
 } from "./comum";
 import { ChaveAtivo, EditorOrcamento } from "./controles";
-import { GavetaAgente } from "./gaveta-agente";
+import { PainelAgente } from "./painel-agente";
 
 export function EquipeAgentes() {
   const { estado, erro, carregando, recarregar } = useEscritorio();
@@ -140,13 +140,15 @@ export function EquipeAgentes() {
         ))}
       </div>
 
-      <GavetaAgente
+      <PainelAgente
         mesa={aberta}
+        mesas={estado.mesas}
         falas={estado.falas}
         equipeAtiva={equipeAtiva}
         souMestre={souMestre}
         aoFechar={() => setAbertoId(null)}
         aoMudar={recarregar}
+        aoAbrirAgente={setAbertoId}
       />
     </div>
   );
