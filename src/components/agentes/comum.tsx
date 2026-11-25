@@ -189,6 +189,7 @@ export const comandos = {
 export const SETORES: Array<{ id: Setor; rotulo: string; descricao: string; icone: LucideIcon }> = [
   { id: "direcao", rotulo: "Direção", descricao: "Quem planeja e cobra", icone: Crown },
   { id: "vendas", rotulo: "Vendas", descricao: "Follow-up, oportunidades e leads", icone: TrendingUp },
+  { id: "atendimento", rotulo: "Atendimento", descricao: "Quem conversa com o cliente: Instagram, site e WhatsApp", icone: MessagesSquare },
   { id: "pos-venda", rotulo: "Pós-venda", descricao: "Entrega, instalação e manutenção", icone: HeartHandshake },
   { id: "marketing", rotulo: "Marketing", descricao: "Campanhas e origem dos clientes", icone: Megaphone },
   { id: "gestao", rotulo: "Gestão", descricao: "Metas, equipe e rotina das lojas", icone: Briefcase },

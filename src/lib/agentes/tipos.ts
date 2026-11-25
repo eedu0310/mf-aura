@@ -39,7 +39,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type IdAgente = string;
 
 /** Departamento do escritório: agrupa as mesas na tela. */
-export type Setor = "direcao" | "vendas" | "pos-venda" | "marketing" | "gestao" | "conhecimento" | "dados";
+/** "atendimento" = os agentes que CONVERSAM com o cliente (Instagram, chat do site, WhatsApp). */
+export type Setor = "direcao" | "vendas" | "atendimento" | "pos-venda" | "marketing" | "gestao" | "conhecimento" | "dados";
 
 export type Prioridade = "baixa" | "media" | "alta" | "urgente";
 

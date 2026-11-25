@@ -124,7 +124,7 @@ export const AGENTES_DO_SISTEMA: DefinicaoAgente[] = [
     id: "sistema-instagram",
     nome: "Agente do Instagram",
     cargo: "Atende o direct quando a equipe demora",
-    setor: "vendas",
+    setor: "atendimento",
     icone: "AtSign",
     missao:
       "Responde o direct que passou do tempo da loja sem resposta, com o material da própria loja, e conduz a conversa até passar o lead para o vendedor. Respeita o horário da equipe e pode ser pausado em cada conversa.",
@@ -137,10 +137,26 @@ export const AGENTES_DO_SISTEMA: DefinicaoAgente[] = [
     id: "sistema-chat-site",
     nome: "Assistente do chat do site",
     cargo: "Atende o visitante do site MF",
-    setor: "vendas",
+    setor: "atendimento",
     icone: "Globe",
     missao:
       "Responde o visitante do chat do site MF que esperou mais que o tempo configurado sem ninguém da equipe responder, dentro do horário.",
+    agenda: { tipo: "intervalo", minutos: 5 },
+    usaIA: true,
+    orcamentoMensalUsd: 0,
+    tipo: "sistema",
+  },
+  {
+    // Roda dentro do servidor do WhatsApp (a cada mensagem e numa varredura de
+    // 5 em 5 minutos), não por um cron: por isso não tem diário de rodadas.
+    // Hoje ele analisa e SUGERE; responder sozinho no WhatsApp vem depois.
+    id: "sistema-whatsapp",
+    nome: "Supervisor do WhatsApp",
+    cargo: "Lê cada conversa e sugere a resposta",
+    setor: "atendimento",
+    icone: "MessageCircle",
+    missao:
+      "Acompanha as conversas do WhatsApp da equipe: identifica o lead, resume a conversa, sugere a próxima resposta ao vendedor, avisa quando o cliente esfria e move o card no pipeline. Por enquanto só sugere; o atendimento automático pelo WhatsApp vem numa próxima etapa.",
     agenda: { tipo: "intervalo", minutos: 5 },
     usaIA: true,
     orcamentoMensalUsd: 0,

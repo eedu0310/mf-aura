@@ -148,6 +148,14 @@ export const MOLDES: Record<TipoSala, Molde> = {
     receita: [BEBEDOURO, PLANTA_G, ARQUIVO, PLANTA, SOFA],
     extra: [PLANTA, ARQUIVO],
   },
+  atendimento: {
+    rotulo: "Atendimento",
+    colsMax: 3,
+    faixa: 2,
+    minLugares: 2,
+    receita: [BEBEDOURO, PLANTA_G, POLTRONA, PLANTA],
+    extra: [PLANTA, POLTRONA],
+  },
   "pos-venda": {
     rotulo: "Pós-venda",
     colsMax: 2,
@@ -209,6 +217,7 @@ export const MOLDES: Record<TipoSala, Molde> = {
 export const ORDEM_SALAS: TipoSala[] = [
   "direcao",
   "vendas",
+  "atendimento",
   "pos-venda",
   "marketing",
   "gestao",
@@ -218,7 +227,7 @@ export const ORDEM_SALAS: TipoSala[] = [
   "copa",
 ];
 
-const SETORES_COM_SALA = new Set<string>(["direcao", "vendas", "pos-venda", "marketing", "gestao", "conhecimento", "dados"]);
+const SETORES_COM_SALA = new Set<string>(["direcao", "vendas", "atendimento", "pos-venda", "marketing", "gestao", "conhecimento", "dados"]);
 
 /** Tamanho da Copa (sala só de enfeite). */
 const COPA_L = 9;
