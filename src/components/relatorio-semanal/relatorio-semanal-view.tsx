@@ -18,6 +18,15 @@ import {
 } from "lucide-react";
 import type { RelatorioSemanal, VendedorNoRelatorio } from "@/lib/relatorio-semanal/gerar";
 import { Alerta, EstadoVazio, classeBotao } from "@/components/ui";
+import { IndicadoresDetalhados, LinhaIndicadoresVendedor } from "@/components/aura/indicadores-detalhados";
+import type { Indicadores, RelatorioDetalhado } from "@/lib/aura/relatorio-detalhado";
+
+/** Os 10 indicadores da janela do relatório e da janela anterior (rota /api/relatorios/indicadores). */
+interface IndicadoresDaJanela {
+  atual: RelatorioDetalhado;
+  anterior: { geral: Indicadores };
+  gestor: boolean;
+}
 
 /* Paleta do tema (petrol da marca, verde de acerto, vermelho de alerta), para
    o relatório ficar legível no claro e no escuro. O texto dos eixos herda a
@@ -539,9 +548,14 @@ function placarDaSemana(v: VendedorNoRelatorio): string[] {
 function BlocoDoVendedor({
   v,
   abertoInicial,
+  indicadores,
+  mes,
 }: {
   v: VendedorNoRelatorio;
   abertoInicial: boolean;
+  /** Os 10 indicadores dele na semana (receita, conversão, margem, ciclo...). */
+  indicadores?: Indicadores;
+  mes?: string;
 }) {
   const [aberto, setAberto] = useState(abertoInicial);
 
@@ -621,6 +635,7 @@ function BlocoDoVendedor({
           aberto ? "" : "hidden"
         }`}
       >
+          {indicadores && mes && <LinhaIndicadoresVendedor v={indicadores} mes={mes} />}
           <div className="grid gap-4 lg:grid-cols-2 print:grid-cols-2">
             <div>
               <p className="aura-rotulo mb-2">
@@ -782,6 +797,31 @@ export function RelatorioSemanalView() {
   useEffect(() => {
     void buscar();
   }, [buscar]);
+
+  // Os 10 indicadores da mesma janela do relatório, e da anterior para
+  // comparar. Vêm à parte: o relatório gravado no sábado não tinha esses
+  // números, e assim eles valem também para os relatórios já gerados.
+  const [ind, setInd] = useState<IndicadoresDaJanela | null>(null);
+  const janela = dados?.relatorio ? `${dados.relatorio.empresa}|${dados.relatorio.periodoInicio}|${dados.relatorio.periodoFim}` : null;
+  useEffect(() => {
+    if (!janela) {
+      setInd(null);
+      return;
+    }
+    const [empresa, inicio, fim] = janela.split("|");
+    let vivo = true;
+    fetch(`/api/relatorios/indicadores?${new URLSearchParams({ loja: empresa, inicio, fim })}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (vivo) setInd(j as IndicadoresDaJanela | null);
+      })
+      .catch(() => {
+        if (vivo) setInd(null);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [janela]);
 
   /**
    * Gera um relatório de qualquer janela.
@@ -1122,12 +1162,30 @@ export function RelatorioSemanalView() {
             </Cartao>
           </div>
 
+          {ind && (
+            <IndicadoresDetalhados
+              r={ind.atual}
+              anterior={ind.anterior.geral}
+              gestor={ind.gestor}
+              mostrarEquipe={ind.gestor && ind.atual.porVendedor.length > 1}
+              titulo="Indicadores do time de vendas"
+              rotuloAnterior="vs semana anterior"
+              quebrarPagina={false}
+            />
+          )}
+
           <div className="space-y-3">
             <h3 className="font-display text-base font-semibold text-aura-graphite">
               Vendedor por vendedor
             </h3>
             {r.vendedores.map((v) => (
-              <BlocoDoVendedor key={v.vendedorId} v={v} abertoInicial={r.vendedores.length <= 4} />
+              <BlocoDoVendedor
+                key={v.vendedorId}
+                v={v}
+                abertoInicial={r.vendedores.length <= 4}
+                indicadores={ind?.atual.porVendedor.find((x) => x.id === v.vendedorId)}
+                mes={ind?.atual.mes}
+              />
             ))}
           </div>
 

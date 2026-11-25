@@ -118,16 +118,21 @@ function calcular(
   posVendas: PosVendaResumo[],
   filtro: { loja?: string; vendedorId?: string; vendedoresDaMeta: string[] },
   inicio: number,
+  fim: number,
   mes: string,
 ): Indicadores {
   const { loja, vendedorId } = filtro;
   const doDono = <T extends { owner_id: string; empresa?: string | null }>(x: T) =>
     (!vendedorId || x.owner_id === vendedorId) && (!loja || x.empresa === loja);
-  const noPeriodo = (iso: string | null | undefined) => !!iso && Date.parse(iso) >= inicio;
+  const noPeriodo = (iso: string | null | undefined) => {
+    if (!iso) return false;
+    const t = Date.parse(iso);
+    return t >= inicio && t <= fim;
+  };
 
   const daLoja = d.vendas.filter((v) => !loja || v.empresa === loja);
   const minhas = vendedorId ? vendasDoVendedor(daLoja, vendedorId) : daLoja;
-  const vendas = minhas.filter((v) => Date.parse(`${v.data}T12:00:00-03:00`) >= inicio);
+  const vendas = minhas.filter((v) => noPeriodo(`${v.data}T12:00:00-03:00`));
   const receita = totalVendido(vendas, vendedorId);
 
   const ops = d.oportunidades.filter(doDono);
@@ -226,8 +231,21 @@ export function montarRelatorioDetalhado(
   posVendas: PosVendaResumo[],
   agora = Date.now(),
 ): RelatorioDetalhado {
-  const inicio = agora - periodoDias * DIA;
-  const mes = diaSP(agora).slice(0, 7);
+  return montarRelatorioDetalhadoJanela(d, escopo, agora - periodoDias * DIA, agora, posVendas);
+}
+
+/**
+ * O mesmo relatório para uma janela fechada (a semana do relatório semanal,
+ * ou a anterior, para comparar). A meta é a do mês em que a janela termina.
+ */
+export function montarRelatorioDetalhadoJanela(
+  d: DadosCrm,
+  escopo: { loja?: string; vendedorId?: string },
+  inicio: number,
+  fim: number,
+  posVendas: PosVendaResumo[],
+): RelatorioDetalhado {
+  const mes = diaSP(fim).slice(0, 7);
   const vendedores = d.perfis.filter(
     (p) =>
       p.ativo !== false &&
@@ -239,7 +257,7 @@ export function montarRelatorioDetalhado(
 
   return {
     mes,
-    geral: calcular(d, posVendas, { ...escopo, vendedoresDaMeta: idsMeta }, inicio, mes),
+    geral: calcular(d, posVendas, { ...escopo, vendedoresDaMeta: idsMeta }, inicio, fim, mes),
     porVendedor: vendedores
       .map((p) => ({
         id: p.id,
@@ -250,6 +268,7 @@ export function montarRelatorioDetalhado(
           posVendas,
           { loja: escopo.loja, vendedorId: p.id, vendedoresDaMeta: [p.id] },
           inicio,
+          fim,
           mes,
         ),
       }))

@@ -16,7 +16,7 @@ import {
 import { Activity, DollarSign, Loader2, Percent, Printer, Receipt, Sparkles, Target, Users } from "lucide-react";
 import { Alerta, Segmentado, classeBotao } from "@/components/ui";
 import { IndicadoresDetalhados } from "@/components/aura/indicadores-detalhados";
-import type { RelatorioDetalhado } from "@/lib/aura/relatorio-detalhado";
+import type { Indicadores, RelatorioDetalhado } from "@/lib/aura/relatorio-detalhado";
 
 // Uma cor por gráfico, texto sempre em tinta neutra. Pelas variáveis do tema,
 // para o gráfico acompanhar o claro e o escuro.
@@ -49,6 +49,8 @@ interface Resposta {
   relatorio: Relatorio;
   /** Os indicadores do time de vendas (receita, prospecções, margem, ciclo...). */
   detalhado?: RelatorioDetalhado;
+  /** Os mesmos indicadores do período anterior de mesmo tamanho. */
+  detalhadoAnterior?: Indicadores;
   aura: { manchete: string; foco: string; insights: { tipo: string; titulo: string; detalhe?: string }[]; fonte: string };
   gestor: boolean;
   filtros: { lojas: string[]; vendedores: { id: string; nome: string; loja: string }[] } | null;
@@ -514,6 +516,8 @@ export function RelatorioVisual() {
           {dados?.detalhado && (
             <IndicadoresDetalhados
               r={dados.detalhado}
+              anterior={dados.detalhadoAnterior}
+              rotuloAnterior={`vs ${dias} dias anteriores`}
               gestor={!!dados.gestor}
               mostrarEquipe={!!dados.gestor && !vendedor}
             />

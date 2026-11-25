@@ -45,12 +45,51 @@ function corBarra(v: number) {
   return "var(--aura-danger)";
 }
 
+type TipoVariacao = "pct" | "pp" | "dias" | "nota";
+
+/**
+ * Subiu ou caiu em relação à janela anterior (a semana passada, no
+ * relatório semanal). Verde quando melhorou, vermelho quando piorou —
+ * "melhorar" no ciclo e no cancelamento é diminuir.
+ */
+function Variacao({
+  atual,
+  anterior,
+  tipo,
+  menorMelhor = false,
+  rotulo,
+}: {
+  atual: number | null;
+  anterior: number | null;
+  tipo: TipoVariacao;
+  menorMelhor?: boolean;
+  rotulo: string;
+}) {
+  if (atual == null && anterior == null) return null;
+  if (anterior == null || (tipo === "pct" && anterior === 0)) {
+    return <p className="mt-1 text-[11px] text-aura-graphite-soft">{rotulo}: {anterior == null ? "sem base" : "0"}</p>;
+  }
+  if (atual == null) return <p className="mt-1 text-[11px] text-aura-graphite-soft">{rotulo}: tinha dado</p>;
+  const diff = tipo === "pct" ? ((atual - anterior) / Math.abs(anterior)) * 100 : atual - anterior;
+  const arred = tipo === "nota" || tipo === "pp" ? Math.round(diff * 10) / 10 : Math.round(diff);
+  if (arred === 0) return <p className="mt-1 text-[11px] text-aura-graphite-soft">= igual {rotulo}</p>;
+  const melhor = menorMelhor ? arred < 0 : arred > 0;
+  const unidade = tipo === "pct" ? "%" : tipo === "pp" ? " p.p." : tipo === "dias" ? (Math.abs(arred) === 1 ? " dia" : " dias") : "";
+  const valor = `${Math.abs(arred).toString().replace(".", ",")}${unidade}`;
+  return (
+    <p className={`mt-1 text-[11px] font-medium ${melhor ? "text-aura-success" : "text-aura-danger"}`}>
+      {arred > 0 ? "▲" : "▼"} {valor} {rotulo}
+    </p>
+  );
+}
+
 function Indicador({
   n,
   icone,
   titulo,
   valor,
   detalhe,
+  variacao,
   tom = "text-aura-graphite",
 }: {
   n: number;
@@ -58,6 +97,7 @@ function Indicador({
   titulo: string;
   valor: string;
   detalhe?: React.ReactNode;
+  variacao?: React.ReactNode;
   tom?: string;
 }) {
   return (
@@ -71,15 +111,19 @@ function Indicador({
       </div>
       <p className={`mt-2 font-display text-2xl font-semibold tabular-nums print:text-xl ${tom}`}>{valor}</p>
       {detalhe && <p className="mt-1 text-xs leading-snug text-aura-graphite-soft">{detalhe}</p>}
+      {variacao}
     </div>
   );
 }
 
-function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
+function Cartoes({ g, mes, ant, rotuloAnterior = "vs período anterior" }: { g: Indicadores; mes: string; ant?: Indicadores; rotuloAnterior?: string }) {
+  const v = (atual: number | null, anterior: number | null | undefined, tipo: TipoVariacao, menorMelhor = false) =>
+    ant ? <Variacao atual={atual} anterior={anterior ?? null} tipo={tipo} menorMelhor={menorMelhor} rotulo={rotuloAnterior} /> : undefined;
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 print:grid-cols-3 print:gap-2">
       <Indicador
         n={1}
+        variacao={v(g.receita, ant?.receita, "pct")}
         icone={<DollarSign size={13} />}
         titulo="Receita"
         valor={moedaCurta(g.receita)}
@@ -87,6 +131,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={2}
+        variacao={v(g.prospeccoes, ant?.prospeccoes, "pct")}
         icone={<Search size={13} />}
         titulo="Prospecções"
         valor={String(g.prospeccoes)}
@@ -94,6 +139,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={3}
+        variacao={v(g.conversao, ant?.conversao, "pp")}
         icone={<Percent size={13} />}
         titulo="Conversão"
         valor={g.conversao == null ? "—" : `${g.conversao}%`}
@@ -101,6 +147,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={4}
+        variacao={v(g.vendas ? g.ticket : null, ant?.vendas ? ant.ticket : null, "pct")}
         icone={<Receipt size={13} />}
         titulo="Ticket médio"
         valor={moedaCurta(g.ticket)}
@@ -108,6 +155,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={5}
+        variacao={v(g.precoMantido, ant?.precoMantido, "pp")}
         icone={<Scale size={13} />}
         titulo="Margem (preço mantido)"
         valor={pct(g.precoMantido, 1)}
@@ -119,6 +167,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={6}
+        variacao={v(g.cicloMedio, ant?.cicloMedio, "dias", true)}
         icone={<CalendarClock size={13} />}
         titulo="Ciclo médio de venda"
         valor={dias(g.cicloMedio)}
@@ -130,6 +179,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={7}
+        variacao={v(g.taxaCancelamento, ant?.taxaCancelamento, "pp", true)}
         icone={<Ban size={13} />}
         titulo="Cancelamentos"
         valor={pct(g.taxaCancelamento, 1)}
@@ -138,6 +188,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={8}
+        variacao={v(g.atingimento, ant?.atingimento, "pp")}
         icone={<Target size={13} />}
         titulo={`Meta de ${nomeDoMes(mes)}`}
         valor={g.atingimento == null ? "—" : `${g.atingimento}%`}
@@ -150,6 +201,7 @@ function Cartoes({ g, mes }: { g: Indicadores; mes: string }) {
       />
       <Indicador
         n={9}
+        variacao={v(g.notaMedia, ant?.notaMedia, "nota")}
         icone={<Smile size={13} />}
         titulo="Satisfação do cliente"
         valor={nota(g.notaMedia)}
@@ -289,22 +341,31 @@ export function IndicadoresDetalhados({
   r,
   gestor,
   mostrarEquipe,
+  anterior,
+  titulo = "Relatório detalhado",
+  rotuloAnterior,
+  quebrarPagina = true,
 }: {
   r: RelatorioDetalhado;
   gestor: boolean;
   /** Tabela e metas por vendedor (gestor, sem filtro de um vendedor só). */
   mostrarEquipe: boolean;
+  /** Os mesmos números da janela anterior: liga as setas de subiu/caiu. */
+  anterior?: Indicadores;
+  titulo?: string;
+  rotuloAnterior?: string;
+  quebrarPagina?: boolean;
 }) {
   return (
-    <section className="space-y-4 print:break-before-page">
+    <section className={`space-y-4 ${quebrarPagina ? "print:break-before-page" : ""}`}>
       <div>
-        <h2 className="font-display text-lg font-semibold text-aura-graphite">Relatório detalhado</h2>
+        <h2 className="font-display text-lg font-semibold text-aura-graphite">{titulo}</h2>
         <p className="text-sm text-aura-graphite-soft">
-          {gestor ? "Indicadores do time de vendas no período" : "Seus indicadores no período"}.
-          A meta é sempre a do mês corrente.
+          {gestor ? "Os 10 indicadores do time de vendas" : "Seus indicadores"}
+          {anterior ? ", com a seta mostrando se subiu ou caiu em relação ao período anterior de mesmo tamanho" : " no período"}. A meta é a do mês.
         </p>
       </div>
-      <Cartoes g={r.geral} mes={r.mes} />
+      <Cartoes g={r.geral} mes={r.mes} ant={anterior} rotuloAnterior={rotuloAnterior} />
       {mostrarEquipe && r.porVendedor.length > 0 && (
         <>
           <TabelaVendedores r={r} />
@@ -313,5 +374,36 @@ export function IndicadoresDetalhados({
       )}
       <ComoCalculamos />
     </section>
+  );
+}
+
+/**
+ * Os indicadores de um vendedor numa linha, para a ficha dele no Relatório
+ * semanal: o que a imagem dos "10 KPIs do time de vendas" pede, por pessoa.
+ */
+export function LinhaIndicadoresVendedor({ v, mes }: { v: Indicadores; mes: string }) {
+  const itens: [string, string, string?][] = [
+    ["Receita", moedaCurta(v.receita)],
+    ["Prospecções", String(v.prospeccoes)],
+    ["Conversão", v.conversao == null ? "—" : `${v.conversao}%`],
+    ["Ticket médio", v.vendas ? moedaCurta(v.ticket) : "—"],
+    ["Margem", pct(v.precoMantido, 1)],
+    ["Ciclo médio", dias(v.cicloMedio)],
+    ["Cancelamentos", v.vendas ? pct(v.taxaCancelamento, 0) : "—"],
+    [`Meta de ${nomeDoMes(mes)}`, v.atingimento == null ? "sem meta" : `${v.atingimento}%`, tomMeta(v.atingimento)],
+    ["Satisfação", nota(v.notaMedia)],
+  ];
+  return (
+    <div>
+      <p className="aura-rotulo mb-2">Indicadores da semana</p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-9 print:grid-cols-9">
+        {itens.map(([rotulo, valor, tom]) => (
+          <div key={rotulo} className="rounded-lg bg-aura-sunken/70 px-2 py-1.5">
+            <p className="truncate text-[10px] uppercase tracking-wide text-aura-graphite-soft">{rotulo}</p>
+            <p className={`text-sm font-semibold tabular-nums ${tom ?? "text-aura-graphite"}`}>{valor}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

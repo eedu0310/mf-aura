@@ -3,8 +3,8 @@ import { sessaoAura } from "@/lib/aura/sessao";
 import { montarRelatorio, moeda, type Insight } from "@/lib/aura/metricas";
 import { gerarRecados } from "@/lib/aura/ia";
 import { nucleoDoManual } from "@/lib/aura/trechos";
-import { montarRelatorioDetalhado, type PosVendaResumo } from "@/lib/aura/relatorio-detalhado";
-import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+import { montarRelatorioDetalhado, montarRelatorioDetalhadoJanela } from "@/lib/aura/relatorio-detalhado";
+import { carregarPosVendaResumo } from "@/lib/aura/pos-venda-resumo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const dias = Math.min(365, Math.max(7, Number(sp.get("dias")) || 30));
   // Vendas de pelo menos um mês inteiro: o atingimento da meta é do mês
   // corrente, mesmo quando o período escolhido é de 7 dias.
-  const s = await sessaoAura({ diasAtividades: dias + 1, diasVendas: Math.max(dias + 1, 32) });
+  // O dobro do período: os indicadores comparam com a janela anterior.
+  const s = await sessaoAura({ diasAtividades: dias * 2 + 1, diasVendas: Math.max(dias * 2 + 1, 32) });
   if ("erro" in s) return NextResponse.json({ error: s.erro }, { status: s.status });
   const { dados, userId, gestor } = s;
 
@@ -24,40 +25,9 @@ export async function GET(req: NextRequest) {
     : { vendedorId: userId };
   const rel = montarRelatorio(dados, escopo, dias);
 
-  // Satisfação: notas e reclamações do pós-venda, com as regras de loja do
-  // banco (o cliente é o do usuário). Se a leitura falhar, o relatório sai
-  // sem a satisfação em vez de não sair.
-  const desde = new Date(Date.now() - (dias + 1) * 86400e3).toISOString();
-  let posVendas: PosVendaResumo[] = [];
-  try {
-    const linhas = await todasAsLinhas<{
-      vendedor_id: string | null;
-      empresa: string | null;
-      avaliacao_nota: number | null;
-      nota_avaliacao: number | null;
-      possui_reclamacao: boolean | null;
-      reclamacao: string | null;
-      reclamacao_aberta_em: string | null;
-      created_at: string;
-    }>((de, ate) =>
-      s.sb
-        .from("pos_vendas")
-        .select("vendedor_id, empresa, avaliacao_nota, nota_avaliacao, possui_reclamacao, reclamacao, reclamacao_aberta_em, created_at")
-        .or(`created_at.gte.${desde},reclamacao_aberta_em.gte.${desde}`)
-        .order("id")
-        .range(de, ate),
-    );
-    posVendas = linhas.map((p) => ({
-      vendedor_id: p.vendedor_id,
-      empresa: p.empresa,
-      nota: p.avaliacao_nota ?? p.nota_avaliacao ?? null,
-      reclamacao: !!p.possui_reclamacao || !!(p.reclamacao && p.reclamacao.trim()),
-      criado_em: p.created_at,
-      reclamacao_em: p.reclamacao_aberta_em,
-    }));
-  } catch (e) {
-    console.error("[relatorio] pós-venda:", e instanceof Error ? e.message : e);
-  }
+  // Satisfação: notas e reclamações do pós-venda (regras de loja do banco).
+  const desde = new Date(Date.now() - (dias * 2 + 1) * 86400e3).toISOString();
+  const posVendas = await carregarPosVendaResumo(s.sb, desde);
   const detalhado = montarRelatorioDetalhado(dados, escopo, dias, posVendas);
 
   const base: Insight[] = [
@@ -78,6 +48,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     relatorio: rel,
     detalhado,
+    detalhadoAnterior: montarRelatorioDetalhadoJanela(dados, escopo, Date.now() - dias * 2 * 86400e3, Date.now() - dias * 86400e3, posVendas).geral,
     aura,
     gestor,
     filtros: gestor

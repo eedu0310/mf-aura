@@ -4,7 +4,7 @@
  */
 import { FUNIL_PADRAO } from "../funil";
 import type { DadosCrm } from "./dados";
-import { montarRelatorioDetalhado, type PosVendaResumo } from "./relatorio-detalhado";
+import { montarRelatorioDetalhado, montarRelatorioDetalhadoJanela, type PosVendaResumo } from "./relatorio-detalhado";
 
 let falhas = 0;
 let total = 0;
@@ -108,6 +108,11 @@ igual(bruno.notaMedia, null, "sem nota, sem média");
 const soAna = montarRelatorioDetalhado(d, { vendedorId: "a" }, 30, pos, AGORA);
 igual(soAna.porVendedor.length, 1, "vendedor vê só a si mesmo");
 igual(soAna.geral.metaMes, 18000, "meta do recorte de um vendedor é só a dele");
+
+const semana = montarRelatorioDetalhadoJanela(d, {}, Date.parse(dia("2026-11-10")), Date.parse(dia("2026-11-12")), pos);
+igual(semana.geral.receita, 9000, "janela fechada: só a venda de 11/11 (a de 15/11 fica de fora)");
+igual(semana.geral.prospeccoes, 0, "janela fechada: negócios abertos fora da janela não contam");
+igual(semana.mes, "2026-11", "meta do mês em que a janela termina");
 
 console.log(`  ${total - falhas}/${total} conferências ok`);
 if (falhas) process.exit(1);
