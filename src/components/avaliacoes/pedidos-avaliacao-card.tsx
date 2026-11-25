@@ -42,10 +42,13 @@ function linkDoWhatsapp(numero: string, texto: string) {
 /** Envia pelo WhatsApp conectado no AURA. Devolve o motivo se não deu. */
 async function enviarPeloAura(numero: string, texto: string): Promise<string | null> {
   try {
+    // Sem resposta em 15 s (WhatsApp do AURA caído ou número sem WhatsApp),
+    // desiste e cai no WhatsApp do aparelho em vez de girar para sempre.
     const res = await fetch("/api/whatsapp/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "send", to: numero, text: texto }),
+      signal: AbortSignal.timeout(15_000),
     });
     if (res.ok) return null;
     const j = await res.json().catch(() => ({}));
@@ -103,6 +106,14 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
     setFeito("");
     setEnviando(p.id);
 
+    /*
+     * A janela do WhatsApp precisa abrir AGORA, no clique: depois de esperar
+     * o envio pelo AURA, o navegador já não considera um clique e bloqueia a
+     * janela — o vendedor apertava e "não saía nada" (Jeferson, 25/11).
+     * Abre em branco e, se o AURA mandou sozinho, fecha.
+     */
+    const janela = window.open("", "_blank");
+
     const link = `${window.location.origin}/av/${p.token}`;
     // Duas mensagens: 1ª agradecimento + Google; 2ª redes sociais.
     const mensagens = montarMensagensDeAvaliacao(c, p.cliente, link);
@@ -128,18 +139,23 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
       }
     }
 
+    if (foiPeloAura) janela?.close();
     if (!foiPeloAura) {
-      window.open(linkDoWhatsapp(numero, mensagens[0]), "_blank", "noopener");
+      const destino = linkDoWhatsapp(numero, mensagens[0]);
+      if (janela && !janela.closed) janela.location.href = destino;
+      else window.open(destino, "_blank", "noopener");
       if (mensagens[1]) {
         setSegundas((s) => [...s, { id: p.id, cliente: p.cliente ?? "Cliente", numero, texto: mensagens[1] }]);
       }
     }
 
-    await fetch("/api/avaliacoes", {
+    const marcado = await fetch("/api/avaliacoes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: p.id, enviado: true }),
-    });
+      body: JSON.stringify({ id: p.id, enviado: true, canal: "whatsapp" }),
+    }).catch(() => null);
+    if (!marcado?.ok) setAviso("A mensagem foi aberta, mas não consegui marcar como enviada. Atualize a página.");
+    else if (!foiPeloAura) setFeito(`WhatsApp aberto com o pedido de avaliação de ${p.cliente ?? "o cliente"}. Confira e toque em enviar.`);
     await carregar();
     setEnviando(null);
   }
