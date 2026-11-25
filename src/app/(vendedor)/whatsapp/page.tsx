@@ -46,11 +46,12 @@ import {
 
 type Filtro = "tudo" | "nao_lidas" | "leads" | "alertas";
 
-// Fundo "doodle" do WhatsApp Web (tema escuro), desenhado só com CSS.
+// Fundo "doodle" do WhatsApp Web, desenhado só com CSS. A cor de fundo vem
+// da classe (bg-aura-bg / dark:#0b141a); os pontinhos usam a cor do texto do
+// tema, então ficam escuros e discretos no claro e claros no escuro.
 const FUNDO_CHAT: React.CSSProperties = {
-  backgroundColor: "#0b141a",
   backgroundImage:
-    "radial-gradient(rgba(255,255,255,0.045) 1.2px, transparent 1.2px), radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px)",
+    "radial-gradient(color-mix(in srgb, var(--aura-graphite) 5%, transparent) 1.2px, transparent 1.2px), radial-gradient(color-mix(in srgb, var(--aura-graphite) 3.5%, transparent) 1px, transparent 1px)",
   backgroundSize: "26px 26px, 38px 38px",
   backgroundPosition: "0 0, 13px 19px",
 };
@@ -72,7 +73,7 @@ function SeletorEtapa({
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
-        className="flex items-center gap-2 rounded-full border border-[#3b4a54] px-3 py-1.5 text-sm text-[#e9edef] hover:bg-white/5"
+        className="flex items-center gap-2 rounded-full border border-aura-mist dark:border-[#3b4a54] px-3 py-1.5 text-sm text-aura-graphite dark:text-[#e9edef] hover:bg-black/5 dark:hover:bg-white/5"
         title="Etapa no pipeline"
       >
         {ocupado ? (
@@ -81,10 +82,10 @@ function SeletorEtapa({
           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: etapa ? corDe(etapa, funil) : "#8696a0" }} />
         )}
         {etapa ?? "Sem etapa"}
-        <ChevronDown className="h-4 w-4 text-[#8696a0]" />
+        <ChevronDown className="h-4 w-4 text-aura-graphite-soft dark:text-[#8696a0]" />
       </button>
       {aberto && (
-        <div className="absolute right-0 top-10 z-40 w-52 rounded-lg bg-[#233138] py-2 shadow-2xl" onMouseLeave={() => setAberto(false)}>
+        <div className="absolute right-0 top-10 z-40 w-52 rounded-lg bg-aura-surface dark:bg-[#233138] py-2 shadow-2xl ring-1 ring-aura-mist dark:ring-0" onMouseLeave={() => setAberto(false)}>
           {etapasVisiveis(funil).map(({ nome: e }) => (
             <button
               key={e}
@@ -93,7 +94,7 @@ function SeletorEtapa({
                 setAberto(false);
                 if (e !== etapa) onEscolher(e);
               }}
-              className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-[#182229] ${e === etapa ? "text-[#00a884]" : "text-[#e9edef]"}`}
+              className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-aura-sunken dark:hover:bg-[#182229] ${e === etapa ? "text-[#008069] dark:text-[#00a884]" : "text-aura-graphite dark:text-[#e9edef]"}`}
             >
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: corDe(e, funil) }} />
               {e}
@@ -111,9 +112,9 @@ function SeletorEtapa({
  */
 function TiqueDaLista({ status }: { status?: number }) {
   const s = status ?? 2;
-  if (s <= 1) return <Clock className="h-3.5 w-3.5 shrink-0 text-[#8696a0]" aria-label="Enviando" />;
-  if (s === 2) return <Check className="h-4 w-4 shrink-0 text-[#8696a0]" aria-label="Enviada" />;
-  return <CheckCheck className={`h-4 w-4 shrink-0 ${s >= 4 ? "text-[#53bdeb]" : "text-[#8696a0]"}`} aria-label={s >= 4 ? "Lida" : "Entregue"} />;
+  if (s <= 1) return <Clock className="h-3.5 w-3.5 shrink-0 text-aura-graphite-soft dark:text-[#8696a0]" aria-label="Enviando" />;
+  if (s === 2) return <Check className="h-4 w-4 shrink-0 text-aura-graphite-soft dark:text-[#8696a0]" aria-label="Enviada" />;
+  return <CheckCheck className={`h-4 w-4 shrink-0 ${s >= 4 ? "text-[#027eb5] dark:text-[#53bdeb]" : "text-aura-graphite-soft dark:text-[#8696a0]"}`} aria-label={s >= 4 ? "Lida" : "Entregue"} />;
 }
 
 export default function WhatsAppPage() {
@@ -593,13 +594,13 @@ export default function WhatsAppPage() {
   // ------------------------------------------------------------ telas
   if (!state) {
     return (
-      <div className="flex h-[calc(100dvh-7rem)] items-center justify-center bg-[#111b21]">
+      <div className="flex h-[calc(100dvh-7rem)] items-center justify-center bg-aura-surface dark:bg-[#111b21]">
         {loadError ? (
-          <div className="flex items-center gap-2 rounded-lg bg-[#3d1d22] px-4 py-3 text-sm text-[#f15c6d]">
+          <div className="flex items-center gap-2 rounded-lg bg-aura-danger/10 dark:bg-[#3d1d22] px-4 py-3 text-sm text-aura-danger dark:text-[#f15c6d]">
             <AlertCircle className="h-4 w-4" /> {loadError}
           </div>
         ) : (
-          <Loader2 className="h-8 w-8 animate-spin text-[#00a884]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#008069] dark:text-[#00a884]" />
         )}
       </div>
     );
@@ -607,42 +608,42 @@ export default function WhatsAppPage() {
 
   if (!connected) {
     return (
-      <div className="flex min-h-[calc(100dvh-7rem)] items-center justify-center bg-[#0b141a] p-4">
-        <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-[#111b21] shadow-2xl">
+      <div className="flex min-h-[calc(100dvh-7rem)] items-center justify-center bg-aura-bg dark:bg-[#0b141a] p-4">
+        <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-aura-surface dark:bg-[#111b21] shadow-2xl">
           <div className="grid gap-8 p-8 md:grid-cols-[1fr_auto] md:p-14">
             <div>
-              <h1 className="text-[28px] font-light text-[#e9edef]">Use o WhatsApp no AURA</h1>
-              <ol className="mt-8 space-y-5 text-[17px] text-[#aebac1]">
+              <h1 className="text-[28px] font-light text-aura-graphite dark:text-[#e9edef]">Use o WhatsApp no AURA</h1>
+              <ol className="mt-8 space-y-5 text-[17px] text-aura-graphite-soft dark:text-[#aebac1]">
                 <li className="flex gap-3"><span>1.</span> Abra o WhatsApp no seu celular.</li>
                 <li className="flex gap-3">
                   <span>2.</span>
-                  <span>Toque em <strong className="text-[#e9edef]">Mais opções ⋮</strong> no Android ou em <strong className="text-[#e9edef]">Configurações</strong> no iPhone.</span>
+                  <span>Toque em <strong className="text-aura-graphite dark:text-[#e9edef]">Mais opções ⋮</strong> no Android ou em <strong className="text-aura-graphite dark:text-[#e9edef]">Configurações</strong> no iPhone.</span>
                 </li>
-                <li className="flex gap-3"><span>3.</span> <span>Toque em <strong className="text-[#e9edef]">Dispositivos conectados</strong> e, em seguida, em <strong className="text-[#e9edef]">Conectar dispositivo</strong>.</span></li>
+                <li className="flex gap-3"><span>3.</span> <span>Toque em <strong className="text-aura-graphite dark:text-[#e9edef]">Dispositivos conectados</strong> e, em seguida, em <strong className="text-aura-graphite dark:text-[#e9edef]">Conectar dispositivo</strong>.</span></li>
                 <li className="flex gap-3"><span>4.</span> Aponte seu celular para esta tela para escanear o QR code.</li>
               </ol>
               {state.error && (
-                <div className="mt-6 flex items-start gap-2 rounded-lg bg-[#3d3219] px-3 py-2 text-sm text-[#ffd279]">
+                <div className="mt-6 flex items-start gap-2 rounded-lg bg-aura-warning/10 dark:bg-[#3d3219] px-3 py-2 text-sm text-aura-gold-700 dark:text-[#ffd279]">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {state.error}
                 </div>
               )}
               {loadError && (
-                <div className="mt-3 flex items-start gap-2 rounded-lg bg-[#3d1d22] px-3 py-2 text-sm text-[#f15c6d]">
+                <div className="mt-3 flex items-start gap-2 rounded-lg bg-aura-danger/10 dark:bg-[#3d1d22] px-3 py-2 text-sm text-aura-danger dark:text-[#f15c6d]">
                   <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {loadError}
                 </div>
               )}
-              <div className="mt-8 flex items-start gap-3 rounded-lg bg-[#202c33] px-4 py-3 text-sm text-[#aebac1]">
-                <Bot className="mt-0.5 h-5 w-5 shrink-0 text-[#00a884]" />
+              <div className="mt-8 flex items-start gap-3 rounded-lg bg-aura-sunken dark:bg-[#202c33] px-4 py-3 text-sm text-aura-graphite-soft dark:text-[#aebac1]">
+                <Bot className="mt-0.5 h-5 w-5 shrink-0 text-[#008069] dark:text-[#00a884]" />
                 Depois de conectar, o Supervisor AURA acompanha suas conversas, cadastra os leads no CRM e move cada um no pipeline automaticamente.
               </div>
             </div>
-            <div className="flex h-[280px] w-[280px] items-center justify-center self-center justify-self-center rounded-xl bg-white">
+            <div className="flex h-[280px] w-[280px] items-center justify-center self-center justify-self-center rounded-xl bg-white ring-1 ring-aura-mist dark:ring-0">
               {status === "qr" && state.qrCode ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={state.qrCode} alt="QR code do WhatsApp" className="h-[264px] w-[264px]" />
               ) : status === "connecting" || busy ? (
                 <div className="flex flex-col items-center gap-3 text-[#54656f]">
-                  <Loader2 className="h-10 w-10 animate-spin text-[#00a884]" />
+                  <Loader2 className="h-10 w-10 animate-spin text-[#008069] dark:text-[#00a884]" />
                   <p className="text-sm">Gerando QR code…</p>
                 </div>
               ) : (
@@ -658,11 +659,11 @@ export default function WhatsAppPage() {
                   type="button"
                   onClick={parearDeNovo}
                   disabled={busy}
-                  className="text-sm text-[#8696a0] underline underline-offset-4 hover:text-[#e9edef] disabled:opacity-50"
+                  className="text-sm text-aura-graphite-soft dark:text-[#8696a0] underline underline-offset-4 hover:text-aura-graphite dark:hover:text-[#e9edef] disabled:opacity-50"
                 >
                   Parear de novo (apaga a conexão salva)
                 </button>
-                <p className="mt-1 max-w-[280px] text-xs text-[#667781]">
+                <p className="mt-1 max-w-[280px] text-xs text-aura-graphite-soft/80 dark:text-[#667781]">
                   Use se o erro insistir: apaga a conexão antiga e gera um QR code limpo.
                 </p>
               </div>
@@ -674,16 +675,16 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <div className="relative flex h-[calc(100dvh-7.5rem)] min-h-[520px] overflow-hidden bg-[#0b141a] lg:h-[calc(100dvh-6rem)]">
+    <div className="relative flex h-[calc(100dvh-7.5rem)] min-h-[520px] overflow-hidden bg-aura-bg dark:bg-[#0b141a] lg:h-[calc(100dvh-6rem)]">
       {/* ======================= Lista de conversas ======================= */}
-      <div className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-[#222d34] bg-[#111b21] md:w-[380px] md:min-w-[320px] lg:w-[30%] lg:max-w-[440px]`}>
+      <div className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full flex-col border-r border-aura-mist dark:border-[#222d34] bg-aura-surface dark:bg-[#111b21] md:w-[380px] md:min-w-[320px] lg:w-[30%] lg:max-w-[440px]`}>
         <header className="flex h-[64px] items-center justify-between px-4">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar jid={state.myJid} name={state.name ?? "Eu"} size={40} />
-            <h2 className="truncate text-[22px] font-bold text-[#e9edef]">WhatsApp</h2>
+            <h2 className="truncate text-[22px] font-bold text-aura-graphite dark:text-[#e9edef]">WhatsApp</h2>
           </div>
-          <div className="relative flex items-center gap-2 text-[#aebac1]">
-            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="rounded-full p-2 hover:bg-white/10" title="Menu">
+          <div className="relative flex items-center gap-2 text-aura-graphite-soft dark:text-[#aebac1]">
+            <button type="button" onClick={() => setMenuAberto((v) => !v)} className="rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10" title="Menu">
               <MoreVertical className="h-5 w-5" />
             </button>
             <button
@@ -692,15 +693,15 @@ export default function WhatsAppPage() {
                 setNovaAberta(true);
                 setNovoErro(null);
               }}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e9edef] text-[#111b21] hover:bg-white"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-[#00a884] dark:bg-[#e9edef] text-white dark:text-[#111b21] hover:bg-[#008069] dark:hover:bg-white"
               title="Nova conversa"
             >
               <MessageSquarePlus className="h-5 w-5" />
             </button>
             {menuAberto && (
-              <div className="absolute right-0 top-12 z-30 w-60 rounded-lg bg-[#233138] py-2 shadow-2xl">
-                <p className="px-5 py-2 text-xs text-[#8696a0]">{state.phone ? formatPhone(state.phone) : ""}</p>
-                <button type="button" onClick={desconectar} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-[#e9edef] hover:bg-[#182229]">
+              <div className="absolute right-0 top-12 z-30 w-60 rounded-lg bg-aura-surface dark:bg-[#233138] py-2 shadow-2xl ring-1 ring-aura-mist dark:ring-0">
+                <p className="px-5 py-2 text-xs text-aura-graphite-soft dark:text-[#8696a0]">{state.phone ? formatPhone(state.phone) : ""}</p>
+                <button type="button" onClick={desconectar} className="flex w-full items-center gap-3 px-5 py-2.5 text-left text-sm text-aura-graphite dark:text-[#e9edef] hover:bg-aura-sunken dark:hover:bg-[#182229]">
                   <LogOut className="h-4 w-4" /> Desconectar
                 </button>
               </div>
@@ -709,16 +710,16 @@ export default function WhatsAppPage() {
         </header>
 
         <div className="px-3 pb-2">
-          <div className="flex items-center gap-3 rounded-full bg-[#202c33] px-4 py-2">
-            <Search className="h-4 w-4 text-[#8696a0]" />
+          <div className="flex items-center gap-3 rounded-full bg-aura-sunken dark:bg-[#202c33] px-4 py-2">
+            <Search className="h-4 w-4 text-aura-graphite-soft dark:text-[#8696a0]" />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Pesquisar ou começar uma nova conversa"
-              className="w-full bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]"
+              className="w-full bg-transparent text-sm text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
             />
             {busca && (
-              <button type="button" onClick={() => setBusca("")} className="text-[#8696a0]">
+              <button type="button" onClick={() => setBusca("")} className="text-aura-graphite-soft dark:text-[#8696a0]">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -735,7 +736,7 @@ export default function WhatsAppPage() {
                 type="button"
                 onClick={() => setFiltro(id)}
                 className={`whitespace-nowrap rounded-full border px-3 py-1 text-sm transition ${
-                  filtro === id ? "border-[#0a332c] bg-[#0a332c] text-[#00a884]" : "border-[#3b4a54] text-[#aebac1] hover:bg-white/5"
+                  filtro === id ? "border-aura-petrol-100 dark:border-[#0a332c] bg-aura-petrol-50 dark:bg-[#0a332c] text-[#008069] dark:text-[#00a884]" : "border-aura-mist dark:border-[#3b4a54] text-aura-graphite-soft dark:text-[#aebac1] hover:bg-black/5 dark:hover:bg-white/5"
                 }`}
               >
                 {label}
@@ -748,21 +749,21 @@ export default function WhatsAppPage() {
           <button
             type="button"
             onClick={() => setFiltro("alertas")}
-            className="mx-3 mb-2 flex items-center gap-3 rounded-lg bg-[#202c33] px-4 py-3 text-left text-sm text-[#aebac1] hover:bg-[#2a3942]"
+            className="mx-3 mb-2 flex items-center gap-3 rounded-lg bg-aura-sunken dark:bg-[#202c33] px-4 py-3 text-left text-sm text-aura-graphite-soft dark:text-[#aebac1] hover:bg-aura-mist dark:hover:bg-[#2a3942]"
           >
-            <AlertTriangle className="h-6 w-6 shrink-0 text-[#ffd279]" />
+            <AlertTriangle className="h-6 w-6 shrink-0 text-aura-warning dark:text-[#ffd279]" />
             <span>
-              <strong className="text-[#e9edef]">
+              <strong className="text-aura-graphite dark:text-[#e9edef]">
                 {semResposta} {semResposta === 1 ? "cliente aguardando" : "clientes aguardando"} resposta.
               </strong>{" "}
-              <span className="text-[#00a884]">Ver agora</span>
+              <span className="text-[#008069] dark:text-[#00a884]">Ver agora</span>
             </span>
           </button>
         )}
 
         <div className="flex-1 overflow-y-auto">
           {chatsFiltrados.length === 0 && (
-            <p className="px-8 py-12 text-center text-sm text-[#8696a0]">
+            <p className="px-8 py-12 text-center text-sm text-aura-graphite-soft dark:text-[#8696a0]">
               {chats.length === 0
                 ? "Suas conversas aparecem aqui assim que chegarem mensagens. Use o botão de nova conversa para chamar um cliente."
                 : "Nenhuma conversa neste filtro."}
@@ -794,39 +795,39 @@ export default function WhatsAppPage() {
                 key={chat.id}
                 type="button"
                 onClick={() => abrirChat(chat)}
-                className={`flex w-full items-center gap-3 px-3 text-left transition ${ativo ? "bg-[#2a3942]" : "hover:bg-[#202c33]"}`}
+                className={`flex w-full items-center gap-3 px-3 text-left transition ${ativo ? "bg-aura-mist/60 dark:bg-[#2a3942]" : "hover:bg-aura-sunken dark:hover:bg-[#202c33]"}`}
               >
                 <Avatar jid={chat.pnJid ?? chat.id} name={chat.name} />
-                <div className="min-w-0 flex-1 border-b border-[#222d34] py-3">
+                <div className="min-w-0 flex-1 border-b border-aura-mist dark:border-[#222d34] py-3">
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1.5 truncate text-[17px] text-[#e9edef]">
+                    <p className="flex min-w-0 items-center gap-1.5 truncate text-[17px] text-aura-graphite dark:text-[#e9edef]">
                       <span className="truncate">{chat.name}</span>
                       {etapa && <span title={etapa} className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: corDe(etapa, funilDaLoja) }} />}
                       {etiquetas.map((e) => (
                         <span
                           key={e.curto}
                           className="shrink-0 rounded px-1.5 py-[1px] text-[10px] font-medium leading-[14px]"
-                          style={{ background: e.fundo, color: e.cor }}
+                          style={{ background: `light-dark(color-mix(in srgb, ${e.cor} 16%, transparent), ${e.fundo})`, color: `light-dark(color-mix(in srgb, ${e.cor} 62%, black), ${e.cor})` }}
                         >
                           {e.curto}
                         </span>
                       ))}
                     </p>
-                    <span className={`shrink-0 text-xs ${chat.unread ? "text-[#00a884]" : "text-[#8696a0]"}`}>{formatListTime(chat.timestamp)}</span>
+                    <span className={`shrink-0 text-xs ${chat.unread ? "text-[#008069] dark:text-[#00a884]" : "text-aura-graphite-soft dark:text-[#8696a0]"}`}>{formatListTime(chat.timestamp)}</span>
                   </div>
                   <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <p className="flex min-w-0 items-center gap-1 truncate text-sm text-[#8696a0]">
+                    <p className="flex min-w-0 items-center gap-1 truncate text-sm text-aura-graphite-soft dark:text-[#8696a0]">
                       {chat.lastFromMe && <TiqueDaLista status={chat.lastStatus} />}
                       <span className="truncate">{chat.lastMessage}</span>
                     </p>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {alerta && (
                         <span title={alerta.texto}>
-                          <AlertTriangle className={`h-4 w-4 ${alerta.nivel === "critico" ? "text-[#f15c6d]" : "text-[#ffd279]"}`} />
+                          <AlertTriangle className={`h-4 w-4 ${alerta.nivel === "critico" ? "text-aura-danger dark:text-[#f15c6d]" : "text-aura-warning dark:text-[#ffd279]"}`} />
                         </span>
                       )}
                       {chat.unread > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#00a884] px-1.5 text-xs font-semibold text-[#111b21]">
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#00a884] px-1.5 text-xs font-semibold text-white dark:text-[#111b21]">
                           {chat.unread}
                         </span>
                       )}
@@ -855,20 +856,20 @@ export default function WhatsAppPage() {
             if (f) setArrastado(f);
           }}
         >
-          <header className="z-10 flex h-[59px] items-center gap-3 bg-[#202c33] px-4">
-            <button type="button" onClick={() => setSelectedChatId(null)} className="text-[#aebac1] md:hidden" aria-label="Voltar">
+          <header className="z-10 flex h-[59px] items-center gap-3 bg-aura-sunken dark:bg-[#202c33] px-4">
+            <button type="button" onClick={() => setSelectedChatId(null)} className="text-aura-graphite-soft dark:text-[#aebac1] md:hidden" aria-label="Voltar">
               <ArrowLeft className="h-5 w-5" />
             </button>
             <Avatar jid={chatAvatarJid} name={selectedChat.name} size={40} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[16px] text-[#e9edef]">{selectedChat.name}</p>
-              <p className="truncate text-xs text-[#8696a0]">{selectedChat.hasName ? formatPhone(selectedChat.phone) : "Contato do WhatsApp"}</p>
+              <p className="truncate text-[16px] text-aura-graphite dark:text-[#e9edef]">{selectedChat.name}</p>
+              <p className="truncate text-xs text-aura-graphite-soft dark:text-[#8696a0]">{selectedChat.hasName ? formatPhone(selectedChat.phone) : "Contato do WhatsApp"}</p>
             </div>
             <SeletorEtapa etapa={etapaAtual} onEscolher={mudarEtapa} ocupado={mudandoEtapa} funil={funilDaLoja} />
             <button
               type="button"
               onClick={deixarNaoLida}
-              className="rounded-full p-2 text-[#aebac1] transition hover:bg-white/10"
+              className="rounded-full p-2 text-aura-graphite-soft dark:text-[#aebac1] transition hover:bg-black/5 dark:hover:bg-white/10"
               title="Marcar como não lida e voltar para a lista"
               aria-label="Marcar como não lida"
             >
@@ -877,7 +878,7 @@ export default function WhatsAppPage() {
             <button
               type="button"
               onClick={() => setPainelIa((v) => !v)}
-              className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${painelIa ? "bg-[#0a332c] text-[#00a884]" : "text-[#aebac1] hover:bg-white/10"}`}
+              className={`relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition ${painelIa ? "bg-aura-petrol-50 dark:bg-[#0a332c] text-[#008069] dark:text-[#00a884]" : "text-aura-graphite-soft dark:text-[#aebac1] hover:bg-black/5 dark:hover:bg-white/10"}`}
               title="Supervisor AURA"
             >
               <Bot className="h-5 w-5" />
@@ -898,19 +899,19 @@ export default function WhatsAppPage() {
                 void carregarAntigas();
               }
             }}
-            className="flex-1 overflow-y-auto pb-3"
+            className="flex-1 overflow-y-auto bg-aura-bg pb-3 dark:bg-[#0b141a]"
             style={FUNDO_CHAT}
           >
             {messages.length === 0 ? (
-              <div className="mx-auto mt-6 w-fit max-w-md rounded-lg bg-[#182229] px-4 py-2 text-center text-xs text-[#ffd279]">
+              <div className="mx-auto mt-6 w-fit max-w-md rounded-lg bg-aura-surface dark:bg-[#182229] px-4 py-2 text-center text-xs text-aura-gold-700 dark:text-[#ffd279]">
                 Nenhuma mensagem desta conversa foi sincronizada ainda. As novas mensagens aparecem aqui.
               </div>
             ) : (
               <div className="flex justify-center pt-3">
                 {erroAntigas ? (
-                  <span className="rounded-full bg-[#4a1d1d] px-4 py-1.5 text-xs text-[#f15c6d] shadow">{erroAntigas}</span>
+                  <span className="rounded-full bg-aura-danger/10 dark:bg-[#4a1d1d] px-4 py-1.5 text-xs text-aura-danger dark:text-[#f15c6d] shadow">{erroAntigas}</span>
                 ) : buscandoAntigas ? (
-                  <span className="flex items-center gap-2 rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow">
+                  <span className="flex items-center gap-2 rounded-full bg-aura-surface dark:bg-[#182229] px-4 py-1.5 text-xs text-aura-graphite-soft dark:text-[#8696a0] shadow">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Buscando no celular…
                   </span>
@@ -920,7 +921,7 @@ export default function WhatsAppPage() {
                   <button
                     type="button"
                     onClick={carregarAntigas}
-                    className="rounded-full bg-[#182229] px-4 py-1.5 text-xs text-[#8696a0] shadow hover:text-[#e9edef]"
+                    className="rounded-full bg-aura-surface dark:bg-[#182229] px-4 py-1.5 text-xs text-aura-graphite-soft dark:text-[#8696a0] shadow hover:text-aura-graphite dark:hover:text-[#e9edef]"
                   >
                     Carregar mensagens anteriores
                   </button>
@@ -930,7 +931,7 @@ export default function WhatsAppPage() {
             {mensagensComDias.map((item) =>
               item.tipo === "dia" ? (
                 <div key={item.key} className="my-3 flex justify-center">
-                  <span className="rounded-lg bg-[#182229] px-3 py-1.5 text-xs text-[#8696a0] shadow">{item.label}</span>
+                  <span className="rounded-lg bg-aura-surface dark:bg-[#182229] px-3 py-1.5 text-xs text-aura-graphite-soft dark:text-[#8696a0] shadow">{item.label}</span>
                 </div>
               ) : (
                 <MessageBubble
@@ -980,18 +981,18 @@ export default function WhatsAppPage() {
           />
 
           {arrastando && (
-            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[#00a884]/10 text-lg font-medium text-[#00a884] ring-4 ring-inset ring-[#00a884]/40">
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[#00a884]/10 text-lg font-medium text-[#008069] dark:text-[#00a884] ring-4 ring-inset ring-[#00a884]/40">
               Solte o arquivo para enviar
             </div>
           )}
         </div>
       ) : (
-        <div className="hidden flex-1 flex-col items-center justify-center bg-[#222e35] text-center md:flex">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#0a332c]">
-            <Smartphone className="h-12 w-12 text-[#00a884]" />
+        <div className="hidden flex-1 flex-col items-center justify-center bg-aura-bg dark:bg-[#222e35] text-center md:flex">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-aura-petrol-50 dark:bg-[#0a332c]">
+            <Smartphone className="h-12 w-12 text-[#008069] dark:text-[#00a884]" />
           </div>
-          <h2 className="mt-6 text-[30px] font-light text-[#e9edef]">WhatsApp no AURA</h2>
-          <p className="mt-3 max-w-md text-sm text-[#8696a0]">
+          <h2 className="mt-6 text-[30px] font-light text-aura-graphite dark:text-[#e9edef]">WhatsApp no AURA</h2>
+          <p className="mt-3 max-w-md text-sm text-aura-graphite-soft dark:text-[#8696a0]">
             Envie e receba mensagens, fotos e documentos. O Supervisor AURA acompanha cada conversa, move seus leads no pipeline e avisa quando alguém está esperando resposta.
           </p>
         </div>
@@ -1042,42 +1043,42 @@ export default function WhatsAppPage() {
       {/* ======================= Nova conversa ======================= */}
       {novaAberta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setNovaAberta(false)}>
-          <div className="w-full max-w-md overflow-hidden rounded-xl bg-[#111b21] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-4 bg-[#202c33] px-5 py-4 text-[#e9edef]">
+          <div className="w-full max-w-md overflow-hidden rounded-xl bg-aura-surface dark:bg-[#111b21] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-4 bg-aura-sunken dark:bg-[#202c33] px-5 py-4 text-aura-graphite dark:text-[#e9edef]">
               <button type="button" onClick={() => setNovaAberta(false)} aria-label="Fechar">
                 <X className="h-5 w-5" />
               </button>
               <h3 className="text-lg">Nova conversa</h3>
             </div>
             <div className="space-y-4 p-5">
-              <label className="block text-sm text-[#00a884]">
+              <label className="block text-sm text-[#008069] dark:text-[#00a884]">
                 Número com DDD
                 <input
                   type="tel"
                   value={novoNumero}
                   onChange={(e) => setNovoNumero(e.target.value)}
                   placeholder="54 99999-1234"
-                  className="mt-1 w-full border-b-2 border-[#00a884] bg-transparent py-2 text-[15px] text-[#e9edef] outline-none placeholder:text-[#8696a0]"
+                  className="mt-1 w-full border-b-2 border-[#00a884] bg-transparent py-2 text-[15px] text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
                   autoFocus
                 />
               </label>
-              <label className="block text-sm text-[#00a884]">
+              <label className="block text-sm text-[#008069] dark:text-[#00a884]">
                 Mensagem
                 <textarea
                   value={novoTexto}
                   onChange={(e) => setNovoTexto(e.target.value)}
                   rows={4}
                   placeholder="Olá! Aqui é da LF Lareiras…"
-                  className="mt-1 w-full rounded-md bg-[#2a3942] px-3 py-2 text-[15px] text-[#e9edef] outline-none placeholder:text-[#8696a0]"
+                  className="mt-1 w-full rounded-md bg-aura-sunken dark:bg-[#2a3942] px-3 py-2 text-[15px] text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
                 />
               </label>
-              {novoErro && <p className="text-sm text-[#f15c6d]">{novoErro}</p>}
+              {novoErro && <p className="text-sm text-aura-danger dark:text-[#f15c6d]">{novoErro}</p>}
               <div className="flex justify-end">
                 <button
                   type="button"
                   onClick={iniciarConversa}
                   disabled={novoEnviando}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00a884] text-[#111b21] shadow hover:bg-[#06cf9c] disabled:opacity-60"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[#00a884] text-white dark:text-[#111b21] shadow hover:bg-[#008069] dark:hover:bg-[#06cf9c] disabled:opacity-60"
                   aria-label="Enviar"
                 >
                   {novoEnviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
@@ -1090,12 +1091,12 @@ export default function WhatsAppPage() {
 
       {/* Aviso curto destas acoes (reagir, nao lida, encaminhar). */}
       {avisoAcao && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#233138] px-4 py-2 text-sm text-[#ffd279] shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-aura-surface dark:bg-[#233138] px-4 py-2 text-sm ring-1 ring-aura-mist dark:ring-0 text-aura-gold-700 dark:text-[#ffd279] shadow-lg">
           {avisoAcao}
           <button
             type="button"
             onClick={() => setAvisoAcao(null)}
-            className="ml-3 text-[#8696a0] hover:text-[#e9edef]"
+            className="ml-3 text-aura-graphite-soft dark:text-[#8696a0] hover:text-aura-graphite dark:hover:text-[#e9edef]"
             aria-label="Fechar aviso"
           >
             <X className="inline h-4 w-4" />
@@ -1106,12 +1107,12 @@ export default function WhatsAppPage() {
       {/* ===================== Encaminhar ===================== */}
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="editar-titulo">
-          <div className="w-full max-w-md overflow-hidden rounded-lg bg-[#111b21] shadow-xl">
-            <div className="flex items-center gap-3 bg-[#202c33] px-4 py-3">
-              <button type="button" onClick={() => setEditando(null)} className="text-[#aebac1]" aria-label="Fechar">
+          <div className="w-full max-w-md overflow-hidden rounded-lg bg-aura-surface dark:bg-[#111b21] shadow-xl">
+            <div className="flex items-center gap-3 bg-aura-sunken dark:bg-[#202c33] px-4 py-3">
+              <button type="button" onClick={() => setEditando(null)} className="text-aura-graphite-soft dark:text-[#aebac1]" aria-label="Fechar">
                 <X className="h-5 w-5" />
               </button>
-              <p id="editar-titulo" className="text-[16px] text-[#e9edef]">Editar mensagem</p>
+              <p id="editar-titulo" className="text-[16px] text-aura-graphite dark:text-[#e9edef]">Editar mensagem</p>
             </div>
             <div className="p-4">
               <textarea
@@ -1125,19 +1126,19 @@ export default function WhatsAppPage() {
                     salvarEdicao();
                   }
                 }}
-                className="w-full resize-none rounded-lg bg-[#2a3942] px-3 py-2 text-[15px] leading-5 text-[#e9edef] outline-none"
+                className="w-full resize-none rounded-lg bg-aura-sunken dark:bg-[#2a3942] px-3 py-2 text-[15px] leading-5 text-aura-graphite dark:text-[#e9edef] outline-none"
               />
-              <p className="mt-2 text-xs text-[#8696a0]">O cliente vê o texto novo com a marca &quot;Editada&quot;. O WhatsApp só deixa editar até 15 minutos depois do envio.</p>
-              {erroAcao && <p className="mt-2 text-sm text-[#f15c6d]">{erroAcao}</p>}
+              <p className="mt-2 text-xs text-aura-graphite-soft dark:text-[#8696a0]">O cliente vê o texto novo com a marca &quot;Editada&quot;. O WhatsApp só deixa editar até 15 minutos depois do envio.</p>
+              {erroAcao && <p className="mt-2 text-sm text-aura-danger dark:text-[#f15c6d]">{erroAcao}</p>}
               <div className="mt-4 flex justify-end gap-2">
-                <button type="button" onClick={() => setEditando(null)} className="rounded-full px-4 py-2 text-sm text-[#00a884] hover:bg-white/5">
+                <button type="button" onClick={() => setEditando(null)} className="rounded-full px-4 py-2 text-sm text-[#008069] dark:text-[#00a884] hover:bg-black/5 dark:hover:bg-white/5">
                   Cancelar
                 </button>
                 <button
                   type="button"
                   onClick={salvarEdicao}
                   disabled={salvandoAcao || !textoEditado.trim() || textoEditado.trim() === editando.text}
-                  className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] disabled:opacity-40"
+                  className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-white dark:text-[#111b21] disabled:opacity-40"
                 >
                   {salvandoAcao ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   Salvar
@@ -1150,15 +1151,15 @@ export default function WhatsAppPage() {
 
       {apagando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="apagar-titulo">
-          <div className="w-full max-w-sm rounded-lg bg-[#111b21] p-5 shadow-xl">
-            <p id="apagar-titulo" className="text-[16px] text-[#e9edef]">Apagar para todos?</p>
-            <p className="mt-2 line-clamp-3 rounded bg-[#202c33] px-3 py-2 text-sm text-[#aebac1]">
+          <div className="w-full max-w-sm rounded-lg bg-aura-surface dark:bg-[#111b21] p-5 shadow-xl">
+            <p id="apagar-titulo" className="text-[16px] text-aura-graphite dark:text-[#e9edef]">Apagar para todos?</p>
+            <p className="mt-2 line-clamp-3 rounded bg-aura-sunken dark:bg-[#202c33] px-3 py-2 text-sm text-aura-graphite-soft dark:text-[#aebac1]">
               {apagando.text || (apagando.type === "audio" ? "Áudio" : apagando.type === "image" ? "Foto" : apagando.type === "video" ? "Vídeo" : apagando.fileName ?? "Mensagem")}
             </p>
-            <p className="mt-2 text-xs text-[#8696a0]">Some para você e para o cliente. No lugar fica &quot;Esta mensagem foi apagada&quot;. Não dá para desfazer.</p>
-            {erroAcao && <p className="mt-2 text-sm text-[#f15c6d]">{erroAcao}</p>}
+            <p className="mt-2 text-xs text-aura-graphite-soft dark:text-[#8696a0]">Some para você e para o cliente. No lugar fica &quot;Esta mensagem foi apagada&quot;. Não dá para desfazer.</p>
+            {erroAcao && <p className="mt-2 text-sm text-aura-danger dark:text-[#f15c6d]">{erroAcao}</p>}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setApagando(null)} className="rounded-full px-4 py-2 text-sm text-[#00a884] hover:bg-white/5">
+              <button type="button" onClick={() => setApagando(null)} className="rounded-full px-4 py-2 text-sm text-[#008069] dark:text-[#00a884] hover:bg-black/5 dark:hover:bg-white/5">
                 Cancelar
               </button>
               <button
@@ -1177,19 +1178,19 @@ export default function WhatsAppPage() {
 
       {encaminhando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-[#111b21] shadow-xl">
-            <div className="flex items-center gap-3 bg-[#202c33] px-4 py-3">
+          <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-lg bg-aura-surface dark:bg-[#111b21] shadow-xl">
+            <div className="flex items-center gap-3 bg-aura-sunken dark:bg-[#202c33] px-4 py-3">
               <button
                 type="button"
                 onClick={() => setEncaminhando(null)}
-                className="text-[#aebac1]"
+                className="text-aura-graphite-soft dark:text-[#aebac1]"
                 aria-label="Fechar"
               >
                 <X className="h-5 w-5" />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="text-[16px] text-[#e9edef]">Encaminhar para…</p>
-                <p className="truncate text-xs text-[#8696a0]">
+                <p className="text-[16px] text-aura-graphite dark:text-[#e9edef]">Encaminhar para…</p>
+                <p className="truncate text-xs text-aura-graphite-soft dark:text-[#8696a0]">
                   {encaminhando.hasMedia
                     ? encaminhando.type === "image"
                       ? "Foto"
@@ -1204,13 +1205,13 @@ export default function WhatsAppPage() {
             </div>
 
             <div className="px-4 py-2">
-              <div className="flex items-center gap-2 rounded-lg bg-[#202c33] px-3 py-1.5">
-                <Search className="h-4 w-4 text-[#8696a0]" />
+              <div className="flex items-center gap-2 rounded-lg bg-aura-sunken dark:bg-[#202c33] px-3 py-1.5">
+                <Search className="h-4 w-4 text-aura-graphite-soft dark:text-[#8696a0]" />
                 <input
                   value={buscaDestino}
                   onChange={(e) => setBuscaDestino(e.target.value)}
                   placeholder="Buscar conversa"
-                  className="w-full bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]"
+                  className="w-full bg-transparent text-sm text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
                 />
               </div>
             </div>
@@ -1241,14 +1242,14 @@ export default function WhatsAppPage() {
                       // disparo em massa e derruba o numero.
                       disabled={!marcado && destinos.length >= 10}
                       className={`flex w-full items-center gap-3 px-4 py-2 text-left transition disabled:opacity-40 ${
-                        marcado ? "bg-[#2a3942]" : "hover:bg-[#202c33]"
+                        marcado ? "bg-aura-mist/60 dark:bg-[#2a3942]" : "hover:bg-aura-sunken dark:hover:bg-[#202c33]"
                       }`}
                     >
                       <Avatar jid={c.pnJid ?? c.id} name={c.name} size={36} />
-                      <span className="min-w-0 flex-1 truncate text-[15px] text-[#e9edef]">{c.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-[15px] text-aura-graphite dark:text-[#e9edef]">{c.name}</span>
                       <span
                         className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-                          marcado ? "border-[#00a884] bg-[#00a884] text-[#111b21]" : "border-[#3b4a54]"
+                          marcado ? "border-[#00a884] bg-[#00a884] text-white dark:text-[#111b21]" : "border-aura-mist dark:border-[#3b4a54]"
                         }`}
                       >
                         {marcado ? <Check className="h-3.5 w-3.5" /> : null}
@@ -1258,8 +1259,8 @@ export default function WhatsAppPage() {
                 })}
             </div>
 
-            <div className="flex items-center justify-between gap-3 bg-[#202c33] px-4 py-3">
-              <span className="text-xs text-[#8696a0]">
+            <div className="flex items-center justify-between gap-3 bg-aura-sunken dark:bg-[#202c33] px-4 py-3">
+              <span className="text-xs text-aura-graphite-soft dark:text-[#8696a0]">
                 {destinos.length === 0
                   ? "Escolha as conversas"
                   : `${destinos.length} de 10 selecionadas`}
@@ -1268,7 +1269,7 @@ export default function WhatsAppPage() {
                 type="button"
                 onClick={confirmarEncaminhar}
                 disabled={destinos.length === 0 || enviandoEncaminhar}
-                className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-[#111b21] hover:bg-[#06cf9c] disabled:opacity-60"
+                className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-white dark:text-[#111b21] hover:bg-[#008069] dark:hover:bg-[#06cf9c] disabled:opacity-60"
               >
                 {enviandoEncaminhar ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
