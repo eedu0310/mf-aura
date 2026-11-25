@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { diaEmSaoPaulo } from "@/lib/fuso";
 import { negocioEmAberto } from "@/lib/kpis";
@@ -208,8 +208,68 @@ function EtapaColuna({
 
 export function PipelineBoard({}: PipelineBoardProps) {
   const appData = useAppData();
-  const oportunidades = appData.oportunidades || [];
-  const { moveOportunidade, updateOportunidade, vendas, funil } = appData;
+  const todasOportunidades = appData.oportunidades || [];
+  const { moveOportunidade, updateOportunidade, vendas, funil, nomesPorOwnerId, meuId } = appData;
+
+  /*
+   * FILTROS DO QUADRO (loja, vendedor, cliente).
+   *
+   * O gestor via o quadro da loja inteira (ou das quatro lojas, o mestre)
+   * tudo junto, sem como olhar só uma loja ou só um vendedor. O filtro é feito
+   * aqui, sobre o que ele já pode ver (as regras do banco continuam valendo),
+   * e os quatro números do topo seguem o filtro. Fica guardado neste aparelho.
+   * O vendedor só tem os próprios negócios: para ele aparece só a busca.
+   */
+  const [filtro, setFiltro] = useState<{ loja: string; vendedor: string; busca: string }>({ loja: "", vendedor: "", busca: "" });
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem("aura:pipeline:filtro");
+      if (salvo) setFiltro((f) => ({ ...f, ...(JSON.parse(salvo) as Partial<typeof f>), busca: "" }));
+    } catch {
+      /* sem filtro guardado */
+    }
+  }, []);
+  function mudarFiltro(parcial: Partial<typeof filtro>) {
+    setFiltro((atual) => {
+      const novo = { ...atual, ...parcial };
+      // Trocar a loja zera o vendedor, a não ser "só os meus".
+      if (parcial.loja !== undefined && parcial.loja !== atual.loja && novo.vendedor !== "eu") novo.vendedor = "";
+      try {
+        window.localStorage.setItem("aura:pipeline:filtro", JSON.stringify({ loja: novo.loja, vendedor: novo.vendedor }));
+      } catch {
+        /* vale só nesta sessão */
+      }
+      return novo;
+    });
+  }
+  const lojas = useMemo(
+    () => [...new Set(todasOportunidades.map((o) => o.empresa).filter((e): e is string => !!e))].sort(),
+    [todasOportunidades],
+  );
+  const vendedoresDaLoja = useMemo(() => {
+    const conta = new Map<string, number>();
+    for (const o of todasOportunidades) {
+      if (!o.ownerId || (filtro.loja && o.empresa !== filtro.loja)) continue;
+      if (!negocioEmAberto(o.etapa, funil)) continue;
+      conta.set(o.ownerId, (conta.get(o.ownerId) ?? 0) + 1);
+    }
+    for (const o of todasOportunidades) {
+      if (o.ownerId && !conta.has(o.ownerId) && (!filtro.loja || o.empresa === filtro.loja)) conta.set(o.ownerId, 0);
+    }
+    return [...conta.entries()]
+      .map(([id, n]) => ({ id, nome: nomesPorOwnerId?.[id] ?? todasOportunidades.find((o) => o.ownerId === id)?.ownerNome ?? "Sem nome", n }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [todasOportunidades, filtro.loja, funil, nomesPorOwnerId]);
+  const vendedorEscolhido = filtro.vendedor === "eu" ? meuId : filtro.vendedor || null;
+  const termo = filtro.busca.trim().toLowerCase();
+  const oportunidades = todasOportunidades.filter(
+    (o) =>
+      (!filtro.loja || o.empresa === filtro.loja) &&
+      (!vendedorEscolhido || o.ownerId === vendedorEscolhido || o.parceiroId === vendedorEscolhido) &&
+      (!termo || [o.cliente, o.produto, o.descricao].some((t) => (t ?? "").toLowerCase().includes(termo))),
+  );
+  const variosDonos = vendedoresDaLoja.length > 1 || lojas.length > 1;
+  const filtrando = !!(filtro.loja || filtro.vendedor || termo);
   const todasAsColunas = etapasVisiveis(funil);
 
   /*
@@ -329,6 +389,14 @@ export function PipelineBoard({}: PipelineBoardProps) {
   const mesAtual = diaEmSaoPaulo().slice(0, 7);
   const fechamentosDoMes = (vendas ?? [])
     .filter((venda) => venda.data?.startsWith(mesAtual))
+    .filter((venda) => !filtro.loja || (venda.empresa ?? venda.loja) === filtro.loja)
+    .filter(
+      (venda) =>
+        !vendedorEscolhido ||
+        venda.ownerId === vendedorEscolhido ||
+        venda.vendedorId === vendedorEscolhido ||
+        venda.parceiroId === vendedorEscolhido,
+    )
     .reduce((total, venda) => total + (venda.valorFechado ?? venda.valor ?? 0), 0);
 
   /**
@@ -344,7 +412,7 @@ export function PipelineBoard({}: PipelineBoardProps) {
 
   /** Um só caminho para mover, seja soltando na coluna ou sobre outro card. */
   async function mover(oportunidadeId: string, novaEtapa: Etapa) {
-    const opp = oportunidades.find((o) => o.id === oportunidadeId);
+    const opp = todasOportunidades.find((o) => o.id === oportunidadeId);
     if (!opp || opp.etapa === novaEtapa) return;
 
     if (ehPerda(novaEtapa, funil)) {
@@ -412,6 +480,60 @@ export function PipelineBoard({}: PipelineBoardProps) {
       onDragEnd={handleDragEnd}
     >
       <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center gap-2">
+          {variosDonos && lojas.length > 1 && (
+            <select
+              value={filtro.loja}
+              onChange={(e) => mudarFiltro({ loja: e.target.value })}
+              className="aura-input !h-9 w-auto"
+              aria-label="Filtrar por loja"
+            >
+              <option value="">Todas as lojas</option>
+              {lojas.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          )}
+          {variosDonos && (
+            <select
+              value={filtro.vendedor}
+              onChange={(e) => mudarFiltro({ vendedor: e.target.value })}
+              className="aura-input !h-9 w-auto"
+              aria-label="Filtrar por vendedor"
+            >
+              <option value="">Todos os vendedores</option>
+              {meuId && <option value="eu">Só os meus</option>}
+              {vendedoresDaLoja.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.nome} ({v.n} em aberto)
+                </option>
+              ))}
+            </select>
+          )}
+          <label className="relative">
+            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-aura-graphite-soft" />
+            <input
+              value={filtro.busca}
+              onChange={(e) => mudarFiltro({ busca: e.target.value })}
+              placeholder="Buscar cliente ou produto"
+              className="aura-input !h-9 w-56 !pl-8"
+              aria-label="Buscar no quadro"
+            />
+          </label>
+          {filtrando && (
+            <button type="button" onClick={() => mudarFiltro({ loja: "", vendedor: "", busca: "" })} className={classeBotao("fantasma", "sm")}>
+              <X size={13} /> Limpar filtros
+            </button>
+          )}
+          {filtrando && (
+            <span className="text-xs text-aura-graphite-soft">
+              Mostrando {oportunidades.length} de {todasOportunidades.length} negócios
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard icone={Layers} rotulo="Valor em aberto (Proposta+)" valor={formatarMoeda(valorTotal)} />
           <StatCard icone={TrendingUp} rotulo="Previsão ponderada (Proposta+)" valor={formatarMoeda(previsaoPonderada)} />
