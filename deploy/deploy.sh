@@ -42,6 +42,24 @@ else
   sudo -u "$USUARIO" git --no-pager log --oneline "$ANTES..$DEPOIS" | sed 's/^/   /'
 fi
 
+# Programas do sistema que a AURA usa fora do Node:
+#   ffmpeg  converte o áudio gravado no navegador em nota de voz do WhatsApp,
+#           os áudios recebidos para o navegador tocar e as mídias do Instagram.
+#           Sem ele, enviar áudio dá "O servidor ainda não converte áudio".
+#   tar     empacota as sessões do WhatsApp no backup noturno.
+# Instala só o que falta (numa VPS nova, o primeiro deploy já deixa pronto).
+for PROGRAMA in ffmpeg tar; do
+  if ! command -v "$PROGRAMA" >/dev/null 2>&1; then
+    echo "== instalando $PROGRAMA (faltava no servidor)"
+    if command -v apt-get >/dev/null 2>&1; then
+      DEBIAN_FRONTEND=noninteractive apt-get install -y "$PROGRAMA" >/dev/null \
+        || echo "   AVISO: não consegui instalar $PROGRAMA; rode: sudo apt install -y $PROGRAMA"
+    else
+      echo "   AVISO: sem apt-get; instale $PROGRAMA na mão."
+    fi
+  fi
+done
+
 echo "== 2/6 dependências"
 # Compara o package-lock com o que foi instalado da última vez, não só com o
 # pull de agora. Antes, um deploy que falhava DEPOIS do pull (build quebrado,
