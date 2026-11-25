@@ -62,6 +62,9 @@ export function UsuariosTab() {
   const [modalAberto, setModalAberto] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  // Falha tem o próprio aviso, vermelho: antes o erro ao apagar uma conta
+  // aparecia no mesmo cartão verde de sucesso, com o ícone de "ok".
+  const [falha, setFalha] = useState<string | null>(null);
   const [credencial, setCredencial] = useState<{ email: string; senha: string } | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState<Usuario | null>(null);
@@ -72,6 +75,8 @@ export function UsuariosTab() {
 
   async function apagarIncompleto(c: Incompleto) {
     setOcupadoIncompleto(true);
+    setFalha(null);
+    setAviso(null);
     try {
       const resposta = await fetch("/api/admin/excluir-cadastro-incompleto", {
         method: "POST",
@@ -80,11 +85,14 @@ export function UsuariosTab() {
       });
       const dados = await resposta.json().catch(() => ({}));
       if (!resposta.ok) throw new Error(dados.erro ?? "Não consegui apagar.");
-      setAviso(`Conta ${c.email} apagada.`);
+      setAviso(
+        `Conta ${c.email} apagada.` +
+          (dados.leadsDevolvidos ? ` ${dados.leadsDevolvidos} lead(s) dela voltaram para a fila, sem vendedor.` : ""),
+      );
       setApagandoIncompleto(null);
       await carregar();
     } catch (e) {
-      setAviso(e instanceof Error ? e.message : "Não consegui apagar.");
+      setFalha(e instanceof Error ? e.message : "Não consegui apagar.");
     } finally {
       setOcupadoIncompleto(false);
     }
@@ -281,6 +289,7 @@ export function UsuariosTab() {
       {erroForm && !modalAberto && (
         <Alerta tom="perigo" titulo={erroForm} />
       )}
+      {falha && <Alerta tom="perigo" titulo={falha} />}
       {aviso && (
         <Alerta tom="sucesso" titulo={aviso} />
       )}

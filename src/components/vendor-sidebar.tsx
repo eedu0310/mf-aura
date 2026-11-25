@@ -8,6 +8,7 @@ import { AvatarUsuario } from "@/components/avatar-usuario";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { ITEM_COACH, ITEM_INSTAGRAM, comSiteMf, emSecoes, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
+import { useLembrarPaginaDoCrm } from "@/lib/voltar-crm";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 
 /**
@@ -19,6 +20,9 @@ import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 export function VendorSidebar() {
   const pathname = usePathname();
   const { profile } = useUserProfile();
+  // Guarda a página do CRM aberta: o "Voltar" das áreas de trabalho (pós-venda,
+  // marketing, gestor) volta para ela. A barra está montada em toda tela do CRM.
+  useLembrarPaginaDoCrm();
 
   const acesso = usarMeuAcesso();
   // O Instagram nao e do cargo, e da pessoa: em cada loja so o vendedor

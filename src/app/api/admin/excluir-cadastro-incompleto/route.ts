@@ -44,7 +44,61 @@ export async function POST(request: Request) {
     );
   }
 
+  /**
+   * "Sem perfil, sem nada ligado" NÃO é verdade. O roteamento de leads chega a
+   * entregar lead para a conta antes de a pessoa terminar o cadastro, e o sino
+   * gera notificação para ela. Essas tabelas apontam para auth.users sem
+   * cascata, e o Supabase recusava a exclusão com um seco "Database error
+   * deleting user" (caso real: 2 leads e 3 notificações, 25/11/2026).
+   *
+   * Antes de apagar: os leads voltam para a fila (sem vendedor), as aprovações
+   * perdem o nome de quem aprovou, e o que era só da pessoa (notificações,
+   * tarefas) vai junto. Conteúdo que ela criou no marketing não pode ficar sem
+   * autor (a coluna é obrigatória): aí a exclusão para e explica.
+   */
+  for (const tabela of ["campanhas_marketing", "postagens_marketing"] as const) {
+    const { count, error: e } = await service
+      .from(tabela)
+      .select("id", { count: "exact", head: true })
+      .eq("criado_por", id);
+    if (e) return NextResponse.json({ erro: "Não consegui conferir o que essa conta criou. Tente de novo." }, { status: 500 });
+    if (count) {
+      return NextResponse.json(
+        { erro: "Essa conta criou campanhas ou postagens de marketing. Passe esse conteúdo para outra pessoa antes de apagar." },
+        { status: 409 },
+      );
+    }
+  }
+
+  const soltar: Array<[string, string]> = [
+    ["leads_recebidos", "vendedor_id"],
+    ["leads_recebidos", "sdr_id"],
+    ["leads_recebidos", "respondido_por"],
+    ["compromissos_mensais", "aprovado_por"],
+    ["acoes_pendentes_aprovacao", "aprovado_por"],
+  ];
+  let leadsDevolvidos = 0;
+  for (const [tabela, coluna] of soltar) {
+    const { data, error: e } = await service
+      .from(tabela)
+      .update({ [coluna]: null })
+      .eq(coluna, id)
+      .select("id");
+    if (e) return NextResponse.json({ erro: "Não consegui liberar os registros dessa conta. Nada foi apagado." }, { status: 500 });
+    if (tabela === "leads_recebidos" && coluna === "vendedor_id") leadsDevolvidos = data?.length ?? 0;
+  }
+  for (const tabela of ["notificacoes", "tarefas"] as const) {
+    const { error: e } = await service.from(tabela).delete().eq("vendedor_id", id);
+    if (e) return NextResponse.json({ erro: "Não consegui limpar os avisos dessa conta. A conta não foi apagada." }, { status: 500 });
+  }
+
   const { error } = await service.auth.admin.deleteUser(id);
-  if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  if (error) {
+    console.error("[excluir-cadastro-incompleto] Supabase recusou:", error.message);
+    return NextResponse.json(
+      { erro: "O banco ainda recusou apagar essa conta: há outro registro ligado a ela." },
+      { status: 500 },
+    );
+  }
+  return NextResponse.json({ ok: true, leadsDevolvidos });
 }

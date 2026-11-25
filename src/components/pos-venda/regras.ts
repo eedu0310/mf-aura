@@ -237,3 +237,15 @@ export function haQuantoTempo(dias: number | null) {
 export function formatarHora(hora: string | null | undefined) {
   return hora ? hora.slice(0, 5) : "";
 }
+
+/** Dia "AAAA-MM-DD" (em Brasília) de um instante gravado no banco. Nulo se vazio. */
+export function diaDoMomento(iso: string | null | undefined) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : diaEmSaoPaulo(d);
+}
+
+/** "1 cliente", "3 clientes". */
+export function plural(n: number, singular: string, pluralTexto = `${singular}s`) {
+  return `${n} ${n === 1 ? singular : pluralTexto}`;
+}

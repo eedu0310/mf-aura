@@ -1,193 +1,45 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { ChevronUp, User, Settings, LogOut, ArrowLeft, LayoutDashboard } from "lucide-react";
+import { Suspense } from "react";
+import { LayoutDashboard } from "lucide-react";
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
 import { useUserProfile } from "@/lib/user-profile-context";
-import { AvatarUsuario } from "@/components/avatar-usuario";
-import { AuraLogoFull } from "@/components/aura-logo";
-import { BotaoTema, SeletorTema } from "@/components/tema";
+import { AreaDeTrabalho, type GrupoDaArea } from "@/components/area-de-trabalho";
 import { ABAS_MARKETING, hrefDaAba, useAbaMarketing } from "@/components/marketing/aba-marketing";
 
-/** Para onde o "Voltar ao CRM" leva: o Meu Dia abre para todos os cargos. */
-const ROTA_CRM = "/meu-dia";
+/**
+ * A Central de Marketing é uma ÁREA DE TRABALHO (src/components/area-de-trabalho):
+ * abre sozinha, com o próprio menu, e o Voltar leva para onde a pessoa estava
+ * no CRM. Mesma casca do Pós-venda e do Painel do Gestor.
+ */
+function Casca({ children }: { children: React.ReactNode }) {
+  const { profile } = useUserProfile();
+  const { aba } = useAbaMarketing();
 
-function PerfilMenu() {
-  const router = useRouter();
-  const { profile, clearProfile } = useUserProfile();
-  const [menuAberto, setMenuAberto] = useState(false);
-  const [saindo, setSaindo] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function aoClicarFora(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", aoClicarFora);
-    return () => document.removeEventListener("mousedown", aoClicarFora);
-  }, []);
-
-  async function sair() {
-    if (saindo) return;
-    setSaindo(true);
-    setMenuAberto(false);
-    await clearProfile();
-    router.push("/login");
+  const grupos: GrupoDaArea[] = [
+    {
+      itens: ABAS_MARKETING.map((a) => ({
+        id: a.id,
+        rotulo: a.label,
+        href: hrefDaAba(a.id),
+        icone: a.icon,
+        ativo: aba === a.id,
+      })),
+    },
+  ];
+  // Atalho só do gestor, num grupo à parte para não parecer mais uma seção.
+  if (profile.cargo === "Gestor") {
+    grupos.push({
+      titulo: "Gestão",
+      itens: [{ id: "gestor", rotulo: "Painel do gestor", href: "/gestor", icone: LayoutDashboard, ativo: false }],
+    });
   }
 
   return (
-    <div ref={menuRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setMenuAberto((v) => !v)}
-        aria-expanded={menuAberto}
-        className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition hover:bg-aura-sunken"
-      >
-        <AvatarUsuario foto={profile.fotoUrl} iniciais={profile.avatarIniciais} className="h-8 w-8 bg-aura-petrol-600 text-xs font-semibold text-white" />
-        <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-[0.8125rem] font-medium leading-tight text-aura-graphite">{profile.nome}</p>
-          <p className="truncate text-xs leading-tight text-aura-graphite-soft">{profile.cargo}</p>
-        </div>
-        <ChevronUp size={14} className="shrink-0 text-aura-graphite-soft" />
-      </button>
-
-      {menuAberto && (
-        <div className="aura-card absolute bottom-full left-0 z-30 mb-2 w-56 overflow-hidden py-1.5 shadow-xl">
-          <div className="border-b border-aura-mist px-4 py-2.5">
-            <p className="text-sm font-medium text-aura-graphite">{profile.nome}</p>
-            <p className="text-xs text-aura-graphite-soft">
-              {profile.cargo} · {profile.empresa}
-            </p>
-          </div>
-          <Link
-            href="/configuracoes"
-            onClick={() => setMenuAberto(false)}
-            className="flex items-center gap-2.5 px-4 py-2 text-[0.8125rem] text-aura-graphite transition hover:bg-aura-sunken"
-          >
-            <User size={15} className="text-aura-graphite-soft" />
-            Meu perfil
-          </Link>
-          <Link
-            href="/configuracoes"
-            onClick={() => setMenuAberto(false)}
-            className="flex items-center gap-2.5 px-4 py-2 text-[0.8125rem] text-aura-graphite transition hover:bg-aura-sunken"
-          >
-            <Settings size={15} className="text-aura-graphite-soft" />
-            Configurações
-          </Link>
-          <button
-            type="button"
-            onClick={sair}
-            disabled={saindo}
-            className="flex w-full items-center gap-2.5 border-t border-aura-mist px-4 py-2 text-left text-[0.8125rem] text-aura-danger transition hover:bg-aura-danger/5 disabled:opacity-60"
-          >
-            <LogOut size={15} />
-            {saindo ? "Saindo..." : "Sair da conta"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const CLASSE_ITEM =
-  "group flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[0.8125rem] font-medium transition";
-const CLASSE_ITEM_ATIVO = "bg-aura-sunken text-aura-graphite";
-const CLASSE_ITEM_PARADO = "text-aura-graphite-soft hover:bg-aura-sunken/70 hover:text-aura-graphite";
-const CLASSE_TITULO_GRUPO =
-  "hidden px-2.5 pb-1.5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80 sm:block";
-
-/**
- * O único menu da Central de Marketing. No computador é a coluna da esquerda;
- * no celular vira uma faixa que rola de lado logo abaixo da marca. Antes a
- * página repetia as mesmas seções num segundo trilho, e a pessoa não sabia
- * qual dos dois mandava.
- */
-function BarraLateral() {
-  const { profile } = useUserProfile();
-  const { aba } = useAbaMarketing();
-  const ehGestor = profile.cargo === "Gestor";
-
-  return (
-    <aside className="flex shrink-0 flex-col border-b border-aura-mist bg-aura-surface sm:sticky sm:top-0 sm:h-dvh sm:w-60 sm:border-b-0 sm:border-r">
-      <div className="flex h-14 items-center justify-between gap-2 px-4">
-        <Link href="/marketing" aria-label="Central de Marketing" className="flex items-center gap-2">
-          <AuraLogoFull />
-          <span className="aura-selo aura-selo-neutro">MKT</span>
-        </Link>
-        <div className="flex items-center gap-1 sm:hidden">
-          <Link
-            href={ROTA_CRM}
-            className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
-          >
-            <ArrowLeft size={14} />
-            Voltar ao CRM
-          </Link>
-          <BotaoTema />
-        </div>
-      </div>
-
-      {/* Saída do marketing: sempre no mesmo lugar, logo abaixo da marca. */}
-      <div className="hidden px-2.5 sm:block">
-        <Link href={ROTA_CRM} className={`${CLASSE_ITEM} ${CLASSE_ITEM_PARADO}`}>
-          <ArrowLeft size={16} strokeWidth={1.9} className="text-aura-graphite-soft group-hover:text-aura-graphite" />
-          Voltar ao CRM
-        </Link>
-      </div>
-
-      <div className="overflow-x-auto px-2.5 pb-2.5 sm:flex-1 sm:overflow-y-auto sm:pb-4">
-        <p className={`${CLASSE_TITULO_GRUPO} pt-4`}>Central de Marketing</p>
-        <nav className="flex flex-row gap-0.5 sm:flex-col" aria-label="Seções do marketing">
-          {ABAS_MARKETING.map((a) => {
-            const Icon = a.icon;
-            const ativo = aba === a.id;
-            return (
-              <Link
-                key={a.id}
-                href={hrefDaAba(a.id)}
-                aria-current={ativo ? "page" : undefined}
-                className={`${CLASSE_ITEM} ${ativo ? CLASSE_ITEM_ATIVO : CLASSE_ITEM_PARADO}`}
-              >
-                <Icon
-                  size={17}
-                  strokeWidth={1.9}
-                  className={ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft group-hover:text-aura-graphite"}
-                />
-                <span className="whitespace-nowrap">{a.label}</span>
-              </Link>
-            );
-          })}
-
-          {/* Atalho só do gestor, separado das seções para não parecer mais uma delas. */}
-          {ehGestor && (
-            <>
-              <span className="mx-1 my-1.5 w-px shrink-0 bg-aura-mist sm:hidden" aria-hidden />
-              <p className={`${CLASSE_TITULO_GRUPO} pt-5`}>Gestão</p>
-              <Link href="/gestor" className={`${CLASSE_ITEM} ${CLASSE_ITEM_PARADO}`}>
-                <LayoutDashboard
-                  size={17}
-                  strokeWidth={1.9}
-                  className="text-aura-graphite-soft group-hover:text-aura-graphite"
-                />
-                <span className="whitespace-nowrap">Painel do gestor</span>
-              </Link>
-            </>
-          )}
-        </nav>
-      </div>
-
-      <div className="hidden border-t border-aura-mist p-3 sm:block">
-        <SeletorTema compacto />
-        <div className="mt-2.5">
-          <PerfilMenu />
-        </div>
-      </div>
-    </aside>
+    <AreaDeTrabalho nome="Central de Marketing" selo="MKT" inicio="/marketing" grupos={grupos}>
+      {children}
+    </AreaDeTrabalho>
   );
 }
 
@@ -197,10 +49,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <RoleGuard papeisPermitidos={["Marketing", "Gestor"]}>
         {/* A seção aberta vem da URL (useSearchParams), que pede um Suspense em volta. */}
         <Suspense fallback={null}>
-          <div className="flex min-h-screen flex-col bg-aura-bg sm:flex-row">
-            <BarraLateral />
-            <div className="min-w-0 flex-1">{children}</div>
-          </div>
+          <Casca>{children}</Casca>
         </Suspense>
       </RoleGuard>
     </OnboardingGuard>

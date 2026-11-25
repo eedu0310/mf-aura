@@ -1,48 +1,56 @@
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { AuraLogoFull } from "@/components/aura-logo";
+import { Suspense } from "react";
+import { HeartHandshake, Megaphone } from "lucide-react";
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
-import { BotaoTema } from "@/components/tema";
-import { useUserProfile } from "@/lib/user-profile-context";
-import { AvatarUsuario } from "@/components/avatar-usuario";
+import { AreaDeTrabalho, type GrupoDaArea } from "@/components/area-de-trabalho";
+import { useAbaGestor } from "@/components/gestor/areas";
+
+/**
+ * O Painel do Gestor é uma ÁREA DE TRABALHO (src/components/area-de-trabalho):
+ * abre sozinho, com as seis áreas no menu, e o Voltar leva para onde o gestor
+ * estava no CRM. Mesma casca do Pós-venda e do Marketing, que ficam no fim do
+ * menu como atalhos.
+ */
+function Casca({ children }: { children: React.ReactNode }) {
+  const { areaAtual, areasVisiveis, hrefDaArea } = useAbaGestor();
+
+  const grupos: GrupoDaArea[] = [
+    {
+      itens: areasVisiveis.map((area) => ({
+        id: area.id,
+        rotulo: area.titulo,
+        descricao: area.descricao,
+        href: hrefDaArea(area.id),
+        icone: area.icone,
+        ativo: area.id === areaAtual.id,
+      })),
+    },
+    {
+      titulo: "Outras áreas",
+      itens: [
+        { id: "pos-venda", rotulo: "Pós-venda", href: "/pos-venda", icone: HeartHandshake, ativo: false },
+        { id: "marketing", rotulo: "Central de Marketing", href: "/marketing", icone: Megaphone, ativo: false },
+      ],
+    },
+  ];
+
+  return (
+    <AreaDeTrabalho nome="Painel do Gestor" selo="GESTOR" inicio="/gestor" grupos={grupos}>
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
+    </AreaDeTrabalho>
+  );
+}
 
 export default function GestorLayout({ children }: { children: React.ReactNode }) {
-  const { profile } = useUserProfile();
-
   return (
     <OnboardingGuard>
       <RoleGuard papeisPermitidos={["Gestor"]}>
-        <div className="min-h-screen bg-aura-bg">
-          <header className="area-segura-topo sticky top-0 z-40 border-b border-aura-mist bg-aura-surface/85 backdrop-blur">
-            <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
-              <div className="flex min-w-0 items-center gap-3">
-                <AuraLogoFull />
-                <span className="hidden h-5 w-px bg-aura-mist sm:block" aria-hidden />
-                <span className="hidden truncate text-sm font-medium text-aura-graphite sm:block">Painel do Gestor</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Link
-                  href="/meu-dia"
-                  className="flex h-9 items-center gap-1.5 rounded-lg border border-aura-mist px-3 text-xs font-medium text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
-                >
-                  <ArrowLeft size={14} />
-                  <span className="hidden sm:inline">Voltar para o Meu Dia</span>
-                  <span className="sm:hidden">Voltar</span>
-                </Link>
-                <BotaoTema />
-                <AvatarUsuario
-                  foto={profile.fotoUrl}
-                  iniciais={profile.avatarIniciais}
-                  className="ml-1 h-8 w-8 bg-aura-petrol-600 text-[0.65rem] font-semibold text-white"
-                />
-              </div>
-            </div>
-          </header>
-          <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
-        </div>
+        {/* A aba aberta vem da URL (useSearchParams), que pede um Suspense em volta. */}
+        <Suspense fallback={null}>
+          <Casca>{children}</Casca>
+        </Suspense>
       </RoleGuard>
     </OnboardingGuard>
   );

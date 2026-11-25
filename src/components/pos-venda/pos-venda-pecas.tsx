@@ -87,3 +87,31 @@ export function EsqueletoPosVenda() {
     </div>
   );
 }
+
+/** Esqueleto de uma seção em lista: fileira de números e linhas. */
+export function EsqueletoSecao({ numeros = 4, linhas = 5 }: { numeros?: number; linhas?: number }) {
+  return (
+    <div className="flex flex-col gap-5" aria-busy="true" aria-label="Carregando">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: numeros }).map((_, i) => (
+          <div key={i} className="aura-card flex flex-col gap-3 p-4">
+            <Osso className="h-3 w-20" />
+            <Osso className="h-6 w-12" />
+          </div>
+        ))}
+      </div>
+      <div className="aura-card flex flex-col divide-y divide-aura-mist">
+        {Array.from({ length: linhas }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 p-4">
+            <Osso className="h-9 w-9 shrink-0" />
+            <div className="flex flex-1 flex-col gap-2">
+              <Osso className="h-3.5 w-1/3" />
+              <Osso className="h-3 w-1/2" />
+            </div>
+            <Osso className="h-8 w-20 shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
