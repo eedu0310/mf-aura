@@ -19,4 +19,12 @@ const CHAVE_APARENCIA = "aura-aparencia";
 /** Rotas públicas, de cliente, que nunca entram no tema escuro. */
 export const ROTAS_SEMPRE_CLARAS = /^\/(f|s|av|avaliar|materiais|privacidade|exclusao-de-dados)(\/|$)/;
 
-export const SCRIPT_DO_TEMA = `(function(){try{if(${ROTAS_SEMPRE_CLARAS}.test(location.pathname)){document.documentElement.classList.remove("dark");return;}var t=localStorage.getItem("${CHAVE_DO_TEMA}");var e=t==="escuro"||((!t||t==="sistema")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",e);var a=JSON.parse(localStorage.getItem("${CHAVE_APARENCIA}")||"null");if(a){var h=document.documentElement;if(/^[a-z]+$/.test(a.p))h.dataset.paleta=a.p;if(/^[a-z]+$/.test(a.f))h.dataset.fundoPipeline=a.f;}}catch(_){}})();`;
+/**
+ * A porta de entrada (login, primeiro acesso, nova senha) fica sempre com a
+ * paleta original: o painel da marca ali é petróleo fixo, e com a paleta do
+ * gestor (dourado, marinho, Natal...) o botão e o fundo brigavam com ele.
+ * O tema claro/escuro continua valendo.
+ */
+export const ROTAS_SEM_PALETA = /^\/(login|onboarding|redefinir-senha|limpar)(\/|$)/;
+
+export const SCRIPT_DO_TEMA = `(function(){try{if(${ROTAS_SEMPRE_CLARAS}.test(location.pathname)){document.documentElement.classList.remove("dark");return;}var t=localStorage.getItem("${CHAVE_DO_TEMA}");var e=t==="escuro"||((!t||t==="sistema")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",e);if(${ROTAS_SEM_PALETA}.test(location.pathname))return;var a=JSON.parse(localStorage.getItem("${CHAVE_APARENCIA}")||"null");if(a){var h=document.documentElement;if(/^[a-z]+$/.test(a.p))h.dataset.paleta=a.p;if(/^[a-z]+$/.test(a.f))h.dataset.fundoPipeline=a.f;}}catch(_){}})();`;

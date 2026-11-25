@@ -723,6 +723,16 @@
  * texto viram as do menu, então os mesmos componentes funcionam num menu
  * claro ou escuro sem uma classe nova.
  * ------------------------------------------------------------------------- */
+/* A–D: a marca de sempre (petróleo nos botões), mudando o menu. C e D marcam
+   o item ativo com fundo dourado leve e uma barrinha na lateral. */
+html[data-paleta="solido"] { --pal-acento: #138780; --pal-fundo: #f6f7f9; --pal-menu: #0c5a55; --pal-menu-texto: #d5efec; --pal-ativo-fundo: rgba(255, 255, 255, 0.16); --pal-ativo-texto: #ffffff; --pal-ativo-icone: #e8c583; --pal-ativo-barra: #e8c583; }
+html.dark[data-paleta="solido"] { --pal-acento: #2ea49b; --pal-fundo: #0b0e13; --pal-menu: #071a18; --pal-menu-texto: #a9ddd8; --pal-ativo-fundo: rgba(63, 179, 170, 0.22); --pal-ativo-icone: #ddb257; --pal-ativo-barra: #ddb257; }
+html[data-paleta="suave"] { --pal-acento: #138780; --pal-fundo: #f4f8f8; --pal-menu: #eef8f7; --pal-menu-texto: #14181f; --pal-ativo-texto: #ffffff; }
+html.dark[data-paleta="suave"] { --pal-acento: #2ea49b; --pal-fundo: #0b0e13; --pal-menu: #0f2523; --pal-menu-texto: #e8ecf1; --pal-ativo-fundo: #17877f; }
+html[data-paleta="dourado"] { --pal-acento: #138780; --pal-fundo: #f6f7f9; --pal-menu: #ffffff; --pal-menu-texto: #14181f; --pal-ativo-fundo: #faf1dd; --pal-ativo-texto: #8a6514; --pal-ativo-icone: #c99a33; --pal-ativo-barra: #c99a33; }
+html.dark[data-paleta="dourado"] { --pal-acento: #2ea49b; --pal-fundo: #0b0e13; --pal-menu: #12161d; --pal-menu-texto: #e8ecf1; --pal-ativo-fundo: rgba(221, 178, 87, 0.14); --pal-ativo-texto: #e8c583; --pal-ativo-icone: #ddb257; --pal-ativo-barra: #ddb257; }
+html[data-paleta="marinho"] { --pal-acento: #138780; --pal-fundo: #f6f7f9; --pal-menu: #141a22; --pal-menu-texto: #c9d1db; --pal-ativo-fundo: rgba(201, 154, 51, 0.16); --pal-ativo-texto: #e8c583; --pal-ativo-icone: #e8c583; --pal-ativo-barra: #c99a33; }
+html.dark[data-paleta="marinho"] { --pal-acento: #2ea49b; --pal-fundo: #0b0e13; --pal-menu: #07090d; --pal-menu-texto: #c9d1db; --pal-ativo-fundo: rgba(221, 178, 87, 0.14); --pal-ativo-icone: #ddb257; --pal-ativo-barra: #ddb257; }
 html[data-paleta="terracota"] { --pal-acento: #c2562b; --pal-fundo: #faf7f2; --pal-menu: #f3ebe0; --pal-menu-texto: #3b2f26; --pal-ativo-texto: #ffffff; }
 html.dark[data-paleta="terracota"] { --pal-acento: #d0653a; --pal-fundo: #14110e; --pal-menu: #1d1814; --pal-menu-texto: #e9dfd4; }
 html[data-paleta="carvao"] { --pal-acento: #d9512a; --pal-fundo: #f7f5f3; --pal-menu: #26211e; --pal-menu-texto: #e8dfd8; --pal-ativo-texto: #ffffff; }
@@ -786,14 +796,31 @@ html[data-paleta]:not([data-paleta="aura"]) [data-menu] {
   --aura-mist: color-mix(in srgb, var(--pal-menu-texto) 14%, var(--pal-menu));
 }
 html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] {
-  background-color: var(--pal-acento);
+  background-color: var(--pal-ativo-fundo, var(--pal-acento));
   color: var(--pal-ativo-texto, #ffffff);
+  box-shadow: inset 3px 0 0 var(--pal-ativo-barra, transparent);
 }
-html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] :is(svg, span) {
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] span {
   color: inherit;
+}
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] svg {
+  color: var(--pal-ativo-icone, currentColor);
 }
 html.dark[data-paleta]:not([data-paleta="aura"]) [data-menu] a[aria-current="page"] {
   color: var(--pal-ativo-texto, #ffffff);
+}
+
+/* Selo ("GESTOR", "PÓS-VENDA") e logo dentro do menu colorido. O selo usa a
+   cor de destaque, e num menu da mesma cor (petróleo sobre petróleo) ou de
+   cor que briga (vermelho sobre o verde do Natal) ele sumia. No menu, o selo
+   e o contorno do logo seguem a cor do texto do menu, que sempre contrasta. */
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] .aura-selo-marca {
+  background: color-mix(in srgb, var(--pal-menu-texto) 14%, transparent);
+  color: var(--pal-menu-texto);
+}
+html[data-paleta]:not([data-paleta="aura"]) [data-menu] .aura-logo-quadro {
+  stroke: color-mix(in srgb, var(--pal-menu-texto) 40%, transparent);
+  stroke-width: 1.5px;
 }
 
 /* ---------------------------------------------------------------------------

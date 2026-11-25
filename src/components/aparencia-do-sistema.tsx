@@ -11,7 +11,13 @@ import {
   type IdFundo,
   type IdPaleta,
 } from "@/lib/aparencia";
-import { ROTAS_SEMPRE_CLARAS } from "@/lib/tema-script";
+import { ROTAS_SEM_PALETA, ROTAS_SEMPRE_CLARAS } from "@/lib/tema-script";
+import { instalarRedeResiliente } from "@/lib/rede";
+
+// Instala ao carregar o módulo (antes de qualquer tela buscar dados): este
+// componente está no layout raiz, então o módulo carrega em toda página.
+// Ver src/lib/rede.ts.
+if (typeof window !== "undefined") instalarRedeResiliente();
 
 /**
  * Aplica a aparência que o gestor escolheu (paleta e fundo do pipeline).
@@ -26,7 +32,7 @@ import { ROTAS_SEMPRE_CLARAS } from "@/lib/tema-script";
  */
 export function AparenciaDoSistema() {
   const caminho = usePathname();
-  const publica = ROTAS_SEMPRE_CLARAS.test(caminho ?? "");
+  const publica = ROTAS_SEMPRE_CLARAS.test(caminho ?? "") || ROTAS_SEM_PALETA.test(caminho ?? "");
 
   useEffect(() => {
     if (publica) {

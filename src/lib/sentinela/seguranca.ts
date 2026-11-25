@@ -1,7 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { type Achado, type ResultadoSentinela, horasAtras, nivelGeral } from "./tipos";
 
-const CARGOS_QUE_EXISTEM = ["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing", "Gestor"];
+/** Tabelas de configuração geral, lidas por todos de propósito (sem dado de cliente). */
+const ABERTAS_DE_PROPOSITO = new Set([
+  "aparencia_config",
+  "compromisso_mensal_campos",
+  "config_avaliacao",
+  "perguntas_qualificacao",
+  "ranking_config",
+  "ranking_criterios",
+]);
+
+const CARGOS_QUE_EXISTEM =["Vendedor", "Vendedor Interno", "SDR", "Pós-venda", "Marketing", "Gestor"];
 
 /**
  * Sentinela de Segurança: quem tem poder, o que está aberto e quem entrou.
@@ -40,8 +50,17 @@ export async function sentinelaDeSeguranca(
 
   // ---------- 2. Políticas abertas para qualquer logado ----------
   const { data: abertas } = await sb.rpc("aura_politicas_abertas");
-  if (Array.isArray(abertas) && abertas.length) {
-    const tabelas = [...new Set(abertas.map((p: { tabela: string }) => p.tabela))];
+  // Configurações gerais que TODO mundo precisa ler para a tela funcionar
+  // (regras do ranking, aparência, perguntas de qualificação...). Não têm
+  // dado de cliente; avisar delas todo dia só escondia o aviso que importa.
+  const tabelas = [
+    ...new Set(
+      (Array.isArray(abertas) ? abertas : [])
+        .map((p: { tabela: string }) => p.tabela)
+        .filter((t: string) => !ABERTAS_DE_PROPOSITO.has(t)),
+    ),
+  ];
+  if (tabelas.length) {
     achados.push({
       nivel: "atencao",
       titulo: "Tabelas abertas a qualquer usuário logado",

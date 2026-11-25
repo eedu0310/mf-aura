@@ -125,7 +125,7 @@ export function AuraInsightCard({
         if (loja) qs.set("loja", loja);
         if (forcar) qs.set("refresh", "1");
         const res = await fetch(`/api/aura/insights?${qs}`, { cache: "no-store" });
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error ?? "Erro ao falar com a AURA");
         setDados(json);
       } catch (e: any) {

@@ -13,6 +13,10 @@
 
 export type IdPaleta =
   | "aura"
+  | "solido"
+  | "suave"
+  | "dourado"
+  | "marinho"
   | "terracota"
   | "carvao"
   | "inverno"
@@ -50,6 +54,34 @@ export const PALETAS: Paleta[] = [
     descricao: "O visual de sempre da AURA",
     claro: { menu: "#ffffff", menuTexto: "#14181f", fundo: "#f6f7f9", acento: "#138780" },
     escuro: { menu: "#12161d", menuTexto: "#e8ecf1", fundo: "#0b0e13", acento: "#2ea49b" },
+  },
+  {
+    id: "solido",
+    nome: "Petróleo sólido",
+    descricao: "Menu inteiro na cor da marca",
+    claro: { menu: "#0c5a55", menuTexto: "#d5efec", fundo: "#f6f7f9", acento: "#e8c583" },
+    escuro: { menu: "#071a18", menuTexto: "#a9ddd8", fundo: "#0b0e13", acento: "#ddb257" },
+  },
+  {
+    id: "suave",
+    nome: "Petróleo suave",
+    descricao: "Fundo levemente tingido, item ativo cheio",
+    claro: { menu: "#eef8f7", menuTexto: "#14181f", fundo: "#f4f8f8", acento: "#138780" },
+    escuro: { menu: "#0f2523", menuTexto: "#e8ecf1", fundo: "#0b0e13", acento: "#17877f" },
+  },
+  {
+    id: "dourado",
+    nome: "Destaque dourado",
+    descricao: "Menu neutro, ativo em dourado",
+    claro: { menu: "#ffffff", menuTexto: "#14181f", fundo: "#f6f7f9", acento: "#c99a33" },
+    escuro: { menu: "#12161d", menuTexto: "#e8ecf1", fundo: "#0b0e13", acento: "#ddb257" },
+  },
+  {
+    id: "marinho",
+    nome: "Marinho e dourado",
+    descricao: "Menu escuro nos dois temas",
+    claro: { menu: "#141a22", menuTexto: "#c9d1db", fundo: "#f6f7f9", acento: "#c99a33" },
+    escuro: { menu: "#07090d", menuTexto: "#c9d1db", fundo: "#0b0e13", acento: "#ddb257" },
   },
   {
     id: "terracota",

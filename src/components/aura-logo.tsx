@@ -11,7 +11,7 @@ export function AuraLogoFull({ sobreEscuro = false, compacto = false }: { sobreE
   return (
     <div className="flex items-center gap-2.5">
       <svg width={compacto ? 26 : 30} height={compacto ? 26 : 30} viewBox="0 0 34 34" fill="none" aria-hidden="true">
-        <rect width="34" height="34" rx="9" className="fill-aura-petrol-600" />
+        <rect width="34" height="34" rx="9" className="aura-logo-quadro fill-aura-petrol-600" />
         <path d="M17 8 L26.5 25.5 H7.5 Z" fill="none" stroke="#F1D58F" strokeWidth="1.8" strokeLinejoin="round" />
         <path d="M17 14.5 L22.8 25.5 H11.2 Z" fill="#F1D58F" />
       </svg>
