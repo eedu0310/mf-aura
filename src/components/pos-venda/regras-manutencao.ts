@@ -8,7 +8,7 @@
  *     → data agendada, a primeira que existir.
  *
  * Um cliente com registro de limpeza usa só os registros. Sem nenhum registro
- * (o caso de todo mundo antes da migração 106), vale a previsão — que vira
+ * (o caso de todo mundo antes da migração 108), vale a previsão — que vira
  * registro na primeira ação (agendar, marcar como feita, cancelar).
  */
 import type { PosVenda } from "@/lib/supabase/pos-venda";

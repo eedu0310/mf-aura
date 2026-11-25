@@ -15,7 +15,7 @@ export const maxDuration = 300;
  * ?agente=<id> roda só aquele (se estiver devido ou ligado); com &forcar=1,
  * roda mesmo desligado ou fora de hora — para teste e para o suporte.
  *
- * Sem a migração 108 no banco responde ok com "aguardando_migracao": o cron
+ * Sem a migração 110 no banco responde ok com "aguardando_migracao": o cron
  * fica verde e nada é gravado.
  */
 export async function GET(request: Request) {

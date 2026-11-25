@@ -74,7 +74,7 @@ export function EquipeAgentes() {
         <Alerta
           tom="atencao"
           titulo="Equipe aguardando ativação"
-          descricao="Os comandos (ligar, desligar, orçamento) liberam depois que a migração 108 for autorizada e aplicada no banco."
+          descricao="Os comandos (ligar, desligar, orçamento) liberam depois que a migração 110 for autorizada e aplicada no banco."
         />
       )}
       {erro && <Alerta tom="atencao" titulo="A última atualização falhou" descricao={erro} />}

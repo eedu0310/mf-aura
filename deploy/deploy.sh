@@ -27,7 +27,13 @@ cd "$PASTA"
 
 echo "== 1/6 git pull"
 ANTES=$(sudo -u "$USUARIO" git rev-parse HEAD)
-sudo -u "$USUARIO" git pull --ff-only
+# SEM_PULL=1: reconstrói o que está na pasta (o auto-deploy usa para voltar
+# ao commit anterior quando um build falha).
+if [ "${SEM_PULL:-0}" = "1" ]; then
+  echo "   SEM_PULL: reconstruindo $(sudo -u "$USUARIO" git rev-parse --short HEAD)"
+else
+  sudo -u "$USUARIO" git pull --ff-only
+fi
 DEPOIS=$(sudo -u "$USUARIO" git rev-parse HEAD)
 if [ "$ANTES" = "$DEPOIS" ]; then
   echo "   nada novo no GitHub (continua, para o caso de .env ou cron terem mudado)"

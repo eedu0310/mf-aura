@@ -3,7 +3,7 @@
  *
  * Três camadas protegem o que a AURA sabe (docs/agentes.md):
  *
- *   1. o HISTÓRICO (aura_conhecimento_historico, migração 108): cada inclusão,
+ *   1. o HISTÓRICO (aura_conhecimento_historico, migração 110): cada inclusão,
  *      alteração e exclusão vira uma linha que ninguém apaga;
  *   2. esta CÓPIA NOTURNA, só do conhecimento, às 23h30: um arquivo por dia
  *      no bucket "backups", em conhecimento/AAAA-MM-DD.json.gz, guardado por

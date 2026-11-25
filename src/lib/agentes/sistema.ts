@@ -120,6 +120,32 @@ export const AGENTES_DO_SISTEMA: DefinicaoAgente[] = [
     orcamentoMensalUsd: 0,
     tipo: "sistema",
   },
+  {
+    id: "sistema-instagram",
+    nome: "Agente do Instagram",
+    cargo: "Atende o direct quando a equipe demora",
+    setor: "vendas",
+    icone: "AtSign",
+    missao:
+      "Responde o direct que passou do tempo da loja sem resposta, com o material da própria loja, e conduz a conversa até passar o lead para o vendedor. Respeita o horário da equipe e pode ser pausado em cada conversa.",
+    agenda: { tipo: "intervalo", minutos: 5 },
+    usaIA: true,
+    orcamentoMensalUsd: 0,
+    tipo: "sistema",
+  },
+  {
+    id: "sistema-chat-site",
+    nome: "Assistente do chat do site",
+    cargo: "Atende o visitante do site MF",
+    setor: "vendas",
+    icone: "Globe",
+    missao:
+      "Responde o visitante do chat do site MF que esperou mais que o tempo configurado sem ninguém da equipe responder, dentro do horário.",
+    agenda: { tipo: "intervalo", minutos: 5 },
+    usaIA: true,
+    orcamentoMensalUsd: 0,
+    tipo: "sistema",
+  },
 ];
 
 /** Mesa → nome do cron em aura_execucoes_cron. */
@@ -133,4 +159,7 @@ export const CRON_DO_AGENTE_DO_SISTEMA: Record<string, string> = {
   "sistema-metas": "cobrar-metas",
   "sistema-relatorios": "gerar-relatorios",
   "sistema-aprendizado": "aprendizado-do-dia",
+  // Os dois atendentes rodam no mesmo cron.
+  "sistema-instagram": "assistentes",
+  "sistema-chat-site": "assistentes",
 };

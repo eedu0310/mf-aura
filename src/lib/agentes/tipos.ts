@@ -255,7 +255,7 @@ export interface PropostaListada {
 }
 
 export interface EstadoEscritorio {
-  /** false enquanto a migração 108 não estiver no banco: a tela mostra a equipe e o aviso. */
+  /** false enquanto a migração 110 não estiver no banco: a tela mostra a equipe e o aviso. */
   ativo: boolean;
   motivoInativo?: string;
   mesas: MesaAgente[];

@@ -304,7 +304,14 @@ export function SupervisorPanel({
                 <button
                   key={`aval-${c.empresa}`}
                   type="button"
-                  onClick={() => onUsarTexto(mensagensDeAvaliacao(c, null)[0])}
+                  onClick={() => {
+                    // Se o pedido deste cliente é desta loja, vai o link que
+                    // registra (e o pedido sai dos pendentes); senão, o link puro.
+                    const doPedido = avaliacao?.pedido && avaliacao.pedido.empresa === c.empresa ? avaliacao.pedido : null;
+                    const texto = mensagensDeAvaliacao(c, doPedido)[0];
+                    if (doPedido) void usarAvaliacao(texto);
+                    else onUsarTexto(texto);
+                  }}
                   title={`Pedido de avaliação no Google da ${c.empresa}`}
                   className="inline-flex items-center gap-1 rounded-full border border-[#ffd279]/50 px-3 py-1.5 text-[13px] text-[#ffd279] hover:bg-[#ffd279]/10"
                 >

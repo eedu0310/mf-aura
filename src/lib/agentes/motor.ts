@@ -22,8 +22,8 @@
  *        propostas ... agente novo esperando o gestor;
  *        diário ...... uma linha por rodada, com o custo real tirado de ia_uso.
  *
- * SEM A MIGRAÇÃO 108 o motor não lança erro: responde "aguardando migração
- * 108" e não grava nada. O cron fica verde e a tela mostra o aviso.
+ * SEM A MIGRAÇÃO 110 o motor não lança erro: responde "aguardando migração
+ * 110" e não grava nada. O cron fica verde e a tela mostra o aviso.
  *
  * O motor NUNCA escreve em dado de negócio (venda, cliente, etapa, dono) e
  * nunca manda mensagem para cliente — regras 1 e 2 do contrato (tipos.ts).
@@ -122,7 +122,7 @@ interface LinhaAgente {
 const g = globalThis as unknown as { __aura108?: { ok: boolean; em: number } };
 
 /**
- * A migração 108 está no banco? Confere as tabelas novas E uma coluna nova
+ * A migração 110 está no banco? Confere as tabelas novas E uma coluna nova
  * de aura_recomendacoes (aplicação pela metade também é "não").
  * O "sim" fica guardado 5 minutos; o "não", 30 segundos.
  */
@@ -135,7 +135,7 @@ export async function temMigracao108(sb: SupabaseClient): Promise<boolean> {
     sb.from("aura_recomendacoes").select("id, agente, chave, expira_em, acao_url").limit(1),
   ]);
   for (const r of [a, b, d]) {
-    if (r.error && !faltaNoBanco(r.error)) throw new Error(`Não consegui conferir a migração 108: ${r.error.message}`);
+    if (r.error && !faltaNoBanco(r.error)) throw new Error(`Não consegui conferir a migração 110: ${r.error.message}`);
   }
   const ok = !a.error && !b.error && !d.error;
   g.__aura108 = { ok, em: Date.now() };
@@ -145,7 +145,7 @@ export async function temMigracao108(sb: SupabaseClient): Promise<boolean> {
 /**
  * Todos os agentes: os do código com o que o banco sobrepõe (ligado,
  * orçamento, agenda) mais os configuráveis que só existem no banco.
- * Sem a 108, só o código (todos com o padrão do código).
+ * Sem a 110, só o código (todos com o padrão do código).
  */
 export async function carregarRegistro(sb: SupabaseClient, com108?: boolean): Promise<AgenteRegistrado[]> {
   const usar108 = com108 ?? (await temMigracao108(sb));

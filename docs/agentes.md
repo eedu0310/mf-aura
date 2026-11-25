@@ -129,7 +129,7 @@ falas sem loja); o gestor mestre vê tudo.
 
 Três camadas, de propósito independentes:
 
-1. **Histórico** (`aura_conhecimento_historico`, migração 108): gatilho
+1. **Histórico** (`aura_conhecimento_historico`, migração 110): gatilho
    AFTER INSERT/UPDATE/DELETE em `aura_aprendizado`, `aura_aprendizado_origem`,
    `aura_materiais`, `aura_material_trechos`, `playbook`,
    `perguntas_frequentes`, `treinamentos` (Academy), `links_uteis` e
@@ -185,11 +185,11 @@ o gestor mestre aprova no escritório; nasce em `aura_agentes` com a
 
 ## 5. O que precisa estar no banco
 
-Ordem: **105 → 106 → 107 → 108**. (Na produção a numeração pode mudar na
-hora de aplicar; a 108 trava sozinha se a 105 não estiver lá.)
+Ordem: **105 → 108 → 109 → 110 (106 e 107 são do Instagram e do chat do site, já aplicadas)**. (Na produção a numeração pode mudar na
+hora de aplicar; a 110 trava sozinha se a 105 não estiver lá.)
 
 - **105**: `administro_a_loja()`, `aura_execucoes_cron` (diário dos crons).
-- **108** (`supabase/migrations/108_agentes_e_conhecimento.sql`):
+- **110** (`supabase/migrations/110_agentes_e_conhecimento.sql`):
   `aura_agentes`, `aura_agente_execucoes`, `aura_escritorio_mensagens`,
   `aura_agente_propostas`; colunas novas em `aura_recomendacoes`
   (`agente`, `chave`, `expira_em`, `mensagem_sugerida`, `atualizado_em`,
@@ -198,7 +198,7 @@ hora de aplicar; a 108 trava sozinha se a 105 não estiver lá.)
   colunas de revisão em `aura_aprendizado`; `aura_conhecimento_historico`
   com os gatilhos; RLS em tudo (gestor aprovado lê; escrita só pelo servidor).
 
-**Sem a 108** nada quebra: o motor responde "aguardando migração 108" (o cron
+**Sem a 110** nada quebra: o motor responde "aguardando migração 110" (o cron
 fica verde), a tela mostra a equipe com o aviso, o Meu Dia e o aprendizado
 funcionam como antes.
 

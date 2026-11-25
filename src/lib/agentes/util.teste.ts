@@ -1,5 +1,5 @@
 /**
- * Peças do motor que protegem contra a IA e contra o banco sem a 108, mais
+ * Peças do motor que protegem contra a IA e contra o banco sem a 110, mais
  * as contas do Guardião (o que apagar, o que é queda).
  *
  * Rodar com:
@@ -31,7 +31,7 @@ conferir("confere quando todos vieram dos dados", numerosConferem("Hoje são 34 
 conferir("pega número inventado", numerosConferem("Hoje são 34 itens e 90% resolvidos.", [34]), false);
 conferir("texto sem número passa", numerosConferem("Bom dia, equipe.", []), true);
 
-// ---- banco sem a 108
+// ---- banco sem a 110
 conferir("42P01", faltaNoBanco({ code: "42P01", message: "relation does not exist" }), true);
 conferir("PGRST205", faltaNoBanco({ code: "PGRST205", message: "Could not find the table" }), true);
 conferir("coluna 42703", faltaNoBanco({ code: "42703" }), true);

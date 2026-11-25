@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { contaDaLoja, perfilDoCliente } from "@/lib/meta/cliente";
+import { registrarAviso } from "@/lib/meta/registro";
+import { resumoDaMidia } from "@/lib/meta/midia";
+import { agenteNaHora } from "@/lib/meta/agente";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,13 +56,39 @@ async function lojaDaConta(igUserId: string): Promise<string | null> {
   return data?.empresa ?? null;
 }
 
+/** Coração (ou outro emoji) que alguém pôs ou tirou de uma mensagem. */
+async function guardarReacao(igUserId: string, evento: any) {
+  const sb = getSupabaseServiceClient();
+  const r = evento?.reaction;
+  if (!sb || !r?.mid) return;
+  const daLoja = String(evento?.sender?.id ?? "") === igUserId;
+  const valor = r.action === "unreact" ? null : r.emoji || (r.reaction === "love" ? "❤️" : r.reaction ?? "❤️");
+  await sb
+    .from("meta_mensagens")
+    .update(daLoja ? { reacao: valor } : { reacao_cliente: valor })
+    .eq("mid", String(r.mid));
+}
+
 async function guardarMensagem(empresa: string, igUserId: string, evento: any) {
   const sb = getSupabaseServiceClient();
   if (!sb) return;
 
-  const daLoja = evento?.message?.is_echo === true;
+  if (evento?.reaction) return guardarReacao(igUserId, evento);
+
+  // O cliente desfez o envio: fica o aviso no lugar.
+  if (evento?.message?.is_deleted && evento?.message?.mid) {
+    await sb
+      .from("meta_mensagens")
+      .update({ texto: "(mensagem apagada pelo cliente)", midia_url: null, tipo: "text" })
+      .eq("mid", String(evento.message.mid));
+    return;
+  }
+
+  const daLoja = evento?.message?.is_echo === true || String(evento?.sender?.id ?? "") === igUserId;
   const clienteId = daLoja ? evento?.recipient?.id : evento?.sender?.id;
+  const anexo = evento?.message?.attachments?.[0];
   const texto: string = evento?.message?.text ?? "";
+  const resumo = texto || (anexo ? resumoDaMidia(String(anexo.type ?? "")) : "");
   const mid: string | undefined = evento?.message?.mid;
   if (!clienteId || !mid) return;
 
@@ -89,7 +118,7 @@ async function guardarMensagem(empresa: string, igUserId: string, evento: any) {
         cliente_nome: perfil.nome,
         cliente_usuario: perfil.usuario,
         cliente_foto: perfil.foto,
-        ultima_mensagem: texto.slice(0, 200),
+        ultima_mensagem: resumo.slice(0, 200),
         ultima_em: new Date().toISOString(),
         nao_lidas: daLoja ? 0 : 1,
         responde_ate: respondeAte ?? null,
@@ -98,17 +127,20 @@ async function guardarMensagem(empresa: string, igUserId: string, evento: any) {
       .maybeSingle();
     conversaId = nova?.id;
   } else {
-    const patch: Record<string, unknown> = {
-      ultima_mensagem: texto.slice(0, 200),
-      ultima_em: new Date().toISOString(),
-    };
+    // O eco do que o AURA mandou já foi gravado (com o 🤖 do agente, se
+    // for o caso); só a resposta dada pelo celular atualiza o resumo.
+    const { data: jaTem } = daLoja
+      ? await sb.from("meta_mensagens").select("id").eq("mid", mid).maybeSingle()
+      : { data: null };
+    const patch: Record<string, unknown> = jaTem
+      ? {}
+      : { ultima_mensagem: resumo.slice(0, 200), ultima_em: new Date().toISOString() };
     if (respondeAte) patch.responde_ate = respondeAte;
     if (!daLoja) patch.nao_lidas = (await contarNaoLidas(conversaId)) + 1;
-    await sb.from("meta_conversas").update(patch).eq("id", conversaId);
+    if (Object.keys(patch).length) await sb.from("meta_conversas").update(patch).eq("id", conversaId);
   }
   if (!conversaId) return;
 
-  const anexo = evento?.message?.attachments?.[0];
   await sb.from("meta_mensagens").upsert(
     {
       conversa_id: conversaId,
@@ -121,6 +153,9 @@ async function guardarMensagem(empresa: string, igUserId: string, evento: any) {
     },
     { onConflict: "mid" },
   );
+
+  // Fora do horário da loja o agente de IA pode responder já (se ligado).
+  if (!daLoja) void agenteNaHora(conversaId).catch(() => {});
 }
 
 async function contarNaoLidas(conversaId: string) {
@@ -135,6 +170,13 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
   if (!sb) return;
   const conta = await contaDaLoja(empresa);
   if (!conta || !valor?.id) return;
+  // Resposta da própria loja: marca o comentário-pai como respondido.
+  if (valor?.from?.id && String(valor.from.id) === igUserId) {
+    if (valor?.parent_id) {
+      await sb.from("meta_comentarios").update({ respondido: true }).eq("comentario_id", String(valor.parent_id));
+    }
+    return;
+  }
 
   await sb.from("meta_comentarios").upsert(
     {
@@ -145,7 +187,7 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
       post_url: valor?.media?.media_url ?? null,
       autor_usuario: valor?.from?.username ?? null,
       texto: valor?.text ?? "",
-      criado_em: new Date().toISOString(),
+      criado_em: valor?.timestamp ? new Date(Number(valor.timestamp) * (String(valor.timestamp).length <= 10 ? 1000 : 1)).toISOString() : new Date().toISOString(),
     },
     { onConflict: "comentario_id" },
   );
@@ -154,25 +196,37 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
 /** POST — as mensagens e os comentários que a Meta empurra. */
 export async function POST(request: Request) {
   const corpoCru = await request.text();
-  if (!assinaturaConfere(corpoCru, request.headers.get("x-hub-signature-256"))) {
-    return new NextResponse("Assinatura inválida.", { status: 401 });
-  }
-
   let corpo: any = {};
   try {
     corpo = JSON.parse(corpoCru);
   } catch {
-    return new NextResponse("Corpo inválido.", { status: 400 });
+    corpo = {};
+  }
+  const envelope = {
+    em: new Date().toISOString(),
+    objeto: corpo?.object ?? null,
+    contas: (corpo?.entry ?? []).map((e: any) => String(e?.id ?? "")),
+    campos: (corpo?.entry ?? []).flatMap((e: any) => [
+      ...(e?.messaging?.length ? ["messaging"] : []),
+      ...(e?.changes ?? []).map((c: any) => String(c?.field ?? "?")),
+    ]),
+  };
+
+  if (!assinaturaConfere(corpoCru, request.headers.get("x-hub-signature-256"))) {
+    registrarAviso({ ...envelope, assinaturaOk: false, lojas: [], erro: "assinatura não confere (META_APP_SECRET?)" });
+    return new NextResponse("Assinatura inválida.", { status: 401 });
   }
 
   // A Meta reenvia o aviso se não receber 200 rápido. Por isso respondemos já
   // e processamos depois: um erro nosso não pode virar uma enxurrada de
   // reenvios nem mensagem duplicada (o upsert por mid também protege disso).
   void (async () => {
+    const lojas: (string | null)[] = [];
     try {
       for (const entrada of corpo?.entry ?? []) {
         const igUserId = String(entrada?.id ?? "");
         const empresa = await lojaDaConta(igUserId);
+        lojas.push(empresa);
         if (!empresa) continue;
 
         for (const evento of entrada?.messaging ?? []) {
@@ -180,9 +234,14 @@ export async function POST(request: Request) {
         }
         for (const mudanca of entrada?.changes ?? []) {
           if (mudanca?.field === "comments") await guardarComentario(empresa, igUserId, mudanca.value);
+          // Algumas contas mandam a DM como "change" e não em "messaging".
+          if (mudanca?.field === "messages" || mudanca?.field === "message_reactions")
+            await guardarMensagem(empresa, igUserId, mudanca.value);
         }
       }
+      registrarAviso({ ...envelope, assinaturaOk: true, lojas });
     } catch (e: any) {
+      registrarAviso({ ...envelope, assinaturaOk: true, lojas, erro: e?.message ?? String(e) });
       console.error("[meta/webhook]", e?.message ?? e);
     }
   })();

@@ -155,7 +155,7 @@ export async function POST(request: Request) {
     if (tabela === "leads_recebidos" && coluna === "vendedor_id") leadsDevolvidos = data?.length ?? 0;
   }
   // O que era só da pessoa vai junto. Metas, compromissos mensais e
-  // indicadores entram aqui porque a migração 107 troca a cascata desses por
+  // indicadores entram aqui porque a migração 109 troca a cascata desses por
   // bloqueio: sem esta limpeza, a exclusão voltaria a falhar.
   const PESSOAIS: Array<[string, string]> = [
     ["notificacoes", "vendedor_id"],

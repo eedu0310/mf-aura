@@ -7,7 +7,7 @@
  * da equipe. Embaixo, a planta do escritório — uma sala por setor, uma mesa
  * por agente — e, ao lado (embaixo no celular), a conversa da equipe.
  *
- * Enquanto a migração 108 não estiver no banco a rota responde ativo=false:
+ * Enquanto a migração 110 não estiver no banco a rota responde ativo=false:
  * a equipe inteira aparece "aguardando ativação", com um aviso claro, e o
  * resto da tela fica vazio sem quebrar.
  */
@@ -146,7 +146,7 @@ function AvisoAtivacao({ motivo }: { motivo?: string }) {
       titulo="A equipe de agentes está montada, mas ainda não foi ativada"
       descricao={
         <>
-          Falta um passo no banco de dados (migração 108), que só roda com a autorização do dono do sistema. Até lá
+          Falta um passo no banco de dados (migração 110), que só roda com a autorização do dono do sistema. Até lá
           os agentes ficam “aguardando ativação”: ninguém trabalha, nada é gravado e nenhum custo de IA acontece.
           {motivo ? <span className="mt-1 block">Detalhe do servidor: {motivo}</span> : null}
         </>

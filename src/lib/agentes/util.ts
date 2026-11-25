@@ -5,8 +5,8 @@
 /**
  * A tabela (ou a coluna) ainda não existe no banco?
  *
- * É o sinal de que a migração 108 não foi aplicada. Nesse caso o motor
- * responde "aguardando migração 108" em vez de lançar erro: o cron continua
+ * É o sinal de que a migração 110 não foi aplicada. Nesse caso o motor
+ * responde "aguardando migração 110" em vez de lançar erro: o cron continua
  * verde, a tela mostra a equipe com o aviso, e nada fica meio gravado.
  *
  *   42P01     relação não existe (Postgres)
@@ -23,7 +23,7 @@ export function faltaNoBanco(erro: { code?: string; message?: string } | null | 
 }
 
 export const MOTIVO_SEM_108 =
-  "Aguardando a migração 108 no banco: a equipe aparece, mas ninguém trabalha até ela ser aplicada.";
+  "Aguardando a migração 110 no banco: a equipe aparece, mas ninguém trabalha até ela ser aplicada.";
 
 /**
  * Lê o JSON que a IA devolveu, sem confiar nela.

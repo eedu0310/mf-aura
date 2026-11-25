@@ -13,9 +13,9 @@
  *   - só mexe em aura_aprendizado com status "sugerido" (o update exige
  *     status = 'sugerido': aprovado e recusado nunca são tocados);
  *   - só escreve status, resposta (quando aprova com o texto corrigido),
- *     revisado_em, aprovado_auto e, com a migração 108, quem decidiu, por quê
+ *     revisado_em, aprovado_auto e, com a migração 110, quem decidiu, por quê
  *     e com que confiança (revisado_por fica nulo: não foi uma pessoa);
- *   - toda mudança fica no histórico do conhecimento (gatilho da 108) e o
+ *   - toda mudança fica no histórico do conhecimento (gatilho da 110) e o
  *     gestor desfaz com um clique em Visão do Gestor → Aprendizado;
  *   - item que um gestor DESFEZ não volta para o revisor: a palavra final ali
  *     já é de gente (lido do histórico).
@@ -61,7 +61,7 @@ interface Aprovado {
   resposta: string;
 }
 
-/** Itens que o revisor deixou para o gestor quando a 108 ainda não existe (para não reenviar à IA). */
+/** Itens que o revisor deixou para o gestor quando a 110 ainda não existe (para não reenviar à IA). */
 const g = globalThis as unknown as { __revisorMantidos?: Set<string> };
 const mantidosSemColuna = (g.__revisorMantidos ??= new Set<string>());
 
@@ -99,7 +99,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const equipe = await responsaveisDaLoja(sb);
   const BASE = "id, empresa, canal, tipo, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu, criado_em";
 
-  // Pendentes (com as colunas da 108, se existirem).
+  // Pendentes (com as colunas da 110, se existirem).
   let temColunas = true;
   let pendentes: LinhaPendente[];
   try {
@@ -220,7 +220,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     } else if (d.decisao === "recusar") {
       patch = { status: "recusado", aprovado_auto: false, revisado_por: null, revisado_em: agoraIso };
     }
-    // "manter" só deixa o motivo (com a 108); o status continua sugerido.
+    // "manter" só deixa o motivo (com a 110); o status continua sugerido.
     const aplicar = async (comMeta: boolean) => {
       const corpo = { ...(patch ?? {}), ...(comMeta ? meta : {}) };
       if (!Object.keys(corpo).length) return { ok: true, erro: null as null | { code?: string; message?: string } };

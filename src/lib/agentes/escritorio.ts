@@ -10,7 +10,7 @@
  * achados da própria loja (e as falas sem loja, que são da equipe toda); o
  * gestor mestre (empresa null) vê tudo.
  *
- * Sem a migração 108: a equipe aparece inteira, com "aguardando_ativacao",
+ * Sem a migração 110: a equipe aparece inteira, com "aguardando_ativacao",
  * e o aviso em motivoInativo.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -116,7 +116,7 @@ function estadoDaMesa(a: AgenteRegistrado, ultima: Execucao | undefined, com108:
 function fazendoAgora(a: AgenteRegistrado, estado: EstadoMesa, ultima: Execucao | undefined, proxima: Date | null): string {
   switch (estado) {
     case "aguardando_ativacao":
-      return "Esperando a migração 108 para começar a trabalhar.";
+      return "Esperando a migração 110 para começar a trabalhar.";
     case "desligado":
       return "Desligado pelo gestor.";
     case "trabalhando":

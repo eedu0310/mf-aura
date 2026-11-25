@@ -126,7 +126,7 @@ export function PropostasAgentes() {
         <Alerta
           tom="atencao"
           titulo="Equipe aguardando ativação"
-          descricao="As propostas começam a chegar quando a equipe estiver ativa (depois da migração 108)."
+          descricao="As propostas começam a chegar quando a equipe estiver ativa (depois da migração 110)."
         />
       )}
       {retorno && <Alerta tom={retorno.ok ? "sucesso" : "perigo"} titulo={retorno.texto} />}

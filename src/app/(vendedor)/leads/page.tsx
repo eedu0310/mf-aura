@@ -18,6 +18,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { donoDoLead, SEM_VENDEDOR } from "@/lib/leads/atendimento";
 import { RelatorioAtendimento } from "@/components/leads/relatorio-atendimento";
 import { EstadoVazio, PageContainer, PageHeader, Segmentado, classeBotao } from "@/components/ui";
+import { RecadoDoLead } from "@/components/leads/recado-do-lead";
 
 const STATUS_LABEL: Record<StatusLead, string> = {
   aguardando_sdr: "Aguardando distribuição",
@@ -315,17 +316,7 @@ export default function LeadsPage() {
                           )}
                         </div>
                       </div>
-                      {lead.resumoIa && (
-                        <p className="mt-2 text-xs italic text-aura-graphite-soft">
-                          IA: &quot;{lead.resumoIa}&quot;
-                        </p>
-                      )}
-                      {lead.mensagemInicial && (
-                        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-aura-sunken px-3 py-2 text-xs text-aura-graphite">
-                          <MessageSquare size={12} className="mt-0.5 shrink-0" />
-                          {lead.mensagemInicial}
-                        </p>
-                      )}
+                      <RecadoDoLead texto={lead.mensagemInicial} resumo={lead.resumoIa} />
                       {lead.respostasQualificacao.length > 0 && (
                         <div className="mt-2 rounded-lg border border-aura-mist bg-aura-sunken/50 px-3 py-2">
                           <p className="aura-rotulo mb-1 text-aura-petrol-600">

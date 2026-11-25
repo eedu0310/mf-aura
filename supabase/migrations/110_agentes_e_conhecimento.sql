@@ -1,4 +1,4 @@
--- 108 · Equipe de agentes da AURA e base de conhecimento que nunca se perde
+-- 110 · Equipe de agentes da AURA e base de conhecimento que nunca se perde
 --
 -- Pedido do Elton (25/11/2026): um agente para cada função do CRM, um
 -- "escritório virtual" onde eles conversam e uma Diretora comandando todos;
@@ -20,7 +20,7 @@
 --   7. RLS em tudo: gestor aprovado lê; ninguém de fora lê nada; escrita só
 --      pelo servidor (service_role), atrás das rotas que conferem o login.
 --
--- ORDEM: 105 → 106 → 107 → 108. Esta usa administro_a_loja(), criada na 105.
+-- ORDEM: 105 → 108 → 109 → 110 (106 e 107 são do Instagram e do chat do site, já aplicadas). Esta usa administro_a_loja(), criada na 105.
 -- Sem a 105 ela para no bloco 0, sem mudar nada.
 --
 -- Pode rodar mais de uma vez: tudo é "if not exists", "drop ... if exists"
@@ -39,7 +39,7 @@ begin;
 do $$
 begin
   if to_regprocedure('public.administro_a_loja(text)') is null then
-    raise exception 'Aplique a migração 105 antes da 108 (falta administro_a_loja).';
+    raise exception 'Aplique a migração 105 antes da 110 (falta administro_a_loja).';
   end if;
   if to_regprocedure('public.pode_ver_todas_empresas()') is null
      or to_regprocedure('public.vejo_a_loja_toda()') is null
@@ -47,7 +47,7 @@ begin
     raise exception 'Faltam as funções de acesso (pode_ver_todas_empresas, vejo_a_loja_toda, minha_empresa).';
   end if;
   if to_regclass('public.aura_execucoes_cron') is null then
-    raise exception 'Aplique a migração 105 antes da 108 (falta aura_execucoes_cron).';
+    raise exception 'Aplique a migração 105 antes da 110 (falta aura_execucoes_cron).';
   end if;
 end $$;
 

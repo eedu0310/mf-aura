@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
   const BASICO = "id, canal, tipo, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu, aprovado_auto, status, criado_em";
   /*
    * Quem revisou (o agente revisor-aprendizado), por quê e com que confiança.
-   * As colunas chegam com a migração 108; sem ela a lista sai como antes.
+   * As colunas chegam com a migração 110; sem ela a lista sai como antes.
    */
   const REVISAO = "revisado_por_agente, revisao_motivo, revisao_confianca";
   const consultar = (colunas: string) =>
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
 
   const itens = (data ?? []) as unknown as Array<Record<string, unknown> & { status: string }>;
 
-  // O que o agente recusou, para o gestor poder desfazer (só com a 108).
+  // O que o agente recusou, para o gestor poder desfazer (só com a 110).
   let recusadosPeloAgente: unknown[] = [];
   if (temRevisao) {
     const { data: recusados } = await sb!
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
       .from("aura_aprendizado")
       .update({ ...volta, revisado_por_agente: null, revisao_motivo: null, revisao_confianca: null })
       .eq("id", corpo.id);
-    // Sem a migração 108 as colunas da revisão não existem: desfaz o resto.
+    // Sem a migração 110 as colunas da revisão não existem: desfaz o resto.
     if (erroVolta && faltaNoBanco(erroVolta)) {
       ({ error: erroVolta } = await sb!.from("aura_aprendizado").update(volta).eq("id", corpo.id));
     }

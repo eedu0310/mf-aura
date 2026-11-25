@@ -11,10 +11,10 @@ export async function GET(request: Request) {
   if (!auth) return NextResponse.json({ erro: "Usuário não autenticado." }, { status: 401 });
 
   /*
-   * Com a migração 108 a recomendação também pode vir de um AGENTE: traz
+   * Com a migração 110 a recomendação também pode vir de um AGENTE: traz
    * quem mandou (agente, agente_nome), para onde o botão leva (acao_url), se
    * mostra "Gerar mensagem" (pode_gerar_mensagem) e a mensagem já gerada.
-   * Sem a 108 essas colunas não existem e a lista sai como antes.
+   * Sem a 110 essas colunas não existem e a lista sai como antes.
    */
   const BASICO = "id,titulo,descricao,prioridade,status,entidade_tipo,entidade_id,prazo,criado_em";
   const DOS_AGENTES = "agente,acao_url,pode_gerar_mensagem,mensagem_sugerida,expira_em";
