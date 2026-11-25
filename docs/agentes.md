@@ -91,6 +91,8 @@ falas sem loja); o gestor mestre vê tudo.
 | `PATCH /api/gestor/agentes/<id>` | gestor mestre | `{ ativo?, orcamentoMensalUsd? }` |
 | `POST /api/gestor/agentes/<id>/rodar` | gestor mestre | roda agora (mesmo desligado) |
 | `POST /api/gestor/agentes/propostas/<id>` | gestor mestre | `{ decisao: "aprovar" \| "recusar" }` |
+| `GET /api/gestor/agentes/diretora` | gestor aprovado | a conversa dele com a Diretora (últimas 50 mensagens) |
+| `POST /api/gestor/agentes/diretora` | gestor aprovado | `{ texto }` (até 2000) → `{ pergunta, resposta }`: ela responde na hora (IA dela, sem inventar número), encaminha pedidos a agentes e pode propor um agente novo (status `proposta`) |
 | `POST /api/agentes/mensagem` | dono do card ou gestor da loja | `{ recomendacaoId, refazer? }` → `{ mensagem, telefone }` |
 | `GET /api/aura/supervisao` | o próprio vendedor | cards do Meu Dia, agora com `agente`, `agente_nome`, `acao_url`, `pode_gerar_mensagem` |
 | `POST /api/gestor/aprendizado` | gestor da loja / mestre | agora também `acao: "desfazer"` |

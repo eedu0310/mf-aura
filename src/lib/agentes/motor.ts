@@ -285,6 +285,25 @@ async function custoDesde(sb: SupabaseClient, agenteId: string, desde: Date): Pr
   return Number((data ?? []).reduce((s, l) => s + Number(l.custo_usd ?? 0), 0).toFixed(6));
 }
 
+/**
+ * A IA com a trava de UM agente, fora de uma rodada: saldo do gestor
+ * (podeChamarIA, conferido dentro de chamarIA), orçamento do mês do agente
+ * e custo anotado como "agente/<id>" — a mesma régua do ctx.ia das rodadas.
+ * Usada quando o gestor conversa com a Diretora (POST
+ * /api/gestor/agentes/diretora): a resposta dela sai do orçamento dela.
+ */
+export async function chamarIAComOrcamento(
+  sb: SupabaseClient,
+  def: Pick<AgenteRegistrado, "id" | "usaIA" | "orcamentoMensalUsd">,
+  ch: ChamadaIA & { empresa?: string | null; usuarioId?: string | null },
+): Promise<{ resultado: string | Record<string, unknown> | null; barrada?: "sem_ia" | "saldo" | "orcamento" }> {
+  if (!def.usaIA) return { resultado: null, barrada: "sem_ia" };
+  if (!(await podeChamarIA())) return { resultado: null, barrada: "saldo" };
+  const gasto = await gastoDoMes(sb, def.id).catch(() => Number.POSITIVE_INFINITY);
+  if (!(def.orcamentoMensalUsd > 0) || gasto >= def.orcamentoMensalUsd) return { resultado: null, barrada: "orcamento" };
+  return { resultado: await chamarIA({ ...ch, funcao: `agente/${def.id}` }) };
+}
+
 interface EstadoIA {
   chamadas: number;
   falhas: number;
@@ -868,7 +887,8 @@ async function gravarAprendizados(sb: SupabaseClient, def: { id: string }, lista
   return novos;
 }
 
-async function gravarPropostas(
+/** Exportada para a conversa do gestor com a Diretora (ideia que vira proposta). */
+export async function gravarPropostas(
   sb: SupabaseClient,
   def: { id: string },
   propostas: PropostaAgente[],

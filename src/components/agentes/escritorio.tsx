@@ -3,16 +3,25 @@
 /**
  * ESCRITÓRIO VIRTUAL da equipe de agentes.
  *
- * Em cima, a Sala da Diretora: o plano do dia que ela escreveu e os números
- * da equipe. Embaixo, a planta do escritório — uma sala por setor, uma mesa
- * por agente — e, ao lado (embaixo no celular), a conversa da equipe.
+ * Em cima, a faixa da Diretora: o plano do dia que ela escreveu, os números
+ * da equipe e o botão "Conversar com a Diretora" (o gestor manda ideias de
+ * melhoria direto para ela — conversa-diretora.tsx).
+ *
+ * No centro, o ESCRITÓRIO EM PIXEL (escritorio-pixel/): um escritoriozinho
+ * visto de cima, com uma sala por setor (Diretoria, Sala de Vendas,
+ * Pós-venda, Marketing, Gestão, Conhecimento, Dados e a Copa), cada agente
+ * sentado na sua mesa com crachá e balão de fala. Clicar abre a ficha.
+ * "Ver como lista" volta para a grade de cartões de antes (nada se perdeu).
+ *
+ * Ao lado (embaixo no celular), o Mural da equipe: a conversa dos agentes,
+ * com as ideias do gestor e as respostas da Diretora.
  *
  * Enquanto a migração 110 não estiver no banco a rota responde ativo=false:
  * a equipe inteira aparece "aguardando ativação", com um aviso claro, e o
  * resto da tela fica vazio sem quebrar.
  */
-import { useMemo, useState } from "react";
-import { Bot, Crown, DatabaseZap, RefreshCw } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { Bot, Crown, DatabaseZap, LayoutGrid, Map as MapaIcone, MessageCircle, RefreshCw } from "lucide-react";
 import type { MesaAgente } from "@/lib/agentes/tipos";
 import { Alerta, Botao, Card, EstadoVazio, Selo, StatCard } from "@/components/ui";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
@@ -31,6 +40,8 @@ import {
   useEscritorio,
 } from "./comum";
 import { ConversaEquipe } from "./conversa";
+import { ConversaDiretora } from "./conversa-diretora";
+import { EscritorioPixel } from "./escritorio-pixel";
 import { GavetaAgente } from "./gaveta-agente";
 import { Mesa } from "./mesa";
 
@@ -39,6 +50,9 @@ export function Escritorio() {
   const acesso = usarMeuAcesso();
   const souMestre = acesso.gestorMestre && acesso.gestorAprovado;
   const [abertoId, setAbertoId] = useState<string | null>(null);
+  const [vista, setVista] = useState<"planta" | "lista">("planta");
+  const [conversaAberta, setConversaAberta] = useState(false);
+  const fecharConversa = useCallback(() => setConversaAberta(false), []);
 
   const mesas = useMemo(() => estado?.mesas ?? [], [estado]);
   const falas = estado?.falas ?? [];
@@ -86,11 +100,39 @@ export function Escritorio() {
         plano={estado.planoDoDia}
         custo30d={estado.custo30dUsd}
         aoAbrir={setAbertoId}
+        aoConversar={() => setConversaAberta(true)}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-sm font-semibold text-aura-graphite">
+          {vista === "planta" ? "O escritório agora" : "A equipe por sala"}
+        </h2>
+        <span className="hidden text-xs text-aura-graphite-soft sm:inline">
+          · {vista === "planta" ? "passe o mouse em um agente para ver o que ele está fazendo" : "uma sala por setor, um cartão por agente"}
+        </span>
+        <Botao
+          tamanho="sm"
+          variante="fantasma"
+          icone={vista === "planta" ? LayoutGrid : MapaIcone}
+          className="ml-auto"
+          onClick={() => setVista((v) => (v === "planta" ? "lista" : "planta"))}
+          aria-pressed={vista === "lista"}
+        >
+          {vista === "planta" ? "Ver como lista" : "Ver o escritório"}
+        </Botao>
+      </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section aria-label="Planta do escritório" className="min-w-0">
-          {mesas.length === 0 ? (
+          {mesas.length > 0 && vista === "planta" ? (
+            <EscritorioPixel
+              mesas={mesas}
+              falas={falas}
+              diretoraId={diretora?.id ?? null}
+              abertoId={abertoId}
+              aoAbrir={setAbertoId}
+            />
+          ) : mesas.length === 0 ? (
             <EstadoVazio
               icone={Bot}
               titulo="Nenhum agente na equipe ainda"
@@ -132,6 +174,16 @@ export function Escritorio() {
         aoFechar={() => setAbertoId(null)}
         aoMudar={recarregar}
       />
+
+      {conversaAberta && (
+        <ConversaDiretora
+          diretora={diretora}
+          equipeAtiva={equipeAtiva}
+          aoFechar={fecharConversa}
+          aoAbrirAgente={setAbertoId}
+          aoMudar={recarregar}
+        />
+      )}
     </div>
   );
 }
@@ -161,12 +213,14 @@ function SalaDaDiretora({
   plano,
   custo30d,
   aoAbrir,
+  aoConversar,
 }: {
   diretora: MesaAgente | null;
   mesas: MesaAgente[];
   plano: { texto: string; criadoEm: string } | null;
   custo30d: number;
   aoAbrir: (id: string) => void;
+  aoConversar: () => void;
 }) {
   const ativos = mesas.filter((m) => m.ativo).length;
   const trabalhando = mesas.filter((m) => m.estado === "trabalhando").length;
@@ -211,6 +265,10 @@ function SalaDaDiretora({
               )}
             </div>
           </div>
+
+          <Botao variante="primario" icone={MessageCircle} onClick={aoConversar} className="mt-4 w-full sm:w-auto">
+            Conversar com a Diretora
+          </Botao>
 
           <div className="mt-4 rounded-lg border border-aura-mist bg-aura-bg/60 p-3.5">
             <div className="mb-1.5 flex items-center gap-2">

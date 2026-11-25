@@ -273,3 +273,30 @@ export interface EstadoEscritorio {
   };
   custo30dUsd: number;
 }
+
+/* ------------------------------------------------------------------ */
+/* Conversa do gestor com a Diretora (/api/gestor/agentes/diretora).   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Uma mensagem da conversa particular gestor ⇄ Diretora. Fica gravada em
+ * aura_escritorio_mensagens (de "gestor:<id>" para a Diretora e de volta),
+ * então também aparece no mural da equipe.
+ */
+export interface MensagemConversaDiretora {
+  id: string;
+  autor: "gestor" | "diretora";
+  texto: string;
+  criadoEm: string;
+  /** Na resposta dela: os agentes para quem ela passou um pedido. */
+  encaminhados?: Array<{ agenteId: string; agenteNome: string; pedido: string }>;
+  /** Na resposta dela: o agente novo que ela propôs (espera o gestor mestre na aba Propostas). */
+  proposta?: { nome: string; setor: Setor; gravada: boolean } | null;
+  /** A IA não estava disponível (saldo, orçamento, falha): resposta padrão. */
+  semIA?: boolean;
+}
+
+export interface ConversaDiretora {
+  diretora: { id: IdAgente; nome: string } | null;
+  mensagens: MensagemConversaDiretora[];
+}

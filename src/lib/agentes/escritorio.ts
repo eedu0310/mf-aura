@@ -21,7 +21,7 @@ import { carregarRegistro, temMigracao108, type AgenteRegistrado } from "./motor
 import { agendaTexto, proximaExecucao } from "./agenda";
 import { CRON_DO_AGENTE_DO_SISTEMA } from "./sistema";
 import { PASTA_CONHECIMENTO, diaDoCaminho } from "./guardiao";
-import { MOTIVO_SEM_108, faltaNoBanco } from "./util";
+import { MOTIVO_SEM_108, faltaNoBanco, gestorDaFala } from "./util";
 import { ID_DIRETORA } from "./diretora";
 import type {
   ConfigAgenteConfiguravel,
@@ -263,15 +263,33 @@ export async function montarEstadoEscritorio(
     for (const r of resolvidos) resolvidosPorAgente.set(r.agente, (resolvidosPorAgente.get(r.agente) ?? 0) + 1);
 
     if (mensagens.error && !faltaNoBanco(mensagens.error)) throw new Error(mensagens.error.message);
+    // Gente no mural: o gestor que conversa com a Diretora fala como
+    // "gestor:<id>" (ver conversa-diretora.ts). Aqui vira o nome da pessoa.
+    const pessoas = new Set<string>();
+    for (const m of mensagens.data ?? []) {
+      for (const v of [m.de_agente as string, m.para_agente as string | null]) {
+        const uid = gestorDaFala(v);
+        if (uid) pessoas.add(uid);
+      }
+    }
+    const nomeDaPessoa = new Map<string, string>();
+    if (pessoas.size) {
+      const { data } = await sb.from("profiles").select("id, nome").in("id", [...pessoas]);
+      for (const p of data ?? []) nomeDaPessoa.set(p.id as string, (p.nome as string | null)?.trim() || "Gestor");
+    }
+    const nomeNaFala = (id: string | null) => {
+      const uid = gestorDaFala(id);
+      return uid ? (nomeDaPessoa.get(uid) ?? "Gestor") : nomeDe(id);
+    };
     falas = (mensagens.data ?? []).map((m) => {
       const para = (m.para_agente as string | null) ?? null;
       return {
         id: m.id as string,
         de: m.de_agente as string,
-        deNome: nomeDe(m.de_agente as string) ?? (m.de_agente as string),
+        deNome: nomeNaFala(m.de_agente as string) ?? (m.de_agente as string),
         // Sem destinatário = para a Diretora (contrato).
         para: para ?? ID_DIRETORA,
-        paraNome: para === "todos" ? "Todos" : nomeDe(para ?? ID_DIRETORA),
+        paraNome: para === "todos" ? "Todos" : nomeNaFala(para ?? ID_DIRETORA),
         tipo: m.tipo as FalaEscritorio["tipo"],
         texto: m.texto as string,
         empresa: (m.empresa as string | null) ?? null,

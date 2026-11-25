@@ -1,15 +1,20 @@
 "use client";
 
 /**
- * "Conversa da equipe": as falas do escritório como um chat de time — quem
+ * "Mural da equipe": as falas do escritório como um chat de time — quem
  * falou, para quem (o mural é "todos"; sem destinatário vai para a Diretora),
  * o tipo da fala, o texto e a hora. Mais nova em cima, com filtro por tipo e
  * por agente. Quem atualiza é o escritório (a cada 20 s, com a aba visível).
+ *
+ * O gestor também aparece aqui: as ideias que ele manda para a Diretora (e
+ * a resposta dela) vêm como falas de "gestor:<id>", com o nome da pessoa e
+ * um ícone de gente no lugar do ícone de agente.
  */
 import { useMemo, useState } from "react";
-import { ArrowRight, MessagesSquare } from "lucide-react";
+import { ArrowRight, MessagesSquare, UserRound } from "lucide-react";
 import type { FalaEscritorio, MesaAgente } from "@/lib/agentes/tipos";
 import { Card, CardHeader, EstadoVazio, Segmentado, Selo } from "@/components/ui";
+import { gestorDaFala } from "@/lib/agentes/util";
 import { AvatarAgente, Esqueleto, TIPOS_FALA, haQuanto } from "./comum";
 
 type FiltroTipo = "todos" | FalaEscritorio["tipo"];
@@ -56,7 +61,7 @@ export function ConversaEquipe({
     <Card className="flex flex-col lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]">
       <CardHeader
         icone={MessagesSquare}
-        titulo="Conversa da equipe"
+        titulo="Mural da equipe"
         descricao={equipeAtiva ? "Atualiza sozinha a cada 20 segundos" : "Começa quando a equipe for ativada"}
         acoes={
           equipeAtiva ? (
@@ -140,9 +145,20 @@ function Fala({
   const destino = fala.para === "todos" ? "Mural" : fala.para === null ? "Diretora" : fala.paraNome ?? fala.para;
   return (
     <li className="flex gap-2.5 rounded-lg px-1.5 py-2 transition hover:bg-aura-sunken/60">
-      <button type="button" onClick={() => aoAbrirAgente(fala.de)} className="shrink-0 rounded-md" aria-label={`Abrir ${fala.deNome}`}>
-        <AvatarAgente icone={icone} tamanho="sm" destaque={fala.tipo === "plano"} />
-      </button>
+      {gestorDaFala(fala.de) ? (
+        // Uma pessoa (o gestor), não um agente: não tem ficha para abrir.
+        <span
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-aura-petrol-500/25 bg-aura-petrol-500/10 text-aura-petrol-600"
+          title="Gestor"
+          aria-hidden
+        >
+          <UserRound size={14} />
+        </span>
+      ) : (
+        <button type="button" onClick={() => aoAbrirAgente(fala.de)} className="shrink-0 rounded-md" aria-label={`Abrir ${fala.deNome}`}>
+          <AvatarAgente icone={icone} tamanho="sm" destaque={fala.tipo === "plano"} />
+        </button>
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
           <span className="font-medium text-aura-graphite">{fala.deNome}</span>

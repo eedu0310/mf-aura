@@ -106,3 +106,25 @@ export function slug(texto: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
 }
+
+/* ------------------------------------------------------------------ */
+/* Gente no escritório                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Quem fala no escritório e não é agente: o gestor que conversa com a
+ * Diretora. Ele aparece em de_agente/para_agente como "gestor:<id do perfil>"
+ * (a coluna é texto livre; o prefixo separa gente de agente).
+ */
+export const PREFIXO_GESTOR = "gestor:";
+
+export function idNoEscritorioDoGestor(userId: string): string {
+  return `${PREFIXO_GESTOR}${userId}`;
+}
+
+/** "gestor:<uuid>" → o uuid; qualquer outra coisa (id de agente, "todos", null) → null. */
+export function gestorDaFala(id: string | null | undefined): string | null {
+  if (typeof id !== "string" || !id.startsWith(PREFIXO_GESTOR)) return null;
+  const uid = id.slice(PREFIXO_GESTOR.length);
+  return ehUuid(uid) ? uid : null;
+}
