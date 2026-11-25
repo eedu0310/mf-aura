@@ -41,8 +41,12 @@ function jaEhOggOpus(mimetype: string) {
  * dá para converter — a tela mostra esse texto ao vendedor.
  */
 export async function paraVozOpus(buffer: Buffer, mimetype: string): Promise<Buffer> {
-  if (jaEhOggOpus(mimetype)) return buffer;
-  if (!(await temFfmpeg())) throw new Error(RECADO_SEM_FFMPEG);
+  // Mesmo o que já vem em OGG passa pelo ffmpeg quando ele existe: o que o
+  // navegador grava em OGG também começa em tempo negativo (ver abaixo).
+  if (!(await temFfmpeg())) {
+    if (jaEhOggOpus(mimetype)) return buffer;
+    throw new Error(RECADO_SEM_FFMPEG);
+  }
 
   return new Promise<Buffer>((resolve, reject) => {
     const ff = spawn("ffmpeg", [
@@ -50,10 +54,18 @@ export async function paraVozOpus(buffer: Buffer, mimetype: string): Promise<Buf
       "-loglevel", "error",
       "-i", "pipe:0",
       "-vn",
+      // Sem as etiquetas e capítulos herdados da gravação: o WhatsApp do
+      // celular recusa baixar nota de voz com capítulos (Baileys #2867).
+      "-map_metadata", "-1",
+      "-map_chapters", "-1",
       "-c:a", "libopus",
       "-b:a", "32k",     // voz: mais que isto não melhora e pesa no 3G do cliente
       "-ar", "48000",
       "-ac", "1",
+      // A gravação do navegador começa em tempo NEGATIVO (-0,0005 s). Com isso
+      // a nota de voz chegava com o ícone de download e não baixava no
+      // celular nem no WhatsApp do computador (25/11/2026). Zera o início.
+      "-avoid_negative_ts", "make_zero",
       "-f", "ogg",
       "pipe:1",
     ]);
