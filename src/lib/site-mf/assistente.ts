@@ -21,7 +21,10 @@ type ClienteServico = NonNullable<ReturnType<typeof getSupabaseServiceClient>>;
  *
  * Quando responde:
  *  - fora do horário de atendimento configurado; e, se o gestor ligar,
- *  - dentro do horário quando ninguém da equipe está com a AURA aberta.
+ *  - dentro do horário quando ninguém da equipe está com a AURA aberta;
+ *  - dentro do horário, quando o visitante espera mais que o tempo que o
+ *    gestor escolheu (15 min, 30 min, 1h…) sem resposta da equipe — pedido
+ *    do Elton em 25/11, como no agente do Instagram. Quem confere é o cron.
  * Não responde se alguém da equipe falou na conversa nos últimos 30 minutos
  * (a pessoa assumiu), se a conversa foi encerrada ou se já respondeu demais.
  */
@@ -47,19 +50,31 @@ function ia() {
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function responderComAssistente(sb: ClienteServico, conversaId: string): Promise<void> {
+/** Minutos que o visitante espera, dentro do horário, antes de o assistente entrar (null = não entra). */
+export function esperaDoAssistente(config: Record<string, unknown> | null | undefined): number | null {
+  const m = Number(config?.ia_esperar_minutos);
+  return Number.isFinite(m) && m >= 5 ? m : null;
+}
+
+export async function responderComAssistente(
+  sb: ClienteServico,
+  conversaId: string,
+  motivo: "mensagem" | "demora" = "mensagem",
+): Promise<void> {
   if (!ia() || emAndamento.has(conversaId)) return;
 
-  const { data: config } = await sb
-    .from("site_chat_config")
-    .select("ia_ativa, ia_sem_ninguem, horario")
-    .eq("empresa", EMPRESA_DO_SITE)
-    .maybeSingle();
-  if (!config?.ia_ativa) return;
-
-  const horario = limparHorario(config.horario);
+  // "*": a coluna do tempo de espera é nova; sem a migração, o resto segue igual.
+  const { data: config } = await sb.from("site_chat_config").select("*").eq("empresa", EMPRESA_DO_SITE).maybeSingle();
+  const espera = esperaDoAssistente(config);
+  const horario = limparHorario(config?.horario);
   const aberto = dentroDoHorario(horario);
-  if (aberto) {
+
+  if (motivo === "demora") {
+    // O cron só chama dentro do horário e com o tempo configurado.
+    if (!aberto || !espera) return;
+  } else if (!config?.ia_ativa) {
+    return;
+  } else if (aberto) {
     if (!config.ia_sem_ninguem) return;
     const desde = new Date(Date.now() - PRESENCA_VALE_MS).toISOString();
     const { count } = await sb
@@ -75,7 +90,7 @@ export async function responderComAssistente(sb: ClienteServico, conversaId: str
   try {
     // O cliente costuma mandar duas ou três mensagens seguidas: espera um
     // pouco e responde tudo de uma vez.
-    await esperar(ESPERA_MS);
+    if (motivo === "mensagem") await esperar(ESPERA_MS);
 
     const { data: conversa } = await sb
       .from("site_conversas")
@@ -94,10 +109,15 @@ export async function responderComAssistente(sb: ClienteServico, conversaId: str
     const ultima = lista[lista.length - 1];
     if (!ultima || ultima.autor !== "visitante") return;
 
-    const equipeRecente = lista.some(
-      (m) => m.autor === "equipe" && Date.now() - new Date(m.created_at).getTime() < EQUIPE_ASSUMIU_MS,
-    );
-    if (equipeRecente) return;
+    if (motivo === "demora") {
+      // Ainda não deu o tempo desde a última mensagem do visitante.
+      if (Date.now() - new Date(ultima.created_at).getTime() < espera! * 60_000) return;
+    } else {
+      const equipeRecente = lista.some(
+        (m) => m.autor === "equipe" && Date.now() - new Date(m.created_at).getTime() < EQUIPE_ASSUMIU_MS,
+      );
+      if (equipeRecente) return;
+    }
     if (lista.filter((m) => m.autor === "assistente").length >= MAX_RESPOSTAS_POR_CONVERSA) return;
     if (!(await podeChamarIA())) return;
 
@@ -130,7 +150,7 @@ export async function responderComAssistente(sb: ClienteServico, conversaId: str
 
     const sistema = `Você é o ${NOME_DO_ASSISTENTE}, o assistente virtual do chat do site da MF International: fábrica de lareiras de alto rendimento em São Sebastião do Caí/RS, desde 1977, pioneira na tripla combustão.
 
-SITUAÇÃO: ${aberto ? "a equipe não está disponível no chat neste momento" : "agora é FORA do horário de atendimento"}. Horário da equipe: ${horarioTexto}. Você atende até um consultor assumir; tudo o que você escrever a equipe lê na AURA.
+SITUAÇÃO: ${motivo === "demora" ? `o cliente está esperando há mais de ${espera} minutos e a equipe está ocupada; agradeça a paciência de forma natural` : aberto ? "a equipe não está disponível no chat neste momento" : "agora é FORA do horário de atendimento"}. Horário da equipe: ${horarioTexto}. Você atende até um consultor assumir; tudo o que você escrever a equipe lê na AURA.
 Cliente: ${conversa.nome ?? "não informado"}${conversa.cidade ? `, de ${conversa.cidade}` : ""}.
 
 COMO ESCREVER
@@ -188,4 +208,33 @@ ${material || "(sem material: seja breve, colete as informações e diga que o c
   } finally {
     emAndamento.delete(conversaId);
   }
+}
+
+/**
+ * Roda pelo cron: dentro do horário, a conversa aberta cujo visitante
+ * escreveu por último e esperou mais que o tempo configurado recebe a
+ * resposta do assistente.
+ */
+export async function rodadaDoAssistenteDoSite(sb: ClienteServico): Promise<number> {
+  if (!ia()) return 0;
+  const { data: config } = await sb.from("site_chat_config").select("*").eq("empresa", EMPRESA_DO_SITE).maybeSingle();
+  const espera = esperaDoAssistente(config);
+  if (!espera || !dentroDoHorario(limparHorario(config?.horario))) return 0;
+  const { data: conversas } = await sb
+    .from("site_conversas")
+    .select("id")
+    .eq("empresa", EMPRESA_DO_SITE)
+    .eq("status", "aberta")
+    .lte("ultima_em", new Date(Date.now() - espera * 60_000).toISOString())
+    .gte("ultima_em", new Date(Date.now() - 24 * 3600_000).toISOString())
+    .order("ultima_em", { ascending: true })
+    .limit(10);
+  let respondidas = 0;
+  for (const c of conversas ?? []) {
+    const antes = await sb.from("site_mensagens").select("id", { count: "exact", head: true }).eq("conversa_id", c.id);
+    await responderComAssistente(sb, c.id, "demora");
+    const depois = await sb.from("site_mensagens").select("id", { count: "exact", head: true }).eq("conversa_id", c.id);
+    if ((depois.count ?? 0) > (antes.count ?? 0)) respondidas++;
+  }
+  return respondidas;
 }

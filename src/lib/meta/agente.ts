@@ -7,7 +7,7 @@
  *
  * Quando responde:
  *  - o cliente foi o último a escrever e já passou o tempo configurado
- *    (padrão 2h) sem resposta da loja — o cron passa de 10 em 10 minutos;
+ *    (padrão 2h) sem resposta da loja — o cron passa de 5 em 5 minutos;
  *  - ou, se o gestor ligar, na hora quando a mensagem chega fora do horário
  *    da loja.
  * Não responde se: o agente está desligado na loja ou pausado na conversa,
@@ -143,11 +143,13 @@ function ia() {
 const emAndamento = new Set<string>();
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Só o material da própria loja, ligado em Materiais. Pedido do Elton
+ * (25/11): o agente da LF trabalha com o que a LF trabalha, nada além —
+ * nem o material da fábrica nem o de outra loja.
+ */
 async function material(sb: ClienteServico, empresa: string, assunto: string) {
-  const proprio = await materiaisParaPergunta(sb as never, empresa, assunto, 8).catch(() => "");
-  if (proprio || empresa === "MF International") return proprio;
-  // Loja sem material próprio: a ficha técnica da fábrica vale para as lareiras MF.
-  return materiaisParaPergunta(sb as never, "MF International", assunto, 8).catch(() => "");
+  return materiaisParaPergunta(sb as never, empresa, assunto, 8).catch(() => "");
 }
 
 function regras(empresa: string, cfg: ConfigAgente, situacao: string, publico: boolean) {
@@ -169,10 +171,10 @@ OBJETIVO
 ${p.objetivo}
 
 REGRAS QUE NÃO PODEM SER QUEBRADAS
-- Use somente informação dos MATERIAIS abaixo. Se não estiver lá, diga que o consultor confirma.
+- Fale SOMENTE do que está nos MATERIAIS DESTA ${p.papel === "fabrica" ? "FÁBRICA" : "LOJA"} abaixo: produtos, marcas, modelos, dados técnicos e serviços. Não cite produto, marca ou informação que não esteja lá, nem de outras lojas. Se não estiver lá, diga que o consultor confirma.
 - NÃO informe preços, descontos, parcelamento nem condições de pagamento: o consultor manda a proposta conforme o projeto.
-- Garantia: "até 5 anos, conforme o modelo". Nunca diga garantia vitalícia de lareira.
-- As lareiras suspensas (MF 360, MF Ottanta) giram 360° e não têm tripla combustão; não diga que têm.
+- Garantia: só o que o material disser; nunca diga garantia vitalícia de lareira.
+- Não diga que lareira suspensa tem tripla combustão.
 - Não prometa prazo de entrega, de instalação nem visita com data. Não fale mal da concorrência.
 - Não oriente instalação em móvel de madeira/MDF ou gesso comum.
 - Emergência (fumaça dentro de casa, princípio de incêndio): apagar o fogo com segurança, ventilar e ligar 193.
@@ -267,8 +269,8 @@ export async function responderConversa(conversaId: string, motivo: "demora" | "
     const sistema = `${regras(conversa.empresa, cfg, situacao, false)}
 Cliente: ${nome}.
 
-MATERIAIS (manual de vendas, ficha técnica, instalação e garantia, regras da casa):
-${mat || "(sem material: seja breve, colete as informações e diga que o consultor confirma os detalhes)"}`;
+MATERIAIS DESTA ${perfilDa(conversa.empresa).papel === "fabrica" ? "FÁBRICA" : "LOJA"} (a única fonte que você pode usar):
+${mat || "(nenhum material cadastrado: não fale de produto nenhum; cumprimente, pergunte o que o cliente precisa, a cidade e o WhatsApp, e diga que o consultor responde com os detalhes)"}`;
 
     const texto = (await gerar(sistema, turnos, conversa.empresa, 350)).slice(0, 900);
     if (!texto) return false;
@@ -318,8 +320,8 @@ async function responderComentarioComIA(sb: ClienteServico, cfg: ConfigAgente, c
   const sistema = `${regras(cfg.empresa, cfg, "um comentário numa publicação ficou sem resposta da equipe.", true)}
 Se o comentário for só elogio, emoji ou marcação de amigo, agradeça em poucas palavras. Se for spam ou ofensa, responda exatamente: PULAR
 
-MATERIAIS:
-${mat || "(sem material)"}`;
+MATERIAIS DESTA LOJA (a única fonte que você pode usar):
+${mat || "(nenhum material: não fale de produto; só agradeça e convide para o direct)"}`;
   const texto = (await gerar(sistema, [{ role: "user", content: `@${c.autor_usuario ?? "cliente"} comentou: ${c.texto}` }], cfg.empresa, 160)).slice(0, 400);
   if (!texto || /^PULAR\b/i.test(texto)) {
     await sb.from("meta_comentarios").update({ respondido: true }).eq("id", c.id);
@@ -334,7 +336,7 @@ ${mat || "(sem material)"}`;
 
 // --- A rodada do cron -------------------------------------------------------
 
-/** Roda de 10 em 10 minutos: procura o que esperou demais e responde. */
+/** Roda de 5 em 5 minutos: procura o que esperou demais e responde. */
 export async function rodadaDoAgente() {
   const sb = getSupabaseServiceClient();
   const resumo = { lojas: 0, conversas: 0, comentarios: 0, erros: [] as string[] };

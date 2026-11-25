@@ -309,7 +309,8 @@ export async function ligarAvisos(conta: ContaMeta) {
     etapas.push("Instagram: assinado");
   } else etapas.push(...r2.erros);
 
+  // Deu certo por um caminho: as recusas do outro só confundiriam a tela.
   return algumOk
-    ? { ok: true as const, via, dados: { etapas } }
+    ? { ok: true as const, via, dados: { etapas: etapas.filter((e) => !e.includes(" → ")) } }
     : { ok: false as const, erros: etapas };
 }

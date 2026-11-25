@@ -29,9 +29,10 @@ ALVO=http://127.0.0.1:3000
 # Lead parado volta para a fila, de 5 em 5 minutos.
 */5 * * * * root curl -sS -m 120 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/repassar-leads >> /var/log/aura-cron.log 2>&1
 
-# Agente de IA do Instagram, de 10 em 10 minutos: responde o direct que
-# esperou mais que o tempo configurado na loja sem resposta da equipe.
-*/10 * * * * root curl -sS -m 280 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/instagram-agente >> /var/log/aura-cron.log 2>&1
+# Atendentes automáticos, de 5 em 5 minutos: o agente de IA do Instagram
+# (direct sem resposta no tempo da loja) e o assistente do chat do site MF
+# (visitante esperando mais que o tempo configurado).
+*/5 * * * * root curl -sS -m 280 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/assistentes >> /var/log/aura-cron.log 2>&1
 
 # Supervisão da AURA, 9h.
 0 9 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/supervisao-aura >> /var/log/aura-cron.log 2>&1

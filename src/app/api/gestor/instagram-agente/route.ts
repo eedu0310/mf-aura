@@ -35,7 +35,12 @@ export async function GET(request: Request) {
     .eq("por_ia", true)
     .eq("meta_conversas.empresa", empresa)
     .gte("criado_em", new Date(Date.now() - 7 * 86_400_000).toISOString());
-  return NextResponse.json({ config: cfg, respostasNaSemana: count ?? 0 });
+  // O agente usa só o material desta loja: mostra quanto tem.
+  const { count: trechos } = await sb!
+    .from("aura_trechos_ativos")
+    .select("empresa", { count: "exact", head: true })
+    .eq("empresa", empresa);
+  return NextResponse.json({ config: cfg, respostasNaSemana: count ?? 0, trechosDeMaterial: trechos ?? 0 });
 }
 
 export async function POST(request: Request) {

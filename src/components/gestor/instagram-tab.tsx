@@ -353,13 +353,30 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
     }
   }
 
-  const linha = (rotulo: string, item: any) => (
+  const linha = (rotulo: string, item: any, opcional = false) => (
     <li className="flex gap-2">
-      <span className={item?.ok ? "text-aura-success" : "text-aura-danger"}>{item?.ok ? "OK" : "Falhou"}</span>
+      <span className={item?.ok ? "text-aura-success" : opcional ? "text-aura-graphite-soft" : "text-aura-danger"}>
+        {item?.ok ? "OK" : opcional ? "—" : "Falhou"}
+      </span>
       <span className="text-aura-graphite">{rotulo}</span>
-      {!item?.ok && item?.erros && <span className="text-aura-graphite-soft">— {item.erros.join(" | ")}</span>}
+      {!item?.ok && item?.erros && !opcional && <span className="text-aura-graphite-soft">— {item.erros.join(" | ")}</span>}
+      {!item?.ok && opcional && <span className="text-aura-graphite-soft">— não precisa: a conta recebe direto</span>}
     </li>
   );
+
+  // O que fazer, em português, a partir do que a Meta respondeu.
+  const dicas: string[] = [];
+  if (dados && !dados.erro) {
+    if (!dados.perfil?.ok) dicas.push("O token da conta não vale mais: clique em Reconectar.");
+    if (!dados.avisosAssinados?.ok && !dados.avisosDaPagina?.ok)
+      dicas.push("Os avisos não estão ligados: clique em Religar avisos.");
+    if (dados.conversas?.ok && dados.conversas.quantas === 0)
+      dicas.push(
+        "A Meta não mostra nenhuma conversa do direct. No celular, no Instagram da loja: Configurações e atividade → Mensagens e respostas aos stories → Ferramentas conectadas → ligue “Permitir acesso às mensagens”. Depois mande uma mensagem de teste de outro perfil e clique em Puxar histórico.",
+      );
+    if (!dados.webhook?.segredoConfigurado) dicas.push("Falta a chave secreta do app (META_APP_SECRET) no servidor.");
+  }
+  const contaRecebeDireto = Boolean(dados?.avisosAssinados?.ok);
 
   return (
     <div className="mt-3">
@@ -384,8 +401,9 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
                 {linha(
                   `Página do Facebook ligada${dados.pagina?.ok ? ` (${dados.pagina.nome ?? dados.pagina.id})` : ""}`,
                   dados.pagina,
+                  contaRecebeDireto,
                 )}
-                {linha("Avisos (webhook) assinados pela Página", dados.avisosDaPagina)}
+                {linha("Avisos (webhook) assinados pela Página", dados.avisosDaPagina, contaRecebeDireto)}
                 {linha("Avisos (webhook) assinados pela conta", dados.avisosAssinados)}
                 {linha(`Conversas do direct${dados.conversas?.ok ? ` (${dados.conversas.quantas} visíveis)` : ""}`, dados.conversas)}
                 {linha("Publicações e comentários", dados.publicacoes)}
@@ -396,6 +414,16 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
                   <span className="text-aura-graphite">Chave secreta do app no servidor</span>
                 </li>
               </ul>
+              {dicas.length > 0 && (
+                <div className="rounded-lg border border-aura-warning/40 bg-white p-2">
+                  <p className="font-medium text-aura-graphite">O que fazer</p>
+                  <ul className="mt-1 list-disc space-y-1 pl-4 text-aura-graphite">
+                    {dicas.map((d) => (
+                      <li key={d}>{d}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div>
                 <p className="font-medium text-aura-graphite">
                   Últimos avisos recebidos da Meta ({dados.webhook?.ultimosAvisos?.length ?? 0})
@@ -435,6 +463,16 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
  * O agente de IA desta conta: responde o direct quando a equipe não responde
  * no tempo combinado, como o assistente do chat do site.
  */
+const HORARIO_COMERCIAL: Horario = {
+  "1": [["08:00", "12:00"], ["13:30", "18:00"]],
+  "2": [["08:00", "12:00"], ["13:30", "18:00"]],
+  "3": [["08:00", "12:00"], ["13:30", "18:00"]],
+  "4": [["08:00", "12:00"], ["13:30", "18:00"]],
+  "5": [["08:00", "12:00"], ["13:30", "18:00"]],
+  "6": [["09:00", "12:00"]],
+  "0": [],
+};
+
 function AgenteInstagram({ empresa }: { empresa: string }) {
   const [aberto, setAberto] = useState(false);
   const [carregado, setCarregado] = useState(false);
@@ -445,6 +483,7 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
   const [comentarios, setComentarios] = useState(false);
   const [instrucoes, setInstrucoes] = useState("");
   const [naSemana, setNaSemana] = useState(0);
+  const [material, setMaterial] = useState<number | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [recado, setRecado] = useState<string | null>(null);
   const fabrica = empresa === "MF International";
@@ -460,10 +499,13 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
     setAtiva(Boolean(c.ativa));
     setHoras(String(c.esperar_horas ?? 2));
     setForaDoHorario(c.fora_do_horario !== false);
-    setHorario(c.horario ?? {});
+    // Nunca configurado: começa com o horário comercial de sempre, para ajustar.
+    const temHorario = Object.values(c.horario ?? {}).some((t: any) => Array.isArray(t) && t.length > 0);
+    setHorario(temHorario ? c.horario : HORARIO_COMERCIAL);
     setComentarios(Boolean(c.responder_comentarios));
     setInstrucoes(c.instrucoes ?? "");
     setNaSemana(Number(d.respostasNaSemana ?? 0));
+    setMaterial(typeof d.trechosDeMaterial === "number" ? d.trechosDeMaterial : null);
     setCarregado(true);
   }
 
@@ -541,8 +583,69 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
             Ligar o agente nesta conta
           </label>
 
-          <label className="flex flex-wrap items-center gap-2 text-aura-graphite">
-            Responder se ninguém da equipe responder em
+          {material !== null && (
+            <p className={`rounded-lg px-3 py-2 text-xs ${material > 0 ? "bg-aura-success/10 text-aura-graphite" : "bg-aura-warning/10 text-aura-graphite"}`}>
+              {material > 0
+                ? `Material que o agente usa: só o da ${empresa} (${material} trechos ligados em Materiais). Nada de outra loja.`
+                : `A ${empresa} ainda não tem material ligado em Materiais. Sem material o agente só cumprimenta, pergunta o que o cliente precisa e avisa que o vendedor confirma.`}
+            </p>
+          )}
+
+          <div className="space-y-1.5 rounded-lg bg-aura-bg p-3">
+            <p className="text-sm font-medium text-aura-graphite">Horário em que a equipe atende</p>
+            <p className="text-xs text-aura-graphite-soft">
+              Dentro deste horário o agente espera a equipe; fora dele, entra como você escolher abaixo.
+            </p>
+            {DIAS.map(({ dia, nome }) => {
+              const turnos = horario[dia] ?? [];
+              const abertoDia = turnos.length > 0;
+              return (
+                <div key={dia} className="flex flex-wrap items-center gap-2 text-xs">
+                  <label className="flex w-24 items-center gap-1.5 text-sm text-aura-graphite">
+                    <input
+                      type="checkbox"
+                      checked={abertoDia}
+                      onChange={(e) =>
+                        setHorario((h) => ({ ...h, [dia]: e.target.checked ? [["08:00", "12:00"], ["13:30", "18:00"]] : [] }))
+                      }
+                    />
+                    {nome}
+                  </label>
+                  {abertoDia ? (
+                    [0, 1].map((k) => (
+                      <span key={k} className="flex items-center gap-1">
+                        {k === 1 && <span className="px-1 text-aura-graphite-soft">e</span>}
+                        <input type="time" value={turnos[k]?.[0] ?? ""} onChange={(e) => mudarTurno(dia, k, 0, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} começa`} />
+                        às
+                        <input type="time" value={turnos[k]?.[1] ?? ""} onChange={(e) => mudarTurno(dia, k, 1, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} termina`} />
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-aura-graphite-soft">Ninguém atende</span>
+                  )}
+                </div>
+              );
+            })}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setHorario((h) => ({ ...h, "2": h["1"] ?? [], "3": h["1"] ?? [], "4": h["1"] ?? [], "5": h["1"] ?? [] }))}
+                className="rounded border border-aura-mist bg-white px-2 py-1 text-xs text-aura-graphite"
+              >
+                Copiar segunda para terça a sexta
+              </button>
+              <button type="button" onClick={() => setHorario(HORARIO_COMERCIAL)} className="rounded border border-aura-mist bg-white px-2 py-1 text-xs text-aura-graphite">
+                Voltar ao horário comercial
+              </button>
+            </div>
+            <p className="text-[11px] text-aura-graphite-soft">
+              {horarioEmTexto(horario) || "Nenhum dia marcado: conta como se a equipe atendesse sempre."} Deixe o segundo horário em branco se o dia
+              tiver um turno só (ex.: sábado 09:00 às 12:00).
+            </p>
+          </div>
+
+          <label className={`flex flex-wrap items-center gap-2 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
+            Dentro do horário, responder se ninguém da equipe responder em
             <select value={horas} onChange={(e) => setHoras(e.target.value)} className={campo} disabled={!ativa}>
               {["0.25", "0.5", "1", "2", "3", "4", "6", "8", "12"].map((h) => (
                 <option key={h} value={h}>
@@ -552,46 +655,17 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
             </select>
           </label>
 
-          <label className={`flex items-center gap-2.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
-            <input type="checkbox" checked={foraDoHorario} disabled={!ativa} onChange={(e) => setForaDoHorario(e.target.checked)} className="h-4 w-4" />
-            Fora do horário da {fabrica ? "fábrica" : "loja"}, responder na hora (sem esperar)
-          </label>
-
-          {foraDoHorario && ativa && (
-            <div className="space-y-1.5 rounded-lg bg-aura-bg p-2">
-              <p className="text-xs font-medium text-aura-graphite">Horário de atendimento</p>
-              {DIAS.map(({ dia, nome }) => {
-                const turnos = horario[dia] ?? [];
-                const aberto = turnos.length > 0;
-                return (
-                  <div key={dia} className="flex flex-wrap items-center gap-2 text-xs">
-                    <label className="flex w-24 items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={aberto}
-                        onChange={(e) =>
-                          setHorario((h) => ({ ...h, [dia]: e.target.checked ? [["08:00", "12:00"], ["13:30", "18:00"]] : [] }))
-                        }
-                      />
-                      {nome}
-                    </label>
-                    {aberto ? (
-                      [0, 1].map((k) => (
-                        <span key={k} className="flex items-center gap-1">
-                          <input type="time" value={turnos[k]?.[0] ?? ""} onChange={(e) => mudarTurno(dia, k, 0, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} abre`} />
-                          às
-                          <input type="time" value={turnos[k]?.[1] ?? ""} onChange={(e) => mudarTurno(dia, k, 1, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} fecha`} />
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-aura-graphite-soft">Fechado</span>
-                    )}
-                  </div>
-                );
-              })}
-              <p className="text-[11px] text-aura-graphite-soft">{horarioEmTexto(horario) || "Sem horário: conta como sempre aberto."}</p>
-            </div>
-          )}
+          <fieldset className={`space-y-1.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`} disabled={!ativa}>
+            <legend className="mb-1">Fora do horário (noite, fim de semana, depois do sábado ao meio-dia):</legend>
+            <label className="flex items-center gap-2.5">
+              <input type="radio" name={`fora-${empresa}`} checked={foraDoHorario} onChange={() => setForaDoHorario(true)} className="h-4 w-4" />
+              Responder na hora, sem esperar
+            </label>
+            <label className="flex items-center gap-2.5">
+              <input type="radio" name={`fora-${empresa}`} checked={!foraDoHorario} onChange={() => setForaDoHorario(false)} className="h-4 w-4" />
+              Esperar o mesmo tempo de dentro do horário
+            </label>
+          </fieldset>
 
           <label className={`flex items-center gap-2.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
             <input type="checkbox" checked={comentarios} disabled={!ativa} onChange={(e) => setComentarios(e.target.checked)} className="h-4 w-4" />

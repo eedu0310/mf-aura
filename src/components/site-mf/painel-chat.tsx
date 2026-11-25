@@ -36,6 +36,7 @@ interface Resumo {
     mensagem_fora_horario: string;
     ia_ativa?: boolean;
     ia_sem_ninguem?: boolean;
+    ia_esperar_minutos?: number | null;
   } | null;
   equipe: { id: string; nome: string }[];
 }
@@ -136,6 +137,7 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
   const [foraHorario, setForaHorario] = useState(c.mensagem_fora_horario ?? "");
   const [iaAtiva, setIaAtiva] = useState(c.ia_ativa !== false);
   const [iaSemNinguem, setIaSemNinguem] = useState(c.ia_sem_ninguem === true);
+  const [iaEsperar, setIaEsperar] = useState<string>(c.ia_esperar_minutos ? String(c.ia_esperar_minutos) : "");
   const [formularios, setFormularios] = useState<{ slug: string; nome: string; titulo: string | null; destino: string }[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -187,7 +189,7 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
       const r = await fetch("/api/site/chat/equipe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "config", ativo, saudacao, atendentePadraoId: atendente || null, atalhos, whatsapp, horario: limpo, mensagemForaHorario: foraHorario, iaAtiva, iaSemNinguem }),
+        body: JSON.stringify({ acao: "config", ativo, saudacao, atendentePadraoId: atendente || null, atalhos, whatsapp, horario: limpo, mensagemForaHorario: foraHorario, iaAtiva, iaSemNinguem, iaEsperarMinutos: iaEsperar ? Number(iaEsperar) : null }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro || "Não consegui salvar.");
@@ -340,6 +342,19 @@ function ConfigChat({ resumo, onFechar, onSalvo }: { resumo: Resumo; onFechar: (
             <label className={`flex items-center gap-2.5 text-sm ${iaAtiva ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
               <input type="checkbox" checked={iaSemNinguem} disabled={!iaAtiva} onChange={(e) => setIaSemNinguem(e.target.checked)} className="h-4 w-4" />
               Também dentro do horário, quando ninguém da equipe estiver online
+            </label>
+            <label className="flex flex-wrap items-center gap-2 text-sm text-aura-graphite">
+              Dentro do horário, se ninguém da equipe responder em
+              <select value={iaEsperar} onChange={(e) => setIaEsperar(e.target.value)} className={`${pequena} w-auto`}>
+                <option value="">não responder</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">1 hora</option>
+                <option value="120">2 horas</option>
+                <option value="180">3 horas</option>
+              </select>
+              o assistente responde
             </label>
           </section>
 
