@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Trash2, Download, Upload, Loader2, FileText } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { nomesDasEtapas } from "@/lib/funil";
+import { entraNaPerda } from "@/lib/perda-oportunidade";
+import { MotivoPerdaModal } from "./motivo-perda-modal";
 import {
   listarOrcamentos,
   anexarOrcamento,
@@ -48,7 +50,18 @@ export function OportunidadeDetailsModal({
     probabilidade: oportunidade.probabilidade,
   });
 
-  async function salvarEdicoes() {
+  /*
+   * Trocar a etapa para a de perda pelo select também pede o motivo — antes
+   * só o arrasto abria o modal, e a edição do card mandava para Perdidos sem
+   * motivo nem data. O modal devolve o motivo e o save segue com ele.
+   */
+  const [pedindoMotivo, setPedindoMotivo] = useState(false);
+
+  async function salvarEdicoes(perda?: { motivo: string; descricao: string }) {
+    if (!perda && entraNaPerda(oportunidade.etapa, formData.etapa, funil)) {
+      setPedindoMotivo(true);
+      return;
+    }
     setSalvando(true);
     try {
       await updateOportunidade(oportunidade.id, {
@@ -57,6 +70,9 @@ export function OportunidadeDetailsModal({
         valor: formData.valor,
         etapa: formData.etapa as Etapa,
         probabilidade: formData.probabilidade as Probabilidade,
+        ...(perda
+          ? { motivoPerda: perda.motivo as Oportunidade["motivoPerda"], descricaoPerda: perda.descricao }
+          : {}),
       });
       setEditando(false);
     } catch (error) {
@@ -395,7 +411,7 @@ export function OportunidadeDetailsModal({
             <div className="flex gap-3 pt-4">
               <button
                 type="button"
-                onClick={salvarEdicoes}
+                onClick={() => void salvarEdicoes()}
                 disabled={salvando}
                 className={classeBotao("primario", "md", "flex-1")}
               >
@@ -420,6 +436,17 @@ export function OportunidadeDetailsModal({
           </form>
         )}
       </div>
+
+      {pedindoMotivo && (
+        <MotivoPerdaModal
+          clienteNome={formData.cliente}
+          onCancelar={() => setPedindoMotivo(false)}
+          onConfirmar={async (motivo, descricao) => {
+            setPedindoMotivo(false);
+            await salvarEdicoes({ motivo, descricao });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { colunaDoNegocio, ehFechada, ehGanho, ehPerda } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
+import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,11 +139,14 @@ export async function GET(request: Request) {
       ]);
 
     const funil = await carregarFunil(sb, o.empresa as string);
+    const ultimaAtividade = await buscarUltimaAtividade(sb, [o.relacionamento_id as string | null]);
 
     return NextResponse.json({
       nivel: "negocio",
       negocio: {
         ...o,
+        // Calculado (oportunidade-parada.ts): a coluna estava em 0 em tudo.
+        dias_parado: diasParadoDaLinha(o, ultimaAtividade.get(o.relacionamento_id as string)),
         coluna: colunaDoNegocio(o.etapa as string, funil),
         fechado: ehFechada(o.etapa as string, funil),
         ganho: ehGanho(o.etapa as string, funil),
@@ -182,7 +186,7 @@ export async function GET(request: Request) {
       sb
         .from("oportunidades")
         .select(
-          "id, cliente, produto, valor, etapa, probabilidade, dias_parado, motivo_perda, owner_id, parceiro_id, percentual_parceiro, created_at, updated_at",
+          "id, cliente, produto, valor, etapa, probabilidade, motivo_perda, owner_id, parceiro_id, percentual_parceiro, relacionamento_id, created_at, updated_at",
         )
         .or(meu)
         .order("updated_at", { ascending: false })
@@ -194,6 +198,11 @@ export async function GET(request: Request) {
         .order("criado_em", { ascending: false })
         .limit(10),
     ]);
+
+    const ultimaAtividadeDoVendedor = await buscarUltimaAtividade(
+      sb,
+      (negocios ?? []).map((o) => o.relacionamento_id as string | null),
+    );
 
     return NextResponse.json({
       nivel: "vendedor",
@@ -213,6 +222,7 @@ export async function GET(request: Request) {
       })),
       negocios: (negocios ?? []).map((o) => ({
         ...o,
+        dias_parado: diasParadoDaLinha(o, ultimaAtividadeDoVendedor.get(o.relacionamento_id as string)),
         coluna: colunaDoNegocio(o.etapa as string, funil),
         fechado: ehFechada(o.etapa as string, funil),
         ganho: ehGanho(o.etapa as string, funil),
@@ -254,7 +264,7 @@ export async function GET(request: Request) {
         todasAsLinhas((de, ate) =>
           sb
             .from("oportunidades")
-            .select("owner_id, parceiro_id, etapa, valor, dias_parado")
+            .select("owner_id, parceiro_id, etapa, valor, relacionamento_id, created_at, updated_at")
             .eq("empresa", loja)
             .order("id")
             .range(de, ate),
@@ -284,6 +294,14 @@ export async function GET(request: Request) {
     }
 
     const funil = await carregarFunil(sb, loja);
+    // "Parado" calculado da última alteração e da última atividade com o
+    // cliente — só dos abertos, que são os únicos que podem estar parados.
+    const ultimaAtividadeDaLoja = await buscarUltimaAtividade(
+      sb,
+      (negocios ?? [])
+        .filter((o) => !ehFechada(o.etapa as string, funil))
+        .map((o) => o.relacionamento_id as string | null),
+    );
     const meus = <T extends { owner_id: string | null; parceiro_id?: string | null }>(
       lista: T[] | null,
       id: string,
@@ -312,7 +330,11 @@ export async function GET(request: Request) {
             ).length,
             negociosAbertos: abertos.length,
             pipeline: abertos.reduce((s, o) => s + Number(o.valor ?? 0), 0),
-            negociosParados: abertos.filter((o) => Number(o.dias_parado ?? 0) >= 7).length,
+            negociosParados: abertos.filter(
+              (o) =>
+                diasParadoDaLinha(o, ultimaAtividadeDaLoja.get(o.relacionamento_id as string)) >=
+                DIAS_PARA_PARADO,
+            ).length,
             ganhos: meusNegocios.filter((o) => ehGanho(o.etapa as string, funil)).length,
             perdidos: meusNegocios.filter((o) => ehPerda(o.etapa as string, funil)).length,
             atividades: (ativs ?? []).filter((a) => a.owner_id === p.id).length,
@@ -347,7 +369,9 @@ export async function GET(request: Request) {
         return q.order("id").range(de, ate);
       }),
       todasAsLinhas((de, ate) => {
-        let q = sb.from("oportunidades").select("empresa, etapa, valor, dias_parado");
+        let q = sb
+          .from("oportunidades")
+          .select("empresa, etapa, valor, relacionamento_id, created_at, updated_at");
         if (lojasVisiveis) q = q.in("empresa", lojasVisiveis);
         return q.order("id").range(de, ate);
       }),
@@ -369,9 +393,23 @@ export async function GET(request: Request) {
     ]),
   ].filter(Boolean);
 
+  // O funil de cada loja primeiro, para saber quais negócios estão abertos e
+  // buscar a última atividade só dos clientes deles (uma leitura para todas).
+  const funis = new Map<string, Awaited<ReturnType<typeof carregarFunil>>>();
+  for (const nome of nomesDasLojas) funis.set(nome, await carregarFunil(sb, nome));
+  const ultimaAtividadeDasLojas = await buscarUltimaAtividade(
+    sb,
+    (negocios ?? [])
+      .filter((o) => {
+        const f = funis.get(o.empresa as string);
+        return !!f && !ehFechada(o.etapa as string, f);
+      })
+      .map((o) => o.relacionamento_id as string | null),
+  );
+
   const lojas = [];
   for (const nome of nomesDasLojas) {
-    const funil = await carregarFunil(sb, nome);
+    const funil = funis.get(nome)!;
     const dela = (negocios ?? []).filter((o) => o.empresa === nome);
     const abertos = dela.filter((o) => !ehFechada(o.etapa as string, funil));
     const conversasDela = (conversas ?? []).filter((c) => c.empresa === nome);
@@ -390,7 +428,11 @@ export async function GET(request: Request) {
       ).length,
       negociosAbertos: abertos.length,
       pipeline: abertos.reduce((s, o) => s + Number(o.valor ?? 0), 0),
-      negociosParados: abertos.filter((o) => Number(o.dias_parado ?? 0) >= 7).length,
+      negociosParados: abertos.filter(
+        (o) =>
+          diasParadoDaLinha(o, ultimaAtividadeDasLojas.get(o.relacionamento_id as string)) >=
+          DIAS_PARA_PARADO,
+      ).length,
     });
   }
 

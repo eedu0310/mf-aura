@@ -1,8 +1,31 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { mesEmSaoPaulo } from "@/lib/fuso";
 
+// Mês de Brasília: pelo relógio do navegador, quem abria a tela fora do fuso
+// (ou na virada do mês) gravava a meta no mês errado.
 function mesAtualISO() {
-  const agora = new Date();
-  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
+  return mesEmSaoPaulo();
+}
+
+/**
+ * Loja e ano da meta.
+ *
+ * As 5 metas gravadas estavam com empresa e ano vazios: estas funções só
+ * mandavam dono, mês e valor. Quem lê as metas por loja (os números da AURA,
+ * aura/dados.ts) não achava nenhuma. A loja é a do VENDEDOR dono da meta —
+ * não a de quem está definindo, que pode ser o gestor de outra loja.
+ */
+async function lojaEAnoDaMeta(
+  supabase: SupabaseClient,
+  ownerId: string,
+  mes: string,
+): Promise<{ ano: number; empresa?: string }> {
+  const { data } = await supabase.from("profiles").select("empresa").eq("id", ownerId).maybeSingle();
+  const empresa = typeof data?.empresa === "string" && data.empresa.trim() ? data.empresa : undefined;
+  // Sem loja lida (RLS, perfil sem loja), não manda o campo: não apaga uma
+  // loja que já estivesse gravada.
+  return { ano: Number(mes.slice(0, 4)), ...(empresa ? { empresa } : {}) };
 }
 
 export async function buscarMetaDoMes(): Promise<number | null> {
@@ -34,10 +57,11 @@ export async function definirMetaDoMes(valor: number): Promise<boolean> {
   if (!user) return false;
 
   const mes = mesAtualISO();
+  const lojaEAno = await lojaEAnoDaMeta(supabase, user.id, mes);
   const existente = await supabase.from("metas").select("id").eq("owner_id", user.id).eq("mes", mes).maybeSingle();
   const resultado = existente.data?.id
-    ? await supabase.from("metas").update({ valor_meta: valor }).eq("id", existente.data.id)
-    : await supabase.from("metas").insert({ owner_id: user.id, mes, valor_meta: valor });
+    ? await supabase.from("metas").update({ valor_meta: valor, ...lojaEAno }).eq("id", existente.data.id)
+    : await supabase.from("metas").insert({ owner_id: user.id, mes, valor_meta: valor, ...lojaEAno });
   const error = resultado.error;
 
   if (error) {
@@ -85,10 +109,12 @@ export async function definirMetaDeVendedor(vendedorId: string, valor: number): 
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return false;
 
+  const mes = mesAtualISO();
+  const lojaEAno = await lojaEAnoDaMeta(supabase, vendedorId, mes);
   const { error } = await supabase
     .from("metas")
     .upsert(
-      { owner_id: vendedorId, mes: mesAtualISO(), valor_meta: valor },
+      { owner_id: vendedorId, mes, valor_meta: valor, ...lojaEAno },
       { onConflict: "owner_id,mes" }
     );
 

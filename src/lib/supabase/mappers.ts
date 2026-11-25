@@ -7,9 +7,10 @@ import type {
   Probabilidade,
   Relacionamento,
   TemperaturaRelacionamento,
-  TipoAtividade,
   Venda,
 } from "@/lib/types";
+import { diasParadoDaLinha } from "@/lib/oportunidade-parada";
+import { normalizarTipoAtividade } from "@/lib/tipo-atividade";
 
 function texto(valor: unknown): string | undefined {
   return typeof valor === "string" && valor.trim() ? valor : undefined;
@@ -109,7 +110,12 @@ export function oportunidadeDoBanco(
     criadoEm: texto(linha.created_at),
     atualizado: texto(linha.updated_at),
     empresa: texto(linha.empresa),
-    diasParado: numero(linha.dias_parado),
+    // Calculado da última alteração (updated_at); a coluna dias_parado não é
+    // mantida por ninguém e estava em 0 em todos os negócios.
+    diasParado: diasParadoDaLinha({
+      updated_at: texto(linha.updated_at),
+      created_at: texto(linha.created_at),
+    }),
     orcamentoPath: texto(linha.orcamento_path) || null,
     orcamentoNome: texto(linha.orcamento_nome) || null,
     parceiroId: texto(linha.parceiro_id) ?? null,
@@ -241,7 +247,8 @@ export function atividadeDoBanco(linha: Record<string, unknown>): Atividade {
     vendedorId:
       (linha.vendedor_id as string) ?? (linha.owner_id as string) ?? "",
     empresa: texto(linha.empresa),
-    tipo: linha.tipo as TipoAtividade,
+    // "E-mail" (gravado pelo rótulo do botão) e "Email" são o mesmo tipo.
+    tipo: normalizarTipoAtividade(linha.tipo as string),
     subtipo: texto(linha.subtipo),
     titulo: texto(linha.titulo) ?? "Atividade",
     contexto: texto(linha.contexto) ?? "",
@@ -278,7 +285,8 @@ export function atividadeDoBanco(linha: Record<string, unknown>): Atividade {
 
 export function atividadeParaBanco(dados: Omit<Atividade, "id">) {
   return {
-    tipo: dados.tipo,
+    // Grava sempre o nome do código ("Email", nunca "E-mail").
+    tipo: normalizarTipoAtividade(dados.tipo),
     subtipo: dados.subtipo || null,
     titulo: dados.titulo,
     contexto: dados.contexto || null,

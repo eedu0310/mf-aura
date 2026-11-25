@@ -4,6 +4,7 @@ import { carregarFunil } from "@/lib/funil-servidor";
 import { ehFechada, ehGanho, nomesDasEtapas } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { diaEmSaoPaulo, inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
+import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -101,11 +102,12 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
       .eq("empresa", vendedor.empresa),
     supabase
       .from("oportunidades")
-      .select("id,cliente,etapa,dias_parado,valor")
+      .select("id,cliente,etapa,valor,relacionamento_id,created_at,updated_at")
       .eq("owner_id", vendedor.id)
       .eq("empresa", vendedor.empresa)
       .not("etapa", "in", `(${etapasDecididas.map((n) => `"${n}"`).join(",")})`)
-      .order("dias_parado", { ascending: false }),
+      // Mais antigos primeiro; a ordem final sai do "dias parado" calculado.
+      .order("updated_at", { ascending: true }),
     supabase
       .from("atividades")
       .select("id,titulo,contexto,created_at")
@@ -121,7 +123,18 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
   const riscos: Risco[] = [];
   const recomendacoes: Recomendacao[] = [];
   const rels = relacionamentos.data ?? [];
-  const opps = oportunidades.data ?? [];
+  /*
+   * Dias parado calculado: o mais recente entre a última alteração do
+   * negócio e a última atividade com o cliente. A coluna dias_parado estava
+   * em 0 em todos os negócios e este alerta (≥ 7 / ≥ 14 dias) nunca disparava.
+   */
+  const ultimaAtividade = await buscarUltimaAtividade(
+    supabase,
+    (oportunidades.data ?? []).map((o) => o.relacionamento_id as string | null),
+  );
+  const opps = (oportunidades.data ?? [])
+    .map((o) => ({ ...o, dias_parado: diasParadoDaLinha(o, ultimaAtividade.get(o.relacionamento_id as string)) }))
+    .sort((a, b) => b.dias_parado - a.dias_parado);
   const acts = atividades.data ?? [];
 
   for (const rel of rels) {
@@ -137,8 +150,8 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
   }
 
   for (const opp of opps.slice(0, 10)) {
-    const diasParado = Number(opp.dias_parado ?? 0);
-    if (diasParado >= 7) {
+    const diasParado = opp.dias_parado;
+    if (diasParado >= DIAS_PARA_PARADO) {
       const prioridade = prioridadePorRisco(diasParado >= 14 ? 3 : 2);
       riscos.push({ codigo: "oportunidade_parada", titulo: "Oportunidade parada", detalhe: `${opp.cliente} está há ${diasParado} dias sem avanço.`, prioridade, entidadeTipo: "oportunidade", entidadeId: opp.id });
       recomendacoes.push({ titulo: `Destravar ${opp.cliente}`, descricao: `Revise a objeção, faça o follow-up e registre o próximo passo. A oportunidade está parada há ${diasParado} dias.`, prioridade, entidadeTipo: "oportunidade", entidadeId: opp.id });

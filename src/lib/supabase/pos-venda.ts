@@ -1,5 +1,6 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 /**
  * O status do pós-venda, vindo de src/lib/types.ts — que é o que o banco
@@ -146,16 +147,27 @@ export async function listarPosVendas(): Promise<PosVenda[] | null> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
-    .from("pos_vendas")
-    .select("*, vendas(cliente, produto, valor, data)")
-    .order("created_at", { ascending: false });
-
-  if (error) {
+  /*
+   * De mil em mil até o fim: a consulta simples parava nas 1000 primeiras
+   * linhas (teto do PostgREST) sem avisar, e o pós-venda mais antigo sumia
+   * do quadro. Ordem estável (created_at e id) para as páginas não
+   * repetirem nem pularem cards.
+   */
+  try {
+    const linhas = await todasAsLinhas<LinhaPosVenda>((de, ate) =>
+      supabase
+        .from("pos_vendas")
+        .select("*, vendas(cliente, produto, valor, data)")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(de, ate)
+        .then((r) => ({ data: r.data as unknown as LinhaPosVenda[] | null, error: r.error })),
+    );
+    return linhas.map(doBanco);
+  } catch (error) {
     console.error("Erro ao carregar pós-vendas:", error);
     return [];
   }
-  return (data as unknown as LinhaPosVenda[]).map(doBanco);
 }
 
 /** Os marcos que o banco já tem gravados, para só carimbar o que está vazio. */
@@ -366,17 +378,24 @@ export async function listarMinhasPendenciasPosVenda(): Promise<PosVenda[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from("pos_vendas")
-    .select("*, vendas!inner(cliente, produto, valor, data, owner_id)")
-    .eq("vendas.owner_id", user.id);
-
-  if (error) {
+  // Também de mil em mil, com ordem estável (ver listarPosVendas).
+  let todas: PosVenda[];
+  try {
+    const linhas = await todasAsLinhas<LinhaPosVenda>((de, ate) =>
+      supabase
+        .from("pos_vendas")
+        .select("*, vendas!inner(cliente, produto, valor, data, owner_id)")
+        .eq("vendas.owner_id", user.id)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(de, ate)
+        .then((r) => ({ data: r.data as unknown as LinhaPosVenda[] | null, error: r.error })),
+    );
+    todas = linhas.map(doBanco);
+  } catch (error) {
     console.error("Erro ao carregar pendências de pós-venda:", error);
     return [];
   }
-
-  const todas = (data as unknown as LinhaPosVenda[]).map(doBanco);
   const hojeISO = diaEmSaoPaulo(); // UTC acusava atraso de véspera depois das 21h
 
   return todas.filter((pv) => {

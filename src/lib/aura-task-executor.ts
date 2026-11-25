@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { nomesDasEtapas } from "@/lib/funil";
+import { camposDaPerdaAoMudarEtapa, entraNaPerda } from "@/lib/perda-oportunidade";
+import { normalizarTipoAtividade, normalizarTipoCompromisso, TIPOS_COMPROMISSO } from "@/lib/tipo-atividade";
 
 export type AuraTaskAction =
   | "registrar_atividade"
@@ -23,6 +25,8 @@ export type AuraTaskInput = {
   proximoContato?: string;
   etapa?: string;
   probabilidade?: string;
+  /** Obrigatório quando `etapa` é a de perda. */
+  motivoPerda?: string;
   confirmado?: boolean;
 };
 
@@ -75,7 +79,8 @@ export async function executarTarefaAura(
 ): Promise<AuraTaskResult> {
   try {
     if (input.action === "registrar_atividade") {
-      const tipo = obrigatorio(input.tipo, "tipo");
+      // "E-mail" vira "Email": o mesmo tipo que o resto do código conhece.
+      const tipo = normalizarTipoAtividade(obrigatorio(input.tipo, "tipo"));
       const resumo = obrigatorio(input.resumo, "resumo");
       const nome = input.relacionamentoNome?.trim() || null;
       let relacionamentoId: string | null = null;
@@ -140,7 +145,13 @@ export async function executarTarefaAura(
           owner_id: ctx.userId,
           titulo,
           subtitulo: input.subtitulo?.trim() || null,
-          tipo: input.tipo?.trim() || "Outro",
+          empresa: ctx.empresa,
+          /*
+           * O banco só aceita Visita, Reunião, Follow-up, Ligação e Outro
+           * (CHECK). Antes o texto da IA ia direto e um "apresentação" ou
+           * "call" fazia o insert falhar: o compromisso não era criado.
+           */
+          tipo: normalizarTipoCompromisso(input.tipo),
           relacionamento_nome: nome,
           data,
           hora: input.hora?.trim() || null,
@@ -199,7 +210,8 @@ export async function executarTarefaAura(
         });
       }
       // As etapas válidas são as da loja de quem está pedindo.
-      const etapasDaLoja = nomesDasEtapas(await carregarFunil(ctx.supabase, ctx.empresa));
+      const funil = await carregarFunil(ctx.supabase, ctx.empresa);
+      const etapasDaLoja = nomesDasEtapas(funil);
       if (input.etapa && !etapasDaLoja.includes(input.etapa)) {
         throw new Error(`Etapa inválida. As desta loja são: ${etapasDaLoja.join(", ")}.`);
       }
@@ -210,8 +222,33 @@ export async function executarTarefaAura(
         throw new Error("Informe etapa ou probabilidade para atualizar a oportunidade.");
       }
 
-      const patch: Record<string, string> = {};
-      if (input.etapa) patch.etapa = input.etapa;
+      const patch: Record<string, string | null> = {};
+      if (input.etapa) {
+        /*
+         * Mover para a perda exige o motivo e grava a data (dia de São
+         * Paulo); sair da perda limpa os três campos. Mesma regra do arrasto
+         * no quadro (perda-oportunidade.ts).
+         */
+        const { data: atual, error: erroAtual } = await ctx.supabase
+          .from("oportunidades")
+          .select("etapa")
+          .eq("id", oportunidadeId)
+          .eq("empresa", ctx.empresa)
+          .maybeSingle();
+        if (erroAtual) throw new Error(erroAtual.message);
+        if (!atual) return resposta(input, { ok: false, status: "not_found", message: "Oportunidade não encontrada." });
+        const motivo = input.motivoPerda?.trim() ?? "";
+        if (entraNaPerda(atual.etapa, input.etapa, funil) && !motivo) {
+          return resposta(input, {
+            ok: false,
+            status: "needs_confirmation",
+            message: `Para mover para "${input.etapa}" preciso do motivo da perda. Qual foi o motivo?`,
+          });
+        }
+        patch.etapa = input.etapa;
+        Object.assign(patch, camposDaPerdaAoMudarEtapa(atual.etapa, input.etapa, funil, { motivo }).banco);
+        patch.updated_at = new Date().toISOString();
+      }
       if (input.probabilidade) patch.probabilidade = input.probabilidade;
       const { data, error } = await ctx.supabase
         .from("oportunidades")
@@ -283,7 +320,7 @@ export const AURA_TASK_ACTIONS = [
       type: "object",
       properties: {
         titulo: { type: "string" },
-        tipo: { type: "string" },
+        tipo: { type: "string", enum: [...TIPOS_COMPROMISSO] },
         relacionamentoNome: { type: "string" },
         data: { type: "string", description: "YYYY-MM-DD" },
         hora: { type: "string", description: "HH:MM" },
@@ -314,6 +351,8 @@ export const AURA_TASK_ACTIONS = [
         // Texto livre: as etapas são as da loja, conferidas na execução.
         etapa: { type: "string" },
         probabilidade: { type: "string", enum: [...PROBABILIDADES] },
+        // Obrigatório quando a etapa nova é a de perda.
+        motivoPerda: { type: "string" },
         confirmado: { type: "boolean" },
       },
       required: ["oportunidadeId"],

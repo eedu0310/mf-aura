@@ -25,6 +25,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { gravarExigindoLinha } from "@/lib/supabase/gravar";
 import { pedirLaudoDoFechamento } from "@/lib/aura/pedir-laudo";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { camposDaPerdaAoMudarEtapa, type DadosDaPerda } from "@/lib/perda-oportunidade";
+import { diasParado as calcularDiasParado, ultimaAtividadePorRelacionamento } from "@/lib/oportunidade-parada";
 import {
   daLinha,
   ehGanho,
@@ -92,7 +94,11 @@ interface AppDataContextValue {
   addOportunidade: (
     dados: Omit<Oportunidade, "id" | "diasParado">,
   ) => Promise<Oportunidade | null>;
-  moveOportunidade: (id: string, novaEtapa: Etapa) => Promise<void>;
+  /**
+   * `perda`: motivo e descrição, pedidos na tela quando o destino é a etapa
+   * de perda (o quadro abre o modal do motivo antes de chamar).
+   */
+  moveOportunidade: (id: string, novaEtapa: Etapa, perda?: DadosDaPerda) => Promise<void>;
   updateOportunidade: (id: string, patch: Partial<Oportunidade>) => void;
   deleteOportunidade: (id: string) => void;
 
@@ -482,9 +488,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const relacionamentos = vejoTudo
     ? todosRelacionamentos
     : todosRelacionamentos.filter((r) => r.empresa === empresaAtual);
+  /*
+   * "Dias parado" calculado aqui, e não lido da coluna dias_parado (que nada
+   * mantinha e estava em 0 em todos os negócios): o mais recente entre a
+   * última alteração do negócio e a última atividade com o cliente.
+   */
+  const ultimaAtividade = useMemo(
+    () =>
+      ultimaAtividadePorRelacionamento(
+        todasAtividades.map((a) => ({
+          relacionamento_id: a.relacionamentoId ?? null,
+          ocorrida_em: a.ocorridaEm ?? a.quando ?? null,
+        })),
+      ),
+    [todasAtividades],
+  );
+  const oportunidadesComParada = useMemo(
+    () =>
+      todasOportunidades.map((o) => ({
+        ...o,
+        diasParado: calcularDiasParado([
+          o.atualizado,
+          o.criadoEm,
+          o.relacionamentoId ? ultimaAtividade.get(o.relacionamentoId) : null,
+        ]),
+      })),
+    [todasOportunidades, ultimaAtividade],
+  );
   const oportunidades = vejoTudo
-    ? todasOportunidades
-    : todasOportunidades.filter((o) => o.empresa === empresaAtual);
+    ? oportunidadesComParada
+    : oportunidadesComParada.filter((o) => o.empresa === empresaAtual);
   const vendas = vejoTudo
     ? todasVendas
     : todasVendas.filter((v) => v.empresa === empresaAtual);
@@ -841,6 +874,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const dadosComRelacionamento = {
         ...dadosComEmpresa,
         relacionamentoId,
+        // Card que já nasce na perda também leva a data (dia de São Paulo):
+        // sem ela o relatório semanal não vê a perda.
+        dataPerda:
+          dadosComEmpresa.dataPerda ?? (ehPerda(dadosComEmpresa.etapa, funil) ? diaEmSaoPaulo() : null),
       };
 
 
@@ -886,15 +923,30 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return nova;
   }
 
-  async function moveOportunidade(id: string, novaEtapa: Etapa) {
+  async function moveOportunidade(id: string, novaEtapa: Etapa, perda?: DadosDaPerda) {
     const oportunidade = todasOportunidades.find((o) => o.id === id);
     if (!oportunidade) return;
 
     const etapaAnterior = oportunidade.etapa;
     if (etapaAnterior === novaEtapa) return;
 
+    /*
+     * Entrou na perda: grava data (dia de São Paulo), motivo e descrição no
+     * MESMO update da etapa. Saiu da perda: limpa os três. Antes o arrasto
+     * gravava só a etapa e os 53 perdidos ficaram sem motivo nem data — e o
+     * relatório semanal, que conta perdas pela data, nunca via nenhuma.
+     */
+    const camposPerda = camposDaPerdaAoMudarEtapa(etapaAnterior, novaEtapa, funil, perda);
+    // updated_at também: é dele que sai o "dias parado" (não há gatilho no
+    // banco que o atualize sozinho). Mover é mexer no negócio.
+    const agoraIso = new Date().toISOString();
+
     setTodasOportunidades((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, etapa: novaEtapa } : o)),
+      prev.map((o) =>
+        o.id === id
+          ? ({ ...o, etapa: novaEtapa, ...camposPerda.tela, atualizado: agoraIso } as Oportunidade)
+          : o,
+      ),
     );
 
     // Uma venda criada pelo fechamento do pipeline deixa de ser válida quando
@@ -923,7 +975,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
        */
       try {
         await gravarExigindoLinha(
-          supabase.from("oportunidades").update({ etapa: novaEtapa }, { count: "exact" }).eq("id", id),
+          supabase
+            .from("oportunidades")
+            .update({ etapa: novaEtapa, ...camposPerda.banco, updated_at: agoraIso }, { count: "exact" })
+            .eq("id", id),
           "o negócio",
         );
       } catch (e) {
@@ -932,13 +987,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
          * o motivo sobe para quem chamou mostrar. Antes só o erro desfazia; o
          * "zero linhas" ficava firme na tela até o próximo F5.
          */
-        setTodasOportunidades((prev) =>
-          prev.map((o) => (o.id === id ? { ...o, etapa: etapaAnterior } : o)),
-        );
+        setTodasOportunidades((prev) => prev.map((o) => (o.id === id ? oportunidade : o)));
         throw e;
       }
 
-      integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa);
+      integrarMovimentoOportunidade(id, etapaAnterior, novaEtapa, perda);
     }
   }
 
@@ -949,8 +1002,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
    */
   async function updateOportunidade(id: string, patch: Partial<Oportunidade>) {
     const anterior = todasOportunidades.find((o) => o.id === id);
+
+    /*
+     * Etapa trocada pela edição do card: mesma regra do arrasto — entrou na
+     * perda grava a data (e o motivo que veio no patch); saiu, limpa.
+     */
+    const camposPerda =
+      patch.etapa !== undefined && anterior
+        ? camposDaPerdaAoMudarEtapa(anterior.etapa, patch.etapa, funil, {
+            motivo: patch.motivoPerda ?? null,
+            descricao: patch.descricaoPerda ?? null,
+          })
+        : { tela: {}, banco: {} };
+    const agoraIso = new Date().toISOString();
+
     setTodasOportunidades((prev) =>
-      prev.map((o) => (o.id === id ? { ...o, ...patch } : o)),
+      prev.map((o) =>
+        o.id === id
+          ? ({ ...o, ...patch, ...camposPerda.tela, atualizado: agoraIso } as Oportunidade)
+          : o,
+      ),
     );
     if (!supabase) return;
 
@@ -960,6 +1031,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (patch.valor !== undefined) payload.valor = patch.valor;
     if (patch.probabilidade !== undefined) payload.probabilidade = patch.probabilidade;
     if (patch.etapa !== undefined) payload.etapa = patch.etapa;
+    /*
+     * Os campos da perda não iam para o banco: o modal do motivo chamava
+     * este update com motivo, descrição e data, e o payload saía sem nenhum
+     * deles. O vendedor preenchia o motivo e ele se perdia calado.
+     */
+    if (patch.motivoPerda !== undefined) payload.motivo_perda = patch.motivoPerda;
+    if (patch.descricaoPerda !== undefined) payload.descricao_perda = patch.descricaoPerda;
+    if (patch.dataPerda !== undefined) payload.data_perda = patch.dataPerda;
+    Object.assign(payload, camposPerda.banco);
+    if (Object.keys(payload).length === 0) return;
+    payload.updated_at = agoraIso;
 
     try {
       await gravarExigindoLinha(
@@ -1378,6 +1460,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     oportunidadeId: string,
     etapaAnterior: Etapa,
     novaEtapa: Etapa,
+    perda?: DadosDaPerda,
   ) {
     const oportunidade = todasOportunidades.find(
       (o) => o.id === oportunidadeId,
@@ -1440,9 +1523,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       pedirLaudoDoFechamento(
         oportunidade.id,
         ehGanho(novaEtapa, funil) ? "fechado" : "perdido",
-        // O motivo da perda vem do próprio card, já gravado pelo modal que
-        // o vendedor preenche ao arrastar para Perdidos.
-        oportunidade.motivoPerda ?? null,
+        // O motivo da perda vem do modal que o vendedor preenche ao arrastar
+        // para a perda (e, se não veio, do que já estava no card).
+        perda?.motivo ?? oportunidade.motivoPerda ?? null,
       );
     }
   }

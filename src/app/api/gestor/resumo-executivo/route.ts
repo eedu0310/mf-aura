@@ -5,6 +5,9 @@ import { NOMES_EMPRESAS } from "@/lib/companies";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { ehFechada, type EtapaFunil } from "@/lib/funil";
+import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 
 export const runtime = "nodejs";
 
@@ -53,7 +56,11 @@ export async function POST() {
           .range(de, ate),
       ),
       todasAsLinhas((de, ate) =>
-        supabase.from("oportunidades").select("empresa, valor, etapa, dias_parado").order("id").range(de, ate),
+        supabase
+          .from("oportunidades")
+          .select("empresa, valor, etapa, relacionamento_id, created_at, updated_at")
+          .order("id")
+          .range(de, ate),
       ),
       todasAsLinhas((de, ate) =>
         supabase
@@ -77,6 +84,22 @@ export async function POST() {
     return NextResponse.json({ erro: "Não consegui ler os números das lojas." }, { status: 500 });
   }
 
+  /*
+   * "Paradas": abertas há 7+ dias sem alteração nem atividade com o cliente.
+   * Antes lia a coluna dias_parado, que estava em 0 em todos os negócios (e
+   * ainda contava os já ganhos ou perdidos).
+   */
+  const funis = new Map<string, EtapaFunil[]>();
+  for (const empresa of NOMES_EMPRESAS) funis.set(empresa, await carregarFunil(supabase, empresa));
+  const abertaNaLoja = (o: { empresa?: unknown; etapa?: unknown }) => {
+    const f = funis.get(String(o.empresa ?? ""));
+    return !!f && !ehFechada(String(o.etapa ?? ""), f);
+  };
+  const ultimaAtividade = await buscarUltimaAtividade(
+    supabase,
+    (oportunidades ?? []).filter(abertaNaLoja).map((o) => o.relacionamento_id as string | null),
+  );
+
   const linhasPorEmpresa = NOMES_EMPRESAS.map((empresa) => {
     const vendasLoja = (vendas ?? []).filter((v) => v.empresa === empresa);
     const vendasMes = vendasLoja
@@ -88,7 +111,11 @@ export async function POST() {
 
     const oportunidadesLoja = (oportunidades ?? []).filter((o) => o.empresa === empresa);
     const pipelineAberto = oportunidadesLoja.reduce((s, o) => s + Number(o.valor), 0);
-    const paradas = oportunidadesLoja.filter((o) => Number(o.dias_parado) >= 7).length;
+    const paradas = oportunidadesLoja.filter(
+      (o) =>
+        abertaNaLoja(o) &&
+        diasParadoDaLinha(o, ultimaAtividade.get(o.relacionamento_id as string)) >= DIAS_PARA_PARADO,
+    ).length;
 
     const leadsLoja = (leads ?? []).filter((l) => l.empresa === empresa);
     const leadsEscalonados = leadsLoja.filter((l) => l.gestor_notificado).length;

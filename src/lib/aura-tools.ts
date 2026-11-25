@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { nomesDasEtapas } from "@/lib/funil";
+import { camposDaPerdaAoMudarEtapa, entraNaPerda } from "@/lib/perda-oportunidade";
+import { normalizarTipoAtividade, normalizarTipoCompromisso } from "@/lib/tipo-atividade";
 
 export interface FerramentaDef {
   name: string;
@@ -116,7 +118,7 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
       properties: {
         tipo: {
           type: "string",
-          description: "Tipo da atividade, ex.: Visita, Ligação, WhatsApp, Reunião, E-mail.",
+          description: "Tipo da atividade, ex.: Visita, Ligação, WhatsApp, Reunião, Email.",
         },
         relacionamento_nome: {
           type: "string",
@@ -184,6 +186,11 @@ export const FERRAMENTAS_DEF: FerramentaDef[] = [
         // conferido contra o funil dela antes de qualquer alteração.
         etapa: { type: "string" },
         probabilidade: { type: "string", enum: ["Baixa", "Média", "Alta"] },
+        motivo_perda: {
+          type: "string",
+          description:
+            "Obrigatório quando a nova etapa é a de perda: por que o negócio foi perdido, nas palavras do vendedor. Se ele não disse, pergunte antes de mover.",
+        },
         confirmado: { type: "boolean", description: "Deve ser true para efetivar a alteração." },
       },
       required: ["oportunidade_id", "confirmado"],
@@ -339,8 +346,11 @@ export async function executarFerramenta(
   if (nome === "criar_compromisso") {
     const { error } = await ctx.supabase.from("compromissos").insert({
       owner_id: ctx.userId,
+      empresa: ctx.empresa,
       titulo: args.titulo,
-      tipo: args.tipo ?? "Outro",
+      // O banco só aceita cinco tipos (CHECK); o enum da ferramenta não
+      // impede o modelo de mandar outro texto, e o insert falhava.
+      tipo: normalizarTipoCompromisso(args.tipo),
       data: args.data,
       hora: args.hora || null,
       relacionamento_nome: args.relacionamento_nome || null,
@@ -374,11 +384,14 @@ export async function executarFerramenta(
   }
 
   if (nome === "atualizar_oportunidade") {
-    if (args.confirmado !== "true" && args.confirmado !== "1") {
+    // O JSON do modelo traz `true` booleano, não o texto "true": comparando
+    // só com texto, a confirmação nunca passava.
+    if (String(args.confirmado) !== "true" && String(args.confirmado) !== "1") {
       return "A alteração da oportunidade foi preparada, mas precisa de confirmação explícita do vendedor antes de ser executada.";
     }
     if (!args.oportunidade_id) return "Não recebi o ID da oportunidade.";
-    const etapas = nomesDasEtapas(await carregarFunil(ctx.supabase, ctx.empresa));
+    const funil = await carregarFunil(ctx.supabase, ctx.empresa);
+    const etapas = nomesDasEtapas(funil);
     const probabilidades = ["Baixa", "Média", "Alta"];
     if (args.etapa && !etapas.includes(args.etapa)) {
       return `Etapa inválida. As etapas desta loja são: ${etapas.join(", ")}.`;
@@ -386,8 +399,29 @@ export async function executarFerramenta(
     if (args.probabilidade && !probabilidades.includes(args.probabilidade)) return "Probabilidade inválida.";
     if (!args.etapa && !args.probabilidade) return "Informe a etapa ou a probabilidade que deve ser atualizada.";
 
-    const patch: Record<string, string> = {};
-    if (args.etapa) patch.etapa = args.etapa;
+    const patch: Record<string, string | null> = {};
+    if (args.etapa) {
+      /*
+       * Mover para a perda pela AURA também registra a perda: sem motivo, a
+       * ferramenta devolve a pergunta em vez de mover (os 53 perdidos sem
+       * motivo vieram de caminhos que gravavam só a etapa). Sair da perda
+       * limpa motivo, descrição e data.
+       */
+      const { data: atual } = await ctx.supabase
+        .from("oportunidades")
+        .select("etapa")
+        .eq("id", args.oportunidade_id)
+        .eq("empresa", ctx.empresa)
+        .maybeSingle();
+      if (!atual) return "Não encontrei essa oportunidade nesta loja.";
+      const motivo = String(args.motivo_perda ?? "").trim();
+      if (entraNaPerda(atual.etapa, args.etapa, funil) && !motivo) {
+        return `Para mover para "${args.etapa}" preciso do motivo da perda. Pergunte ao vendedor por que o negócio foi perdido e chame de novo com motivo_perda.`;
+      }
+      patch.etapa = args.etapa;
+      Object.assign(patch, camposDaPerdaAoMudarEtapa(atual.etapa, args.etapa, funil, { motivo }).banco);
+      patch.updated_at = new Date().toISOString();
+    }
     if (args.probabilidade) patch.probabilidade = args.probabilidade;
     const { data, error } = await ctx.supabase
       .from("oportunidades")
@@ -483,7 +517,8 @@ export async function executarFerramenta(
     const { error } = await ctx.supabase.from("atividades").insert({
       owner_id: ctx.userId,
       empresa: ctx.empresa,
-      tipo: args.tipo || "Outro",
+      // "E-mail" (como a descrição sugere) vira "Email", o nome do código.
+      tipo: normalizarTipoAtividade(args.tipo),
       titulo: `${args.tipo || "Atividade"} · registrado via AURA Coach`,
       contexto: args.relacionamento_nome || "Sem contato vinculado",
       observacao: args.resumo,

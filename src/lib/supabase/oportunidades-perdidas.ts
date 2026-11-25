@@ -1,6 +1,7 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { MotivoPerda } from "@/lib/types";
 import { FUNIL_PADRAO, nomeDaChave, primeiraEtapa, type EtapaFunil } from "@/lib/funil";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export async function marcarOportunidadeComoPerdida(
   oportunidadeId: string,
@@ -18,7 +19,10 @@ export async function marcarOportunidadeComoPerdida(
         etapa: nomeDaChave("perda", funil) ?? "Perdidos",
         motivo_perda: motivo,
         descricao_perda: descricao || null,
-        data_perda: new Date().toISOString(),
+        // Dia de São Paulo, igual ao arrasto (perda-oportunidade.ts). O ISO em
+        // UTC jogava a perda das 21h em diante para o dia seguinte.
+        data_perda: diaEmSaoPaulo(),
+        updated_at: new Date().toISOString(),
       })
       .eq("id", oportunidadeId);
 
@@ -61,6 +65,7 @@ export async function recuperarOportunidade(
         motivo_perda: null,
         descricao_perda: null,
         data_perda: null,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", oportunidadeId);
 

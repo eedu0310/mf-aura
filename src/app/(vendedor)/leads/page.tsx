@@ -37,6 +37,21 @@ const STATUS_COR: Record<StatusLead, string> = {
   lead_frio: "aura-selo-neutro",
 };
 
+/**
+ * Selo do status, olhando também se há dono de verdade.
+ *
+ * Há lead "repassado ao vendedor" com o vendedor vazio (o repasse gravou o
+ * status e não o vendedor). O selo dizia "Com o vendedor" e todo mundo
+ * achava que alguém estava cuidando — ninguém estava. Esse lead aparece como
+ * "Sem vendedor", em destaque, para o gestor redistribuir.
+ */
+function seloDoStatus(lead: Lead): { texto: string; cor: string } {
+  if (lead.status === "repassado_vendedor" && !lead.vendedorId) {
+    return { texto: "Sem vendedor", cor: "aura-selo-perigo" };
+  }
+  return { texto: STATUS_LABEL[lead.status], cor: STATUS_COR[lead.status] };
+}
+
 const URGENCIA_LABEL: Record<string, { texto: string; cor: string }> = {
   alta: { texto: "Urgente", cor: "aura-selo-perigo" },
   media: { texto: "Moderada", cor: "aura-selo-atencao" },
@@ -290,8 +305,8 @@ export default function LeadsPage() {
                           )}
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
-                          <span className={`aura-selo ${STATUS_COR[lead.status]}`}>
-                            {STATUS_LABEL[lead.status]}
+                          <span className={`aura-selo ${seloDoStatus(lead).cor}`}>
+                            {seloDoStatus(lead).texto}
                           </span>
                           {lead.urgencia && (
                             <span className={`aura-selo ${URGENCIA_LABEL[lead.urgencia].cor}`}>

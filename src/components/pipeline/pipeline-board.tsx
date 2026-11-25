@@ -549,10 +549,18 @@ export function PipelineBoard({}: PipelineBoardProps) {
           <MotivoPeridaModal
             oportunidade={oportunidadePerdendo}
             onClose={() => setOportunidadePerdendo(null)}
-            onConfirm={async () => {
-              // Com await: se o banco recusar, o modal mostra o motivo em vez
-              // de a promessa falhar calada e o card ficar onde estava.
-              await moveOportunidade(oportunidadePerdendo.id, nomeDaChave("perda", funil) ?? "Perdidos");
+            onConfirmar={async (motivo, descricao) => {
+              /*
+               * Etapa, motivo, descrição e data da perda num update só.
+               * Antes o modal gravava o motivo por um caminho que o descartava
+               * e o arrasto gravava só a etapa: os 53 perdidos ficaram sem
+               * motivo e sem data. Com await: se o banco recusar, o modal
+               * mostra o motivo em vez de a promessa falhar calada.
+               */
+              await moveOportunidade(oportunidadePerdendo.id, nomeDaChave("perda", funil) ?? "Perdidos", {
+                motivo,
+                descricao,
+              });
               setOportunidadePerdendo(null);
             }}
           />

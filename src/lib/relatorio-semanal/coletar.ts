@@ -262,7 +262,7 @@ export async function coletarSemanaDaLoja(
     paginado((de, ate) =>
       sb
         .from("oportunidades")
-        .select("owner_id, etapa, valor, created_at, motivo_perda, data_perda")
+        .select("owner_id, etapa, valor, created_at, updated_at, motivo_perda, data_perda")
         .eq("empresa", empresa)
         .order("id")
         .range(de, ate),
@@ -566,8 +566,16 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
   // ------------------------------------------------------------- pipeline
   const minhasOportunidades = meu(f.oportunidades as { owner_id?: unknown }[]) as Record<string, unknown>[];
   const criadasNoPeriodo = minhasOportunidades.filter((o) => noPeriodo(o.created_at));
+  /*
+   * Perda conta pela data da perda. Negócio que foi para a perda sem data
+   * (os 53 de antes da correção do arrasto, e o que o WhatsApp ainda move
+   * sem data) cai na última alteração (updated_at) — sem isso ficavam
+   * invisíveis para sempre no relatório.
+   */
   const perdidasNoPeriodo = minhasOportunidades.filter(
-    (o) => ehPerda(String(o.etapa ?? ""), f.funil) && noPeriodo(o.data_perda, true),
+    (o) =>
+      ehPerda(String(o.etapa ?? ""), f.funil) &&
+      (o.data_perda ? noPeriodo(o.data_perda, true) : noPeriodo(o.updated_at)),
   );
   const emAberto = minhasOportunidades.filter(
     (o) => !ehGanho(String(o.etapa ?? ""), f.funil) && !ehPerda(String(o.etapa ?? ""), f.funil),
@@ -730,7 +738,8 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
       porEtapa: [...porEtapaMapa.entries()]
         .map(([etapa, v]) => ({ etapa, ...v }))
         .sort((a, b) => b.negocios - a.negocios),
-      motivosDePerda: contar(perdidasNoPeriodo, (o) => String(o.motivo_perda ?? "")).map((m) => ({
+      // Perda sem motivo aparece como tal, em vez de sumir da lista de motivos.
+      motivosDePerda: contar(perdidasNoPeriodo, (o) => String(o.motivo_perda ?? "").trim() || "Sem motivo registrado").map((m) => ({
         motivo: m.texto,
         n: m.n,
       })),
