@@ -18,6 +18,11 @@ PATH=/usr/local/bin:/usr/bin:/bin
 CRON_SECRET=SEU_CRON_SECRET
 ALVO=http://127.0.0.1:3000
 
+# Deploy automático, de 2 em 2 minutos: se a main do GitHub mudou, roda o
+# deploy.sh; se o build falhar, volta para o commit anterior. Log em
+# /var/log/aura-deploy.log.
+*/2 * * * * root bash /opt/aura/deploy/auto-deploy.sh
+
 # Briefing do dia para cada vendedor, 7h da manhã.
 0 7 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/briefing-do-dia >> /var/log/aura-cron.log 2>&1
 
