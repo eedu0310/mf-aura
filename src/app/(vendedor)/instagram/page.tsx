@@ -1,7 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AtSign, Clock, Download, Loader2, MessageSquare, Send, ShieldOff } from "lucide-react";
+import {
+  AtSign,
+  Bot,
+  Clock,
+  Download,
+  EyeOff,
+  ExternalLink,
+  Eye,
+  Heart,
+  Loader2,
+  Lock,
+  MessageSquare,
+  Pause,
+  Play,
+  ShieldOff,
+  Trash2,
+} from "lucide-react";
+import { ComposerInstagram } from "@/components/instagram/composer-instagram";
 
 /**
  * O Instagram da loja, dentro do AURA.
@@ -23,6 +40,8 @@ interface Conversa {
   nao_lidas: number;
   podeResponder: boolean;
   prazo: string | null;
+  ia_pausada?: boolean;
+  ia_respondeu_em?: string | null;
 }
 
 interface Mensagem {
@@ -32,6 +51,11 @@ interface Mensagem {
   tipo: string;
   midia_url: string | null;
   criado_em: string;
+  mid: string | null;
+  por_ia?: boolean;
+  autor_nome?: string | null;
+  reacao?: string | null;
+  reacao_cliente?: string | null;
 }
 
 interface Comentario {
@@ -42,6 +66,9 @@ interface Comentario {
   respondido: boolean;
   post_url: string | null;
   criado_em: string;
+  oculto?: boolean;
+  resposta_privada?: boolean;
+  respondido_por_ia?: boolean;
 }
 
 const hora = (iso: string | null) =>
@@ -75,8 +102,8 @@ export default function InstagramPage() {
   const [comentarios, setComentarios] = useState<Comentario[]>([]);
   const [selecionada, setSelecionada] = useState<string | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
-  const [texto, setTexto] = useState("");
-  const [enviando, setEnviando] = useState(false);
+  const [agente, setAgente] = useState<{ ativo: boolean; horas: number }>({ ativo: false, horas: 0 });
+  const [soPendentes, setSoPendentes] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [semAcesso, setSemAcesso] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -98,6 +125,7 @@ export default function InstagramPage() {
       if (d.empresa && d.empresa !== loja) setLoja(d.empresa);
       setConversas(d.conversas ?? []);
       setComentarios(d.comentarios ?? []);
+      setAgente(d.agente ?? { ativo: false, horas: 0 });
       setErro(null);
     } catch (e: any) {
       setErro(e?.message ?? "Não consegui carregar.");
@@ -148,13 +176,18 @@ export default function InstagramPage() {
     return () => clearInterval(t);
   }, [carregar]);
 
+  const puxarMensagens = useCallback(async () => {
+    if (!selecionada) return;
+    const res = await fetch(`/api/meta/live?conversa=${encodeURIComponent(selecionada)}`, { cache: "no-store" });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) setMensagens(d.mensagens ?? []);
+  }, [selecionada]);
+
   useEffect(() => {
     if (!selecionada) return;
     let vivo = true;
     async function puxar() {
-      const res = await fetch(`/api/meta/live?conversa=${encodeURIComponent(selecionada!)}`, { cache: "no-store" });
-      const d = await res.json().catch(() => ({}));
-      if (vivo && res.ok) setMensagens(d.mensagens ?? []);
+      if (vivo) await puxarMensagens();
     }
     void puxar();
     const t = setInterval(() => {
@@ -164,46 +197,51 @@ export default function InstagramPage() {
       vivo = false;
       clearInterval(t);
     };
-  }, [selecionada]);
+  }, [selecionada, puxarMensagens]);
 
+  // Rola para o fim só quando chega mensagem nova (não a cada atualização).
+  const ultimaId = mensagens[mensagens.length - 1]?.id;
   useEffect(() => {
     fimRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensagens]);
+  }, [ultimaId]);
 
   const atual = conversas.find((c) => c.id === selecionada) ?? null;
 
-  async function responder() {
-    const t = texto.trim();
-    if (!t || !selecionada || enviando) return;
-    setEnviando(true);
+  async function acao(corpo: Record<string, unknown>, falha: string) {
     setErro(null);
-    try {
-      const res = await fetch("/api/meta/live", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "responder", conversa: selecionada, texto: t, empresa: loja }),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.erro ?? "Não consegui enviar.");
-      setTexto("");
-      void carregar();
-    } catch (e: any) {
-      setErro(e?.message ?? "Não consegui enviar.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  async function responderComentario(comentarioId: string, resposta: string) {
     const res = await fetch("/api/meta/live", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ acao: "responder_comentario", comentario: comentarioId, texto: resposta, empresa: loja }),
+      body: JSON.stringify({ ...corpo, empresa: loja }),
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok) setErro(d.erro ?? "Não consegui responder.");
-    void carregar();
+    if (!res.ok) {
+      setErro(d.erro ?? falha);
+      return false;
+    }
+    return true;
   }
+
+  async function reagir(m: Mensagem) {
+    if (!selecionada) return;
+    // Mostra já; se a Meta recusar, a próxima atualização desfaz.
+    setMensagens((l) => l.map((x) => (x.id === m.id ? { ...x, reacao: x.reacao ? null : "❤️" } : x)));
+    await acao({ acao: "reagir", conversa: selecionada, mensagem: m.id, ligar: !m.reacao }, "Não consegui reagir.");
+    void puxarMensagens();
+  }
+
+  async function pausarAgente(pausada: boolean) {
+    if (!selecionada) return;
+    if (await acao({ acao: "pausar_ia", conversa: selecionada, pausada }, "Não consegui mudar o agente.")) void carregar();
+  }
+
+  async function comentarioAcao(corpo: Record<string, unknown>, falha: string) {
+    const ok = await acao(corpo, falha);
+    void carregar();
+    return ok;
+  }
+
+  const comentariosVisiveis = soPendentes ? comentarios.filter((c) => !c.respondido) : comentarios;
 
   if (semAcesso) {
     return (
@@ -320,7 +358,7 @@ export default function InstagramPage() {
                           </span>
                           <span className="shrink-0 text-xs text-aura-graphite-soft">{hora(c.ultima_em)}</span>
                         </span>
-                        <span className="truncate text-xs text-aura-graphite-soft">{c.ultima_mensagem}</span>
+                        <span className="block truncate text-xs text-aura-graphite-soft">{c.ultima_mensagem}</span>
                         {c.prazo ? (
                           <span className="mt-0.5 flex items-center gap-1 text-[11px] text-aura-warning">
                             <Clock size={11} />
@@ -349,53 +387,46 @@ export default function InstagramPage() {
               <p className="m-auto text-sm text-aura-graphite-soft">Escolha uma conversa ao lado.</p>
             ) : (
               <>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-aura-mist px-4 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-aura-graphite">
+                      {atual.cliente_nome ?? (atual.cliente_usuario ? `@${atual.cliente_usuario}` : "Cliente")}
+                    </p>
+                    <p className="text-xs text-aura-graphite-soft">
+                      {atual.cliente_usuario && atual.cliente_nome ? `@${atual.cliente_usuario} · ` : ""}
+                      {atual.prazo ?? "prazo de 24h encerrado"}
+                    </p>
+                  </div>
+                  {agente.ativo && (
+                    <button
+                      type="button"
+                      onClick={() => void pausarAgente(!atual.ia_pausada)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg"
+                      title={`O agente de IA responde se ninguém responder em ${agente.horas}h`}
+                    >
+                      {atual.ia_pausada ? <Play size={12} /> : <Pause size={12} />}
+                      <Bot size={13} />
+                      {atual.ia_pausada ? "Agente pausado nesta conversa · retomar" : "Agente ligado · pausar nesta conversa"}
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex-1 space-y-2 overflow-y-auto p-4">
                   {mensagens.map((m) => (
-                    <div key={m.id} className={`flex ${m.de_mim ? "justify-end" : "justify-start"}`}>
-                      <div
-                        className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                          m.de_mim ? "bg-aura-petrol-600 text-white" : "bg-aura-bg text-aura-graphite"
-                        }`}
-                      >
-                        {m.midia_url && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={m.midia_url} alt="" className="mb-1 max-h-64 rounded-lg" />
-                        )}
-                        <p className="whitespace-pre-wrap break-words">{m.texto}</p>
-                        <p className={`mt-0.5 text-[11px] ${m.de_mim ? "text-white/70" : "text-aura-graphite-soft"}`}>
-                          {hora(m.criado_em)}
-                        </p>
-                      </div>
-                    </div>
+                    <BolhaInstagram key={m.id} m={m} podeReagir={atual.podeResponder} onReagir={() => void reagir(m)} />
                   ))}
                   <div ref={fimRef} />
                 </div>
 
                 {atual.podeResponder ? (
-                  <div className="flex items-end gap-2 border-t border-aura-mist p-3">
-                    <textarea
-                      rows={1}
-                      value={texto}
-                      onChange={(e) => setTexto(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void responder();
-                        }
-                      }}
-                      placeholder="Responder…"
-                      className="max-h-32 flex-1 resize-none rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void responder()}
-                      disabled={enviando || !texto.trim()}
-                      aria-label="Enviar"
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-aura-petrol-600 text-white disabled:opacity-40"
-                    >
-                      {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                    </button>
-                  </div>
+                  <ComposerInstagram
+                    conversa={atual.id}
+                    empresa={loja}
+                    onEnviado={() => {
+                      void puxarMensagens();
+                      void carregar();
+                    }}
+                  />
                 ) : (
                   <p className="border-t border-aura-mist p-4 text-center text-sm text-aura-graphite-soft">
                     O prazo de 24 horas para responder terminou. O Instagram só libera de novo quando
@@ -408,14 +439,31 @@ export default function InstagramPage() {
         </div>
       ) : (
         <div className="rounded-2xl border border-aura-mist bg-white">
-          {comentarios.length === 0 ? (
+          <div className="flex items-center gap-2 border-b border-aura-mist px-4 py-2.5 text-xs">
+            {[
+              [true, `Sem resposta (${comentarios.filter((c) => !c.respondido).length})`],
+              [false, `Todos (${comentarios.length})`],
+            ].map(([v, rotulo]) => (
+              <button
+                key={String(v)}
+                type="button"
+                onClick={() => setSoPendentes(v as boolean)}
+                className={`rounded-full px-3 py-1 ${soPendentes === v ? "bg-aura-petrol-600 text-white" : "bg-aura-bg text-aura-graphite"}`}
+              >
+                {rotulo as string}
+              </button>
+            ))}
+          </div>
+          {comentariosVisiveis.length === 0 ? (
             <p className="p-6 text-center text-sm text-aura-graphite-soft">
-              Nenhum comentário ainda. Eles aparecem aqui assim que alguém comentar numa publicação da loja.
+              {comentarios.length === 0
+                ? "Nenhum comentário ainda. Eles aparecem aqui assim que alguém comentar numa publicação da loja."
+                : "Todos os comentários já foram respondidos."}
             </p>
           ) : (
             <ul className="divide-y divide-aura-mist">
-              {comentarios.map((c) => (
-                <ComentarioItem key={c.id} comentario={c} onResponder={responderComentario} />
+              {comentariosVisiveis.map((c) => (
+                <ComentarioItem key={c.id} comentario={c} onAcao={comentarioAcao} />
               ))}
             </ul>
           )}
@@ -425,59 +473,172 @@ export default function InstagramPage() {
   );
 }
 
-function ComentarioItem({
-  comentario,
-  onResponder,
-}: {
-  comentario: Comentario;
-  onResponder: (id: string, texto: string) => void | Promise<void>;
-}) {
-  const [aberto, setAberto] = useState(false);
-  const [resposta, setResposta] = useState("");
-
+function BolhaInstagram({ m, podeReagir, onReagir }: { m: Mensagem; podeReagir: boolean; onReagir: () => void }) {
+  const quem = m.de_mim ? (m.por_ia ? "Agente de IA" : m.autor_nome ?? null) : null;
+  const link = m.midia_url && ["share", "ig_reel", "reel", "story_mention", "file", "fallback"].includes(m.tipo);
   return (
-    <li className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-aura-graphite">
-            {comentario.autor_usuario ? `@${comentario.autor_usuario}` : "Alguém"}
-            {comentario.respondido && (
-              <span className="ml-2 rounded-full bg-aura-success/10 px-2 py-0.5 text-[11px] text-aura-success">
-                respondido
-              </span>
-            )}
-          </p>
-          <p className="mt-0.5 text-sm text-aura-graphite-soft">{comentario.texto}</p>
+    <div className={`group flex items-center gap-1 ${m.de_mim ? "justify-end" : "justify-start"}`}>
+      <div className="relative max-w-[75%]">
+        <div
+          className={`rounded-2xl px-3 py-2 text-sm ${
+            m.de_mim
+              ? m.por_ia
+                ? "bg-aura-navy-950 text-white"
+                : "bg-aura-petrol-600 text-white"
+              : "bg-aura-bg text-aura-graphite"
+          }`}
+        >
+          {quem && (
+            <p className="mb-0.5 flex items-center gap-1 text-[11px] font-medium text-white/80">
+              {m.por_ia && <Bot size={11} />}
+              {quem}
+            </p>
+          )}
+          {m.midia_url && m.tipo === "image" && (
+            <a href={m.midia_url} target="_blank" rel="noreferrer">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.midia_url} alt="Foto" className="mb-1 max-h-64 rounded-lg" />
+            </a>
+          )}
+          {m.midia_url && m.tipo === "video" && <video src={m.midia_url} controls className="mb-1 max-h-64 rounded-lg" />}
+          {m.midia_url && m.tipo === "audio" && <audio src={m.midia_url} controls className="mb-1 w-56 max-w-full" />}
+          {link && (
+            <a href={m.midia_url!} target="_blank" rel="noreferrer" className="mb-1 inline-flex items-center gap-1 underline">
+              <ExternalLink size={12} />
+              {m.tipo === "story_mention" ? "Marcou a loja num story" : "Abrir o que foi compartilhado"}
+            </a>
+          )}
+          {m.texto && <p className="whitespace-pre-wrap break-words">{m.texto}</p>}
+          <p className={`mt-0.5 text-[11px] ${m.de_mim ? "text-white/70" : "text-aura-graphite-soft"}`}>{hora(m.criado_em)}</p>
         </div>
+        {(m.de_mim ? m.reacao_cliente : m.reacao) && (
+          <span className={`absolute -bottom-2 ${m.de_mim ? "left-1" : "right-1"} rounded-full bg-white px-1 text-xs shadow`}>
+            {m.de_mim ? m.reacao_cliente : m.reacao}
+          </span>
+        )}
+      </div>
+      {!m.de_mim && m.mid && podeReagir && (
         <button
           type="button"
-          onClick={() => setAberto((v) => !v)}
-          className="shrink-0 rounded-lg border border-aura-mist px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg"
+          onClick={onReagir}
+          className={`rounded-full p-1.5 transition ${m.reacao ? "text-aura-danger" : "text-aura-graphite-soft opacity-0 hover:text-aura-danger group-hover:opacity-100 focus:opacity-100"}`}
+          aria-label={m.reacao ? "Tirar o coração" : "Reagir com coração"}
+          title={m.reacao ? "Tirar o coração" : "Reagir com ❤️"}
         >
-          <MessageSquare size={12} className="mr-1 inline" />
-          Responder
+          <Heart size={15} fill={m.reacao ? "currentColor" : "none"} />
         </button>
-      </div>
-      {aberto && (
-        <div className="mt-3 flex gap-2">
-          <input
-            value={resposta}
-            onChange={(e) => setResposta(e.target.value)}
-            placeholder="Sua resposta pública no comentário"
-            className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
-          />
+      )}
+    </div>
+  );
+}
+
+function ComentarioItem({
+  comentario,
+  onAcao,
+}: {
+  comentario: Comentario;
+  onAcao: (corpo: Record<string, unknown>, falha: string) => Promise<boolean>;
+}) {
+  const [modo, setModo] = useState<"publico" | "privado" | null>(null);
+  const [resposta, setResposta] = useState("");
+  const [ocupado, setOcupado] = useState(false);
+  const c = comentario;
+
+  async function enviar() {
+    const t = resposta.trim();
+    if (!t || !modo) return;
+    setOcupado(true);
+    const ok = await onAcao(
+      { acao: modo === "publico" ? "responder_comentario" : "privado_comentario", comentario: c.comentario_id, texto: t },
+      "Não consegui responder.",
+    );
+    setOcupado(false);
+    if (ok) {
+      setResposta("");
+      setModo(null);
+    }
+  }
+
+  async function apagar() {
+    if (!window.confirm("Apagar este comentário do Instagram? Não tem como desfazer.")) return;
+    setOcupado(true);
+    await onAcao({ acao: "apagar_comentario", comentario: c.comentario_id }, "Não consegui apagar.");
+    setOcupado(false);
+  }
+
+  const etiqueta = "ml-2 rounded-full px-2 py-0.5 text-[11px]";
+  const botao = "inline-flex items-center gap-1 rounded-lg border border-aura-mist px-2.5 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg disabled:opacity-50";
+
+  return (
+    <li className={`p-4 ${c.oculto ? "opacity-60" : ""}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-aura-graphite">
+            {c.autor_usuario ? `@${c.autor_usuario}` : "Alguém"}
+            <span className="ml-2 text-xs font-normal text-aura-graphite-soft">
+              {new Date(c.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+            </span>
+            {c.respondido && <span className={`${etiqueta} bg-aura-success/10 text-aura-success`}>respondido{c.respondido_por_ia ? " pelo agente" : ""}</span>}
+            {c.resposta_privada && <span className={`${etiqueta} bg-aura-petrol-600/10 text-aura-petrol-600`}>no privado</span>}
+            {c.oculto && <span className={`${etiqueta} bg-aura-bg text-aura-graphite-soft`}>oculto</span>}
+          </p>
+          <p className="mt-0.5 text-sm text-aura-graphite-soft">{c.texto}</p>
+          {c.post_url && (
+            <a href={c.post_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-aura-petrol-600 hover:underline">
+              <ExternalLink size={11} /> Ver a publicação
+            </a>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => setModo(modo === "publico" ? null : "publico")} className={botao}>
+            <MessageSquare size={12} /> Responder
+          </button>
+          {!c.resposta_privada && (
+            <button type="button" onClick={() => setModo(modo === "privado" ? null : "privado")} className={botao} title="Manda uma mensagem no direct de quem comentou">
+              <Lock size={12} /> No privado
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              if (!resposta.trim()) return;
-              void onResponder(comentario.comentario_id, resposta.trim());
-              setResposta("");
-              setAberto(false);
-            }}
-            className="rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white"
+            disabled={ocupado}
+            onClick={() => void onAcao({ acao: "ocultar_comentario", comentario: c.comentario_id, oculto: !c.oculto }, "Não consegui ocultar.")}
+            className={botao}
+            title={c.oculto ? "Voltar a mostrar para todos" : "Esconder de todos, menos de quem comentou"}
           >
-            Enviar
+            {c.oculto ? <Eye size={12} /> : <EyeOff size={12} />} {c.oculto ? "Mostrar" : "Ocultar"}
           </button>
+          <button type="button" disabled={ocupado} onClick={() => void apagar()} className={`${botao} hover:text-aura-danger`} aria-label="Apagar comentário">
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+      {modo && (
+        <div className="mt-3">
+          <p className="mb-1 text-[11px] text-aura-graphite-soft">
+            {modo === "publico"
+              ? "Resposta pública, embaixo do comentário."
+              : "Vai para o direct de quem comentou. A Meta deixa uma por comentário, em até 7 dias."}
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={resposta}
+              onChange={(e) => setResposta(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void enviar();
+              }}
+              placeholder={modo === "publico" ? `Responder @${c.autor_usuario ?? ""}` : "Mensagem no direct"}
+              className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+            />
+            <button
+              type="button"
+              disabled={ocupado || !resposta.trim()}
+              onClick={() => void enviar()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {ocupado && <Loader2 size={14} className="animate-spin" />}
+              Enviar
+            </button>
+          </div>
         </div>
       )}
     </li>

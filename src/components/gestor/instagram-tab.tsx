@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, AtSign, CheckCircle2, Loader2, Link2, Unlink } from "lucide-react";
+import { AlertTriangle, AtSign, Bot, CheckCircle2, Loader2, Link2, Unlink } from "lucide-react";
+import { DIAS, horarioEmTexto, type Horario, type Turno } from "@/lib/site-mf/horario";
 
 /**
  * Instagram por loja, e quem atende cada uma.
@@ -231,6 +232,7 @@ export function InstagramTab() {
               </p>
             )}
 
+            {loja.conectada && <AgenteInstagram empresa={loja.empresa} />}
             {loja.conectada && <DiagnosticoInstagram empresa={loja.empresa} />}
 
             {abrindo === loja.empresa && (
@@ -423,6 +425,203 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
             </button>
           </div>
           {resultado && <p className="text-aura-graphite">{resultado}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * O agente de IA desta conta: responde o direct quando a equipe não responde
+ * no tempo combinado, como o assistente do chat do site.
+ */
+function AgenteInstagram({ empresa }: { empresa: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [carregado, setCarregado] = useState(false);
+  const [ativa, setAtiva] = useState(false);
+  const [horas, setHoras] = useState("2");
+  const [foraDoHorario, setForaDoHorario] = useState(true);
+  const [horario, setHorario] = useState<Horario>({});
+  const [comentarios, setComentarios] = useState(false);
+  const [instrucoes, setInstrucoes] = useState("");
+  const [naSemana, setNaSemana] = useState(0);
+  const [salvando, setSalvando] = useState(false);
+  const [recado, setRecado] = useState<string | null>(null);
+  const fabrica = empresa === "MF International";
+
+  async function carregar() {
+    const r = await fetch(`/api/gestor/instagram-agente?empresa=${encodeURIComponent(empresa)}`, { cache: "no-store" });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      setRecado(d.erro ?? "Não consegui carregar.");
+      return;
+    }
+    const c = d.config ?? {};
+    setAtiva(Boolean(c.ativa));
+    setHoras(String(c.esperar_horas ?? 2));
+    setForaDoHorario(c.fora_do_horario !== false);
+    setHorario(c.horario ?? {});
+    setComentarios(Boolean(c.responder_comentarios));
+    setInstrucoes(c.instrucoes ?? "");
+    setNaSemana(Number(d.respostasNaSemana ?? 0));
+    setCarregado(true);
+  }
+
+  useEffect(() => {
+    void carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresa]);
+
+  function mudarTurno(dia: string, k: number, lado: 0 | 1, valor: string) {
+    setHorario((h) => {
+      const turnos: Turno[] = [...(h[dia] ?? [])].map((t) => [t[0], t[1]] as Turno);
+      while (turnos.length <= k) turnos.push(["", ""]);
+      turnos[k][lado] = valor;
+      return { ...h, [dia]: turnos };
+    });
+  }
+
+  async function salvar() {
+    setSalvando(true);
+    setRecado(null);
+    const limpo: Horario = {};
+    for (const { dia } of DIAS) limpo[dia] = (horario[dia] ?? []).filter((t) => t[0] && t[1]);
+    try {
+      const r = await fetch("/api/gestor/instagram-agente", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresa,
+          ativa,
+          esperar_horas: Number(horas.replace(",", ".")),
+          fora_do_horario: foraDoHorario,
+          horario: limpo,
+          responder_comentarios: comentarios,
+          instrucoes,
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.erro ?? "Não consegui salvar.");
+      setRecado(ativa ? "Salvo. O agente está ligado nesta conta." : "Salvo. O agente está desligado nesta conta.");
+    } catch (e: any) {
+      setRecado(e?.message ?? "Não consegui salvar.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const campo = "rounded-lg border border-aura-mist px-2 py-1.5 text-sm outline-none focus:border-aura-petrol-600";
+
+  return (
+    <div className="mt-3 rounded-xl border border-aura-mist p-3">
+      <button type="button" onClick={() => setAberto((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
+          <Bot size={16} className="text-aura-petrol-600" />
+          Agente de IA
+          {carregado && (
+            <span className={`rounded-full px-2 py-0.5 text-[11px] ${ativa ? "bg-aura-success/10 text-aura-success" : "bg-aura-bg text-aura-graphite-soft"}`}>
+              {ativa ? `ligado · entra após ${horas}h` : "desligado"}
+            </span>
+          )}
+        </span>
+        <span className="text-xs text-aura-petrol-600">{aberto ? "Fechar" : "Configurar"}</span>
+      </button>
+
+      {aberto && (
+        <div className="mt-3 space-y-3 text-sm">
+          <p className="text-xs leading-relaxed text-aura-graphite-soft">
+            Responde no direct quando a equipe não responde no tempo abaixo, com o material da{" "}
+            {fabrica ? "fábrica" : "loja"} que está na AURA. Fala como {fabrica ? "a fábrica (arquitetos, construtoras, revendas e cliente final)" : "a loja (cliente final, showroom e instalação)"}, se
+            apresenta como assistente virtual, não fala preço e deixa tudo anotado para o vendedor. O vendedor pode pausar o agente em
+            qualquer conversa. {naSemana > 0 && `Respondeu ${naSemana} vez${naSemana === 1 ? "" : "es"} nos últimos 7 dias.`}
+          </p>
+
+          <label className="flex items-center gap-2.5 text-aura-graphite">
+            <input type="checkbox" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} className="h-4 w-4" />
+            Ligar o agente nesta conta
+          </label>
+
+          <label className="flex flex-wrap items-center gap-2 text-aura-graphite">
+            Responder se ninguém da equipe responder em
+            <select value={horas} onChange={(e) => setHoras(e.target.value)} className={campo} disabled={!ativa}>
+              {["0.25", "0.5", "1", "2", "3", "4", "6", "8", "12"].map((h) => (
+                <option key={h} value={h}>
+                  {Number(h) < 1 ? `${Number(h) * 60} min` : `${h} h`}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className={`flex items-center gap-2.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
+            <input type="checkbox" checked={foraDoHorario} disabled={!ativa} onChange={(e) => setForaDoHorario(e.target.checked)} className="h-4 w-4" />
+            Fora do horário da {fabrica ? "fábrica" : "loja"}, responder na hora (sem esperar)
+          </label>
+
+          {foraDoHorario && ativa && (
+            <div className="space-y-1.5 rounded-lg bg-aura-bg p-2">
+              <p className="text-xs font-medium text-aura-graphite">Horário de atendimento</p>
+              {DIAS.map(({ dia, nome }) => {
+                const turnos = horario[dia] ?? [];
+                const aberto = turnos.length > 0;
+                return (
+                  <div key={dia} className="flex flex-wrap items-center gap-2 text-xs">
+                    <label className="flex w-24 items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={aberto}
+                        onChange={(e) =>
+                          setHorario((h) => ({ ...h, [dia]: e.target.checked ? [["08:00", "12:00"], ["13:30", "18:00"]] : [] }))
+                        }
+                      />
+                      {nome}
+                    </label>
+                    {aberto ? (
+                      [0, 1].map((k) => (
+                        <span key={k} className="flex items-center gap-1">
+                          <input type="time" value={turnos[k]?.[0] ?? ""} onChange={(e) => mudarTurno(dia, k, 0, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} abre`} />
+                          às
+                          <input type="time" value={turnos[k]?.[1] ?? ""} onChange={(e) => mudarTurno(dia, k, 1, e.target.value)} className={campo} aria-label={`${nome} turno ${k + 1} fecha`} />
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-aura-graphite-soft">Fechado</span>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-aura-graphite-soft">{horarioEmTexto(horario) || "Sem horário: conta como sempre aberto."}</p>
+            </div>
+          )}
+
+          <label className={`flex items-center gap-2.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
+            <input type="checkbox" checked={comentarios} disabled={!ativa} onChange={(e) => setComentarios(e.target.checked)} className="h-4 w-4" />
+            Também responder comentários sem resposta (em público, curto, chamando para o direct)
+          </label>
+
+          <label className="flex flex-col gap-1 text-aura-graphite">
+            Instruções para o agente desta conta (opcional)
+            <textarea
+              rows={3}
+              maxLength={2000}
+              value={instrucoes}
+              onChange={(e) => setInstrucoes(e.target.value)}
+              placeholder={fabrica ? "Ex.: para cliente final de Porto Alegre, dizer que a LF Lareiras atende." : "Ex.: lembrar que o showroom abre sábado de manhã."}
+              className={`${campo} resize-y`}
+            />
+          </label>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void salvar()}
+              disabled={salvando || !carregado}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {salvando && <Loader2 size={14} className="animate-spin" />}
+              Salvar
+            </button>
+            {recado && <span className="text-xs text-aura-graphite-soft">{recado}</span>}
+          </div>
         </div>
       )}
     </div>

@@ -59,32 +59,95 @@ async function chamar(caminho: string, token: string, corpo?: Record<string, unk
 }
 
 /**
- * Responde uma DM. `destinatario` é o id do cliente no Instagram.
+ * Manda qualquer coisa para o direct (texto, foto, áudio, reação).
  *
  * Com o login unificado a Meta às vezes só aceita o envio pela Página do
  * Facebook ligada ao Instagram (com o token da Página); por isso tenta a
  * conta, depois a Página, depois o endereço do Instagram.
  */
-export async function enviarMensagem(conta: ContaMeta, destinatario: string, texto: string) {
-  const corpo = { recipient: { id: destinatario }, message: { text: texto } };
+async function mandarNoDirect(conta: ContaMeta, corpo: Record<string, unknown>) {
   const alvo = conta.igUserId || "me";
   const pagina = await paginaDaConta(conta);
   const opcoes: Opcao[] = [{ host: "fb", caminho: `${alvo}/messages`, corpo }];
   if (pagina.ok) opcoes.push({ host: "fb", caminho: `${pagina.id}/messages`, corpo, token: pagina.token });
   opcoes.push({ host: "ig", caminho: "me/messages", corpo });
-  const r = await tentar(opcoes, conta.token);
+  const r = await tentar<{ message_id?: string; recipient_id?: string }>(opcoes, conta.token);
   if (!r.ok) throw new Error(r.erros[r.erros.length - 1]?.split(" → ").pop() ?? "A Meta recusou o envio.");
   return r.dados;
 }
 
-/** Responde um comentário de publicação. */
+/** Responde uma DM com texto. Devolve o id da mensagem na Meta. */
+export async function enviarMensagem(conta: ContaMeta, destinatario: string, texto: string) {
+  return mandarNoDirect(conta, { recipient: { id: destinatario }, message: { text: texto } });
+}
+
+/** Foto, vídeo ou áudio por um endereço público (a Meta baixa o arquivo). */
+export async function enviarMidia(
+  conta: ContaMeta,
+  destinatario: string,
+  tipo: "image" | "audio" | "video",
+  url: string,
+) {
+  return mandarNoDirect(conta, {
+    recipient: { id: destinatario },
+    message: { attachment: { type: tipo, payload: { url } } },
+  });
+}
+
+/** Coração numa mensagem do cliente (a API do Instagram só aceita "love"). */
+export async function reagirMensagem(conta: ContaMeta, destinatario: string, mid: string, ligar: boolean) {
+  return mandarNoDirect(conta, {
+    recipient: { id: destinatario },
+    sender_action: ligar ? "react" : "unreact",
+    payload: { message_id: mid, ...(ligar ? { reaction: "love" } : {}) },
+  });
+}
+
+/**
+ * Resposta privada a um comentário: abre o direct com quem comentou.
+ * A Meta deixa uma por comentário, em até 7 dias.
+ */
+export async function responderNoPrivado(conta: ContaMeta, comentarioId: string, texto: string) {
+  return mandarNoDirect(conta, { recipient: { comment_id: comentarioId }, message: { text: texto } });
+}
+
+/** Responde um comentário de publicação, em público. */
 export async function responderComentario(conta: ContaMeta, comentarioId: string, texto: string) {
-  return chamar(`${comentarioId}/replies`, conta.token, { message: texto });
+  const r = await tentar(
+    [
+      { host: "fb", caminho: `${comentarioId}/replies`, corpo: { message: texto } },
+      { host: "ig", caminho: `${comentarioId}/replies`, corpo: { message: texto } },
+    ],
+    conta.token,
+  );
+  if (!r.ok) throw new Error(r.erros[r.erros.length - 1]?.split(" → ").pop() ?? "A Meta recusou a resposta.");
+  return r.dados;
 }
 
 /** Esconde ou mostra um comentário. */
 export async function ocultarComentario(conta: ContaMeta, comentarioId: string, oculto: boolean) {
-  return chamar(`${comentarioId}?hide=${oculto}`, conta.token, {});
+  const r = await tentar(
+    [
+      { host: "fb", caminho: `${comentarioId}?hide=${oculto}`, metodo: "POST" },
+      { host: "ig", caminho: `${comentarioId}?hide=${oculto}`, metodo: "POST" },
+    ],
+    conta.token,
+  );
+  if (!r.ok) throw new Error(r.erros[r.erros.length - 1]?.split(" → ").pop() ?? "A Meta recusou.");
+  return r.dados;
+}
+
+/** Apaga um comentário da publicação (não tem volta). */
+export async function apagarComentario(conta: ContaMeta, comentarioId: string) {
+  const r = await tentar(
+    [
+      { host: "fb", caminho: comentarioId, metodo: "DELETE" },
+      { host: "ig", caminho: comentarioId, metodo: "DELETE" },
+    ],
+    conta.token,
+  );
+  if (!r.ok) throw new Error(r.erros[r.erros.length - 1]?.split(" → ").pop() ?? "A Meta recusou.");
+  return r.dados;
 }
 
 /** Nome e foto de quem escreveu, para a conversa não ficar só com um número. */
