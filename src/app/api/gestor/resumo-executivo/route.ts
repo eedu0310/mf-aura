@@ -3,6 +3,8 @@ import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 
@@ -24,24 +26,56 @@ export async function POST() {
   }
 
   const supabase = auth.supabase;
-  const mesAtual = new Date().toISOString().slice(0, 7);
-  const mesPassadoDate = new Date();
-  mesPassadoDate.setMonth(mesPassadoDate.getMonth() - 1);
-  const mesPassado = mesPassadoDate.toISOString().slice(0, 7);
+  /*
+   * Mês de Brasília, e o anterior por conta. Antes: toISOString (UTC, vira o
+   * mês às 21h) e setMonth(-1), que num dia 31 cai no próprio mês ("31 de
+   * dezembro menos um mês" = 1º de dezembro) e comparava o mês com ele mesmo.
+   */
+  const mesAtual = diaEmSaoPaulo().slice(0, 7);
+  const [anoHoje, mesHoje] = mesAtual.split("-").map(Number);
+  const mesPassado =
+    mesHoje === 1 ? `${anoHoje - 1}-12` : `${anoHoje}-${String(mesHoje - 1).padStart(2, "0")}`;
 
-  const [
-    { data: vendas },
-    { data: oportunidades },
-    { data: leads },
-    { data: posVendas },
-    { data: perfis },
-  ] = await Promise.all([
-    supabase.from("vendas").select("empresa, valor, data"),
-    supabase.from("oportunidades").select("empresa, valor, etapa, dias_parado"),
-    supabase.from("leads_recebidos").select("empresa, status, gestor_notificado, urgencia").or("natureza.is.null,natureza.eq.lead"),
-    supabase.from("pos_vendas").select("empresa, status, reclamacao, reclamacao_resolvida, avaliou_loja, nota_avaliacao, data_agendamento"),
-    supabase.from("profiles").select("empresa, cargo, ativo"),
-  ]);
+  /*
+   * Lidas até o fim, de mil em mil. As consultas simples paravam nas 1000
+   * primeiras linhas — de vendas de todos os tempos, sem ordem —, e a venda do
+   * mês que a IA comentava era a de uma amostra qualquer.
+   */
+  let vendas, oportunidades, leads, posVendas, perfis;
+  try {
+    [vendas, oportunidades, leads, posVendas, { data: perfis }] = await Promise.all([
+      todasAsLinhas((de, ate) =>
+        supabase
+          .from("vendas")
+          .select("empresa, valor, data")
+          .gte("data", `${mesPassado}-01`)
+          .order("id")
+          .range(de, ate),
+      ),
+      todasAsLinhas((de, ate) =>
+        supabase.from("oportunidades").select("empresa, valor, etapa, dias_parado").order("id").range(de, ate),
+      ),
+      todasAsLinhas((de, ate) =>
+        supabase
+          .from("leads_recebidos")
+          .select("empresa, status, gestor_notificado, urgencia")
+          .or("natureza.is.null,natureza.eq.lead")
+          .order("id")
+          .range(de, ate),
+      ),
+      todasAsLinhas((de, ate) =>
+        supabase
+          .from("pos_vendas")
+          .select("empresa, status, reclamacao, reclamacao_resolvida, avaliou_loja, nota_avaliacao, data_agendamento")
+          .order("id")
+          .range(de, ate),
+      ),
+      supabase.from("profiles").select("empresa, cargo, ativo"),
+    ]);
+  } catch (e) {
+    console.error("Resumo executivo: leitura dos números falhou:", e);
+    return NextResponse.json({ erro: "Não consegui ler os números das lojas." }, { status: 500 });
+  }
 
   const linhasPorEmpresa = NOMES_EMPRESAS.map((empresa) => {
     const vendasLoja = (vendas ?? []).filter((v) => v.empresa === empresa);

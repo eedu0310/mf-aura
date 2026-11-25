@@ -15,7 +15,8 @@ export function GoalProgressCard({
   realizado: number;
   meta: number;
 }) {
-  const percentual = Math.min(100, Math.round((realizado / meta) * 100));
+  // Sem meta (0) a divisão dava NaN% / 100% falso.
+  const percentual = meta > 0 ? Math.min(100, Math.round((realizado / meta) * 100)) : 0;
 
   return (
     <div className="rounded-2xl border border-aura-mist bg-white p-5">

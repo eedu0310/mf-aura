@@ -151,7 +151,11 @@ async function perguntarIA({
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  // JSON inválido (ou "null") estourava aqui como 500 sem mensagem.
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
+  }
   const modo: "chat" | "analise_reuniao" | "preparar_reuniao" = body.modo ?? "chat";
   const openai = getOpenAIClient();
 
@@ -282,7 +286,8 @@ export async function POST(request: Request) {
 
     const resposta = await perguntarIA({
       openai,
-      systemPrompt: montarSystemPrompt(body.playbook, contextoDados, Boolean(ctx), auth?.cargo, materiais),
+      // O aprendizado aprovado pelo gestor era carregado e não chegava ao chat.
+      systemPrompt: montarSystemPrompt(body.playbook, contextoDados, Boolean(ctx), auth?.cargo, materiais, aprendizado),
       mensagens: mensagens.map((m) => ({
         role: m.autor === "usuario" ? "user" : "assistant",
         content: m.texto,

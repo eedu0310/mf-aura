@@ -99,7 +99,11 @@ const OPCOES: Array<{ valor: Tema; rotulo: string; icone: typeof Sun }> = [
   { valor: "sistema", rotulo: "Automático", icone: Monitor },
 ];
 
-/** Seletor completo (Claro / Escuro / Automático), para Configurações e menus. */
+/**
+ * Seletor completo (Claro / Escuro / Automático), para Configurações e menus.
+ * `compacto` ocupa a largura do contêiner (barra lateral, menu do perfil) e
+ * mostra só os ícones: com os três nomes o seletor estourava a barra lateral.
+ */
 export function SeletorTema({ compacto = false }: { compacto?: boolean }) {
   const { tema, definir } = useTema();
   return (
@@ -117,14 +121,16 @@ export function SeletorTema({ compacto = false }: { compacto?: boolean }) {
             role="radio"
             aria-checked={ativo}
             onClick={() => definir(valor)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+            title={rotulo}
+            className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition ${compacto ? "px-1.5" : "px-3"} ${
               ativo
                 ? "bg-aura-surface text-aura-graphite shadow-sm"
                 : "text-aura-graphite-soft hover:text-aura-graphite"
             }`}
           >
-            <Icone size={14} aria-hidden />
-            {rotulo}
+            <Icone size={14} aria-hidden className="shrink-0" />
+            {/* Compacto: só o ícone (o nome fica no tooltip e para leitor de tela). */}
+            <span className={compacto ? "sr-only" : ""}>{rotulo}</span>
           </button>
         );
       })}

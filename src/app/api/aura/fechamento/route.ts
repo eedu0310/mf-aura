@@ -65,6 +65,11 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Corpo inválido." }, { status: 400 });
   }
+  if (!corpo || typeof corpo !== "object") {
+    return NextResponse.json({ error: "Corpo inválido." }, { status: 400 });
+  }
+  // O motivo vai para o prompt da IA e para o laudo gravado: texto, e curto.
+  corpo.motivo = typeof corpo.motivo === "string" ? corpo.motivo.slice(0, 1000) : null;
 
   const { oportunidadeId, resultado } = corpo;
   if (!oportunidadeId || (resultado !== "fechado" && resultado !== "perdido")) {

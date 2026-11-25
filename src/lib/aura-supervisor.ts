@@ -3,7 +3,7 @@ import { getOpenAIClient } from "@/lib/openai-client";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { ehFechada, ehGanho, nomesDasEtapas } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
-import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
+import { diaEmSaoPaulo, inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -37,7 +37,7 @@ function inicioDaJanela() {
 }
 
 function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+  return diaEmSaoPaulo(); // UTC marcava o prazo para amanhã depois das 21h
 }
 
 function prioridadePorRisco(valor: number): SupervisorPrioridade {

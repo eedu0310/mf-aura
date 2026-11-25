@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Wrench, AlertTriangle, Star, ArrowRight } from "lucide-react";
 import { listarPosVendas, type PosVenda } from "@/lib/supabase/pos-venda";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export function PosVendaResumoCard() {
   const [itens, setItens] = useState<PosVenda[]>([]);
@@ -34,16 +35,18 @@ export function PosVendaResumoCard() {
 
   if (carregando || itens.length === 0) return null;
 
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  // Dia de Brasília: em UTC, depois das 21h o "hoje" já virava amanhã e o
+  // agendamento do dia contava como atrasado.
+  const hojeISO = diaEmSaoPaulo();
   const atrasadas = itens.filter(
     (i) => i.status === "agendamento_realizado" && i.dataAgendamento && i.dataAgendamento < hojeISO
   ).length;
   const reclamacoesAbertas = itens.filter((i) => i.reclamacao?.trim() && !i.reclamacaoResolvida).length;
-  const avaliaram = itens.filter((i) => i.avaliouLoja).length;
+  // Média só entre quem deu nota: avaliar a loja sem marcar nota não pode
+  // puxar a média para baixo.
+  const comNota = itens.filter((i) => i.notaAvaliacao);
   const notaMedia =
-    avaliaram > 0
-      ? itens.filter((i) => i.notaAvaliacao).reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / avaliaram
-      : 0;
+    comNota.length > 0 ? comNota.reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / comNota.length : 0;
 
   const lojas = [...new Set(itens.map((i) => i.empresa))];
   const multiLoja = lojas.length > 1;

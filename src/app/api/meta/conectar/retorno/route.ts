@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { SITE, assinarAvisos, contasLiberadas, credenciais, lerEstado, trocarCodigo } from "@/lib/meta/conectar";
 
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   if (!estado) return voltar(false, "O pedido de conexão expirou ou não é válido. Clique em Conectar de novo.");
 
   const auth = await getEmpresaAutenticada();
-  if (!auth || auth.userId !== estado.userId || !auth.gestorMestre) {
+  if (!auth || auth.userId !== estado.userId || !vejoTodasAsLojas(auth)) {
     return voltar(false, "Entre no AURA com a mesma conta de gestor mestre que clicou em Conectar.");
   }
 

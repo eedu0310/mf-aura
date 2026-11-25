@@ -25,6 +25,7 @@ import {
 import { useUserProfile } from "@/lib/user-profile-context";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { StatCard, classeBotao } from "@/components/ui";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 const LABEL_STATUS: Record<StatusPostagem, { texto: string; cor: string; dot: string }> = {
   planejado: { texto: "Planejado", cor: "aura-selo-neutro", dot: "bg-aura-graphite-soft" },
@@ -64,7 +65,7 @@ function MiniCalendario({
   const mes = mesRef.getMonth();
   const primeiroDia = new Date(ano, mes, 1).getDay();
   const totalDias = new Date(ano, mes + 1, 0).getDate();
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  const hojeISO = diaEmSaoPaulo(); // dia de Brasília (em UTC virava amanhã depois das 21h)
 
   const postagensPorDia = useMemo(() => {
     const mapa = new Map<string, PostagemMarketing[]>();
@@ -210,7 +211,7 @@ export function CalendarioPostagens() {
   }
 
   async function marcarPublicado(p: PostagemMarketing) {
-    await atualizarPostagem(p.id, { status: "publicado", dataPublicacao: new Date().toISOString().slice(0, 10) });
+    await atualizarPostagem(p.id, { status: "publicado", dataPublicacao: diaEmSaoPaulo() });
   }
 
   async function aprovar(p: PostagemMarketing) {

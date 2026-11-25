@@ -60,7 +60,9 @@ export function montarContextoDados({
   const hojeISO = `${agoraLocal.getFullYear()}-${String(agoraLocal.getMonth() + 1).padStart(2, "0")}-${String(agoraLocal.getDate()).padStart(2, "0")}`;
   const em7dias = new Date();
   em7dias.setDate(em7dias.getDate() + 7);
-  const em7diasISO = em7dias.toISOString().slice(0, 10);
+  // Mesmo relógio do hojeISO acima (local), não UTC: senão, depois das 21h a
+  // janela de 7 dias andava um dia à frente.
+  const em7diasISO = `${em7dias.getFullYear()}-${String(em7dias.getMonth() + 1).padStart(2, "0")}-${String(em7dias.getDate()).padStart(2, "0")}`;
 
   const valorPipeline = oportunidades.reduce((s, o) => s + o.valor, 0);
   const valorVendido = vendas.reduce((s, v) => s + v.valor, 0);

@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "crypto";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { EMPRESA_DO_SITE } from "./tipos";
 
 /**
@@ -10,7 +10,9 @@ import { EMPRESA_DO_SITE } from "./tipos";
 export async function equipeDoSite(request?: Request) {
   const auth = await getEmpresaAutenticada(request);
   if (!auth) return null;
-  if (auth.empresa !== EMPRESA_DO_SITE && !auth.gestorMestre) return null;
+  // Mestre de verdade = Gestor + aprovado + mestre (a flag sozinha não basta:
+  // ela fica quando o mestre troca o cargo de alguém).
+  if (auth.empresa !== EMPRESA_DO_SITE && !vejoTodasAsLojas(auth)) return null;
   return auth;
 }
 

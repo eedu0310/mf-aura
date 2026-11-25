@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
-  if (!auth.gestorMestre) {
+  // Mestre de verdade: cargo Gestor, aprovado e mestre (a flag sozinha não basta).
+  if (!vejoTodasAsLojas(auth)) {
     return NextResponse.json({ erro: "Só um gestor mestre apaga contas de acesso." }, { status: 403 });
   }
 
@@ -30,7 +31,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "Supabase (service role) não configurado." }, { status: 500 });
   }
 
-  const { data: perfil } = await service.from("profiles").select("id").eq("id", id).maybeSingle();
+  // Se a leitura falhar, "sem perfil" não está provado: apagar a conta de uma
+  // pessoa com cadastro levaria em cascata as vendas dela.
+  const { data: perfil, error: erroPerfil } = await service.from("profiles").select("id").eq("id", id).maybeSingle();
+  if (erroPerfil) {
+    return NextResponse.json({ erro: "Não consegui conferir o cadastro desta conta. Tente de novo." }, { status: 500 });
+  }
   if (perfil) {
     return NextResponse.json(
       { erro: "Essa conta tem cadastro completo. Use o botão de excluir da lista da equipe." },

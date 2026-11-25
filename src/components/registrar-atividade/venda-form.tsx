@@ -13,6 +13,7 @@ import {
 } from "./location-capture-field";
 import { agoraIso, moedaParaNumero } from "./activity-date";
 import { useAppData } from "@/lib/app-data-context";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Relacionamento } from "@/lib/types";
 
@@ -128,7 +129,9 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
     setErro("");
 
     try {
-      const hoje = new Date().toISOString().split("T")[0];
+      // Dia de Brasília: em UTC, depois das 21h a venda caía no dia (e às
+      // vezes no mês) seguinte.
+      const hoje = diaEmSaoPaulo();
       const ocorridaEm = agoraIso();
       const parcelasFinais = pagamentoAVista ? 1 : parcelas;
       const entradaFinal = pagamentoAVista ? fechado : entrada;

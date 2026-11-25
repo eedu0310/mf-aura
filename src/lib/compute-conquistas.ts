@@ -1,4 +1,5 @@
 import type { Oportunidade, Venda } from "@/lib/types";
+import { diaEmSaoPaulo, mesEmSaoPaulo } from "@/lib/fuso";
 
 export interface Conquista {
   emoji: string;
@@ -7,21 +8,28 @@ export interface Conquista {
   conquistada: boolean;
 }
 
+/**
+ * Dias seguidos (até hoje) com atividade registrada, no dia de Brasília.
+ *
+ * Lia `criadoEmISO`, campo que a Atividade não tem (o mapper grava
+ * `criadoEm`): a sequência era sempre 0 e a conquista nunca acendia.
+ */
 function calcularSequenciaDias(atividades: any[]): number {
   const dias = new Set(
     atividades
-      .map((a) => a.criadoEmISO)
+      .map((a) => a.criadoEm ?? a.criadoEmISO)
       .filter((iso): iso is string => Boolean(iso))
-      .map((iso) => iso.slice(0, 10))
+      .map((iso) => new Date(iso))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .map((d) => diaEmSaoPaulo(d))
   );
 
   let sequencia = 0;
-  const cursor = new Date();
-  for (;;) {
-    const chave = cursor.toISOString().slice(0, 10);
-    if (!dias.has(chave)) break;
+  // Brasília não tem horário de verão: voltar 24h é sempre voltar um dia.
+  let cursor = Date.now();
+  while (dias.has(diaEmSaoPaulo(new Date(cursor)))) {
     sequencia += 1;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor -= 86_400_000;
   }
   return sequencia;
 }
@@ -44,10 +52,9 @@ export function computeConquistas({
   const sequenciaDias = calcularSequenciaDias(atividades);
   const paradas = 0;
 
-  const mesAtual = new Date().toISOString().slice(0, 7);
-  const mesPassadoDate = new Date();
-  mesPassadoDate.setMonth(mesPassadoDate.getMonth() - 1);
-  const mesPassado = mesPassadoDate.toISOString().slice(0, 7);
+  // Sem setMonth(): no dia 31 o "mês passado" caía no próprio mês atual.
+  const mesAtual = mesEmSaoPaulo();
+  const mesPassado = mesEmSaoPaulo(-1);
   const vendasEsteMes = vendas.filter((v) => v.data.startsWith(mesAtual)).reduce((s, v) => s + v.valor, 0);
   const vendasMesPassado = vendas.filter((v) => v.data.startsWith(mesPassado)).reduce((s, v) => s + v.valor, 0);
 

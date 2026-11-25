@@ -30,3 +30,16 @@ export function inicioDoDiaEmSaoPaulo(agora: Date = new Date()): string {
 export function inicioDoMesEmSaoPaulo(agora: Date = new Date()): string {
   return new Date(`${diaEmSaoPaulo(agora).slice(0, 8)}01T00:00:00${OFFSET}`).toISOString();
 }
+
+/**
+ * "2026-11" — o mês de hoje em Brasília, ou `deslocamento` meses antes/depois.
+ *
+ * Conta com ano e mês, nunca com setMonth(): no dia 31, `setMonth(mês - 1)`
+ * cai num "31 de novembro" que o Date empurra para 1º de dezembro, e o "mês
+ * passado" virava o mês atual.
+ */
+export function mesEmSaoPaulo(deslocamento = 0, agora: Date = new Date()): string {
+  const [ano, mes] = diaEmSaoPaulo(agora).split("-").map(Number);
+  const total = ano * 12 + (mes - 1) + deslocamento;
+  return `${Math.floor(total / 12)}-${String((total % 12 + 12) % 12 + 1).padStart(2, "0")}`;
+}

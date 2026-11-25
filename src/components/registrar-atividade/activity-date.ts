@@ -50,9 +50,14 @@ export function moedaParaNumero(valor: string) {
   const limpo = valor.trim().replace(/\s/g, "").replace(/R\$/gi, "");
   if (!limpo) return 0;
 
+  // Sem vírgula, ponto seguido de grupos de 3 dígitos é milhar ("15.000",
+  // "1.250.000"), como se escreve no Brasil. Antes "15.000" virava R$ 15 e a
+  // venda era gravada mil vezes menor.
   const normalizado = limpo.includes(",")
     ? limpo.replace(/\./g, "").replace(",", ".")
-    : limpo;
+    : /^-?\d{1,3}(\.\d{3})+$/.test(limpo)
+      ? limpo.replace(/\./g, "")
+      : limpo;
   const numero = Number(normalizado.replace(/[^0-9.-]/g, ""));
   return Number.isFinite(numero) ? numero : 0;
 }

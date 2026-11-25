@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Users } from "lucide-react";
-import { Alerta, Botao, EstadoVazio, PageContainer, PageHeader, Segmentado, Selo, type Tom } from "@/components/ui";
+import { Search, Plus, Edit2, Trash2, Phone, Mail, MapPin, Users, UserPlus } from "lucide-react";
+import { Alerta, Botao, EstadoVazio, PageContainer, PageHeader, Segmentado, Selo, classeBotao, type Tom } from "@/components/ui";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { useUserProfile } from "@/lib/user-profile-context";
@@ -54,7 +54,16 @@ export function RelationshipsExplorer() {
    * abria a lista inteira — parecia que o botão não fazia nada.
    */
   const searchParams = useSearchParams();
+  /*
+   * O link vale UMA vez por endereço. Antes o efeito rodava de novo a cada
+   * mudança na carteira (salvar, excluir, atualização em tempo real): a
+   * ficha do `?id=` reabria sozinha depois de fechada e o `?buscar=`
+   * apagava o que a pessoa tinha digitado na busca.
+   */
+  const linkAplicado = useRef<string | null>(null);
   useEffect(() => {
+    const chave = searchParams.toString();
+    if (linkAplicado.current === chave) return;
     const id = searchParams.get("id");
     const buscar = searchParams.get("buscar");
     setFiltroAtencao(lerFiltroAtencao(searchParams.get("filtro")));
@@ -63,10 +72,14 @@ export function RelationshipsExplorer() {
       const achado = (relacionamentos ?? []).find((r) => r.id === id);
       if (achado) {
         setSelectedRelacionamento(achado);
+        linkAplicado.current = chave;
         return;
       }
+      // Carteira ainda carregando: espera chegar para procurar de novo.
+      if ((relacionamentos ?? []).length === 0) return;
     }
     if (buscar) setSearchQuery(buscar);
+    linkAplicado.current = chave;
   }, [searchParams, relacionamentos]);
 
   const relacionamentosFiltrados = useMemo(() => {
@@ -378,17 +391,24 @@ export function RelationshipsExplorer() {
         )}
       </div>
 
-      {/* Botão flutuante para adicionar. No celular fica acima do botão de
-          registrar atividade — antes ele era escondido e não havia nenhum
-          outro caminho para cadastrar um cliente pelo telefone. No
-          computador o mesmo botão fica no cabeçalho. */}
+      {/* Botão flutuante para adicionar, no celular — antes ele era escondido
+          e não havia nenhum outro caminho para cadastrar um cliente pelo
+          telefone. Fica no canto ESQUERDO, em pílula clara com texto: o "+"
+          redondo da direita é o de registrar atividade, e dois "+" iguais
+          empilhados confundiam (e o atalho aberto daquele botão cobria este).
+          No computador o mesmo botão fica no cabeçalho. */}
       <button
+        type="button"
         onClick={() => setShowNovaModal(true)}
-        className="fixed bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-aura-petrol-600 text-white shadow-lg transition hover:bg-aura-petrol-700 sm:hidden"
+        className={classeBotao(
+          "secundario",
+          "lg",
+          "fixed bottom-5 left-4 z-30 !rounded-full shadow-lg shadow-aura-navy-950/15 sm:hidden",
+        )}
         title="Adicionar novo relacionamento"
-        aria-label="Adicionar novo relacionamento"
       >
-        <Plus size={22} />
+        <UserPlus size={17} className="text-aura-petrol-600" aria-hidden />
+        Novo contato
       </button>
 
       {/* Modal de Novo Relacionamento */}
@@ -404,7 +424,11 @@ export function RelationshipsExplorer() {
       {/* Modal de Detalhes */}
       {selectedRelacionamento && (
         <RelacionamentoDetailsModal
-          relacionamento={selectedRelacionamento}
+          // A versão atual da carteira, não a cópia do clique: depois de
+          // salvar a edição a ficha mostrava os dados antigos até reabrir.
+          relacionamento={
+            relacionamentos.find((r) => r.id === selectedRelacionamento.id) ?? selectedRelacionamento
+          }
           onClose={() => setSelectedRelacionamento(null)}
           onDelete={() => setSelectedRelacionamento(null)}
         />

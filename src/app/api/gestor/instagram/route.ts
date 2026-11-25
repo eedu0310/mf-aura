@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { contasLiberadas } from "@/lib/meta/conectar";
 
@@ -26,8 +26,21 @@ async function somenteMestre() {
   const sb = getSupabaseServiceClient();
   if (!sb) return { erro: NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 }) };
 
-  const { data: eu } = await sb.from("profiles").select("gestor_mestre").eq("id", auth.userId).maybeSingle();
-  if (!eu?.gestor_mestre) {
+  // Lido fresco do banco (sem o cache de um minuto) e com a régua inteira:
+  // a flag gestor_mestre sozinha, sem cargo Gestor aprovado, não basta.
+  const { data: eu } = await sb
+    .from("profiles")
+    .select("cargo, gestor_mestre, gestor_aprovado")
+    .eq("id", auth.userId)
+    .maybeSingle();
+  if (
+    !eu ||
+    !vejoTodasAsLojas({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    })
+  ) {
     return { erro: NextResponse.json({ erro: "Só um gestor mestre conecta contas e libera acesso." }, { status: 403 }) };
   }
   return { auth, sb };

@@ -125,9 +125,21 @@ export async function PATCH(request: Request) {
 
   const corpo = await request.json().catch(() => ({}));
   const patch: Record<string, unknown> = { atualizado_em: new Date().toISOString() };
-  if (corpo.precoEntrada !== undefined) patch.preco_entrada_usd = Number(corpo.precoEntrada);
-  if (corpo.precoSaida !== undefined) patch.preco_saida_usd = Number(corpo.precoSaida);
-  if (corpo.alerta !== undefined) patch.alerta_saldo_usd = Number(corpo.alerta);
+  // Preço negativo fazia cada chamada de IA "devolver" saldo, e texto virava
+  // NaN gravado no banco: o teto de gasto deixava de valer para o grupo todo.
+  const campos = [
+    ["precoEntrada", "preco_entrada_usd"],
+    ["precoSaida", "preco_saida_usd"],
+    ["alerta", "alerta_saldo_usd"],
+  ] as const;
+  for (const [campo, coluna] of campos) {
+    if (corpo[campo] === undefined) continue;
+    const n = Number(corpo[campo]);
+    if (!Number.isFinite(n) || n < 0) {
+      return NextResponse.json({ erro: "Use um número maior ou igual a zero." }, { status: 400 });
+    }
+    patch[coluna] = n;
+  }
   if (corpo.bloquear !== undefined) patch.bloquear_sem_saldo = Boolean(corpo.bloquear);
 
   const sb = getSupabaseServiceClient();

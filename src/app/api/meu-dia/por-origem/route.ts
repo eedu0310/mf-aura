@@ -15,8 +15,9 @@
  * dela.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,13 +40,21 @@ export async function GET(req: NextRequest) {
    *
    * A conta nasce com o cargo e espera aprovação de um gestor mestre; conferir
    * só o cargo deixava quem acabou de se cadastrar entrar aqui antes de alguém
-   * aprovar. O mestre passa por cima, como em todo lugar.
+   * aprovar. O mestre passa por cima, como em todo lugar — mas o mestre
+   * também precisa ser Gestor aprovado: a flag gestor_mestre sozinha abria a
+   * loja inteira (e qualquer outra, pela URL) sem cargo nem aprovação.
    */
   const gestor =
     !!eu &&
-    ((/gestor/i.test(eu.cargo ?? "") && eu.gestor_aprovado === true) || !!eu.gestor_mestre);
+    administra({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    });
 
-  const mes = req.nextUrl.searchParams.get("mes") || new Date().toISOString().slice(0, 7);
+  // Mês corrente de Brasília: em UTC, a partir das 21h do último dia a tela
+  // já pulava para o mês seguinte, vazio.
+  const mes = req.nextUrl.searchParams.get("mes") || diaEmSaoPaulo().slice(0, 7);
 
   let q = sb.from("retorno_por_origem").select("*").eq("mes", mes);
 

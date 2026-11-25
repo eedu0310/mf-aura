@@ -34,6 +34,7 @@ import { guardarAprendizado, ligarOrigem, limparCacheAprendizado, textoDoAprendi
 import { casosDeSugestoes } from "./resultado-sugestoes";
 import { nucleoDoManual } from "./trechos";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 const MAX_CONVERSAS_POR_LOJA = 12;
 const MENSAGENS_POR_CONVERSA = 40;
@@ -376,12 +377,17 @@ export async function colherAprendizadoDoDia(sb: SupabaseClient): Promise<Result
 
   // Lojas com conversa do dia ou com sugestões da AURA medidas desde ontem.
   const desdeCasos = new Date(inicio.getTime() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: comSugestao } = await sb
-    .from("aura_sugestoes_resultado")
-    .select("empresa")
-    .gte("enviado_em", desdeCasos)
-    .limit(5000);
-  const lojas = new Set<string>([...porLoja.keys(), ...(comSugestao ?? []).map((l: { empresa: string }) => l.empresa)]);
+  // De mil em mil: o `.limit(5000)` parava em 1000 e uma loja que só tinha
+  // sugestões depois da milésima linha ficava fora da rodada.
+  const comSugestao = await todasAsLinhas<{ empresa: string }>((de, ate) =>
+    sb
+      .from("aura_sugestoes_resultado")
+      .select("empresa")
+      .gte("enviado_em", desdeCasos)
+      .order("id")
+      .range(de, ate),
+  ).catch(() => [] as { empresa: string }[]);
+  const lojas = new Set<string>([...porLoja.keys(), ...comSugestao.map((l) => l.empresa)]);
 
   const resultados: ResultadoDaLoja[] = [];
   // Uma loja de cada vez: são poucas, e em série o uso de IA fica previsível.

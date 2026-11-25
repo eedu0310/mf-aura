@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { carregarFunil } from "@/lib/funil-servidor";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { ehGanho, ehPerda, type EtapaFunil } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor, type VendaComParceria } from "@/lib/parceria";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
@@ -191,6 +192,21 @@ function contar<T>(itens: T[], chave: (i: T) => string | null | undefined) {
     .map(([texto, n]) => ({ texto, n }));
 }
 
+/**
+ * Lê a consulta inteira, de mil em mil, e devolve no formato { data, error }
+ * do Supabase. O `.limit(10000)` dos relacionamentos não valia: o Supabase
+ * corta em 1000 por pedido, e a carteira da loja (1485) chegava pela metade.
+ */
+async function paginado<T>(
+  montar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  try {
+    return { data: await todasAsLinhas<T>(montar), error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : String(e) } };
+  }
+}
+
 function textosDoJsonb(valor: unknown): string[] {
   if (!Array.isArray(valor)) return [];
   return valor.map((v) => String(v).trim()).filter(Boolean);
@@ -235,23 +251,38 @@ export async function coletarSemanaDaLoja(
       .eq("empresa", empresa)
       .gte("ocorrida_em", inicioISO)
       .lt("ocorrida_em", fimISO),
-    sb.from("relacionamentos").select("id, owner_id, categoria, nome, cidade, created_at").eq("empresa", empresa).limit(10000),
-    sb
-      .from("oportunidades")
-      .select("owner_id, etapa, valor, created_at, motivo_perda, data_perda")
-      .eq("empresa", empresa),
+    paginado((de, ate) =>
+      sb
+        .from("relacionamentos")
+        .select("id, owner_id, categoria, nome, cidade, created_at")
+        .eq("empresa", empresa)
+        .order("id")
+        .range(de, ate),
+    ),
+    paginado((de, ate) =>
+      sb
+        .from("oportunidades")
+        .select("owner_id, etapa, valor, created_at, motivo_perda, data_perda")
+        .eq("empresa", empresa)
+        .order("id")
+        .range(de, ate),
+    ),
     sb
       .from("vendas")
       .select("owner_id, valor, valor_fechado, data, parceiro_id, percentual_parceiro")
       .eq("empresa", empresa)
       .gte("data", inicioDia)
       .lt("data", fimDia),
-    sb
-      .from("whatsapp_ia_leads")
-      .select(
-        "owner_id, nome, etapa, dicas, alertas, natureza, proxima_acao, ignorado, created_at, ultima_analise_em",
-      )
-      .eq("empresa", empresa),
+    paginado((de, ate) =>
+      sb
+        .from("whatsapp_ia_leads")
+        .select(
+          "owner_id, nome, etapa, dicas, alertas, natureza, proxima_acao, ignorado, created_at, ultima_analise_em",
+        )
+        .eq("empresa", empresa)
+        .order("id")
+        .range(de, ate),
+    ),
     sb
       .from("compromissos_mensais")
       .select(
@@ -270,21 +301,31 @@ export async function coletarSemanaDaLoja(
       .eq("empresa", empresa)
       .gte("data", `${mes}-01`)
       .lt("data", fimDia),
-    sb
-      .from("atividades")
-      .select("owner_id, tipo, subtipo, relacionamento_id, cliente_categoria, ocorrida_em")
-      .eq("empresa", empresa)
-      .gte("ocorrida_em", `${mes}-01T00:00:00.000Z`)
-      .lt("ocorrida_em", fimISO),
+    paginado((de, ate) =>
+      sb
+        .from("atividades")
+        .select("owner_id, tipo, subtipo, relacionamento_id, cliente_categoria, ocorrida_em")
+        .eq("empresa", empresa)
+        // Meia-noite de Brasília: em UTC, o dia 1º começava às 21h do último
+        // dia do mês anterior, e essas três horas entravam no acumulado.
+        .gte("ocorrida_em", `${mes}-01T00:00:00-03:00`)
+        .lt("ocorrida_em", fimISO)
+        .order("id")
+        .range(de, ate),
+    ),
     /*
      * Agenda. Sem filtro de data no SQL porque precisamos de duas janelas
      * diferentes sobre as mesmas linhas: o que foi CRIADO na semana e o que
      * estava MARCADO para a semana. A tabela é pequena.
      */
-    sb
-      .from("compromissos")
-      .select("owner_id, tipo, data, concluido, created_at")
-      .eq("empresa", empresa),
+    paginado((de, ate) =>
+      sb
+        .from("compromissos")
+        .select("owner_id, tipo, data, concluido, created_at")
+        .eq("empresa", empresa)
+        .order("id")
+        .range(de, ate),
+    ),
     carregarFunil(sb, empresa),
   ]);
 

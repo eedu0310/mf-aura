@@ -12,7 +12,7 @@
  * IA escrevendo diferente.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -63,9 +63,18 @@ export async function GET(req: NextRequest) {
    *
    * A conta nasce com o cargo e espera aprovação de um gestor mestre; conferir
    * só o cargo deixava quem acabou de se cadastrar entrar aqui antes de alguém
-   * aprovar. O mestre passa por cima, como em todo lugar.
+   * aprovar. O mestre passa por cima, como em todo lugar — mas o mestre
+   * também precisa ser Gestor aprovado: a flag gestor_mestre sozinha passava
+   * aqui sem cargo nem aprovação (régua única em auth-empresa).
    */
-  if (!eu || !((/gestor/i.test(eu.cargo ?? "") && eu.gestor_aprovado === true) || eu.gestor_mestre)) {
+  if (
+    !eu ||
+    !administra({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    })
+  ) {
     return NextResponse.json(
       { erro: "Só o gestor vê o relatório da equipe." },
       { status: 403 },

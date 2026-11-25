@@ -1,5 +1,7 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
+import { mesEmSaoPaulo } from "@/lib/fuso";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 export interface MembroEquipe {
   id: string;
@@ -15,9 +17,8 @@ export interface MembroEquipe {
 }
 
 function chaveMes(offsetMeses: number) {
-  const d = new Date();
-  d.setMonth(d.getMonth() + offsetMeses);
-  return d.toISOString().slice(0, 7); // YYYY-MM
+  // Mês de Brasília, sem setMonth(): no dia 31 o "mês passado" virava o atual.
+  return mesEmSaoPaulo(offsetMeses); // YYYY-MM
 }
 
 /**
@@ -59,10 +60,19 @@ export async function carregarEquipe(): Promise<MembroEquipe[] | null> {
     return [];
   }
 
-  const [{ data: vendas }, { data: contagemAtividades }] = await Promise.all([
-    supabase
-      .from("vendas")
-      .select("owner_id, valor, valor_fechado, data, parceiro_id, percentual_parceiro"),
+  // Vendas de mil em mil: num pedido só o Supabase para em 1000 linhas e o
+  // "vendas total" do ranking deixava de somar o resto sem avisar.
+  const [vendas, { data: contagemAtividades }] = await Promise.all([
+    todasAsLinhas((de, ate) =>
+      supabase
+        .from("vendas")
+        .select("owner_id, valor, valor_fechado, data, parceiro_id, percentual_parceiro")
+        .order("id")
+        .range(de, ate),
+    ).catch((e) => {
+      console.error("Erro ao carregar vendas da equipe:", e instanceof Error ? e.message : e);
+      return null;
+    }),
     supabase.rpc("contagem_atividades_recentes", { dias: 7 }),
   ]);
 

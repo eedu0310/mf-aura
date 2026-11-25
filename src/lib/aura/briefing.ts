@@ -1,4 +1,5 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 /**
  * O que o vendedor precisa saber ao começar o dia.
@@ -48,7 +49,9 @@ export async function montarBriefing(vendedorId: string): Promise<Briefing | nul
         .select("id, nome, proximo_contato_em, temperatura")
         .eq("owner_id", vendedorId)
         .not("proximo_contato_em", "is", null)
-        .lte("proximo_contato_em", `${dia}T23:59:59`),
+        // Com o fuso explícito: sem ele o banco lê a hora como UTC e o dia
+        // "acabava" às 20:59 de Brasília, deixando de fora o follow-up da noite.
+        .lte("proximo_contato_em", `${dia}T23:59:59-03:00`),
       sb
         .from("pedidos_avaliacao")
         .select("id, cliente")
@@ -70,7 +73,10 @@ export async function montarBriefing(vendedorId: string): Promise<Briefing | nul
   }
 
   for (const r of relacionamentos ?? []) {
-    const atrasado = String(r.proximo_contato_em).slice(0, 10) < dia;
+    // O banco devolve o carimbo em UTC: o follow-up de hoje às 22h vinha como
+    // "amanhã 01h" no slice. O dia certo é o de Brasília.
+    const quando = new Date(String(r.proximo_contato_em));
+    const atrasado = (Number.isNaN(quando.getTime()) ? String(r.proximo_contato_em).slice(0, 10) : diaEmSaoPaulo(quando)) < dia;
     itens.push({
       tipo: "followup",
       titulo: `Follow-up: ${r.nome}`,

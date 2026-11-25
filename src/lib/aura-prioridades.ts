@@ -6,6 +6,7 @@ import {
   FUNIL_PADRAO,
   type EtapaFunil,
 } from "@/lib/funil";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export type PrioridadeNivel = "urgente" | "alta" | "media" | "baixa";
 
@@ -146,7 +147,9 @@ export function calcularPrioridadesComerciais({
     });
   }
 
-  const hojeTexto = hoje.toISOString().slice(0, 10);
+  // Dia de Brasília: em UTC, depois das 21h o "hoje" já era amanhã, e o
+  // retorno de amanhã aparecia como de hoje (e o de hoje, como atrasado).
+  const hojeTexto = diaEmSaoPaulo(hoje);
   for (const atividade of atividades) {
     if (!atividade.proximoContatoEm || atividade.proximoContatoEm.slice(0, 10) > hojeTexto) continue;
     prioridades.push({

@@ -30,6 +30,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ erro: "JSON inválido." }, { status: 400 });
   }
   if (!body.id || !body.status) return NextResponse.json({ erro: "Informe id e status." }, { status: 400 });
+  // O tipo acima é só promessa: sem esta checagem qualquer texto virava status.
+  if (body.status !== "concluida" && body.status !== "dispensada") {
+    return NextResponse.json({ erro: "Status inválido." }, { status: 400 });
+  }
 
   const { error } = await auth.supabase
     .from("aura_recomendacoes")

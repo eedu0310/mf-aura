@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const corpo = await request.json().catch(() => ({}));
   const relacionamentoId = String(corpo.relacionamentoId ?? "").trim();
   const parceiroId = corpo.parceiroId ? String(corpo.parceiroId).trim() : null;
-  const motivo = String(corpo.motivo ?? "").trim() || null;
+  const motivo = String(corpo.motivo ?? "").trim().slice(0, 300) || null;
 
   if (!relacionamentoId) {
     return NextResponse.json({ erro: "Informe o cliente." }, { status: 400 });
@@ -93,7 +93,8 @@ export async function POST(request: Request) {
 
   const souODono = cliente.owner_id === auth.userId;
   const souGestorDaLoja =
-    (mandaNaLoja(auth) && cliente.empresa === auth.empresa) || auth.gestorMestre;
+    // A flag gestor_mestre sozinha (sem cargo Gestor aprovado) não atravessa lojas.
+    (mandaNaLoja(auth) && cliente.empresa === auth.empresa) || vejoTodasAsLojas(auth);
   if (!souODono && !souGestorDaLoja) {
     return NextResponse.json(
       { erro: "Só quem atende o cliente (ou o gestor da loja) pode passar o atendimento." },

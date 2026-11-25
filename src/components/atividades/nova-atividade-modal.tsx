@@ -15,6 +15,17 @@ const TIPOS_ATIVIDADE: TipoAtividade[] = [
   "Outro",
 ];
 
+/**
+ * "Agora" no formato do <input type="datetime-local">, no relógio de quem
+ * usa. `toISOString()` dava o horário UTC: o campo abria 3 horas adiantado e,
+ * como o salvar lê o campo como hora local, a atividade ia para o futuro.
+ */
+function agoraNoCampo() {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
 export function NovaAtividadeModal({
   onClose,
   onCriada,
@@ -29,7 +40,7 @@ export function NovaAtividadeModal({
     tipo: "Ligação" as TipoAtividade,
     titulo: "",
     contexto: "",
-    quando: new Date().toISOString().slice(0, 16),
+    quando: agoraNoCampo(),
     relacionamentoId: "",
     anotacoes: "",
   });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -26,7 +26,9 @@ export async function POST(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
 
-  if (!auth.gestorMestre) {
+  // Mestre de verdade: cargo Gestor, aprovado e mestre. A flag gestor_mestre
+  // sozinha sobrevive a uma troca de cargo (editar-usuario não a apaga).
+  if (!vejoTodasAsLojas(auth)) {
     return NextResponse.json(
       { erro: "Só um gestor mestre pode excluir alguém da equipe." },
       { status: 403 },

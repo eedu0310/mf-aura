@@ -69,14 +69,22 @@ export function DashboardTab() {
   const dadosFaturamento = useMemo(() => {
     const porMes = new Map<string, { mes: string; confirmado: number; previsto: number }>();
     for (const venda of vendasTodasLojas) {
-      const data = new Date(venda.data);
-      if (Number.isNaN(data.getTime())) continue;
-      const chave = `${data.getFullYear()}-${data.getMonth()}`;
+      // "2026-11-01" lido como data local (new Date() leria em UTC e a venda
+      // do dia 1 cairia no mês anterior no horário de Brasília).
+      const [a, m, d] = String(venda.data ?? "").slice(0, 10).split("-").map(Number);
+      const data = new Date(a, (m ?? 1) - 1, d || 1);
+      if (!a || !m || Number.isNaN(data.getTime())) continue;
+      const chave = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
       const atual = porMes.get(chave) ?? { mes: data.toLocaleDateString("pt-BR", { month: "short" }), confirmado: 0, previsto: 0 };
       atual.confirmado += Number(venda.valor ?? 0);
       porMes.set(chave, atual);
     }
-    return [...porMes.values()].slice(-6);
+    // As vendas chegam da mais nova para a mais velha: sem ordenar, o
+    // slice(-6) pegava os 6 meses MAIS ANTIGOS e o gráfico saía de trás pra frente.
+    return [...porMes.entries()]
+      .sort(([x], [y]) => x.localeCompare(y))
+      .map(([, v]) => v)
+      .slice(-6);
   }, [vendasTodasLojas]);
 
   const dadosPipeline = useMemo(() => {

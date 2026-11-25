@@ -346,7 +346,8 @@ export default function MeuDiaPage() {
                       <span className="font-data font-medium text-aura-graphite">{formatarMoeda(etapa.valor)}</span>
                     </div>
                     <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-aura-sunken">
-                      <div className={`h-full rounded-full ${CORES_PIPELINE[index]}`} style={{ width: `${(etapa.valor / maiorValorPipeline) * 100}%` }} />
+                      {/* Funil com mais de 5 etapas: a cor repete em vez de a barra sumir. */}
+                      <div className={`h-full rounded-full ${CORES_PIPELINE[index % CORES_PIPELINE.length]}`} style={{ width: `${(etapa.valor / maiorValorPipeline) * 100}%` }} />
                     </div>
                     <p className="mt-0.5 text-xs text-aura-graphite-soft">{etapa.oportunidades} oportunidades</p>
                   </li>

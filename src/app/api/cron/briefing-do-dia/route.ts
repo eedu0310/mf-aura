@@ -73,13 +73,19 @@ export async function GET(request: Request) {
         .map((i) => (i.hora ? `${i.hora} ${i.titulo}` : i.titulo))
         .join(" · ");
 
-      await sb.from("notificacoes").insert({
+      const { error: erroAviso } = await sb.from("notificacoes").insert({
         vendedor_id: pessoa.id,
         titulo: briefing.resumo,
         mensagem: primeiros,
         tipo: "saudacao",
         acao_url: "/meu-dia",
       });
+      // Insert recusado contava como enviado: o diário dizia "12 enviados"
+      // num dia em que ninguém recebeu nada.
+      if (erroAviso) {
+        falhas += 1;
+        continue;
+      }
       enviados += 1;
     }
 

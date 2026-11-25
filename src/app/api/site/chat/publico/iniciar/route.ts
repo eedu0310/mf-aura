@@ -18,6 +18,16 @@ function texto(v: unknown, max: number): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
 
+/** O UTM vem do visitante: só texto curto, em poucas chaves (rota pública). */
+function limparUtm(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const saida: Record<string, string> = {};
+  for (const [chave, valor] of Object.entries(v as Record<string, unknown>).slice(0, 10)) {
+    if (typeof valor === "string" && valor) saida[chave.slice(0, 40)] = valor.slice(0, 200);
+  }
+  return Object.keys(saida).length ? saida : null;
+}
+
 /**
  * Visitante começa uma conversa no widget do site.
  *
@@ -33,6 +43,8 @@ export async function POST(request: Request) {
   } catch {
     return respostaCors({ ok: false, erro: "Envio inválido." }, 400);
   }
+  // Corpo "null" (JSON válido) estourava no corpo.site abaixo como 500.
+  if (!corpo || typeof corpo !== "object") return respostaCors({ ok: false, erro: "Envio inválido." }, 400);
   // Armadilha de robô: campo escondido que gente não preenche.
   if (corpo.site) return respostaCors({ ok: false, erro: "Envio inválido." }, 400);
 
@@ -61,7 +73,7 @@ export async function POST(request: Request) {
   }
 
   const origemUrl = texto(corpo.origem_url, 500) || null;
-  const utm = corpo.utm && typeof corpo.utm === "object" ? (corpo.utm as Record<string, string>) : null;
+  const utm = limparUtm(corpo.utm);
 
   const lead = await abrirLeadDoSite(sb, {
     empresa: EMPRESA_DO_SITE,

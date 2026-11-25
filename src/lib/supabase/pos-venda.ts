@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 /**
  * O status do pós-venda, vindo de src/lib/types.ts — que é o que o banco
@@ -203,7 +204,7 @@ export async function listarMinhasPendenciasPosVenda(): Promise<PosVenda[]> {
   }
 
   const todas = (data as unknown as LinhaPosVenda[]).map(doBanco);
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  const hojeISO = diaEmSaoPaulo(); // UTC acusava atraso de véspera depois das 21h
 
   return todas.filter((pv) => {
     const reclamacaoAberta = Boolean(pv.reclamacao?.trim()) && !pv.reclamacaoResolvida;

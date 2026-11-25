@@ -13,6 +13,7 @@
  * entra por outro caminho (aura_aprendizado_origem).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 export type UsoDaSugestao = "usou" | "adaptou" | "ignorou" | "automatica";
 
@@ -134,13 +135,20 @@ export async function resumoDasSugestoes(
   dias = 7,
 ): Promise<ResumoDasSugestoes> {
   const desde = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString();
-  const { data } = await sb
-    .from("aura_sugestoes_resultado")
-    .select("sugestao, enviado, uso, enviado_em, cliente_respondeu, resposta_cliente")
-    .eq("empresa", empresa)
-    .gte("enviado_em", desde)
-    .limit(5000);
-  const linhas = (data ?? []) as LinhaDeSugestao[];
+  // De mil em mil: o `.limit(5000)` não valia (o Supabase corta em 1000) e o
+  // total de sugestões da semana parava em 1000.
+  const linhas = await todasAsLinhas<LinhaDeSugestao>((de, ate) =>
+    sb
+      .from("aura_sugestoes_resultado")
+      .select("sugestao, enviado, uso, enviado_em, cliente_respondeu, resposta_cliente")
+      .eq("empresa", empresa)
+      .gte("enviado_em", desde)
+      .order("id")
+      .range(de, ate),
+  ).catch((e) => {
+    console.error("[resultado-sugestoes] falha ao ler sugestões:", e instanceof Error ? e.message : e);
+    return [] as LinhaDeSugestao[];
+  });
   const agora = Date.now();
   const taxa = (filtro: (l: LinhaDeSugestao) => boolean): number | null => {
     const decididas = linhas.filter((l) => filtro(l) && resultado(l, agora) !== "aguardando");

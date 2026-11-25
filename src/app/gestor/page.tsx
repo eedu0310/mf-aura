@@ -236,6 +236,9 @@ export default function GestorPage() {
   const visiveis = ABAS.filter((a) => !a.soMestre || souMestre);
   const atual = visiveis.find((a) => a.id === aba) ?? visiveis[0];
   const IconeAtual = atual.icon;
+  // Menu, cabeçalho e conteúdo seguem a mesma aba (`atual`). Antes o conteúdo
+  // olhava `aba`: quem não é mestre e abria /gestor?aba=saude via o título
+  // "AURA" com a tela vazia embaixo, e a lista do celular não deixava voltar.
 
   return (
     <div className="flex flex-col gap-6 pb-16 lg:flex-row lg:items-start lg:gap-8">
@@ -261,7 +264,7 @@ export default function GestorPage() {
               <div className="flex flex-col gap-0.5">
                 {doGrupo.map((item) => {
                   const Icon = item.icon;
-                  const ativa = aba === item.id;
+                  const ativa = atual.id === item.id;
                   return (
                     <button
                       key={item.id}
@@ -326,30 +329,30 @@ export default function GestorPage() {
           </div>
         </header>
 
-      {aba === "aura" && (
+      {atual.id === "aura" && (
         <div className="space-y-5">
           <JustificativasEquipe />
           <GestorPainelAura />
         </div>
       )}
-      {aba === "equipe" && <EquipeTab />}
-      {aba === "movimentacao" && <MovimentacaoTab />}
-      {aba === "atendimento" && <AtendimentoTab />}
-      {aba === "funil" && <FunilTab />}
-      {aba === "semanal" && <RelatorioSemanalTab />}
-      {aba === "pontuacao" && <PontuacaoTab />}
-      {aba === "aprendizado" && <AprendizadoCard />}
-      {aba === "dashboard" && <DashboardTab />}
-      {aba === "planilha" && <PlanilhaLeadsDashboard />}
-      {aba === "usuarios" && <UsuariosTab />}
-      {aba === "permissoes" && <PermissoesTab />}
-      {aba === "instagram" && <InstagramTab />}
-      {aba === "ranking" && <RankingConfigTab />}
-      {aba === "avaliacoes" && <AvaliacoesTab />}
-      {aba === "custo-ia" && <CustoIAPainel />}
-      {aba === "saude" && souMestre && <SaudeSistema />}
-      {aba === "configuracoes" && <ConfiguracoesTab />}
-      {aba === "marketing" && <MarketingTab />}
+      {atual.id === "equipe" && <EquipeTab />}
+      {atual.id === "movimentacao" && <MovimentacaoTab />}
+      {atual.id === "atendimento" && <AtendimentoTab />}
+      {atual.id === "funil" && <FunilTab />}
+      {atual.id === "semanal" && <RelatorioSemanalTab />}
+      {atual.id === "pontuacao" && <PontuacaoTab />}
+      {atual.id === "aprendizado" && <AprendizadoCard />}
+      {atual.id === "dashboard" && <DashboardTab />}
+      {atual.id === "planilha" && <PlanilhaLeadsDashboard />}
+      {atual.id === "usuarios" && <UsuariosTab />}
+      {atual.id === "permissoes" && <PermissoesTab />}
+      {atual.id === "instagram" && <InstagramTab />}
+      {atual.id === "ranking" && <RankingConfigTab />}
+      {atual.id === "avaliacoes" && <AvaliacoesTab />}
+      {atual.id === "custo-ia" && <CustoIAPainel />}
+      {atual.id === "saude" && souMestre && <SaudeSistema />}
+      {atual.id === "configuracoes" && <ConfiguracoesTab />}
+      {atual.id === "marketing" && <MarketingTab />}
       </div>
     </div>
   );

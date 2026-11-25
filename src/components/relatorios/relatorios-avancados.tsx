@@ -146,7 +146,11 @@ export function RelatóriosAvançados() {
     (o) => !ehFechada(o.etapa, funil),
   ).length;
   const totalMeta = dadosVendas.reduce((s, d) => s + d.meta, 0);
-  const percentualMeta = totalMeta > 0 ? ((totalVendido / totalMeta) * 100).toFixed(1) : "0";
+  // Só existe meta do mês atual: comparar com ela apenas o que foi vendido nos
+  // meses que têm meta. Somar 3/6/12 meses de venda contra a meta de um mês
+  // inflava o "% Meta Atingida" (ex.: 600% no filtro de 12 meses).
+  const vendidoComMeta = dadosVendas.filter((d) => d.meta > 0).reduce((s, d) => s + d.vendido, 0);
+  const percentualMeta = totalMeta > 0 ? ((vendidoComMeta / totalMeta) * 100).toFixed(1) : "0";
   const ticketMedio = dadosVendas.length > 0 ? (totalVendido / dadosVendas.length) : 0;
 
   function formatarMoeda(valor: number) {

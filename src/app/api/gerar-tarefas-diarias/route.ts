@@ -17,6 +17,11 @@ export interface TarefaDiaria {
 }
 
 export async function POST(request: NextRequest) {
+  // Quem chama, antes da chamada paga de IA: a sessão só era conferida
+  // depois, na hora de gravar — com a IA já cobrada.
+  const auth = await getEmpresaAutenticada();
+  if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+
   try {
     const { dados, cargo } = (await request.json()) as {
       dados: DadosTarefas;

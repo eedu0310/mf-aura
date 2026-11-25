@@ -3,6 +3,7 @@ import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
+import { inicioDoMesEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,12 +50,15 @@ export async function GET(request: Request) {
   if (!supabase) return NextResponse.json({ erro: "Serviço indisponível." }, { status: 500 });
 
   const { searchParams } = new URL(request.url);
-  const dias = Number(searchParams.get("dias") ?? 0);
+  // Teto de um ano: "?dias=1e9" dava uma data fora da faixa e o toISOString
+  // derrubava a rota com 500. Sem dias, o mês corrente é o de Brasília — com
+  // o relógio do servidor em UTC, o "Este mês" começava às 21h da véspera.
+  const dias = Math.min(Number(searchParams.get("dias") ?? 0) || 0, 366);
   const agora = new Date();
   const desde =
     dias > 0
       ? new Date(agora.getTime() - dias * 86400_000)
-      : new Date(agora.getFullYear(), agora.getMonth(), 1);
+      : new Date(inicioDoMesEmSaoPaulo(agora));
   const desdeIso = desde.toISOString();
   const desdeDia = desdeIso.slice(0, 10);
 
@@ -65,12 +69,12 @@ export async function GET(request: Request) {
 
   const [
     { data: pessoas, error: erroPessoas },
-    { data: vendas },
-    { data: vendasAnteriores },
-    { data: relacionamentos },
-    { data: atividades },
-    { data: avaliacoes },
-    { data: oportunidades },
+    { data: vendas, error: erroVendas },
+    { data: vendasAnteriores, error: erroVendasAnteriores },
+    { data: relacionamentos, error: erroRelacionamentos },
+    { data: atividades, error: erroAtividades },
+    { data: avaliacoes, error: erroAvaliacoes },
+    { data: oportunidades, error: erroOportunidades },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -117,7 +121,15 @@ export async function GET(request: Request) {
     ),
   ]);
 
-  if (erroPessoas) {
+  /*
+   * Só o erro das pessoas era olhado. Uma página de vendas que falhasse
+   * devolvia o que já tinha lido, e o ranking saía com faturamento a menos —
+   * decidindo bônus em cima de número cortado, sem ninguém saber.
+   */
+  const erroDados =
+    erroVendas || erroVendasAnteriores || erroRelacionamentos || erroAtividades || erroAvaliacoes || erroOportunidades;
+  if (erroPessoas || erroDados) {
+    if (erroDados) console.error("[ranking/geral] leitura incompleta:", erroDados);
     return NextResponse.json({ erro: "Não consegui carregar o ranking." }, { status: 500 });
   }
 

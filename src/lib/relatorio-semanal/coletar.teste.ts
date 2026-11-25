@@ -121,7 +121,7 @@ function clienteFalso() {
     const alvo: Record<string, unknown> = {
       then: (r: (v: typeof resultado) => unknown) => Promise.resolve(resultado).then(r),
     };
-    for (const m of ["select", "eq", "gte", "lte", "lt", "gt", "in", "not", "order", "limit"]) {
+    for (const m of ["select", "eq", "gte", "lte", "lt", "gt", "in", "not", "order", "limit", "range"]) {
       alvo[m] = () => alvo;
     }
     return alvo;

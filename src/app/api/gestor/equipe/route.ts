@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { colunaDoNegocio, ehFechada, ehGanho, ehPerda } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
@@ -37,7 +38,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
-  if (!mandaNaLoja(auth) && !auth.gestorMestre) {
+  /*
+   * Quem atravessa as quatro lojas é o mestre com cargo Gestor aprovado
+   * (vejoTodasAsLojas). Antes bastava a flag gestor_mestre: sem cargo nem
+   * aprovação, ela abria vendas, conversas e laudos de todas as lojas.
+   */
+  const mestre = vejoTodasAsLojas(auth);
+  if (!mandaNaLoja(auth)) {
     return NextResponse.json({ erro: "Só o gestor da loja vê este painel." }, { status: 403 });
   }
 
@@ -51,12 +58,13 @@ export async function GET(request: Request) {
   const vendedorId = url.searchParams.get("vendedor")?.trim() || null;
   const conversaId = url.searchParams.get("conversa")?.trim() || null;
   const negocioId = url.searchParams.get("negocio")?.trim() || null;
-  const dias = Math.min(Math.max(Number(url.searchParams.get("dias") ?? 90), 7), 365);
+  // `|| 90`: "?dias=abc" virava NaN, a data inválida e um 500 no toISOString.
+  const dias = Math.min(Math.max(Number(url.searchParams.get("dias") ?? 90) || 90, 7), 365);
   const desde = new Date(Date.now() - dias * 86400e3).toISOString();
 
   /** O gestor que não é mestre só enxerga a própria loja, em qualquer nível. */
   function podeVer(empresaDoRegistro: string | null | undefined): boolean {
-    if (auth!.gestorMestre) return true;
+    if (mestre) return true;
     return !!empresaDoRegistro && empresaDoRegistro === auth!.empresa;
   }
   const fora = () =>
@@ -220,34 +228,60 @@ export async function GET(request: Request) {
   if (loja) {
     if (!podeVer(loja)) return fora();
 
-    const [{ data: pessoas }, { data: vendas }, { data: negocios }, { data: conversas }, { data: ativs }] =
-      await Promise.all([
+    /*
+     * Lidas de mil em mil até o fim. Cada consulta parava nas 1000 primeiras
+     * linhas sem avisar — e só as atividades de 90 dias de uma loja passam
+     * disso —, então o placar de cada vendedor saía cortado ao acaso.
+     */
+    let pessoas, vendas, negocios, conversas, ativs;
+    try {
+      [{ data: pessoas }, vendas, negocios, conversas, ativs] = await Promise.all([
         sb
           .from("profiles")
           .select("id, nome, cargo, ativo, excluido_em")
           .eq("empresa", loja)
           .is("excluido_em", null)
           .order("nome"),
-        sb
-          .from("vendas")
-          .select("owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado, data")
-          .eq("empresa", loja)
-          .gte("data", desde.slice(0, 10)),
-        sb
-          .from("oportunidades")
-          .select("owner_id, parceiro_id, etapa, valor, dias_parado")
-          .eq("empresa", loja),
-        sb
-          .from("whatsapp_ia_leads")
-          .select("owner_id, parceiro_id, alertas, resumo, updated_at")
-          .eq("empresa", loja)
-          .gte("updated_at", desde),
-        sb
-          .from("atividades")
-          .select("owner_id")
-          .eq("empresa", loja)
-          .gte("created_at", desde),
+        todasAsLinhas((de, ate) =>
+          sb
+            .from("vendas")
+            .select("owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado, data")
+            .eq("empresa", loja)
+            .gte("data", desde.slice(0, 10))
+            .order("id")
+            .range(de, ate),
+        ),
+        todasAsLinhas((de, ate) =>
+          sb
+            .from("oportunidades")
+            .select("owner_id, parceiro_id, etapa, valor, dias_parado")
+            .eq("empresa", loja)
+            .order("id")
+            .range(de, ate),
+        ),
+        todasAsLinhas((de, ate) =>
+          sb
+            .from("whatsapp_ia_leads")
+            .select("owner_id, parceiro_id, alertas, resumo, updated_at")
+            .eq("empresa", loja)
+            .gte("updated_at", desde)
+            .order("id")
+            .range(de, ate),
+        ),
+        todasAsLinhas((de, ate) =>
+          sb
+            .from("atividades")
+            .select("owner_id")
+            .eq("empresa", loja)
+            .gte("created_at", desde)
+            .order("id")
+            .range(de, ate),
+        ),
       ]);
+    } catch (e) {
+      console.error("[gestor/equipe] loja:", e);
+      return NextResponse.json({ erro: "Não consegui ler os números da loja." }, { status: 500 });
+    }
 
     const funil = await carregarFunil(sb, loja);
     const meus = <T extends { owner_id: string | null; parceiro_id?: string | null }>(
@@ -290,31 +324,43 @@ export async function GET(request: Request) {
   }
 
   // ------------------------------------------------- nível 1: as lojas
-  const lojasVisiveis = auth.gestorMestre ? null : [auth.empresa];
+  const lojasVisiveis = mestre ? null : [auth.empresa];
 
   let qPessoas = sb
     .from("profiles")
     .select("id, empresa, cargo, ativo, excluido_em")
     .is("excluido_em", null);
-  let qVendas = sb
-    .from("vendas")
-    .select("empresa, owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado")
-    .gte("data", desde.slice(0, 10));
-  let qNegocios = sb.from("oportunidades").select("empresa, etapa, valor, dias_parado");
-  let qConversas = sb
-    .from("whatsapp_ia_leads")
-    .select("empresa, alertas")
-    .gte("updated_at", desde);
+  if (lojasVisiveis) qPessoas = qPessoas.in("empresa", lojasVisiveis);
 
-  if (lojasVisiveis) {
-    qPessoas = qPessoas.in("empresa", lojasVisiveis);
-    qVendas = qVendas.in("empresa", lojasVisiveis);
-    qNegocios = qNegocios.in("empresa", lojasVisiveis);
-    qConversas = qConversas.in("empresa", lojasVisiveis);
+  // Lidas até o fim, de mil em mil: o total das lojas parava nas 1000
+  // primeiras linhas (todas as oportunidades do grupo passam disso).
+  let pessoas, vendas, negocios, conversas;
+  try {
+    [{ data: pessoas }, vendas, negocios, conversas] = await Promise.all([
+      qPessoas,
+      todasAsLinhas((de, ate) => {
+        let q = sb
+          .from("vendas")
+          .select("empresa, owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado")
+          .gte("data", desde.slice(0, 10));
+        if (lojasVisiveis) q = q.in("empresa", lojasVisiveis);
+        return q.order("id").range(de, ate);
+      }),
+      todasAsLinhas((de, ate) => {
+        let q = sb.from("oportunidades").select("empresa, etapa, valor, dias_parado");
+        if (lojasVisiveis) q = q.in("empresa", lojasVisiveis);
+        return q.order("id").range(de, ate);
+      }),
+      todasAsLinhas((de, ate) => {
+        let q = sb.from("whatsapp_ia_leads").select("empresa, alertas").gte("updated_at", desde);
+        if (lojasVisiveis) q = q.in("empresa", lojasVisiveis);
+        return q.order("id").range(de, ate);
+      }),
+    ]);
+  } catch (e) {
+    console.error("[gestor/equipe] lojas:", e);
+    return NextResponse.json({ erro: "Não consegui ler os números das lojas." }, { status: 500 });
   }
-
-  const [{ data: pessoas }, { data: vendas }, { data: negocios }, { data: conversas }] =
-    await Promise.all([qPessoas, qVendas, qNegocios, qConversas]);
 
   const nomesDasLojas = [
     ...new Set([
@@ -350,7 +396,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     nivel: "lojas",
-    souMestre: auth.gestorMestre,
+    souMestre: mestre,
     lojas: lojas.sort((a, b) => b.vendido - a.vendido),
     dias,
   });

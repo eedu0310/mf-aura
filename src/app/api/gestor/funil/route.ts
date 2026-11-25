@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { esquecerFunil } from "@/lib/funil-servidor";
 import { FUNIL_PADRAO } from "@/lib/funil";
 
@@ -61,14 +62,20 @@ export async function GET(req: NextRequest) {
     .order("ordem");
 
   // Quantos negócios há em cada etapa: é o que o gestor precisa ver antes de
-  // desligar ou renomear uma delas.
-  const { data: ops } = await sb!
-    .from("oportunidades")
-    .select("etapa")
-    .eq("empresa", loja);
+  // desligar ou renomear uma delas. Lido até o fim: a consulta simples parava
+  // em 1000 negócios e a contagem por etapa saía menor do que a real.
+  let ops: { etapa: string | null }[];
+  try {
+    ops = await todasAsLinhas<{ etapa: string | null }>((de, ate) =>
+      sb!.from("oportunidades").select("etapa").eq("empresa", loja).order("id").range(de, ate),
+    );
+  } catch (e) {
+    console.error("[gestor/funil] contagem por etapa:", e);
+    return NextResponse.json({ erro: "Não consegui contar os negócios de cada etapa." }, { status: 500 });
+  }
 
   const quantos: Record<string, number> = {};
-  for (const o of ops ?? []) {
+  for (const o of ops) {
     const e = String(o.etapa ?? "");
     quantos[e] = (quantos[e] ?? 0) + 1;
   }

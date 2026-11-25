@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { SITE, assinarEstado, credenciais, urlDeAutorizacao } from "@/lib/meta/conectar";
 
@@ -13,7 +13,8 @@ export async function GET(request: Request) {
 
   const auth = await getEmpresaAutenticada();
   if (!auth) return NextResponse.redirect(`${SITE}/login`);
-  if (!auth.gestorMestre) return voltar("Só um gestor mestre conecta contas do Instagram.");
+  // Mestre de verdade (cargo Gestor, aprovado e mestre), a mesma régua da aba.
+  if (!vejoTodasAsLojas(auth)) return voltar("Só um gestor mestre conecta contas do Instagram.");
 
   const empresa = (new URL(request.url).searchParams.get("empresa") ?? "").trim();
   if (!NOMES_EMPRESAS.includes(empresa)) return voltar("Loja inválida.");

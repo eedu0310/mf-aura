@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     empresa: auth.empresa,
     // O gestor mestre atende pelas quatro lojas: vê o link de cada uma.
-    todas: auth.gestorMestre === true,
+    todas: vejoTodasAsLojas(auth),
     pedido,
     configs: configs ?? [],
   });

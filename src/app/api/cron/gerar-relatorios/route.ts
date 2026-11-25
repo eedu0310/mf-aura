@@ -50,10 +50,20 @@ function semanaQueTermina(quando = new Date()): { inicio: Date; fim: Date } {
   return { inicio, fim: amanha < domingo ? amanha : domingo };
 }
 
+/**
+ * O mês passado inteiro, de meia-noite a meia-noite de Brasília.
+ *
+ * `new Date(ano, mes, 1)` usa o relógio do servidor: numa VPS em UTC o mês
+ * começava às 21h da véspera, e as vendas da última noite do mês caíam no
+ * relatório errado. Os rótulos (AAAA-MM-01) continuam os mesmos.
+ */
 function inicioDoMesPassado(): { inicio: Date; fim: Date } {
-  const hoje = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-  const fim = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const [ano, mes] = diaBR().split("-").map(Number);
+  const anoPassado = mes === 1 ? ano - 1 : ano;
+  const mesPassado = mes === 1 ? 12 : mes - 1;
+  const doisDigitos = (n: number) => String(n).padStart(2, "0");
+  const inicio = new Date(`${anoPassado}-${doisDigitos(mesPassado)}-01T00:00:00-03:00`);
+  const fim = new Date(`${ano}-${doisDigitos(mes)}-01T00:00:00-03:00`);
   return { inicio, fim };
 }
 

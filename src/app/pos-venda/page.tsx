@@ -46,7 +46,10 @@ function formatarMoeda(valor: number) {
 function estaAtrasada(item: PosVenda) {
   if (!item.dataAgendamento) return false;
   if (item.status !== "agendamento_realizado") return false;
-  const hojeISO = new Date().toISOString().slice(0, 10);
+  // "Hoje" no fuso de quem olha. O toISOString() é UTC: depois das 21h no
+  // Brasil já era amanhã, e a instalação marcada para hoje aparecia atrasada.
+  const agora = new Date();
+  const hojeISO = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
   return item.dataAgendamento < hojeISO;
 }
 
@@ -98,10 +101,12 @@ export default function PosVendaPage() {
   const totalVendas = itensDaLoja.filter((i) => i.origem !== "cliente_antigo").length;
   const totalReclamacoes = itensDaLoja.filter((i) => i.status === "reclamacao").length;
   const totalAvaliaram = itensDaLoja.filter((i) => i.avaliouLoja && i.origem !== "cliente_antigo").length;
+  // Soma e divisor do mesmo grupo: antes somava as notas de todos (cliente
+  // antigo e quem tinha nota sem "avaliou") e dividia só por quem avaliou,
+  // então a média podia passar de 5 ou cair sem motivo.
+  const comNota = itensDaLoja.filter((i) => i.notaAvaliacao && i.origem !== "cliente_antigo");
   const notaMedia =
-    totalAvaliaram > 0
-      ? itensDaLoja.filter((i) => i.notaAvaliacao).reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / totalAvaliaram
-      : 0;
+    comNota.length > 0 ? comNota.reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / comNota.length : 0;
 
   const atrasadas = itensDaLoja.filter(estaAtrasada);
   const reclamacoesAbertas = itensDaLoja.filter(temReclamacaoAberta);

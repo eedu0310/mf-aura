@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { mesEmSaoPaulo } from "@/lib/fuso";
 
 export type Metrica =
   | "leads_loja"
@@ -41,7 +42,7 @@ export interface IndicadorLinha {
 }
 
 function mesAtual() {
-  return new Date().toISOString().slice(0, 7);
+  return mesEmSaoPaulo(); // UTC: no último dia do mês, às 21h, já era o mês seguinte
 }
 
 export async function listarIndicadoresDoMes(mes?: string, vendedorId?: string): Promise<IndicadorLinha[]> {

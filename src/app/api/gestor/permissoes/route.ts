@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
@@ -32,11 +32,24 @@ async function somenteMestre() {
 
   const { data: eu } = await sb
     .from("profiles")
-    .select("gestor_mestre")
+    .select("cargo, gestor_mestre, gestor_aprovado")
     .eq("id", auth.userId)
     .maybeSingle();
 
-  if (!eu?.gestor_mestre) {
+  /*
+   * Régua inteira de mestre (cargo Gestor, aprovado e mestre). Só a flag
+   * gestor_mestre não basta: ela sobrevive a uma troca de cargo, e quem a
+   * guardasse depois de rebaixado continuaria aprovando gestores — inclusive
+   * a si mesmo, devolvendo-se todo o poder por esta rota.
+   */
+  if (
+    !eu ||
+    !vejoTodasAsLojas({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    })
+  ) {
     return {
       erro: NextResponse.json(
         { erro: "Só um gestor mestre altera permissões e aprova gestores." },

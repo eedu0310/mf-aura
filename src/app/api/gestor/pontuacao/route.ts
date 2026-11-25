@@ -14,8 +14,9 @@
  * perderia a graça no primeiro mês.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getEmpresaAutenticada } from "@/lib/auth-empresa";
+import { administra, getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,9 +42,18 @@ async function somenteGestor() {
    *
    * A conta nasce com o cargo e espera aprovação de um gestor mestre; conferir
    * só o cargo deixava quem acabou de se cadastrar entrar aqui antes de alguém
-   * aprovar. O mestre passa por cima, como em todo lugar.
+   * aprovar. O mestre passa por cima, como em todo lugar — mas o mestre
+   * também precisa ser Gestor aprovado: a flag gestor_mestre sozinha passava
+   * aqui sem cargo nem aprovação (régua única em auth-empresa).
    */
-  if (!eu || !((/gestor/i.test(eu.cargo ?? "") && eu.gestor_aprovado === true) || eu.gestor_mestre)) {
+  if (
+    !eu ||
+    !administra({
+      cargo: eu.cargo as string,
+      gestorAprovado: eu.gestor_aprovado === true,
+      gestorMestre: eu.gestor_mestre === true,
+    })
+  ) {
     return {
       erro: NextResponse.json(
         { erro: "Só o gestor define pontuação, metas e prêmios." },
@@ -58,7 +68,13 @@ export async function GET(req: NextRequest) {
   const { erro, sb, eu } = await somenteGestor();
   if (erro) return erro;
 
-  const mes = req.nextUrl.searchParams.get("mes") || new Date().toISOString().slice(0, 7);
+  // O mês vai cru para dentro do .or() abaixo: sem conferir o formato, a URL
+  // podia acrescentar filtros à consulta. E o mês corrente é o de Brasília —
+  // em UTC, das 21h do último dia em diante a tela já mostrava o mês seguinte.
+  const mes = req.nextUrl.searchParams.get("mes") || diaEmSaoPaulo().slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(mes)) {
+    return NextResponse.json({ erro: "Mês inválido (use AAAA-MM)." }, { status: 400 });
+  }
   const ano = mes.slice(0, 4);
   const pedida = req.nextUrl.searchParams.get("loja");
   const loja = eu!.gestor_mestre && pedida ? pedida : eu!.empresa;
@@ -174,6 +190,16 @@ export async function POST(req: NextRequest) {
 
   const loja = eu!.gestor_mestre && c.loja ? c.loja : eu!.empresa;
 
+  /**
+   * A pessoa é desta loja? O cliente de serviço não tem RLS: sem esta
+   * conferência um gestor gravava meta (ou prêmio) para vendedor de outra
+   * loja — e o upsert por vendedor/mês ainda trocava a empresa da meta dele.
+   */
+  async function daLoja(pessoaId: string): Promise<boolean> {
+    const { data } = await sb!.from("profiles").select("empresa").eq("id", pessoaId).maybeSingle();
+    return !!data && data.empresa === loja;
+  }
+
   if (c.acao === "regra") {
     if (!c.tipo || !c.chave || typeof c.pontos !== "number" || c.pontos < 0) {
       return NextResponse.json(
@@ -201,6 +227,9 @@ export async function POST(req: NextRequest) {
         { erro: "Informe vendedorId, mes e meta." },
         { status: 400 },
       );
+    }
+    if (!(await daLoja(String(c.vendedorId)))) {
+      return NextResponse.json({ erro: "Esta pessoa não é da loja." }, { status: 403 });
     }
     const { error } = await sb!.from("metas_indicadores").upsert(
       {
@@ -236,6 +265,9 @@ export async function POST(req: NextRequest) {
 
     let pontosNaApuracao: number | null = null;
     if (c.vencedorId) {
+      if (!(await daLoja(String(c.vencedorId)))) {
+        return NextResponse.json({ erro: "O vencedor precisa ser da loja." }, { status: 403 });
+      }
       const fonte = c.escopo === "mensal" ? "pontos_do_mes" : "pontos_do_ano";
       const filtro = c.escopo === "mensal" ? { mes: periodo } : { ano: periodo };
       const { data } = await sb!

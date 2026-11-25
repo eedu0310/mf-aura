@@ -24,6 +24,7 @@ import { NOMES_EMPRESAS } from "@/lib/companies";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { gravarExigindoLinha } from "@/lib/supabase/gravar";
 import { pedirLaudoDoFechamento } from "@/lib/aura/pedir-laudo";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import {
   daLinha,
   ehGanho,
@@ -153,7 +154,9 @@ function gerarId(prefixo: string) {
 }
 
 function hojeISO() {
-  return new Date().toISOString().slice(0, 10);
+  // Dia de Brasília: o toISOString() é UTC e, depois das 21h, já marcava
+  // amanhã — venda fechada no último dia do mês caía no mês seguinte.
+  return diaEmSaoPaulo();
 }
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
@@ -291,6 +294,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           .order("ordem");
         if (ativo && etapas?.length) setFunil(etapas.map(daLinha));
       }
+      // Uma recarga mais nova começou enquanto o funil era lido: ela é quem
+      // grava. Sem isto, a leitura velha sobrescrevia a nova na tela.
+      if (!ativo) return;
 
       if (opRes.data)
         setTodasOportunidades(opRes.data.map(oportunidadeDoBanco));
@@ -312,7 +318,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      setCarregandoDados(false);
+      if (ativo) setCarregandoDados(false);
     }
 
     carregarTudo();
@@ -762,7 +768,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       // Compromissos que ainda não aconteceram somem da agenda: não faz
       // sentido manter visita marcada para um cliente que não existe mais.
-      const hoje = new Date().toISOString().slice(0, 10);
+      const hoje = hojeISO();
       const { error: erroCompromisso } = await supabase
         .from("compromissos")
         .delete()
@@ -1003,7 +1009,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       const vendaComData = {
         ...dados,
-        data: dados.data || new Date().toISOString().split("T")[0],
+        data: dados.data || hojeISO(),
       };
 
       const { data, error } = await supabase
@@ -1071,7 +1077,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const nova: Venda = {
       ...dados,
       id: gerarId("venda"),
-      data: dados.data || new Date().toISOString().split("T")[0],
+      data: dados.data || hojeISO(),
     };
     setTodasVendas((prev) => [nova, ...prev]);
     return nova;
@@ -1391,7 +1397,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
     if (oportunidade.relacionamentoId) {
       await updateRelacionamento(oportunidade.relacionamentoId, {
-        ultimoContato: new Date().toISOString().slice(0, 10),
+        ultimoContato: hojeISO(),
       });
     }
 
@@ -1401,7 +1407,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         vendedorId: "",
         cliente: oportunidade.cliente,
         valor: oportunidade.valor,
-        data: new Date().toISOString().slice(0, 10),
+        data: hojeISO(),
         produto: oportunidade.produto,
         empresa: oportunidade.empresa,
         relacionamentoId: oportunidade.relacionamentoId,

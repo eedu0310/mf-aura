@@ -7,6 +7,7 @@ import { listarLeads, type Lead } from "@/lib/supabase/leads";
 import { listarCampanhas, type Campanha } from "@/lib/supabase/campanhas-marketing";
 import { listarPostagens, type PostagemMarketing } from "@/lib/supabase/postagens-marketing";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import type { AbaMarketing } from "@/components/marketing/aba-marketing";
 
 interface ItemAtividade {
@@ -73,11 +74,14 @@ export function VisaoGeralMarketing({ onIrPara }: { onIrPara: (aba: AbaMarketing
     for (let i = 13; i >= 0; i--) {
       const d = new Date(hoje);
       d.setDate(hoje.getDate() - i);
-      dias.push({ chave: d.toISOString().slice(0, 10), label: `${d.getDate()}/${d.getMonth() + 1}` });
+      // Dia de Brasília dos dois lados: em UTC o lead das 21h às 24h caía no
+      // dia seguinte, e o rótulo (hora local) não batia com a chave (UTC).
+      const chave = diaEmSaoPaulo(d);
+      dias.push({ chave, label: `${Number(chave.slice(8, 10))}/${Number(chave.slice(5, 7))}` });
     }
     return dias.map(({ chave, label }) => ({
       dia: label,
-      Leads: leads.filter((l) => l.createdAt?.slice(0, 10) === chave).length,
+      Leads: leads.filter((l) => l.createdAt && diaEmSaoPaulo(new Date(l.createdAt)) === chave).length,
     }));
   }, [leads]);
 

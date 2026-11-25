@@ -93,7 +93,15 @@ export function MobileNavbar() {
         </div>
 
         {aberto && (
-          <div className="menu-mobile-rolagem overflow-y-auto border-t border-aura-mist bg-aura-surface">
+          // Tocar em qualquer link fecha a gaveta. Só o efeito do pathname não
+          // basta: tocar na tela em que já se está (ou em "Editar perfil" estando
+          // em Configurações) não muda o caminho e a gaveta ficava aberta.
+          <div
+            className="menu-mobile-rolagem overflow-y-auto border-t border-aura-mist bg-aura-surface"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("a")) setAberto(false);
+            }}
+          >
             <div className="border-b border-aura-mist px-4 py-3">
               <div className="flex items-center gap-3">
                 <AvatarUsuario

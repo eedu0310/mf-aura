@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { carregarFunil } from "@/lib/funil-servidor";
 import type { EtapaFunil } from "@/lib/funil";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
 export interface Perfil {
   id: string;
@@ -156,57 +157,97 @@ export async function carregarDados(
   const desdeVenda = new Date(Date.now() - (opts.diasVendas ?? 400) * 86400e3).toISOString().slice(0, 10);
   const desdeComp = new Date(Date.now() - 30 * 86400e3).toISOString().slice(0, 10);
 
+  /**
+   * Lê a tabela inteira, de mil em mil. Os `.limit(5000)` que havia aqui não
+   * valiam: o Supabase corta em 1000 linhas por pedido mesmo assim, e o card
+   * do Supervisor da loja mostrava "Carteira de 1000 clientes" com 1485 na
+   * base. Se a leitura falhar, segue com lista vazia (como antes), mas avisa.
+   */
+  async function lerTudo<T>(
+    tabela: string,
+    montar: (de: number, ate: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  ): Promise<T[]> {
+    try {
+      return await todasAsLinhas<T>(montar);
+    } catch (e) {
+      console.error(`[aura/dados] falha ao ler ${tabela}:`, e instanceof Error ? e.message : e);
+      return [];
+    }
+  }
+
   const [perfis, rels, ops, ativs, vendas, comps, metas, metasAtiv, leads] = await Promise.all([
     sb.from("profiles").select("id, nome, empresa, cargo, ativo").is("excluido_em", null),
-    sb
-      .from("relacionamentos")
-      .select("id, owner_id, empresa, nome, temperatura, ultimo_contato_em, proximo_contato_em, created_at")
-      .limit(5000),
-    sb
-      .from("oportunidades")
-      .select("id, owner_id, empresa, cliente, valor, etapa, created_at, updated_at, relacionamento_id")
-      .limit(5000),
-    sb
-      .from("atividades")
-      .select("id, owner_id, empresa, tipo, titulo, ocorrida_em, created_at, origem")
-      .gte("created_at", desdeAtiv)
-      .limit(10000),
-    sb
-      .from("vendas")
-      .select("id, owner_id, empresa, cliente, valor, valor_fechado, data, status, parceiro_id, percentual_parceiro")
-      .gte("data", desdeVenda)
-      .limit(5000),
-    sb
-      .from("compromissos")
-      .select("id, owner_id, titulo, tipo, relacionamento_nome, data, hora, concluido")
-      .gte("data", desdeComp)
-      .limit(3000),
-    sb.from("metas").select("owner_id, mes, valor_meta, empresa").limit(3000),
-    sb.from("metas_atividade").select("vendedor_id, categoria, periodo, quantidade").limit(3000),
-    sb
-      .from("whatsapp_ia_leads")
-      .select("owner_id, nome, etapa, alertas, proxima_acao, ignorado, updated_at")
-      .eq("ignorado", false)
-      .limit(3000),
+    lerTudo<Rel>("relacionamentos", (de, ate) =>
+      sb
+        .from("relacionamentos")
+        .select("id, owner_id, empresa, nome, temperatura, ultimo_contato_em, proximo_contato_em, created_at")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTudo<Op>("oportunidades", (de, ate) =>
+      sb
+        .from("oportunidades")
+        .select("id, owner_id, empresa, cliente, valor, etapa, created_at, updated_at, relacionamento_id")
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTudo<Ativ>("atividades", (de, ate) =>
+      sb
+        .from("atividades")
+        .select("id, owner_id, empresa, tipo, titulo, ocorrida_em, created_at, origem")
+        .gte("created_at", desdeAtiv)
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTudo<Venda>("vendas", (de, ate) =>
+      sb
+        .from("vendas")
+        .select("id, owner_id, empresa, cliente, valor, valor_fechado, data, status, parceiro_id, percentual_parceiro")
+        .gte("data", desdeVenda)
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTudo<Comp>("compromissos", (de, ate) =>
+      sb
+        .from("compromissos")
+        .select("id, owner_id, titulo, tipo, relacionamento_nome, data, hora, concluido")
+        .gte("data", desdeComp)
+        .order("id")
+        .range(de, ate),
+    ),
+    lerTudo<Meta>("metas", (de, ate) =>
+      sb.from("metas").select("owner_id, mes, valor_meta, empresa").order("id").range(de, ate),
+    ),
+    lerTudo<MetaAtiv>("metas_atividade", (de, ate) =>
+      sb.from("metas_atividade").select("vendedor_id, categoria, periodo, quantidade").order("id").range(de, ate),
+    ),
+    lerTudo<LeadWa>("whatsapp_ia_leads", (de, ate) =>
+      sb
+        .from("whatsapp_ia_leads")
+        .select("owner_id, nome, etapa, alertas, proxima_acao, ignorado, updated_at")
+        .eq("ignorado", false)
+        .order("id")
+        .range(de, ate),
+    ),
   ]);
 
   return {
     perfil,
     perfis: (perfis.data ?? []) as Perfil[],
-    relacionamentos: (rels.data ?? []) as Rel[],
-    oportunidades: ((ops.data ?? []) as Op[]).map((o) => ({ ...o, valor: num(o.valor) })),
-    atividades: (ativs.data ?? []) as Ativ[],
-    vendas: ((vendas.data ?? []) as Venda[]).map((v) => ({
+    relacionamentos: rels,
+    oportunidades: ops.map((o) => ({ ...o, valor: num(o.valor) })),
+    atividades: ativs,
+    vendas: vendas.map((v) => ({
       ...v,
       valor: num(v.valor),
       valor_fechado: v.valor_fechado == null ? null : num(v.valor_fechado),
       percentual_parceiro:
         v.percentual_parceiro == null ? null : num(v.percentual_parceiro),
     })),
-    compromissos: (comps.data ?? []) as Comp[],
-    metas: ((metas.data ?? []) as Meta[]).map((m) => ({ ...m, valor_meta: num(m.valor_meta) })),
-    metasAtividade: ((metasAtiv.data ?? []) as MetaAtiv[]).map((m) => ({ ...m, quantidade: num(m.quantidade) })),
-    leadsWhats: ((leads.data ?? []) as LeadWa[]).map((l) => ({ ...l, alertas: Array.isArray(l.alertas) ? l.alertas : [] })),
+    compromissos: comps,
+    metas: metas.map((m) => ({ ...m, valor_meta: num(m.valor_meta) })),
+    metasAtividade: metasAtiv.map((m) => ({ ...m, quantidade: num(m.quantidade) })),
+    leadsWhats: leads.map((l) => ({ ...l, alertas: Array.isArray(l.alertas) ? l.alertas : [] })),
     funil: await carregarFunil(sb, perfil.empresa),
   };
 }

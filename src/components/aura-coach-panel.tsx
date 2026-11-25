@@ -32,7 +32,7 @@ function formatarMoeda(valor: number) {
 
 export function AuraCoachPanel() {
   const { profile } = useUserProfile();
-  const { oportunidades, relacionamentos, vendas, atividades, funil } = useAppData();
+  const { oportunidades, relacionamentos, vendas, atividades, funil, carregando } = useAppData();
   const [concluidas, setConcluidas] = useState<Set<string>>(new Set());
   const [recomendacoes, setRecomendacoes] = useState<Array<{ id: string; titulo: string; descricao: string; prioridade: string }>>([]);
 
@@ -42,7 +42,7 @@ export function AuraCoachPanel() {
   const prioridades = calcularPrioridadesComerciais({ relacionamentos, oportunidades, atividades, funil });
   const analiseVendas = useMemo(
     () => analisarPorQueNaoVendo({ relacionamentos, oportunidades, vendas, atividades, funil }),
-    [relacionamentos, oportunidades, vendas, atividades],
+    [relacionamentos, oportunidades, vendas, atividades, funil],
   );
 
   useEffect(() => {
@@ -121,7 +121,10 @@ export function AuraCoachPanel() {
           </div>
         ) : (
           <div className="mt-3 rounded-lg bg-aura-sunken p-3 text-xs leading-relaxed text-aura-graphite-soft">
-            {oportunidades.length} oportunidades, {relacionamentos.length} relacionamentos e {vendas.length} vendas carregados do sistema. Converse com a AURA para uma análise detalhada.
+            {/* Enquanto os dados chegam, não mostrar "0 oportunidades" como se a carteira estivesse vazia. */}
+            {carregando
+              ? "Carregando seus dados…"
+              : `${oportunidades.length} oportunidades, ${relacionamentos.length} relacionamentos e ${vendas.length} vendas carregados do sistema. Converse com a AURA para uma análise detalhada.`}
           </div>
         )}
 

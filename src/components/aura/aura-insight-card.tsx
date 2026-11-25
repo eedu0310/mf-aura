@@ -161,7 +161,8 @@ export function AuraInsightCard({
             <div className="mt-1.5 h-4 w-2/3 animate-pulse rounded bg-aura-sunken" />
           ) : (
             <>
-              <p className="mt-0.5 truncate text-[0.9375rem] font-semibold text-aura-graphite">{dados?.manchete ?? "AURA indisponível"}</p>
+              {/* Quebra em até 2 linhas: no celular o "truncate" escondia a manchete. */}
+              <p className="mt-0.5 line-clamp-2 break-words text-[0.9375rem] font-semibold text-aura-graphite">{dados?.manchete ?? "AURA indisponível"}</p>
               {!recolhido && dados?.foco && (
                 <p className="mt-1 flex items-start gap-1.5 text-sm text-aura-graphite-soft">
                   <Target size={14} className="mt-0.5 shrink-0 text-aura-gold-700" />
@@ -193,18 +194,20 @@ export function AuraInsightCard({
       </div>
 
       {!recolhido && (
-        <div className="space-y-3 bg-aura-bg/40 p-4 sm:p-5">
+        // @container: as colunas seguem a largura do cartão, não da tela. No
+        // Meu Dia ele fica numa coluna estreita ao lado da barra lateral.
+        <div className="@container space-y-3 bg-aura-bg/40 p-4 sm:p-5">
           {erro && <Alerta tom="perigo" titulo={erro} className="shadow-none" />}
 
           {/* Números-chave (exatos, vindos do banco) */}
           {dados?.kpis?.length ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
               {dados.kpis.map((k) => {
                 const miolo = (
                   <>
-                    <p className="flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
-                      <span className="aura-rotulo truncate">{k.label}</span>
+                    <p className="flex items-start gap-1.5">
+                      <span className={`mt-[0.3rem] h-1.5 w-1.5 shrink-0 rounded-full ${PONTO_TOM[k.tom ?? "neutro"]}`} aria-hidden />
+                      <span className="aura-rotulo min-w-0 break-words">{k.label}</span>
                     </p>
                     <p className={`mt-1.5 font-display text-xl font-semibold tabular-nums ${COR_TOM[k.tom ?? "neutro"]}`}>{k.valor}</p>
                   </>
@@ -228,7 +231,7 @@ export function AuraInsightCard({
               })}
             </div>
           ) : carregando ? (
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 @xl:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-[66px] animate-pulse rounded-xl bg-aura-sunken" />
               ))}
@@ -237,24 +240,34 @@ export function AuraInsightCard({
 
           {/* Recados */}
           {dados?.insights?.length ? (
-            <ul className="grid gap-2 md:grid-cols-2">
+            <ul className="grid gap-2 @2xl:grid-cols-2">
               {dados.insights.map((i, idx) => {
                 const est = ESTILO_TIPO[i.tipo] ?? ESTILO_TIPO.dica;
+                const botao = i.acao && (
+                  <Link href={i.acao.href} className={classeBotao("secundario", "sm")}>
+                    {i.acao.label}
+                  </Link>
+                );
+                // Recado estreito (celular, coluna do Meu Dia): o botão desce
+                // para baixo do texto, senão o texto ficava espremido ao lado.
                 return (
-                  <li key={idx} title={est.rotulo} className="flex">
+                  <li key={idx} title={est.rotulo} className="@container flex">
                     <Alerta
                       tom={est.tom}
                       icone={est.icone}
                       titulo={i.titulo}
-                      descricao={i.detalhe}
-                      className="w-full"
-                      acao={
-                        i.acao && (
-                          <Link href={i.acao.href} className={classeBotao("secundario", "sm")}>
-                            {i.acao.label}
-                          </Link>
+                      descricao={
+                        botao ? (
+                          <>
+                            {i.detalhe}
+                            <span className="mt-2 block @md:hidden">{botao}</span>
+                          </>
+                        ) : (
+                          i.detalhe
                         )
                       }
+                      className="w-full"
+                      acao={botao && <span className="hidden @md:block">{botao}</span>}
                     />
                   </li>
                 );

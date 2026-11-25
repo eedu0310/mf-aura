@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Search, Check, AlertCircle } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import { ehPerda, nomesDasEtapas, primeiraEtapa } from "@/lib/funil";
 import type { Etapa, Probabilidade } from "@/lib/types";
 import { classeBotao } from "@/components/ui";
@@ -72,7 +73,7 @@ export function NewOpportunityModal({ onClose }: { onClose: () => void }) {
           nome: busca.trim(),
           categoria: "Cliente Final",
           temperatura: "ativo",
-          proximoContato: new Date().toISOString().slice(0, 10),
+          proximoContato: diaEmSaoPaulo(),
         });
 
 

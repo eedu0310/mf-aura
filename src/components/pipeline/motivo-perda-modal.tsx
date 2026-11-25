@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import type { Oportunidade } from "@/lib/types";
 import { classeBotao } from "@/components/ui";
 
@@ -68,7 +69,7 @@ export function MotivoPerdaModal(props: MotivoPerdaModalProps) {
           await updateOportunidade(props.oportunidade.id, {
             motivoPerda: formData.motivoPerda as any,
             descricaoPerda: descricao,
-            dataPerda: new Date().toISOString().slice(0, 10),
+            dataPerda: diaEmSaoPaulo(),
           });
         }
         if (props.onConfirm) {

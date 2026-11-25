@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
+import { diaEmSaoPaulo } from "@/lib/fuso";
+import { moedaParaNumero } from "@/components/registrar-atividade/activity-date";
 import { Botao, StatCard, classeBotao } from "@/components/ui";
 import { NewOpportunityModal } from "./new-opportunity-modal";
 import { OportunidadeDetailsModal } from "./oportunidade-details-modal";
@@ -319,7 +321,9 @@ export function PipelineBoard({}: PipelineBoardProps) {
     (soma, o) => soma + o.valor * PESO_PROBABILIDADE[o.probabilidade],
     0,
   );
-  const mesAtual = new Date().toISOString().slice(0, 7);
+  // Mês de Brasília: em UTC, das 21h do último dia em diante o card já
+  // contava o mês seguinte e mostrava R$ 0.
+  const mesAtual = diaEmSaoPaulo().slice(0, 7);
   const fechamentosDoMes = (vendas ?? [])
     .filter((venda) => venda.data?.startsWith(mesAtual))
     .reduce((total, venda) => total + (venda.valorFechado ?? venda.valor ?? 0), 0);
@@ -351,7 +355,8 @@ export function PipelineBoard({}: PipelineBoardProps) {
         "",
       );
       if (digitado === null) return;
-      const valor = Number(digitado.replace(/[^\d]/g, ""));
+      // "15.000,00" virava 1.500.000: os centavos entravam como reais.
+      const valor = Math.round(moedaParaNumero(digitado));
       if (!valor) {
         window.alert("Sem valor o negócio fica onde está. Abra o card e preencha quando souber.");
         return;
@@ -530,7 +535,11 @@ export function PipelineBoard({}: PipelineBoardProps) {
 
         {oportunidadeSelecionada && (
           <OportunidadeDetailsModal
-            oportunidade={oportunidadeSelecionada}
+            // A versão atual da lista, não a cópia do clique: depois de salvar
+            // a edição o modal mostrava os valores antigos até ser reaberto.
+            oportunidade={
+              oportunidades.find((o) => o.id === oportunidadeSelecionada.id) ?? oportunidadeSelecionada
+            }
             onClose={() => setOportunidadeSelecionada(null)}
             onDelete={() => setOportunidadeSelecionada(null)}
           />
@@ -541,7 +550,9 @@ export function PipelineBoard({}: PipelineBoardProps) {
             oportunidade={oportunidadePerdendo}
             onClose={() => setOportunidadePerdendo(null)}
             onConfirm={async () => {
-              moveOportunidade(oportunidadePerdendo.id, nomeDaChave("perda", funil) ?? "Perdidos");
+              // Com await: se o banco recusar, o modal mostra o motivo em vez
+              // de a promessa falhar calada e o card ficar onde estava.
+              await moveOportunidade(oportunidadePerdendo.id, nomeDaChave("perda", funil) ?? "Perdidos");
               setOportunidadePerdendo(null);
             }}
           />

@@ -47,11 +47,14 @@ async function cobrar(request: Request): Promise<Record<string, unknown>> {
 
   const inicioMes = `${mes}-01T00:00:00-03:00`;
 
-  /** Lê todas as linhas, de mil em mil (o limite de cada consulta). */
+  /**
+   * Lê todas as linhas, de mil em mil (o limite de cada consulta). Ordena por
+   * id: sem ordem estável as páginas podem repetir ou pular linhas.
+   */
   async function todas(tabela: string, colunas: string, filtro: (q: any) => any) {
     const linhas: Record<string, unknown>[] = [];
     for (let de = 0; ; de += 1000) {
-      const { data, error } = await filtro(sb!.from(tabela).select(colunas)).range(de, de + 999);
+      const { data, error } = await filtro(sb!.from(tabela).select(colunas)).order("id").range(de, de + 999);
       if (error) throw new Error(`${tabela}: ${error.message}`);
       linhas.push(...((data ?? []) as Record<string, unknown>[]));
       if (!data || data.length < 1000) return linhas;

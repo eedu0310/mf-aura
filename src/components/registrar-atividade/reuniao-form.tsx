@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { classeBotao } from "@/components/ui";
 import { useAppData } from "@/lib/app-data-context";
+import { diaEmSaoPaulo } from "@/lib/fuso";
 import { SearchRelationshipField } from "./search-relationship-field";
 import { ChoiceChips } from "./choice-chips";
 import { WhenPicker } from "./when-picker";
@@ -30,7 +31,7 @@ export function ReuniaoForm({ onConcluir }: { onConcluir: () => void }) {
   const [resultado, setResultado] = useState("Positivo");
   const [assunto, setAssunto] = useState("");
   const [dataReuniao, setDataReuniao] = useState(
-    new Date().toISOString().split("T")[0],
+    diaEmSaoPaulo(),
   );
   const [horaReuniao, setHoraReuniao] = useState("10:00");
   const [local, setLocal] = useState("");

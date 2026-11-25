@@ -37,6 +37,20 @@ function erro(mensagem: string, status = 400) {
   return cors(NextResponse.json({ ok: false, erro: mensagem }, { status }));
 }
 
+/**
+ * O UTM vem do navegador de qualquer visitante e ia direto para o banco:
+ * um objeto de qualquer tamanho e formato, numa rota pública. Fica só texto
+ * curto, em poucas chaves.
+ */
+function limparUtm(v: unknown): Record<string, string> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const saida: Record<string, string> = {};
+  for (const [chave, valor] of Object.entries(v as Record<string, unknown>).slice(0, 10)) {
+    if (typeof valor === "string" && valor) saida[chave.slice(0, 40)] = valor.slice(0, 200);
+  }
+  return Object.keys(saida).length ? saida : null;
+}
+
 export async function POST(request: Request) {
   let corpo: {
     formulario?: string;
@@ -51,6 +65,8 @@ export async function POST(request: Request) {
   } catch {
     return erro("Envio inválido.");
   }
+  // Corpo "null" (JSON válido) estourava no corpo.site abaixo como 500.
+  if (!corpo || typeof corpo !== "object") return erro("Envio inválido.");
 
   // Armadilha: campo escondido que só robô preenche. Responde "ok" para ele
   // não tentar de outro jeito, e não grava nada.
@@ -144,7 +160,7 @@ export async function POST(request: Request) {
     leadId = lead.id;
   }
 
-  const utm = corpo.utm && typeof corpo.utm === "object" ? corpo.utm : null;
+  const utm = limparUtm(corpo.utm);
   const { error: erroEnvio } = await sb.from("site_envios").insert({
     empresa: form.empresa,
     formulario_id: form.id,

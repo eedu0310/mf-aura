@@ -96,7 +96,10 @@ export default function InstagramPage() {
     if (!selecionada) return;
     let vivo = true;
     async function puxar() {
-      const res = await fetch(`/api/meta/live?conversa=${encodeURIComponent(selecionada!)}`, { cache: "no-store" });
+      // Sem rede, o fetch rejeita: ignora e tenta de novo no próximo ciclo,
+      // em vez de soltar um erro não tratado a cada 8 segundos.
+      const res = await fetch(`/api/meta/live?conversa=${encodeURIComponent(selecionada!)}`, { cache: "no-store" }).catch(() => null);
+      if (!res) return;
       const d = await res.json().catch(() => ({}));
       if (vivo && res.ok) setMensagens(d.mensagens ?? []);
     }

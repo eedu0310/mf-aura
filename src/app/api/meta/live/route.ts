@@ -40,7 +40,8 @@ async function quemPode() {
    * sistema. O gestor mestre passa por cima, como em todo lugar.
    */
   const liberado =
-    Boolean((eu?.permissoes ?? {}).usar_instagram) || mandaNaLoja(auth) || auth.gestorMestre;
+    // O mestre também precisa ser Gestor aprovado: a flag sozinha não libera.
+    Boolean((eu?.permissoes ?? {}).usar_instagram) || mandaNaLoja(auth) || vejoTodasAsLojas(auth);
   if (!liberado) {
     return { erro: NextResponse.json({ erro: "Seu gestor ainda não liberou o Instagram para você." }, { status: 403 }) };
   }
@@ -124,6 +125,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "A conta do Instagram desta loja ainda não está conectada." }, { status: 503 });
   }
 
+  /**
+   * O comentário é desta loja? A DM já conferia a conversa; o comentário ia
+   * direto pelo id, e a marca de respondido/oculto era gravada (com o cliente
+   * de serviço) em qualquer linha com aquele id, de qualquer loja.
+   */
+  async function comentarioDaLoja(comentarioId: string): Promise<boolean> {
+    const { data } = await sb!
+      .from("meta_comentarios")
+      .select("empresa")
+      .eq("comentario_id", comentarioId)
+      .maybeSingle();
+    return !!data && data.empresa === auth!.empresa;
+  }
+
   try {
     if (acao === "responder") {
       const texto = String(body.texto ?? "").trim();
@@ -162,16 +177,30 @@ export async function POST(request: Request) {
       const texto = String(body.texto ?? "").trim();
       const comentarioId = String(body.comentario ?? "");
       if (!texto || !comentarioId) return NextResponse.json({ erro: "Faltou a resposta." }, { status: 400 });
+      if (!(await comentarioDaLoja(comentarioId))) {
+        return NextResponse.json({ erro: "Comentário não encontrado." }, { status: 404 });
+      }
       await responderComentario(conta, comentarioId, texto);
-      await sb!.from("meta_comentarios").update({ respondido: true }).eq("comentario_id", comentarioId);
+      await sb!
+        .from("meta_comentarios")
+        .update({ respondido: true })
+        .eq("comentario_id", comentarioId)
+        .eq("empresa", auth!.empresa);
       return NextResponse.json({ ok: true });
     }
 
     if (acao === "ocultar_comentario") {
       const comentarioId = String(body.comentario ?? "");
       const oculto = Boolean(body.oculto);
+      if (!comentarioId || !(await comentarioDaLoja(comentarioId))) {
+        return NextResponse.json({ erro: "Comentário não encontrado." }, { status: 404 });
+      }
       await ocultarComentario(conta, comentarioId, oculto);
-      await sb!.from("meta_comentarios").update({ oculto }).eq("comentario_id", comentarioId);
+      await sb!
+        .from("meta_comentarios")
+        .update({ oculto })
+        .eq("comentario_id", comentarioId)
+        .eq("empresa", auth!.empresa);
       return NextResponse.json({ ok: true });
     }
 
