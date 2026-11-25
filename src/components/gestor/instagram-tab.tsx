@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, AtSign, Bot, CheckCircle2, Loader2, Link2, Unlink } from "lucide-react";
 import { DIAS, horarioEmTexto, type Horario, type Turno } from "@/lib/site-mf/horario";
+import { Alerta, Card, CardHeader, Selo, classeBotao } from "@/components/ui";
 
 /**
  * Instagram por loja, e quem atende cada uma.
@@ -131,93 +132,103 @@ export function InstagramTab() {
   }
 
   if (carregando) {
-    return <p className="py-10 text-center text-sm text-aura-graphite-soft">Carregando…</p>;
+    return (
+      <p className="flex items-center justify-center gap-2 py-10 text-center text-sm text-aura-graphite-soft">
+        <Loader2 size={15} className="animate-spin" />
+        Carregando…
+      </p>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-aura-mist bg-white p-6">
-        <div className="flex items-start gap-3">
-          <AtSign size={18} className="mt-0.5 shrink-0 text-aura-petrol-600" />
-          <div>
-            <p className="text-lg font-semibold text-aura-graphite">Instagram das lojas</p>
-            <p className="mt-0.5 text-sm text-aura-graphite-soft">
-              Cada loja conecta a própria conta e você escolhe quem atende. Quem estiver ligado aqui
-              passa a ver a aba do Instagram, com as mensagens e os comentários daquela conta.
-            </p>
-          </div>
-        </div>
-        <p className="mt-3 rounded-lg bg-aura-bg px-3 py-2 text-xs text-aura-graphite-soft">
+      <Card>
+        <CardHeader
+          icone={AtSign}
+          titulo="Instagram das lojas"
+          descricao="Cada loja conecta a própria conta e você escolhe quem atende. Quem estiver ligado aqui passa a ver a aba do Instagram, com as mensagens e os comentários daquela conta."
+          className="mb-3"
+        />
+        <p className="rounded-lg border border-aura-mist bg-aura-sunken px-3 py-2 text-xs leading-relaxed text-aura-graphite-soft">
           No Instagram quem começa a conversa é sempre o cliente, e a resposta tem prazo de 24 horas
           a partir da última mensagem dele. Passou disso, só dá para responder quando ele escrever de
           novo — é regra da Meta, não do AURA.
         </p>
-      </div>
+      </Card>
 
       {retorno && (
-        <p
-          className={`rounded-lg px-4 py-2 text-sm ${retorno.ok ? "bg-aura-success/10 text-aura-success" : "bg-aura-danger/10 text-aura-danger"}`}
-          role="status"
-        >
-          {retorno.msg || (retorno.ok ? "Conta conectada." : "Não consegui conectar.")}
-        </p>
+        <div role="status">
+          <Alerta
+            tom={retorno.ok ? "sucesso" : "perigo"}
+            titulo={retorno.msg || (retorno.ok ? "Conta conectada." : "Não consegui conectar.")}
+          />
+        </div>
       )}
 
-      {erro && <p className="rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} />}
 
       {lojas.map((loja) => {
         const dias = diasAte(loja.expiraEm);
         const atendentes = loja.equipe.filter((p) => p.atende);
         return (
-          <div key={loja.empresa} className="rounded-2xl border border-aura-mist bg-white p-6">
+          <Card key={loja.empresa}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-aura-graphite">{loja.empresa}</p>
-                {loja.conectada ? (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-sm text-aura-success">
-                    <CheckCircle2 size={14} />
-                    Conectada{loja.usuario ? ` como @${loja.usuario}` : ""}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-sm text-aura-graphite-soft">Ainda não conectada</p>
-                )}
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    loja.conectada ? "bg-aura-petrol-500/12 text-aura-petrol-600" : "bg-aura-sunken text-aura-graphite-soft"
+                  }`}
+                >
+                  <AtSign size={16} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-aura-graphite">{loja.empresa}</p>
+                  {loja.conectada ? (
+                    <p className="mt-0.5 flex items-center gap-1.5 text-xs text-aura-success">
+                      <CheckCircle2 size={13} />
+                      Conectada{loja.usuario ? ` como @${loja.usuario}` : ""}
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs text-aura-graphite-soft">Ainda não conectada</p>
+                  )}
+                </div>
               </div>
               {loja.conectada ? (
                 <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => conectarComInstagram(loja.empresa)}
-                  title="Entrar de novo no Instagram e renovar a conexão"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-sm text-aura-graphite transition hover:bg-aura-bg"
-                >
-                  <AtSign size={14} />
-                  Reconectar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void desconectar(loja.empresa)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist px-3 py-1.5 text-sm text-aura-graphite transition hover:bg-aura-bg"
-                >
-                  <Unlink size={14} />
-                  Desconectar
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => conectarComInstagram(loja.empresa)}
+                    title="Entrar de novo no Instagram e renovar a conexão"
+                    className={classeBotao("secundario", "sm")}
+                  >
+                    <AtSign size={13} />
+                    Reconectar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void desconectar(loja.empresa)}
+                    className={classeBotao("fantasma", "sm", "hover:text-aura-danger")}
+                  >
+                    <Unlink size={13} />
+                    Desconectar
+                  </button>
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => conectarComInstagram(loja.empresa)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#833ab4] via-[#e1306c] to-[#f77737] px-3 py-1.5 text-sm font-semibold text-white transition hover:opacity-90"
+                    className={classeBotao("primario", "sm")}
                   >
-                    <AtSign size={14} />
+                    <AtSign size={13} />
                     Conectar com o Instagram
                   </button>
                   <button
                     type="button"
                     onClick={() => setAbrindo(abrindo === loja.empresa ? null : loja.empresa)}
-                    className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs text-aura-graphite-soft underline-offset-2 hover:underline"
+                    className={classeBotao("fantasma", "sm")}
                   >
-                    <Link2 size={12} />
+                    <Link2 size={13} />
                     Colar token manualmente
                   </button>
                 </div>
@@ -225,30 +236,36 @@ export function InstagramTab() {
             </div>
 
             {dias != null && dias <= 10 && loja.conectada && (
-              <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-aura-warning/10 px-3 py-2 text-sm text-aura-graphite">
-                <AlertTriangle size={14} className="text-aura-warning" />
-                O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}. Clique em Reconectar antes disso,
-                senão as mensagens param de chegar sem aviso.
-              </p>
+              <Alerta
+                tom="atencao"
+                icone={AlertTriangle}
+                className="mt-4"
+                titulo={
+                  <>
+                    O acesso desta conta vence em {dias} dia{dias === 1 ? "" : "s"}. Clique em Reconectar antes disso,
+                    senão as mensagens param de chegar sem aviso.
+                  </>
+                }
+              />
             )}
 
             {loja.conectada && <AgenteInstagram empresa={loja.empresa} />}
             {loja.conectada && <DiagnosticoInstagram empresa={loja.empresa} />}
 
             {abrindo === loja.empresa && (
-              <div className="mt-4 space-y-2 rounded-lg bg-aura-bg p-4">
+              <div className="mt-4 space-y-2 rounded-lg border border-aura-mist bg-aura-sunken p-4">
                 <input
                   value={usuario}
                   onChange={(e) => setUsuario(e.target.value)}
                   placeholder="@ da conta (ex.: lflareiras)"
-                  className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+                  className="aura-input"
                 />
                 <input
                   value={token}
                   onChange={(e) => setToken(e.target.value)}
                   type="password"
                   placeholder="Token de acesso gerado no painel da Meta"
-                  className="w-full rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+                  className="aura-input"
                 />
                 <p className="text-xs text-aura-graphite-soft">
                   O token não volta a aparecer depois de salvo. Guarde uma cópia no cofre de senhas de vocês.
@@ -257,7 +274,7 @@ export function InstagramTab() {
                   type="button"
                   onClick={() => void conectar(loja.empresa)}
                   disabled={salvando}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  className={classeBotao("primario")}
                 >
                   {salvando && <Loader2 size={14} className="animate-spin" />}
                   Salvar conexão
@@ -265,9 +282,9 @@ export function InstagramTab() {
               </div>
             )}
 
-            <div className="mt-4 border-t border-aura-mist pt-3">
-              <p className="text-sm font-medium text-aura-graphite">Quem atende esta conta</p>
-              <p className="mb-2 text-xs text-aura-graphite-soft">
+            <div className="mt-5 border-t border-aura-mist pt-4">
+              <p className="aura-rotulo">Quem atende esta conta</p>
+              <p className="mb-2 mt-1 text-xs text-aura-graphite-soft">
                 {atendentes.length === 0
                   ? "Ninguém ainda — a aba do Instagram não aparece para esta loja."
                   : `${atendentes.length} pessoa${atendentes.length === 1 ? "" : "s"} com acesso.`}
@@ -278,7 +295,7 @@ export function InstagramTab() {
                 <ul className="divide-y divide-aura-mist">
                   {loja.equipe.map((p) => (
                     <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-                      <span className="text-sm text-aura-graphite">
+                      <span className="min-w-0 text-sm text-aura-graphite">
                         {p.nome}
                         <span className="ml-2 text-xs text-aura-graphite-soft">{p.cargo}</span>
                       </span>
@@ -288,12 +305,12 @@ export function InstagramTab() {
                         aria-checked={p.atende}
                         aria-label={`Atendimento pelo Instagram para ${p.nome}`}
                         onClick={() => void alternarPessoa(p)}
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                          p.atende ? "bg-aura-success" : "bg-aura-mist"
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-aura-petrol-500 ${
+                          p.atende ? "bg-aura-petrol-600" : "bg-aura-graphite-soft/30"
                         }`}
                       >
                         <span
-                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-aura-surface shadow-sm transition-all ${
                             p.atende ? "left-[22px]" : "left-0.5"
                           }`}
                         />
@@ -303,7 +320,7 @@ export function InstagramTab() {
                 </ul>
               )}
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>
@@ -354,8 +371,8 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
   }
 
   const linha = (rotulo: string, item: any, opcional = false) => (
-    <li className="flex gap-2">
-      <span className={item?.ok ? "text-aura-success" : opcional ? "text-aura-graphite-soft" : "text-aura-danger"}>
+    <li className="flex flex-wrap gap-x-2 gap-y-0.5">
+      <span className={`w-12 shrink-0 font-medium ${item?.ok ? "text-aura-success" : opcional ? "text-aura-graphite-soft" : "text-aura-danger"}`}>
         {item?.ok ? "OK" : opcional ? "—" : "Falhou"}
       </span>
       <span className="text-aura-graphite">{rotulo}</span>
@@ -386,13 +403,18 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
           setAberto((v) => !v);
           if (!aberto && !dados) void ver();
         }}
-        className="text-xs text-aura-petrol-600 underline-offset-2 hover:underline"
+        className="text-xs font-medium text-aura-petrol-600 underline-offset-2 hover:underline"
       >
         {aberto ? "Fechar diagnóstico" : "Diagnóstico da conexão"}
       </button>
       {aberto && (
-        <div className="mt-2 space-y-2 rounded-lg bg-aura-bg p-3 text-xs">
-          {ocupado === "ver" && !dados && <p>Consultando a Meta…</p>}
+        <div className="mt-2 space-y-3 rounded-lg border border-aura-mist bg-aura-sunken p-3 text-xs">
+          {ocupado === "ver" && !dados && (
+            <p className="flex items-center gap-2 text-aura-graphite-soft">
+              <Loader2 size={12} className="animate-spin" />
+              Consultando a Meta…
+            </p>
+          )}
           {dados?.erro && <p className="text-aura-danger">{dados.erro}</p>}
           {dados && !dados.erro && (
             <>
@@ -407,16 +429,19 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
                 {linha("Avisos (webhook) assinados pela conta", dados.avisosAssinados)}
                 {linha(`Conversas do direct${dados.conversas?.ok ? ` (${dados.conversas.quantas} visíveis)` : ""}`, dados.conversas)}
                 {linha("Publicações e comentários", dados.publicacoes)}
-                <li className="flex gap-2">
-                  <span className={dados.webhook?.segredoConfigurado ? "text-aura-success" : "text-aura-danger"}>
+                <li className="flex flex-wrap gap-x-2 gap-y-0.5">
+                  <span className={`w-12 shrink-0 font-medium ${dados.webhook?.segredoConfigurado ? "text-aura-success" : "text-aura-danger"}`}>
                     {dados.webhook?.segredoConfigurado ? "OK" : "Falta"}
                   </span>
                   <span className="text-aura-graphite">Chave secreta do app no servidor</span>
                 </li>
               </ul>
               {dicas.length > 0 && (
-                <div className="rounded-lg border border-aura-warning/40 bg-white p-2">
-                  <p className="font-medium text-aura-graphite">O que fazer</p>
+                <div className="rounded-lg border border-aura-warning/40 bg-aura-surface p-3">
+                  <p className="flex items-center gap-1.5 font-medium text-aura-graphite">
+                    <AlertTriangle size={12} className="text-aura-warning" />
+                    O que fazer
+                  </p>
                   <ul className="mt-1 list-disc space-y-1 pl-4 text-aura-graphite">
                     {dicas.map((d) => (
                       <li key={d}>{d}</li>
@@ -425,11 +450,11 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
                 </div>
               )}
               <div>
-                <p className="font-medium text-aura-graphite">
+                <p className="mb-1 font-medium text-aura-graphite">
                   Últimos avisos recebidos da Meta ({dados.webhook?.ultimosAvisos?.length ?? 0})
                 </p>
                 {(dados.webhook?.ultimosAvisos ?? []).slice(0, 8).map((a: any, i: number) => (
-                  <p key={i} className="text-aura-graphite-soft">
+                  <p key={i} className="break-words text-aura-graphite-soft">
                     {new Date(a.em).toLocaleString("pt-BR")} · {a.objeto ?? "?"} · {a.campos.join(", ") || "—"} ·{" "}
                     {a.assinaturaOk ? (a.lojas.some(Boolean) ? `loja: ${a.lojas.filter(Boolean).join(", ")}` : `conta ${a.contas.join(", ")} sem loja`) : "assinatura inválida"}
                     {a.erro ? ` · ${a.erro}` : ""}
@@ -442,17 +467,17 @@ function DiagnosticoInstagram({ empresa }: { empresa: string }) {
             </>
           )}
           <div className="flex flex-wrap gap-2 pt-1">
-            <button type="button" onClick={() => void ver()} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+            <button type="button" onClick={() => void ver()} disabled={!!ocupado} className={classeBotao("secundario", "sm")}>
               Atualizar
             </button>
-            <button type="button" onClick={() => void acao("assinar")} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+            <button type="button" onClick={() => void acao("assinar")} disabled={!!ocupado} className={classeBotao("secundario", "sm")}>
               {ocupado === "assinar" ? "Ligando…" : "Religar avisos"}
             </button>
-            <button type="button" onClick={() => void acao("importar")} disabled={!!ocupado} className="rounded border border-aura-mist bg-white px-2 py-1 disabled:opacity-50">
+            <button type="button" onClick={() => void acao("importar")} disabled={!!ocupado} className={classeBotao("secundario", "sm")}>
               {ocupado === "importar" ? "Puxando…" : "Puxar histórico"}
             </button>
           </div>
-          {resultado && <p className="text-aura-graphite">{resultado}</p>}
+          {resultado && <p className="break-words text-aura-graphite">{resultado}</p>}
         </div>
       )}
     </div>
@@ -552,25 +577,28 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
     }
   }
 
-  const campo = "rounded-lg border border-aura-mist px-2 py-1.5 text-sm outline-none focus:border-aura-petrol-600";
+  const campo = "aura-input h-8 w-auto px-2 text-sm";
+  const caixa = "h-4 w-4 accent-aura-petrol-600";
 
   return (
-    <div className="mt-3 rounded-xl border border-aura-mist p-3">
-      <button type="button" onClick={() => setAberto((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
-        <span className="flex items-center gap-2 text-sm font-medium text-aura-graphite">
-          <Bot size={16} className="text-aura-petrol-600" />
+    <div className="mt-4 rounded-lg border border-aura-mist">
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left transition hover:bg-aura-sunken"
+      >
+        <span className="flex flex-wrap items-center gap-2 text-sm font-medium text-aura-graphite">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-aura-petrol-500/12">
+            <Bot size={15} className="text-aura-petrol-600" />
+          </span>
           Agente de IA
-          {carregado && (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] ${ativa ? "bg-aura-success/10 text-aura-success" : "bg-aura-bg text-aura-graphite-soft"}`}>
-              {ativa ? `ligado · entra após ${horas}h` : "desligado"}
-            </span>
-          )}
+          {carregado && <Selo tom={ativa ? "sucesso" : "neutro"}>{ativa ? `ligado · entra após ${horas}h` : "desligado"}</Selo>}
         </span>
-        <span className="text-xs text-aura-petrol-600">{aberto ? "Fechar" : "Configurar"}</span>
+        <span className="shrink-0 text-xs font-medium text-aura-petrol-600">{aberto ? "Fechar" : "Configurar"}</span>
       </button>
 
       {aberto && (
-        <div className="mt-3 space-y-3 text-sm">
+        <div className="space-y-4 border-t border-aura-mist p-3 text-sm sm:p-4">
           <p className="text-xs leading-relaxed text-aura-graphite-soft">
             Responde no direct quando a equipe não responde no tempo abaixo, com o material da{" "}
             {fabrica ? "fábrica" : "loja"} que está na AURA. Fala como {fabrica ? "a fábrica (arquitetos, construtoras, revendas e cliente final)" : "a loja (cliente final, showroom e instalação)"}, se
@@ -579,19 +607,19 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
           </p>
 
           <label className="flex items-center gap-2.5 text-aura-graphite">
-            <input type="checkbox" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} className="h-4 w-4" />
+            <input type="checkbox" checked={ativa} onChange={(e) => setAtiva(e.target.checked)} className={caixa} />
             Ligar o agente nesta conta
           </label>
 
           {material !== null && (
-            <p className={`rounded-lg px-3 py-2 text-xs ${material > 0 ? "bg-aura-success/10 text-aura-graphite" : "bg-aura-warning/10 text-aura-graphite"}`}>
+            <p className={`rounded-lg px-3 py-2 text-xs ${material > 0 ? "border border-aura-success/25 bg-aura-success/8 text-aura-graphite" : "border border-aura-warning/30 bg-aura-warning/10 text-aura-graphite"}`}>
               {material > 0
                 ? `Material que o agente usa: só o da ${empresa} (${material} trechos ligados em Materiais). Nada de outra loja.`
                 : `A ${empresa} ainda não tem material ligado em Materiais. Sem material o agente só cumprimenta, pergunta o que o cliente precisa e avisa que o vendedor confirma.`}
             </p>
           )}
 
-          <div className="space-y-1.5 rounded-lg bg-aura-bg p-3">
+          <div className="space-y-2 rounded-lg border border-aura-mist bg-aura-sunken p-3">
             <p className="text-sm font-medium text-aura-graphite">Horário em que a equipe atende</p>
             <p className="text-xs text-aura-graphite-soft">
               Dentro deste horário o agente espera a equipe; fora dele, entra como você escolher abaixo.
@@ -604,6 +632,7 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
                   <label className="flex w-24 items-center gap-1.5 text-sm text-aura-graphite">
                     <input
                       type="checkbox"
+                      className={caixa}
                       checked={abertoDia}
                       onChange={(e) =>
                         setHorario((h) => ({ ...h, [dia]: e.target.checked ? [["08:00", "12:00"], ["13:30", "18:00"]] : [] }))
@@ -630,11 +659,11 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
               <button
                 type="button"
                 onClick={() => setHorario((h) => ({ ...h, "2": h["1"] ?? [], "3": h["1"] ?? [], "4": h["1"] ?? [], "5": h["1"] ?? [] }))}
-                className="rounded border border-aura-mist bg-white px-2 py-1 text-xs text-aura-graphite"
+                className={classeBotao("secundario", "sm")}
               >
                 Copiar segunda para terça a sexta
               </button>
-              <button type="button" onClick={() => setHorario(HORARIO_COMERCIAL)} className="rounded border border-aura-mist bg-white px-2 py-1 text-xs text-aura-graphite">
+              <button type="button" onClick={() => setHorario(HORARIO_COMERCIAL)} className={classeBotao("secundario", "sm")}>
                 Voltar ao horário comercial
               </button>
             </div>
@@ -658,17 +687,17 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
           <fieldset className={`space-y-1.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`} disabled={!ativa}>
             <legend className="mb-1">Fora do horário (noite, fim de semana, depois do sábado ao meio-dia):</legend>
             <label className="flex items-center gap-2.5">
-              <input type="radio" name={`fora-${empresa}`} checked={foraDoHorario} onChange={() => setForaDoHorario(true)} className="h-4 w-4" />
+              <input type="radio" name={`fora-${empresa}`} checked={foraDoHorario} onChange={() => setForaDoHorario(true)} className={caixa} />
               Responder na hora, sem esperar
             </label>
             <label className="flex items-center gap-2.5">
-              <input type="radio" name={`fora-${empresa}`} checked={!foraDoHorario} onChange={() => setForaDoHorario(false)} className="h-4 w-4" />
+              <input type="radio" name={`fora-${empresa}`} checked={!foraDoHorario} onChange={() => setForaDoHorario(false)} className={caixa} />
               Esperar o mesmo tempo de dentro do horário
             </label>
           </fieldset>
 
           <label className={`flex items-center gap-2.5 ${ativa ? "text-aura-graphite" : "text-aura-graphite-soft"}`}>
-            <input type="checkbox" checked={comentarios} disabled={!ativa} onChange={(e) => setComentarios(e.target.checked)} className="h-4 w-4" />
+            <input type="checkbox" checked={comentarios} disabled={!ativa} onChange={(e) => setComentarios(e.target.checked)} className={caixa} />
             Também responder comentários sem resposta (em público, curto, chamando para o direct)
           </label>
 
@@ -680,7 +709,7 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
               value={instrucoes}
               onChange={(e) => setInstrucoes(e.target.value)}
               placeholder={fabrica ? "Ex.: para cliente final de Porto Alegre, dizer que a LF Lareiras atende." : "Ex.: lembrar que o showroom abre sábado de manhã."}
-              className={`${campo} resize-y`}
+              className="aura-input resize-y"
             />
           </label>
 
@@ -689,7 +718,7 @@ function AgenteInstagram({ empresa }: { empresa: string }) {
               type="button"
               onClick={() => void salvar()}
               disabled={salvando || !carregado}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className={classeBotao("primario")}
             >
               {salvando && <Loader2 size={14} className="animate-spin" />}
               Salvar

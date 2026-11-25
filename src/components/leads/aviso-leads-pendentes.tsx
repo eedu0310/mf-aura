@@ -119,23 +119,25 @@ export function AvisoLeadsPendentes() {
       href="/leads"
       data-imprimir="esconder"
       role="alert"
-      className="sticky top-14 z-40 lg:top-0 flex items-center gap-3 bg-[#CD1C1B] px-4 py-2.5 text-white shadow-md transition hover:bg-[#b01615] sm:px-8"
+      className="group sticky top-14 z-40 lg:top-0 flex items-center gap-3 border-b border-l-[3px] border-aura-danger/40 border-l-aura-danger bg-[color-mix(in_srgb,var(--aura-danger)_11%,var(--aura-surface))] px-4 py-2.5 text-aura-graphite shadow-sm transition hover:bg-[color-mix(in_srgb,var(--aura-danger)_17%,var(--aura-surface))] sm:px-8"
     >
-      <span className="relative flex shrink-0">
-        <BellRing size={18} className={novo ? "animate-bounce" : ""} />
-        {novo && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-ping rounded-full bg-white" />}
+      <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-danger text-white shadow-sm">
+        <BellRing size={16} className={novo ? "animate-bounce" : ""} />
+        {novo && (
+          <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-ping rounded-full bg-aura-danger ring-2 ring-aura-surface" />
+        )}
       </span>
       <span className="min-w-0 flex-1 text-sm leading-snug">
-        <strong>
+        <strong className="font-semibold text-aura-danger">
           {n === 1 ? "Você tem 1 lead esperando você chamar" : `Você tem ${n} leads esperando você chamar`}
         </strong>
-        <span className="block truncate text-xs text-white/85 sm:inline sm:before:content-['_·_']">
+        <span className="block truncate text-xs text-aura-graphite-soft sm:inline sm:before:content-['_·_']">
           {novo ? "Novo: " : "Mais recente: "}
           {maisNovo.nome ?? "Contato novo"}
           {maisNovo.origem ? ` (${maisNovo.origem})` : ""} · {haQuanto(maisNovo.createdAt)}
         </span>
       </span>
-      <span className="flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#CD1C1B]">
+      <span className="flex h-8 shrink-0 items-center gap-1 rounded-lg bg-aura-danger px-3 text-xs font-semibold text-white shadow-sm transition group-hover:brightness-95">
         Atender agora
         <ChevronRight size={14} />
       </span>

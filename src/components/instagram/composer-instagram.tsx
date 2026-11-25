@@ -225,32 +225,37 @@ export function ComposerInstagram({
     setSegundos(0);
   }
 
-  const botao = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-aura-graphite-soft transition hover:bg-aura-bg hover:text-aura-graphite disabled:opacity-40";
+  const botao =
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite disabled:opacity-40 sm:h-10 sm:w-10";
 
   return (
-    <div className="relative border-t border-aura-mist p-3">
-      {erro && <p className="mb-2 rounded-lg bg-aura-danger/10 px-3 py-1.5 text-xs text-aura-danger">{erro}</p>}
+    <div className="relative border-t border-aura-mist bg-aura-surface p-2.5 sm:p-3">
+      {erro && (
+        <p className="mb-2 rounded-lg border border-aura-danger/25 bg-aura-danger/10 px-3 py-1.5 text-xs text-aura-danger">
+          {erro}
+        </p>
+      )}
       {andamento && (
-        <p className="mb-2 flex items-center gap-2 rounded-lg bg-aura-bg px-3 py-1.5 text-xs text-aura-graphite">
-          <Loader2 size={12} className="animate-spin" /> {andamento}
+        <p className="mb-2 flex items-center gap-2 rounded-lg bg-aura-sunken px-3 py-1.5 text-xs text-aura-graphite-soft">
+          <Loader2 size={12} className="animate-spin text-aura-petrol-600" /> {andamento}
         </p>
       )}
       {respondendo && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg border-l-4 border-aura-petrol-600 bg-aura-bg px-3 py-1.5 text-xs">
+        <div className="mb-2 flex items-center gap-2 rounded-lg border-l-2 border-aura-petrol-500 bg-aura-sunken px-3 py-1.5 text-xs">
           <Reply size={12} className="shrink-0 text-aura-petrol-600" />
           <span className="min-w-0 flex-1 truncate text-aura-graphite">
             Respondendo: <span className="text-aura-graphite-soft">{respondendo.texto || "mensagem"}</span>
           </span>
-          <button type="button" onClick={onCancelarResposta} className="rounded p-1 text-aura-graphite-soft hover:text-aura-graphite" aria-label="Cancelar a resposta">
+          <button type="button" onClick={onCancelarResposta} className="rounded-md p-1 text-aura-graphite-soft hover:bg-aura-surface hover:text-aura-graphite" aria-label="Cancelar a resposta">
             <X size={12} />
           </button>
         </div>
       )}
 
       {emojis && (
-        <div className="absolute bottom-full left-3 z-10 mb-2 grid w-72 grid-cols-8 gap-1 rounded-xl border border-aura-mist bg-white p-2 shadow-lg">
+        <div className="absolute bottom-full left-2.5 z-10 mb-2 grid w-72 max-w-[calc(100%-1.25rem)] grid-cols-8 gap-1 rounded-xl border border-aura-mist bg-aura-surface p-2 shadow-lg">
           {EMOJIS.map((em) => (
-            <button key={em} type="button" onClick={() => porEmoji(em)} className="rounded p-1 text-xl hover:bg-aura-bg" aria-label={`Emoji ${em}`}>
+            <button key={em} type="button" onClick={() => porEmoji(em)} className="rounded-md p-1 text-xl hover:bg-aura-sunken" aria-label={`Emoji ${em}`}>
               {em}
             </button>
           ))}
@@ -258,12 +263,12 @@ export function ComposerInstagram({
       )}
 
       {arquivo && (
-        <div className="mb-2 flex items-center gap-3 rounded-lg bg-aura-bg p-2">
+        <div className="mb-2 flex items-center gap-3 rounded-lg border border-aura-mist bg-aura-sunken p-2">
           {previa ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={previa} alt="" className="h-14 w-14 rounded object-cover" />
+            <img src={previa} alt="" className="h-14 w-14 rounded-md object-cover" />
           ) : (
-            <span className="flex h-14 w-14 items-center justify-center rounded bg-white text-xs text-aura-graphite-soft">
+            <span className="flex h-14 w-14 items-center justify-center rounded-md border border-aura-mist bg-aura-surface text-xs text-aura-graphite-soft">
               {arquivo.type.startsWith("video/") ? "Vídeo" : "Arquivo"}
             </span>
           )}
@@ -279,21 +284,21 @@ export function ComposerInstagram({
           <button type="button" onClick={cancelarGravacao} className={botao} aria-label="Cancelar a gravação">
             <Trash2 size={18} />
           </button>
-          <span className="flex flex-1 items-center gap-2 text-sm text-aura-danger">
+          <span className="flex flex-1 items-center gap-2 text-sm font-medium tabular-nums text-aura-danger">
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-aura-danger" aria-hidden />
             Gravando {relogio(segundos)}
           </span>
           <button
             type="button"
             onClick={pararEEnviar}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-aura-petrol-600 text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-aura-petrol-600 text-white shadow-sm transition hover:bg-aura-petrol-700 sm:h-10 sm:w-10"
             aria-label="Parar e enviar o áudio"
           >
             <Square size={14} />
           </button>
         </div>
       ) : (
-        <div className="flex items-end gap-1.5">
+        <div className="flex items-end gap-1 sm:gap-1.5">
           <button type="button" onClick={() => setEmojis((v) => !v)} className={botao} aria-label="Emojis" aria-expanded={emojis}>
             <Smile size={20} />
           </button>
@@ -335,7 +340,7 @@ export function ComposerInstagram({
             }}
             placeholder={arquivo ? "Legenda (opcional)…" : "Responder…"}
             aria-label="Mensagem"
-            className="max-h-32 min-h-10 flex-1 resize-none rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+            className="aura-input max-h-32 min-h-9 min-w-0 flex-1 resize-none sm:min-h-10"
           />
           <button
             type="button"
@@ -352,7 +357,7 @@ export function ComposerInstagram({
             onClick={() => void enviar()}
             disabled={enviando || (!texto.trim() && !arquivo)}
             aria-label="Enviar"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-petrol-600 text-white disabled:opacity-40"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aura-petrol-600 text-white shadow-sm transition enabled:hover:bg-aura-petrol-700 disabled:opacity-40 sm:h-10 sm:w-10"
           >
             {enviando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

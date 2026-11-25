@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ComposerInstagram } from "@/components/instagram/composer-instagram";
+import { Alerta, EstadoVazio, PageContainer, PageHeader, Segmentado, Selo, classeBotao } from "@/components/ui";
 
 /**
  * O Instagram da loja, dentro do AURA.
@@ -263,96 +264,105 @@ export default function InstagramPage() {
 
   if (semAcesso) {
     return (
-      <div className="mx-auto max-w-lg px-6 py-20 text-center">
-        <ShieldOff className="mx-auto h-12 w-12 text-aura-graphite-soft" />
-        <h1 className="mt-4 font-display text-xl font-bold text-aura-graphite">Instagram não liberado</h1>
-        <p className="mt-2 text-sm text-aura-graphite-soft">
-          Em cada loja quem responde o Instagram é o vendedor interno. Se for para ser você, peça ao
-          gestor para ligar seu acesso em Painel do Gestor → Instagram.
-        </p>
-      </div>
+      <PageContainer largura="estreita">
+        <EstadoVazio
+          icone={ShieldOff}
+          titulo={<span className="font-display text-base font-semibold">Instagram não liberado</span>}
+          descricao={
+            <>
+              Em cada loja quem responde o Instagram é o vendedor interno. Se for para ser você, peça ao
+              gestor para ligar seu acesso em Painel do Gestor → Instagram.
+            </>
+          }
+          className="mt-10 bg-aura-surface py-14"
+        />
+      </PageContainer>
     );
   }
 
-  if (carregando) return <p className="py-20 text-center text-sm text-aura-graphite-soft">Carregando…</p>;
+  if (carregando)
+    return (
+      <PageContainer>
+        <p className="flex items-center justify-center gap-2 py-20 text-center text-sm text-aura-graphite-soft">
+          <Loader2 size={15} className="animate-spin" />
+          Carregando…
+        </p>
+      </PageContainer>
+    );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-aura-graphite">
-            <AtSign size={22} className="text-aura-petrol-600" />
-            Instagram
-          </h1>
-          <p className="mt-0.5 text-sm text-aura-graphite-soft">
-            {conectada ? `Conta ${usuario ? `@${usuario}` : "da loja"} conectada.` : "A conta desta loja ainda não foi conectada pelo gestor."}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {(["mensagens", "comentarios"] as const).map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setAba(id)}
-              className={`rounded-full px-4 py-1.5 text-sm transition ${
-                aba === id ? "bg-aura-navy-950 text-white" : "bg-aura-bg text-aura-graphite hover:bg-aura-mist"
-              }`}
-            >
-              {id === "mensagens" ? `Mensagens (${conversas.length})` : `Comentários (${comentarios.length})`}
-            </button>
-          ))}
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        titulo="Instagram"
+        icone={AtSign}
+        descricao={
+          conectada ? `Conta ${usuario ? `@${usuario}` : "da loja"} conectada.` : "A conta desta loja ainda não foi conectada pelo gestor."
+        }
+        acoes={
+          <Segmentado
+            rotulo="Mensagens ou comentários"
+            valor={aba}
+            aoMudar={setAba}
+            opcoes={(["mensagens", "comentarios"] as const).map((id) => ({
+              valor: id,
+              rotulo: id === "mensagens" ? `Mensagens (${conversas.length})` : `Comentários (${comentarios.length})`,
+            }))}
+          />
+        }
+      />
 
-      {contas.length > 1 && (
-        <div className="mb-4 flex flex-wrap gap-2 border-b border-aura-mist pb-3" role="tablist" aria-label="Contas do Instagram">
-          {contas.map((c) => (
-            <button
-              key={c.empresa}
-              type="button"
-              role="tab"
-              aria-selected={c.empresa === loja}
-              onClick={() => trocarLoja(c.empresa)}
-              className={`rounded-lg px-3 py-1.5 text-sm transition ${
-                c.empresa === loja ? "bg-aura-petrol-600 text-white" : "bg-white text-aura-graphite ring-1 ring-aura-mist hover:bg-aura-bg"
-              }`}
-            >
-              {SIGLA[c.empresa] ?? c.empresa}
-              {c.usuario && <span className="ml-1 opacity-70">@{c.usuario}</span>}
-            </button>
-          ))}
+      {(contas.length > 1 || (gestor && conectada)) && (
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {contas.length > 1 && (
+            <div className="aura-segmentado max-w-full overflow-x-auto" role="tablist" aria-label="Contas do Instagram">
+              {contas.map((c) => (
+                <button
+                  key={c.empresa}
+                  type="button"
+                  role="tab"
+                  aria-selected={c.empresa === loja}
+                  onClick={() => trocarLoja(c.empresa)}
+                  className="aura-segmento"
+                >
+                  {SIGLA[c.empresa] ?? c.empresa}
+                  {c.usuario && <span className="ml-1 font-normal text-aura-graphite-soft">@{c.usuario}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {gestor && conectada && (
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void puxarHistorico()}
+                disabled={importando}
+                className={classeBotao("secundario", "sm")}
+              >
+                {importando ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                Puxar histórico do Instagram
+              </button>
+              {aviso && <span className="text-xs text-aura-graphite-soft">{aviso}</span>}
+            </div>
+          )}
         </div>
       )}
 
-      {gestor && conectada && (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void puxarHistorico()}
-            disabled={importando}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-aura-mist bg-white px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg disabled:opacity-50"
-          >
-            {importando ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-            Puxar histórico do Instagram
-          </button>
-          {aviso && <span className="text-xs text-aura-graphite-soft">{aviso}</span>}
-        </div>
-      )}
-
-      {erro && <p className="mb-3 rounded-lg bg-aura-danger/10 px-4 py-2 text-sm text-aura-danger">{erro}</p>}
+      {erro && <Alerta tom="perigo" titulo={erro} className="mb-4" />}
 
       {!conectada && (
-        <p className="mb-4 rounded-lg bg-aura-warning/10 px-4 py-3 text-sm text-aura-graphite">
-          Enquanto a conta não for conectada, nada chega aqui. Quem conecta é o gestor mestre, em
-          Painel do Gestor → Instagram.
-        </p>
+        <Alerta
+          tom="atencao"
+          className="mb-4"
+          titulo="Enquanto a conta não for conectada, nada chega aqui. Quem conecta é o gestor mestre, em Painel do Gestor → Instagram."
+        />
       )}
 
       {aba === "mensagens" ? (
         <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-          <div className="rounded-2xl border border-aura-mist bg-white">
+          <div className="aura-card self-start overflow-hidden">
             {conversas.length === 0 ? (
-              <p className="p-6 text-center text-sm text-aura-graphite-soft">
+              <p className="px-6 py-10 text-center text-sm text-aura-graphite-soft">
                 Nenhuma conversa ainda. No Instagram é sempre o cliente que escreve primeiro.
               </p>
             ) : (
@@ -362,11 +372,13 @@ export default function InstagramPage() {
                     <button
                       type="button"
                       onClick={() => setSelecionada(c.id)}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-aura-bg ${
-                        selecionada === c.id ? "bg-aura-bg" : ""
+                      className={`relative flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-aura-sunken ${
+                        selecionada === c.id
+                          ? "bg-aura-sunken before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-aura-petrol-500"
+                          : ""
                       }`}
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-aura-petrol-600/10 text-sm font-semibold text-aura-petrol-600">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-petrol-500/12 text-sm font-semibold text-aura-petrol-600">
                         {(c.cliente_nome ?? c.cliente_usuario ?? "?").slice(0, 1).toUpperCase()}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -374,11 +386,11 @@ export default function InstagramPage() {
                           <span className="truncate text-sm font-medium text-aura-graphite">
                             {c.cliente_nome ?? (c.cliente_usuario ? `@${c.cliente_usuario}` : "Cliente")}
                           </span>
-                          <span className="shrink-0 text-xs text-aura-graphite-soft">{hora(c.ultima_em)}</span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-aura-graphite-soft">{hora(c.ultima_em)}</span>
                         </span>
                         <span className="block truncate text-xs text-aura-graphite-soft">{c.ultima_mensagem}</span>
                         {c.prazo ? (
-                          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-aura-warning">
+                          <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-aura-gold-700">
                             <Clock size={11} />
                             {c.prazo}
                           </span>
@@ -389,7 +401,7 @@ export default function InstagramPage() {
                         )}
                       </span>
                       {c.nao_lidas > 0 && (
-                        <span className="ml-1 shrink-0 rounded-full bg-aura-success px-2 py-0.5 text-[11px] font-semibold text-white">
+                        <span className="ml-1 shrink-0 rounded-full bg-aura-petrol-600 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums leading-none text-white">
                           {c.nao_lidas}
                         </span>
                       )}
@@ -400,48 +412,60 @@ export default function InstagramPage() {
             )}
           </div>
 
-          <div className="flex min-h-[420px] flex-col rounded-2xl border border-aura-mist bg-white">
+          <div className="aura-card flex min-h-[420px] min-w-0 flex-col overflow-hidden">
             {!atual ? (
-              <p className="m-auto text-sm text-aura-graphite-soft">Escolha uma conversa ao lado.</p>
+              <div className="m-auto flex flex-col items-center gap-3 px-6 py-10 text-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-aura-sunken">
+                  <MessageSquare size={18} className="text-aura-graphite-soft" />
+                </span>
+                <p className="text-sm text-aura-graphite-soft">Escolha uma conversa ao lado.</p>
+              </div>
             ) : (
               <>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-aura-mist px-4 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-aura-graphite">
-                      {atual.cliente_nome ?? (atual.cliente_usuario ? `@${atual.cliente_usuario}` : "Cliente")}
-                    </p>
-                    <p className="text-xs text-aura-graphite-soft">
-                      {atual.cliente_usuario && atual.cliente_nome ? `@${atual.cliente_usuario} · ` : ""}
-                      {atual.prazo ?? "prazo de 24h encerrado"}
-                    </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-aura-mist px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-aura-petrol-500/12 text-sm font-semibold text-aura-petrol-600">
+                      {(atual.cliente_nome ?? atual.cliente_usuario ?? "?").slice(0, 1).toUpperCase()}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-aura-graphite">
+                        {atual.cliente_nome ?? (atual.cliente_usuario ? `@${atual.cliente_usuario}` : "Cliente")}
+                      </p>
+                      <p className="text-xs text-aura-graphite-soft">
+                        {atual.cliente_usuario && atual.cliente_nome ? `@${atual.cliente_usuario} · ` : ""}
+                        {atual.prazo ?? "prazo de 24h encerrado"}
+                      </p>
+                    </div>
                   </div>
-                  {agente.ativo && gestor && !atual.ia_pausada && atual.podeResponder && (
-                    <button
-                      type="button"
-                      onClick={() => void agenteAgora()}
-                      disabled={chamandoAgente}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-aura-navy-950 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                      title="O agente responde agora, sem esperar o tempo configurado"
-                    >
-                      {chamandoAgente ? <Loader2 size={12} className="animate-spin" /> : <Bot size={13} />}
-                      Agente responder agora
-                    </button>
-                  )}
                   {agente.ativo && (
-                    <button
-                      type="button"
-                      onClick={() => void pausarAgente(!atual.ia_pausada)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-aura-mist px-3 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg"
-                      title={`O agente de IA responde se ninguém responder em ${agente.horas}h`}
-                    >
-                      {atual.ia_pausada ? <Play size={12} /> : <Pause size={12} />}
-                      <Bot size={13} />
-                      {atual.ia_pausada ? "Agente pausado nesta conversa · retomar" : "Agente ligado · pausar nesta conversa"}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {gestor && !atual.ia_pausada && atual.podeResponder && (
+                        <button
+                          type="button"
+                          onClick={() => void agenteAgora()}
+                          disabled={chamandoAgente}
+                          className={classeBotao("primario", "sm")}
+                          title="O agente responde agora, sem esperar o tempo configurado"
+                        >
+                          {chamandoAgente ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+                          Agente responder agora
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void pausarAgente(!atual.ia_pausada)}
+                        className={classeBotao("secundario", "sm", "h-auto min-h-[1.875rem] max-w-full whitespace-normal py-1 text-left")}
+                        title={`O agente de IA responde se ninguém responder em ${agente.horas}h`}
+                      >
+                        {atual.ia_pausada ? <Play size={12} className="shrink-0" /> : <Pause size={12} className="shrink-0" />}
+                        <Bot size={13} className="shrink-0 text-aura-petrol-600" />
+                        {atual.ia_pausada ? "Agente pausado nesta conversa · retomar" : "Agente ligado · pausar nesta conversa"}
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex-1 space-y-2 overflow-y-auto p-4">
+                <div className="flex-1 space-y-3 overflow-y-auto bg-aura-bg/60 p-3 sm:p-4">
                   {mensagens.map((m) => (
                     <BolhaInstagram
                       key={m.id}
@@ -466,9 +490,12 @@ export default function InstagramPage() {
                     }}
                   />
                 ) : (
-                  <p className="border-t border-aura-mist p-4 text-center text-sm text-aura-graphite-soft">
-                    O prazo de 24 horas para responder terminou. O Instagram só libera de novo quando
-                    esta pessoa escrever outra vez.
+                  <p className="flex items-start justify-center gap-2 border-t border-aura-mist bg-aura-sunken px-4 py-3.5 text-center text-xs leading-relaxed text-aura-graphite-soft">
+                    <Clock size={13} className="mt-0.5 shrink-0" />
+                    <span>
+                      O prazo de 24 horas para responder terminou. O Instagram só libera de novo quando
+                      esta pessoa escrever outra vez.
+                    </span>
                   </p>
                 )}
               </>
@@ -476,28 +503,28 @@ export default function InstagramPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-aura-mist bg-white">
-          <div className="flex items-center gap-2 border-b border-aura-mist px-4 py-2.5 text-xs">
-            {[
-              [true, `Sem resposta (${comentarios.filter((c) => !c.respondido).length})`],
-              [false, `Todos (${comentarios.length})`],
-            ].map(([v, rotulo]) => (
-              <button
-                key={String(v)}
-                type="button"
-                onClick={() => setSoPendentes(v as boolean)}
-                className={`rounded-full px-3 py-1 ${soPendentes === v ? "bg-aura-petrol-600 text-white" : "bg-aura-bg text-aura-graphite"}`}
-              >
-                {rotulo as string}
-              </button>
-            ))}
+        <div className="aura-card overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-aura-mist px-4 py-2.5">
+            <Segmentado
+              rotulo="Filtrar comentários"
+              valor={soPendentes ? "pendentes" : "todos"}
+              aoMudar={(v) => setSoPendentes(v === "pendentes")}
+              opcoes={[
+                { valor: "pendentes", rotulo: `Sem resposta (${comentarios.filter((c) => !c.respondido).length})` },
+                { valor: "todos", rotulo: `Todos (${comentarios.length})` },
+              ]}
+            />
           </div>
           {comentariosVisiveis.length === 0 ? (
-            <p className="p-6 text-center text-sm text-aura-graphite-soft">
-              {comentarios.length === 0
-                ? "Nenhum comentário ainda. Eles aparecem aqui assim que alguém comentar numa publicação da loja."
-                : "Todos os comentários já foram respondidos."}
-            </p>
+            <EstadoVazio
+              icone={MessageSquare}
+              className="m-4"
+              titulo={
+                comentarios.length === 0
+                  ? "Nenhum comentário ainda. Eles aparecem aqui assim que alguém comentar numa publicação da loja."
+                  : "Todos os comentários já foram respondidos."
+              }
+            />
           ) : (
             <ul className="divide-y divide-aura-mist">
               {comentariosVisiveis.map((c) => (
@@ -507,7 +534,7 @@ export default function InstagramPage() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -542,41 +569,51 @@ function BolhaInstagram({
   const link = m.midia_url && ["share", "ig_reel", "reel", "story_mention", "file", "fallback"].includes(m.tipo);
   return (
     <div className={`group flex items-center gap-1 ${m.de_mim ? "justify-end" : "justify-start"}`}>
-      <div className="relative max-w-[75%]">
+      <div className="relative max-w-[85%] sm:max-w-[75%]">
         <div
-          className={`rounded-2xl px-3 py-2 text-sm ${
+          className={`rounded-xl px-3 py-2 text-sm text-aura-graphite ${
             m.de_mim
               ? m.por_ia
-                ? "bg-aura-navy-950 text-white"
-                : "bg-aura-petrol-600 text-white"
-              : "bg-aura-bg text-aura-graphite"
+                ? "rounded-br-sm border border-dashed border-aura-petrol-500/35 bg-aura-petrol-500/10"
+                : "rounded-br-sm border border-aura-petrol-500/20 bg-aura-petrol-500/12"
+              : "rounded-bl-sm border border-aura-mist bg-aura-sunken"
           }`}
         >
-          {quem && (
-            <p className="mb-0.5 flex items-center gap-1 text-[11px] font-medium text-white/80">
-              {m.por_ia && <Bot size={11} />}
-              {quem}
-            </p>
-          )}
+          {quem &&
+            (m.por_ia ? (
+              <Selo tom="marca" className="mb-1">
+                <Bot size={11} />
+                {quem}
+              </Selo>
+            ) : (
+              <p className="mb-0.5 text-[11px] font-medium text-aura-petrol-600">{quem}</p>
+            ))}
           {m.midia_url && m.tipo === "image" && (
             <a href={m.midia_url} target="_blank" rel="noreferrer">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={m.midia_url} alt="Foto" className="mb-1 max-h-64 rounded-lg" />
             </a>
           )}
-          {m.midia_url && m.tipo === "video" && <video src={m.midia_url} controls className="mb-1 max-h-64 rounded-lg" />}
+          {m.midia_url && m.tipo === "video" && <video src={m.midia_url} controls className="mb-1 max-h-64 max-w-full rounded-lg" />}
           {m.midia_url && m.tipo === "audio" && <audio src={m.midia_url} controls className="mb-1 w-56 max-w-full" />}
           {link && (
-            <a href={m.midia_url!} target="_blank" rel="noreferrer" className="mb-1 inline-flex items-center gap-1 underline">
+            <a
+              href={m.midia_url!}
+              target="_blank"
+              rel="noreferrer"
+              className="mb-1 inline-flex items-center gap-1 text-aura-petrol-600 underline underline-offset-2"
+            >
               <ExternalLink size={12} />
               {m.tipo === "story_mention" ? "Marcou a loja num story" : "Abrir o que foi compartilhado"}
             </a>
           )}
           {m.texto && <p className="whitespace-pre-wrap break-words">{m.texto}</p>}
-          <p className={`mt-0.5 text-[11px] ${m.de_mim ? "text-white/70" : "text-aura-graphite-soft"}`}>{hora(m.criado_em)}</p>
+          <p className={`mt-0.5 text-[11px] tabular-nums text-aura-graphite-soft ${m.de_mim ? "text-right" : ""}`}>{hora(m.criado_em)}</p>
         </div>
         {(m.de_mim ? m.reacao_cliente : m.reacao) && (
-          <span className={`absolute -bottom-2 ${m.de_mim ? "left-1" : "right-1"} rounded-full bg-white px-1 text-xs shadow`}>
+          <span
+            className={`absolute -bottom-2 ${m.de_mim ? "left-1" : "right-1"} rounded-full border border-aura-mist bg-aura-surface px-1 text-xs shadow-sm`}
+          >
             {m.de_mim ? m.reacao_cliente : m.reacao}
           </span>
         )}
@@ -585,7 +622,7 @@ function BolhaInstagram({
         <button
           type="button"
           onClick={onResponder}
-          className="rounded-full p-1.5 text-aura-graphite-soft opacity-0 transition hover:text-aura-petrol-600 group-hover:opacity-100 focus:opacity-100"
+          className="rounded-md p-1.5 text-aura-graphite-soft opacity-0 transition hover:bg-aura-sunken hover:text-aura-petrol-600 group-hover:opacity-100 focus:opacity-100"
           aria-label="Responder esta mensagem"
           title="Responder"
         >
@@ -596,7 +633,7 @@ function BolhaInstagram({
         <button
           type="button"
           onClick={onReagir}
-          className={`rounded-full p-1.5 transition ${m.reacao ? "text-aura-danger" : "text-aura-graphite-soft opacity-0 hover:text-aura-danger group-hover:opacity-100 focus:opacity-100"}`}
+          className={`rounded-md p-1.5 transition hover:bg-aura-sunken ${m.reacao ? "text-aura-danger" : "text-aura-graphite-soft opacity-0 hover:text-aura-danger group-hover:opacity-100 focus:opacity-100"}`}
           aria-label={m.reacao ? "Tirar o coração" : "Reagir com coração"}
           title={m.reacao ? "Tirar o coração" : "Reagir com ❤️"}
         >
@@ -641,25 +678,24 @@ function ComentarioItem({
     setOcupado(false);
   }
 
-  const etiqueta = "ml-2 rounded-full px-2 py-0.5 text-[11px]";
-  const botao = "inline-flex items-center gap-1 rounded-lg border border-aura-mist px-2.5 py-1.5 text-xs text-aura-graphite hover:bg-aura-bg disabled:opacity-50";
+  const botao = classeBotao("secundario", "sm");
 
   return (
-    <li className={`p-4 ${c.oculto ? "opacity-60" : ""}`}>
+    <li className={`p-4 transition hover:bg-aura-sunken/40 ${c.oculto ? "opacity-60" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-aura-graphite">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-aura-graphite">
             {c.autor_usuario ? `@${c.autor_usuario}` : "Alguém"}
-            <span className="ml-2 text-xs font-normal text-aura-graphite-soft">
+            <span className="text-xs font-normal tabular-nums text-aura-graphite-soft">
               {new Date(c.criado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
             </span>
-            {c.respondido && <span className={`${etiqueta} bg-aura-success/10 text-aura-success`}>respondido{c.respondido_por_ia ? " pelo agente" : ""}</span>}
-            {c.resposta_privada && <span className={`${etiqueta} bg-aura-petrol-600/10 text-aura-petrol-600`}>no privado</span>}
-            {c.oculto && <span className={`${etiqueta} bg-aura-bg text-aura-graphite-soft`}>oculto</span>}
+            {c.respondido && <Selo tom="sucesso">respondido{c.respondido_por_ia ? " pelo agente" : ""}</Selo>}
+            {c.resposta_privada && <Selo tom="marca">no privado</Selo>}
+            {c.oculto && <Selo tom="neutro">oculto</Selo>}
           </p>
-          <p className="mt-0.5 text-sm text-aura-graphite-soft">{c.texto}</p>
+          <p className="mt-1 break-words text-sm text-aura-graphite-soft">{c.texto}</p>
           {c.post_url && (
-            <a href={c.post_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-aura-petrol-600 hover:underline">
+            <a href={c.post_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs text-aura-petrol-600 hover:underline">
               <ExternalLink size={11} /> Ver a publicação
             </a>
           )}
@@ -688,8 +724,8 @@ function ComentarioItem({
         </div>
       </div>
       {modo && (
-        <div className="mt-3">
-          <p className="mb-1 text-[11px] text-aura-graphite-soft">
+        <div className="mt-3 rounded-lg border border-aura-mist bg-aura-sunken p-3">
+          <p className="mb-2 text-[11px] text-aura-graphite-soft">
             {modo === "publico"
               ? "Resposta pública, embaixo do comentário."
               : "Vai para o direct de quem comentou. A Meta deixa uma por comentário, em até 7 dias."}
@@ -702,13 +738,13 @@ function ComentarioItem({
                 if (e.key === "Enter") void enviar();
               }}
               placeholder={modo === "publico" ? `Responder @${c.autor_usuario ?? ""}` : "Mensagem no direct"}
-              className="flex-1 rounded-lg border border-aura-mist px-3 py-2 text-sm outline-none focus:border-aura-petrol-600"
+              className="aura-input min-w-0 flex-1"
             />
             <button
               type="button"
               disabled={ocupado || !resposta.trim()}
               onClick={() => void enviar()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-aura-navy-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className={classeBotao("primario", "md", "shrink-0")}
             >
               {ocupado && <Loader2 size={14} className="animate-spin" />}
               Enviar
