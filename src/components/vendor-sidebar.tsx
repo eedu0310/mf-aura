@@ -8,6 +8,7 @@ import { useUserProfile } from "@/lib/user-profile-context";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
+import { useLeadsPendentes } from "@/components/leads/aviso-leads-pendentes";
 
 export function VendorSidebar() {
   const pathname = usePathname();
@@ -21,6 +22,7 @@ export function VendorSidebar() {
   const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
   const itensGestao = menuDeGestao(profile.cargo);
   const naoLidasSite = useNaoLidasDoSite();
+  const leadsPendentes = useLeadsPendentes().length;
 
   const classe = (ativo: boolean) =>
     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
@@ -46,6 +48,9 @@ export function VendorSidebar() {
               {item.label}
               {item.href === "/site-mf" && naoLidasSite > 0 && (
                 <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.65rem] font-semibold text-white">{naoLidasSite}</span>
+              )}
+              {item.href === "/leads" && leadsPendentes > 0 && (
+                <span className="ml-auto animate-pulse rounded-full bg-[#CD1C1B] px-2 py-0.5 text-[0.65rem] font-semibold text-white">{leadsPendentes}</span>
               )}
             </Link>
           );

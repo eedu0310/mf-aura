@@ -9,6 +9,7 @@ import { AvatarUsuario } from "@/components/avatar-usuario";
 import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
+import { useLeadsPendentes } from "@/components/leads/aviso-leads-pendentes";
 import { numeroDoSino, useSino } from "@/lib/use-sino";
 import { PainelDoSino } from "@/components/notificacoes/painel-sino";
 
@@ -20,6 +21,7 @@ export function MobileNavbar() {
   const { profile } = useUserProfile();
   const acesso = usarMeuAcesso();
   const naoLidasSite = useNaoLidasDoSite();
+  const leadsPendentes = useLeadsPendentes().length;
   const sino = useSino();
 
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
@@ -58,9 +60,10 @@ export function MobileNavbar() {
               type="button"
               onClick={() => setAberto(!aberto)}
               aria-label={aberto ? "Fechar menu" : "Abrir menu"}
-              className="p-2 text-white"
+              className="relative p-2 text-white"
             >
               {aberto ? <X size={24} /> : <Menu size={24} />}
+              {!aberto && leadsPendentes > 0 && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-[#CD1C1B] ring-2 ring-aura-navy-950" />}
             </button>
           </div>
         </div>
@@ -97,6 +100,9 @@ export function MobileNavbar() {
                     <span>{label}</span>
                     {href === "/site-mf" && naoLidasSite > 0 && (
                       <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-xs font-semibold text-white">{naoLidasSite}</span>
+                    )}
+                    {href === "/leads" && leadsPendentes > 0 && (
+                      <span className="ml-auto rounded-full bg-[#CD1C1B] px-2 py-0.5 text-xs font-semibold text-white">{leadsPendentes}</span>
                     )}
                   </Link>
                 );

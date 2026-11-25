@@ -25,7 +25,9 @@ import { modeloDeVolume } from "@/lib/aura/modelos";
 import { dentroDoHorario, horarioEmTexto, limparHorario, type Horario } from "@/lib/site-mf/horario";
 import { contaDaLoja, dentroDaJanela, enviarMensagem, responderComentario } from "./cliente";
 import { registrarEnviada } from "./conversa";
-import { abrirLeadDoSite, telefoneDoSite } from "@/lib/site-mf/servidor";
+import { abrirLeadDoSite, gravarHistoricoNoLead, telefoneDoSite } from "@/lib/site-mf/servidor";
+import { juntarHistorico, transcricao } from "@/lib/leads/historico-ia";
+import { resumoDaMidia } from "./midia";
 
 type ClienteServico = NonNullable<ReturnType<typeof getSupabaseServiceClient>>;
 
@@ -367,20 +369,20 @@ async function talvezPassarLead(sb: ClienteServico, conversaId: string) {
 
   const { data: msgs } = await sb
     .from("meta_mensagens")
-    .select("de_mim, texto, por_ia")
+    .select("de_mim, texto, por_ia, tipo")
     .eq("conversa_id", conversaId)
     .order("criado_em", { ascending: true })
     .limit(80);
-  const lista = msgs ?? [];
+  const lista = (msgs ?? []).map((m) => ({ ...m, texto: (m.texto ?? "").trim() || (m.tipo && m.tipo !== "text" ? resumoDaMidia(m.tipo) : "") }));
   const doCliente = lista.filter((m) => !m.de_mim).map((m) => m.texto ?? "").join("\n");
   // Sem nada que pareça telefone, nem gasta IA.
   if (!/(\d[\s().-]*){10,}/.test(doCliente)) return;
   if (!(await podeChamarIA())) return;
 
-  const conversaTexto = lista
-    .map((m) => `${m.de_mim ? (m.por_ia ? "Assistente" : "Loja") : "Cliente"}: ${m.texto ?? ""}`)
-    .join("\n")
-    .slice(-6000);
+  const conversaCompleta = transcricao(
+    lista.map((m) => ({ quem: m.de_mim ? (m.por_ia ? "Assistente" : "Loja") : "Cliente", texto: m.texto ?? "" })),
+  );
+  const conversaTexto = conversaCompleta.slice(-6000);
   const bruto = await gerar(
     `Leia a conversa de Instagram abaixo e responda SOMENTE um JSON, sem texto em volta, assim:
 {"nome": string|null, "whatsapp": string|null, "cidade": string|null, "procura": string|null, "resumo": string}
@@ -401,21 +403,23 @@ async function talvezPassarLead(sb: ClienteServico, conversaId: string) {
   if (!telefone || telefone.length < 12 || !dados.procura) return;
 
   const nome = dados.nome || conversa.cliente_nome || (conversa.cliente_usuario ? `@${conversa.cliente_usuario}` : null);
+  const cabecalho =
+    `Instagram${conversa.cliente_usuario ? ` @${conversa.cliente_usuario}` : ""} · atendido pelo agente de IA\n` +
+    `Nome: ${nome ?? "-"}\nWhatsApp: ${telefone}\nCidade: ${dados.cidade ?? "-"}\nProcura: ${dados.procura}`;
   const lead = await abrirLeadDoSite(sb, {
     empresa: conversa.empresa,
     nome,
     telefone,
     email: null,
     origem: "Instagram · Direct",
-    mensagem:
-      `Instagram${conversa.cliente_usuario ? ` @${conversa.cliente_usuario}` : ""} · atendido pelo agente de IA\n` +
-      `Nome: ${nome ?? "-"}\nWhatsApp: ${telefone}\nCidade: ${dados.cidade ?? "-"}\nProcura: ${dados.procura}\n` +
-      (dados.resumo ? `Resumo: ${dados.resumo}` : ""),
+    mensagem: juntarHistorico(cabecalho, conversaCompleta),
   });
   if (!lead.id) {
     console.error("[instagram/agente] lead:", lead.erro);
     return;
   }
+  // Resumo e conversa inteira no lead: quem assumir lê tudo o que o agente falou.
+  await gravarHistoricoNoLead(sb, lead.id, conversaCompleta, dados.resumo ?? null, cabecalho);
 
   const { data: dono } = await sb.from("leads_recebidos").select("vendedor_id, sdr_id").eq("id", lead.id).maybeSingle();
   const responsavel = dono?.vendedor_id ?? dono?.sdr_id ?? null;
@@ -426,16 +430,18 @@ async function talvezPassarLead(sb: ClienteServico, conversaId: string) {
 
   // Avisa quem vai atender e quem cuida do Instagram da loja.
   const { data: equipe } = await sb.from("profiles").select("id, permissoes").eq("empresa", conversa.empresa).neq("ativo", false);
-  const ids = new Set<string>([dono?.vendedor_id, dono?.sdr_id].filter(Boolean) as string[]);
+  // Lead novo: o banco já avisa o dono no sino (gatilho de lead novo). Aqui
+  // avisa o dono só quando o lead já existia, e a equipe do Instagram.
+  const ids = new Set<string>(lead.novo ? [] : ([dono?.vendedor_id, dono?.sdr_id].filter(Boolean) as string[]));
   for (const p of equipe ?? []) if ((p.permissoes as any)?.usar_instagram) ids.add(String(p.id));
   if (ids.size) {
     await sb.from("notificacoes").insert(
       [...ids].map((id) => ({
         vendedor_id: id,
         titulo: "Lead do Instagram",
-        mensagem: `${nome ?? "Cliente"} (${dados.cidade ?? "cidade não informada"}) quer ${dados.procura}. WhatsApp ${telefone}. O agente passou para você.`.slice(0, 300),
+        mensagem: `${nome ?? "Cliente"} (${dados.cidade ?? "cidade não informada"}) quer ${dados.procura}. WhatsApp ${telefone}. O agente de IA atendeu e passou o lead; o resumo e a conversa estão no lead.`.slice(0, 300),
         tipo: "lead",
-        acao_url: lead.novo ? "/leads" : "/instagram",
+        acao_url: "/leads",
       })),
     );
   }

@@ -6,6 +6,8 @@ import { modeloDeVolume } from "@/lib/aura/modelos";
 import { EMPRESA_DO_SITE } from "./tipos";
 import { CONTATO_MF, PRESENCA_VALE_MS } from "./chat";
 import { dentroDoHorario, horarioEmTexto, limparHorario } from "./horario";
+import { gravarHistoricoNoLead } from "./servidor";
+import { transcricao, type FalaDoHistorico } from "@/lib/leads/historico-ia";
 
 type ClienteServico = NonNullable<ReturnType<typeof getSupabaseServiceClient>>;
 
@@ -94,7 +96,7 @@ export async function responderComAssistente(
 
     const { data: conversa } = await sb
       .from("site_conversas")
-      .select("id, status, nome, cidade, empresa")
+      .select("id, status, nome, cidade, empresa, lead_id")
       .eq("id", conversaId)
       .maybeSingle();
     if (!conversa || conversa.status !== "aberta" || conversa.empresa !== EMPRESA_DO_SITE) return;
@@ -205,9 +207,49 @@ ${material || "(sem material: seja breve, colete as informações e diga que o c
 
     await sb.from("site_mensagens").insert({ conversa_id: conversaId, autor: "assistente", autor_nome: NOME_DO_ASSISTENTE, texto });
     await sb.from("site_conversas").update({ ultima_mensagem: texto.slice(0, 200), ultima_em: new Date().toISOString() }).eq("id", conversaId);
+
+    // O vendedor que assumir o lead vê a conversa do assistente e um resumo.
+    if (conversa.lead_id) {
+      const falas: FalaDoHistorico[] = [
+        ...lista
+          .filter((m) => m.autor !== "sistema")
+          .map((m) => ({
+            quem: (m.autor === "visitante" ? "Cliente" : m.autor === "assistente" ? "Assistente" : "Loja") as FalaDoHistorico["quem"],
+            texto: [m.texto, m.anexo_tipo ? `[${m.anexo_nome ?? "anexo"}]` : ""].filter(Boolean).join(" "),
+          })),
+        { quem: "Assistente", texto },
+      ];
+      void resumirParaVendedor(falas)
+        .then((resumo) => gravarHistoricoNoLead(sb, conversa.lead_id as string, transcricao(falas), resumo))
+        .catch((e) => console.error("[chat/assistente] histórico no lead:", (e as Error).message));
+    }
   } finally {
     emAndamento.delete(conversaId);
   }
+}
+
+/**
+ * Resumo de 1 a 3 frases da conversa, para o vendedor. Só quando o cliente já
+ * falou o bastante (duas mensagens ou mais); antes disso a conversa basta.
+ */
+async function resumirParaVendedor(falas: FalaDoHistorico[]): Promise<string | null> {
+  if (falas.filter((f) => f.quem === "Cliente").length < 2) return null;
+  if (!ia() || !(await podeChamarIA())) return null;
+  const modelo = modeloDeVolume();
+  const r = await ia()!.messages.create({
+    model: modelo,
+    max_tokens: 200,
+    system:
+      "Resuma para o consultor de vendas, em português, em 1 a 3 frases curtas, a conversa do chat do site abaixo: o que o cliente procura, ambiente/medidas, cidade, dúvidas e urgência. Só fatos ditos na conversa, sem inventar. Responda só o resumo.",
+    messages: [{ role: "user", content: transcricao(falas).slice(-6000) }],
+  });
+  void registrarUsoIA({ funcao: "chat-site", modelo, uso: (r as any).usage, empresa: EMPRESA_DO_SITE });
+  const t = r.content
+    .filter((b) => b.type === "text")
+    .map((b) => (b as { text: string }).text)
+    .join(" ")
+    .trim();
+  return t || null;
 }
 
 /**
