@@ -1,0 +1,5 @@
+# Scripts e o crontab rodam na VPS (Linux): sempre com quebra de linha LF,
+# mesmo editados no Windows. Um  no fim da linha quebra o bash e o cron.
+*.sh text eol=lf
+deploy/aura-crons text eol=lf
+*.sql text eol=lf
