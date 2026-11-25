@@ -156,7 +156,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       `e ${numeros.postagensAtrasadas} atrasadas.`;
     const ia = await ctx.ia({
       perfil: "rapido",
-      maxTokens: 220,
+      maxTokens: 450, // 220 cortava o parágrafo no meio (1ª rodada real, 25/11)
       sistema:
         "Você é o analista de marketing de uma loja de lareiras e aquecimento no Sul do Brasil. Escreva em português do Brasil, " +
         "no máximo 3 frases, tom direto. Use SOMENTE os números fornecidos; não invente nenhum outro número nem nome. " +

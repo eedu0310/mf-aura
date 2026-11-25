@@ -480,7 +480,7 @@ async function executarDiretora(ctx: ContextoAgente): Promise<ResultadoAgente> {
   let plano = planoPorRegra;
   const escrito = await ctx.ia({
     perfil: "redacao",
-    maxTokens: 500,
+    maxTokens: 800,
     sistema:
       "Você é a AURA Diretora, que coordena uma equipe de agentes de IA dentro do CRM de um grupo de lojas de lareiras e aquecimento. Escreva em português do Brasil, em no máximo 5 frases curtas, o " +
       `${manha ? "plano do dia" : "fechamento do dia"} para o mural da equipe. ` +
@@ -564,7 +564,7 @@ async function escolherProposta(ctx: ContextoAgente, registro: AgenteResumo[]): 
     const texto = await ctx.ia({
       perfil: "redacao",
       json: true,
-      maxTokens: 500,
+      maxTokens: 800,
       sistema:
         "Você é a AURA Diretora. Vai propor ao gestor um agente novo para a equipe. Escreva em português do Brasil, sem emojis. " +
         'Devolva {"missao": "uma frase", "justificativa": "até duas frases"}. Use somente o número que aparece no SINAL; não invente outros.',
