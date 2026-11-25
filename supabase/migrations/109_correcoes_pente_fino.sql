@@ -682,6 +682,18 @@ update public.atividades set tipo = 'Email' where tipo = 'E-mail';
 -- 10c. Cinco metas (de set/out de 2026) nasceram sem loja e sem ano. O app
 -- filtra metas pela loja, então elas não apareciam para o gestor. A loja vem
 -- do perfil do dono da meta; o ano, da coluna mes ("2026-10" → 2026).
+-- Correção do ensaio (25/11/2026): o gatilho metas_atualizado_em grava
+-- NEW.atualizado_em, coluna que metas não tem (a dela é updated_at), e por
+-- isso todo UPDATE em metas falha. Ele fica desligado só durante estas duas
+-- correções, dentro da transação, e volta ligado logo depois.
+do $$
+begin
+  if exists (select 1 from pg_trigger where tgrelid = 'public.metas'::regclass
+              and tgname = 'metas_atualizado_em' and not tgisinternal) then
+    alter table public.metas disable trigger metas_atualizado_em;
+  end if;
+end $$;
+
 update public.metas m
    set empresa = p.empresa
   from public.profiles p
@@ -693,6 +705,14 @@ update public.metas
    set ano = left(mes, 4)::integer
  where ano is null
    and mes ~ '^\d{4}-\d{2}$';
+
+do $$
+begin
+  if exists (select 1 from pg_trigger where tgrelid = 'public.metas'::regclass
+              and tgname = 'metas_atualizado_em' and not tgisinternal) then
+    alter table public.metas enable trigger metas_atualizado_em;
+  end if;
+end $$;
 
 -- 10d. metas_atividade.categoria: a regra do banco aceita todas as categorias
 -- da tela de metas (e ainda "Consultor", que o ranking usa). Já está
