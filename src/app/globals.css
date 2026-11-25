@@ -518,3 +518,193 @@
   margin-left: auto !important;
   margin-right: auto !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * WHATSAPP — a tela /whatsapp com as cores do WhatsApp Web
+ *
+ * A tela imita o WhatsApp Web nos dois temas, então não usa as cores da AURA:
+ * usa estas, com o prefixo --wa-. A raiz da tela leva a classe .wa-tela; o
+ * tema escuro só troca os valores (.dark .wa-tela). Nos componentes elas
+ * viram classes do Tailwind (bg-wa-panel, text-wa-text...).
+ *
+ * O papel de parede da conversa é um desenho nosso (balões, coração,
+ * estrela, telefone, chama, casa, caneca, lareira), feito em SVG aqui mesmo.
+ * --------------------------------------------------------------------------- */
+.wa-tela {
+  /* Painéis e barras */
+  --wa-panel: #ffffff;          /* lista de conversas, painéis laterais, janelas */
+  --wa-bar: #f0f2f5;            /* cabeçalhos, barra de digitação, busca */
+  --wa-bar-hover: #e9edef;
+  --wa-hover: #f5f6f6;          /* conversa da lista sob o mouse */
+  --wa-selected: #f0f2f5;       /* conversa aberta */
+  --wa-divider: #e9edef;
+  --wa-border: #d1d7db;         /* contorno de botões e bolinhas */
+  --wa-menu: #ffffff;           /* menus suspensos */
+  --wa-menu-hover: #f5f6f6;
+  --wa-menu-ring: rgba(11, 20, 26, 0.08);
+  --wa-icon-hover: rgba(11, 20, 26, 0.06);
+  --wa-intro: #f0f2f5;          /* tela vazia sem conversa aberta */
+  --wa-landing: #f0f2f5;        /* fundo da tela de conectar */
+
+  /* Texto e ícones */
+  --wa-text: #111b21;
+  --wa-text-2: #667781;
+  --wa-icon: #54656f;
+  --wa-link: #027eb5;
+  --wa-tick-read: #53bdeb;
+
+  /* Destaque verde */
+  --wa-accent: #00a884;
+  --wa-accent-hover: #008069;
+  --wa-accent-text: #008069;
+  --wa-on-accent: #ffffff;
+  --wa-chip: #d9fdd3;           /* filtro ativo, etapa atual */
+  --wa-chip-text: #008069;
+
+  /* Conversa */
+  --wa-wallpaper: #efeae2;
+  --wa-doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23111b21' stroke-opacity='.07' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M26 22h34a8 8 0 0 1 8 8v16a8 8 0 0 1-8 8H42l-10 8v-8h-6a8 8 0 0 1-8-8V30a8 8 0 0 1 8-8z'/%3E%3Cpath d='M32 38h.01M43 38h.01M54 38h.01' stroke-width='3'/%3E%3Cpath d='M128 46c-6-8-18-4-18 5 0 8 18 18 18 18s18-10 18-18c0-9-12-13-18-5z'/%3E%3Cpath d='M215 24l4.1 8.4 9.3 1.3-6.7 6.5 1.6 9.2-8.3-4.4-8.3 4.4 1.6-9.2-6.7-6.5 9.3-1.3z'/%3E%3Cpath d='M36 104c3-2 7-1 8 2l3 7c1 2 0 5-2 6l-3 2c2 6 7 11 13 13l2-3c1-2 4-3 6-2l7 3c3 1 4 5 2 8l-3 4c-2 2-5 3-8 2-16-5-28-17-33-33-1-3 0-6 2-8z'/%3E%3Cpath d='M136 150c-10 0-16-7-16-15 0-9 8-13 9-22 6 4 9 9 8 15 3-2 4-5 4-8 5 4 11 9 11 16 0 8-6 14-16 14z'/%3E%3Cpath d='M136 150c-4 0-6-3-6-6 0-4 4-6 5-10 4 3 7 6 7 10 0 3-2 6-6 6z'/%3E%3Cpath d='M196 128l20-16 20 16M201 124v22h30v-22M211 146v-11h10v11'/%3E%3Cpath d='M86 168v22M76 173l20 12M76 185l20-12'/%3E%3Cpath d='M22 206h26v14a10 10 0 0 1-10 10h-6a10 10 0 0 1-10-10zM48 210h4a5 5 0 0 1 0 10h-4M29 198c-2-3 2-5 0-8M38 198c-2-3 2-5 0-8'/%3E%3Cpath d='M108 196h52v7h-52zM113 203v36M155 203v36M106 239h56M121 239v-20a13 13 0 0 1 26 0v20'/%3E%3Cpath d='M134 237c-4 0-6-2-6-5 0-3 3-5 4-8 3 2 5 5 5 8 0 3-1 5-3 5z'/%3E%3Cpath d='M218 192a15 13 0 1 1-10 24l-8 3 3-7a15 13 0 0 1 15-20z'/%3E%3Cpath d='M88 78v8M84 82h8M178 80v6M175 83h6M242 160v6M239 163h6M14 152v6M11 155h6'/%3E%3Ccircle cx='170' cy='172' r='2.5'/%3E%3Ccircle cx='60' cy='86' r='2'/%3E%3Ccircle cx='244' cy='88' r='2'/%3E%3Ccircle cx='96' cy='246' r='2'/%3E%3Cpath d='M186 238c-3-4-9-2-9 2.5 0 4 9 9 9 9s9-5 9-9c0-4.5-6-6.5-9-2.5z'/%3E%3C/g%3E%3C/svg%3E");
+  --wa-out: #d9fdd3;            /* bolha enviada */
+  --wa-in: #ffffff;             /* bolha recebida */
+  --wa-meta: #667781;           /* hora e tiques */
+  --wa-quote-text: #667781;
+  --wa-wave: rgba(84, 101, 111, 0.3);
+  --wa-pill: #ffffff;           /* data, "carregar anteriores" */
+  --wa-pill-text: #54656f;
+  --wa-notice: #ffeecd;
+  --wa-notice-text: #54656f;
+  --wa-input: #ffffff;          /* campo sobre a barra cinza */
+  --wa-field: #f0f2f5;          /* campo sobre painel branco */
+  --wa-reply: rgba(11, 20, 26, 0.05);
+  --wa-preview: #e9edef;        /* prévia do anexo antes de enviar */
+  --wa-viewer: #ffffff;         /* visualizador de fotos */
+  --wa-avatar: #dfe5e7;
+  --wa-avatar-fg: #ffffff;
+
+  /* Supervisor AURA */
+  --wa-section: #f0f2f5;
+  --wa-section-hover: #e9edef;
+  --wa-section-chip: #ffffff;
+
+  /* Avisos (as mesmas cores de alerta de antes) */
+  --wa-danger: #d1443b;
+  --wa-danger-bg: rgba(209, 68, 59, 0.1);
+  --wa-warning: #c98a12;
+  --wa-warning-text: #8a6514;
+  --wa-warning-bg: rgba(201, 138, 18, 0.12);
+}
+
+.dark .wa-tela {
+  --wa-panel: #111b21;
+  --wa-bar: #202c33;
+  --wa-bar-hover: #2a3942;
+  --wa-hover: #202c33;
+  --wa-selected: #2a3942;
+  --wa-divider: #222d34;
+  --wa-border: #3b4a54;
+  --wa-menu: #233138;
+  --wa-menu-hover: #182229;
+  --wa-menu-ring: transparent;
+  --wa-icon-hover: rgba(255, 255, 255, 0.1);
+  --wa-intro: #222e35;
+  --wa-landing: #0b141a;
+
+  --wa-text: #e9edef;
+  --wa-text-2: #8696a0;
+  --wa-icon: #aebac1;
+  --wa-link: #53bdeb;
+  --wa-tick-read: #53bdeb;
+
+  --wa-accent: #00a884;
+  --wa-accent-hover: #06cf9c;
+  --wa-accent-text: #00a884;
+  --wa-on-accent: #111b21;
+  --wa-chip: #0a332c;
+  --wa-chip-text: #00a884;
+
+  --wa-wallpaper: #0b141a;
+  --wa-doodle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260' viewBox='0 0 260 260'%3E%3Cg fill='none' stroke='%23e9edef' stroke-opacity='.045' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M26 22h34a8 8 0 0 1 8 8v16a8 8 0 0 1-8 8H42l-10 8v-8h-6a8 8 0 0 1-8-8V30a8 8 0 0 1 8-8z'/%3E%3Cpath d='M32 38h.01M43 38h.01M54 38h.01' stroke-width='3'/%3E%3Cpath d='M128 46c-6-8-18-4-18 5 0 8 18 18 18 18s18-10 18-18c0-9-12-13-18-5z'/%3E%3Cpath d='M215 24l4.1 8.4 9.3 1.3-6.7 6.5 1.6 9.2-8.3-4.4-8.3 4.4 1.6-9.2-6.7-6.5 9.3-1.3z'/%3E%3Cpath d='M36 104c3-2 7-1 8 2l3 7c1 2 0 5-2 6l-3 2c2 6 7 11 13 13l2-3c1-2 4-3 6-2l7 3c3 1 4 5 2 8l-3 4c-2 2-5 3-8 2-16-5-28-17-33-33-1-3 0-6 2-8z'/%3E%3Cpath d='M136 150c-10 0-16-7-16-15 0-9 8-13 9-22 6 4 9 9 8 15 3-2 4-5 4-8 5 4 11 9 11 16 0 8-6 14-16 14z'/%3E%3Cpath d='M136 150c-4 0-6-3-6-6 0-4 4-6 5-10 4 3 7 6 7 10 0 3-2 6-6 6z'/%3E%3Cpath d='M196 128l20-16 20 16M201 124v22h30v-22M211 146v-11h10v11'/%3E%3Cpath d='M86 168v22M76 173l20 12M76 185l20-12'/%3E%3Cpath d='M22 206h26v14a10 10 0 0 1-10 10h-6a10 10 0 0 1-10-10zM48 210h4a5 5 0 0 1 0 10h-4M29 198c-2-3 2-5 0-8M38 198c-2-3 2-5 0-8'/%3E%3Cpath d='M108 196h52v7h-52zM113 203v36M155 203v36M106 239h56M121 239v-20a13 13 0 0 1 26 0v20'/%3E%3Cpath d='M134 237c-4 0-6-2-6-5 0-3 3-5 4-8 3 2 5 5 5 8 0 3-1 5-3 5z'/%3E%3Cpath d='M218 192a15 13 0 1 1-10 24l-8 3 3-7a15 13 0 0 1 15-20z'/%3E%3Cpath d='M88 78v8M84 82h8M178 80v6M175 83h6M242 160v6M239 163h6M14 152v6M11 155h6'/%3E%3Ccircle cx='170' cy='172' r='2.5'/%3E%3Ccircle cx='60' cy='86' r='2'/%3E%3Ccircle cx='244' cy='88' r='2'/%3E%3Ccircle cx='96' cy='246' r='2'/%3E%3Cpath d='M186 238c-3-4-9-2-9 2.5 0 4 9 9 9 9s9-5 9-9c0-4.5-6-6.5-9-2.5z'/%3E%3C/g%3E%3C/svg%3E");
+  --wa-out: #005c4b;
+  --wa-in: #202c33;
+  --wa-meta: #8696a0;
+  --wa-quote-text: rgba(233, 237, 239, 0.7);
+  --wa-wave: rgba(255, 255, 255, 0.3);
+  --wa-pill: #182229;
+  --wa-pill-text: #8696a0;
+  --wa-notice: #182229;
+  --wa-notice-text: #ffd279;
+  --wa-input: #2a3942;
+  --wa-field: #2a3942;
+  --wa-reply: #1d282f;
+  --wa-preview: #0b141a;
+  --wa-viewer: #0b141a;
+  --wa-avatar: #6b7c85;
+  --wa-avatar-fg: #cfd4d6;
+
+  --wa-section: #202c33;
+  --wa-section-hover: #2a3942;
+  --wa-section-chip: #2a3942;
+
+  --wa-danger: #f15c6d;
+  --wa-danger-bg: #3d1d22;
+  --wa-warning: #ffd279;
+  --wa-warning-text: #ffd279;
+  --wa-warning-bg: #3d3219;
+}
+
+/* Na bolha enviada do escuro, hora e tiques ficam em branco translúcido. */
+.dark .wa-tela .wa-saida {
+  --wa-meta: rgba(255, 255, 255, 0.6);
+}
+
+@theme inline {
+  --color-wa-panel: var(--wa-panel);
+  --color-wa-bar: var(--wa-bar);
+  --color-wa-bar-hover: var(--wa-bar-hover);
+  --color-wa-hover: var(--wa-hover);
+  --color-wa-selected: var(--wa-selected);
+  --color-wa-divider: var(--wa-divider);
+  --color-wa-border: var(--wa-border);
+  --color-wa-menu: var(--wa-menu);
+  --color-wa-menu-hover: var(--wa-menu-hover);
+  --color-wa-menu-ring: var(--wa-menu-ring);
+  --color-wa-icon-hover: var(--wa-icon-hover);
+  --color-wa-intro: var(--wa-intro);
+  --color-wa-landing: var(--wa-landing);
+  --color-wa-text: var(--wa-text);
+  --color-wa-text-2: var(--wa-text-2);
+  --color-wa-icon: var(--wa-icon);
+  --color-wa-link: var(--wa-link);
+  --color-wa-tick-read: var(--wa-tick-read);
+  --color-wa-accent: var(--wa-accent);
+  --color-wa-accent-hover: var(--wa-accent-hover);
+  --color-wa-accent-text: var(--wa-accent-text);
+  --color-wa-on-accent: var(--wa-on-accent);
+  --color-wa-chip: var(--wa-chip);
+  --color-wa-chip-text: var(--wa-chip-text);
+  --color-wa-wallpaper: var(--wa-wallpaper);
+  --color-wa-out: var(--wa-out);
+  --color-wa-in: var(--wa-in);
+  --color-wa-meta: var(--wa-meta);
+  --color-wa-quote-text: var(--wa-quote-text);
+  --color-wa-wave: var(--wa-wave);
+  --color-wa-pill: var(--wa-pill);
+  --color-wa-pill-text: var(--wa-pill-text);
+  --color-wa-notice: var(--wa-notice);
+  --color-wa-notice-text: var(--wa-notice-text);
+  --color-wa-input: var(--wa-input);
+  --color-wa-field: var(--wa-field);
+  --color-wa-reply: var(--wa-reply);
+  --color-wa-preview: var(--wa-preview);
+  --color-wa-viewer: var(--wa-viewer);
+  --color-wa-avatar: var(--wa-avatar);
+  --color-wa-avatar-fg: var(--wa-avatar-fg);
+  --color-wa-section: var(--wa-section);
+  --color-wa-section-hover: var(--wa-section-hover);
+  --color-wa-section-chip: var(--wa-section-chip);
+  --color-wa-danger: var(--wa-danger);
+  --color-wa-danger-bg: var(--wa-danger-bg);
+  --color-wa-warning: var(--wa-warning);
+  --color-wa-warning-text: var(--wa-warning-text);
+  --color-wa-warning-bg: var(--wa-warning-bg);
+}

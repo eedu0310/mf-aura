@@ -84,8 +84,8 @@ interface Props {
 
 function Secao({ icone, titulo, children }: { icone: React.ReactNode; titulo: string; children: React.ReactNode }) {
   return (
-    <section className="bg-aura-surface dark:bg-[#111b21] px-5 py-4">
-      <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-[#008069] dark:text-[#00a884]">
+    <section className="mx-3 rounded-lg bg-wa-section px-4 py-3.5">
+      <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-wa-accent-text">
         {icone}
         {titulo}
       </h4>
@@ -203,24 +203,24 @@ export function SupervisorPanel({
     ehGanho(etapaAtual, funil) || ehPosVenda(etapaAtual, funil) || lead?.natureza === "cliente" || !!avaliacao?.pedido;
 
   return (
-    <aside className="flex h-full w-full flex-col border-l border-aura-mist dark:border-[#222d34] bg-aura-bg dark:bg-[#0b141a] md:w-[360px]">
-      <div className="flex h-[59px] items-center gap-4 bg-aura-sunken dark:bg-[#202c33] px-5">
-        <button type="button" onClick={onClose} className="text-aura-graphite-soft dark:text-[#aebac1]" aria-label="Fechar">
+    <aside className="flex h-full w-full flex-col border-l border-wa-divider bg-wa-panel md:w-[360px]">
+      <div className="flex h-[59px] items-center gap-4 bg-wa-bar px-5">
+        <button type="button" onClick={onClose} className="text-wa-icon" aria-label="Fechar">
           <X className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-[#008069] dark:text-[#00a884]" />
-          <h3 className="text-[16px] text-aura-graphite dark:text-[#e9edef]">Supervisor AURA</h3>
+          <Bot className="h-5 w-5 text-wa-accent-text" />
+          <h3 className="text-[16px] text-wa-text">Supervisor AURA</h3>
         </div>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto pb-6">
+      <div className="flex-1 space-y-2 overflow-y-auto pt-3 pb-6">
         {/* Status da análise */}
-        <div className="flex items-center justify-between bg-aura-surface dark:bg-[#111b21] px-5 py-3 text-xs text-aura-graphite-soft dark:text-[#8696a0]">
+        <div className="mx-3 flex items-center justify-between rounded-lg bg-wa-section px-4 py-2.5 text-xs text-wa-text-2">
           <span className="flex items-center gap-1.5">
             {lead?.analisando ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#008069] dark:text-[#00a884]" /> Analisando conversa…
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-wa-accent-text" /> Analisando conversa…
               </>
             ) : lead?.ultimaAnaliseEm ? (
               <>Analisado às {new Date(lead.ultimaAnaliseEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</>
@@ -232,28 +232,28 @@ export function SupervisorPanel({
             type="button"
             onClick={() => acao("analisar", { action: "analyze" })}
             disabled={!!ocupado || lead?.analisando}
-            className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-[#008069] dark:text-[#00a884] hover:bg-aura-sunken dark:hover:bg-[#202c33] disabled:opacity-50"
+            className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-wa-accent-text hover:bg-wa-section-hover disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${ocupado === "analisar" ? "animate-spin" : ""}`} /> Analisar agora
           </button>
         </div>
 
         {lead && !lead.iaDisponivel && (
-          <p className="mx-4 rounded-lg bg-aura-warning/10 dark:bg-[#3d3219] px-3 py-2 text-xs text-aura-gold-700 dark:text-[#ffd279]">
+          <p className="mx-3 rounded-lg bg-wa-warning-bg px-3 py-2 text-xs text-wa-warning-text">
             IA desligada: falta uma chave válida da Anthropic no .env.local. Enquanto isso o supervisor usa as regras automáticas (palavras-chave e tempos de resposta).
           </p>
         )}
-        {lead?.aviso && <p className="mx-4 rounded-lg bg-aura-warning/10 dark:bg-[#3d3219] px-3 py-2 text-xs text-aura-gold-700 dark:text-[#ffd279]">{lead.aviso}</p>}
-        {erro && <p className="mx-4 rounded-lg bg-aura-danger/10 dark:bg-[#3d1d22] px-3 py-2 text-xs text-aura-danger dark:text-[#f15c6d]">{erro}</p>}
+        {lead?.aviso && <p className="mx-3 rounded-lg bg-wa-warning-bg px-3 py-2 text-xs text-wa-warning-text">{lead.aviso}</p>}
+        {erro && <p className="mx-3 rounded-lg bg-wa-danger-bg px-3 py-2 text-xs text-wa-danger">{erro}</p>}
 
         {/* Atalhos de envio: catálogo e links que o gestor cadastrou. Ficam no
             alto do painel porque são o que o vendedor mais manda; o texto cai
             no campo da conversa para ele conferir antes de enviar. */}
         {onUsarTexto && fechado && configDoPedido && (
-          <Secao icone={<Star className="h-4 w-4 text-aura-warning dark:text-[#ffd279]" />} titulo="Pedir avaliação">
+          <Secao icone={<Star className="h-4 w-4 text-wa-warning" />} titulo="Pedir avaliação">
             {configDoPedido.link_google ? (
               <>
-                <p className="text-xs text-aura-graphite-soft dark:text-[#aebac1]">
+                <p className="text-xs text-wa-icon">
                   {avaliacao?.pedido?.confirmado_em
                     ? "Este cliente já avaliou. Obrigado!"
                     : avaliacao?.pedido?.enviado_em || avaliacaoEnviada
@@ -268,7 +268,7 @@ export function SupervisorPanel({
                         <button
                           type="button"
                           onClick={() => usarAvaliacao(msgs[0])}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-[#00a884] px-3 py-1.5 text-[13px] font-medium text-white dark:text-[#111b21] hover:bg-[#008069] dark:hover:bg-[#06cf9c]"
+                          className="inline-flex items-center gap-1.5 rounded-full bg-wa-accent px-3 py-1.5 text-[13px] font-medium text-wa-on-accent hover:bg-wa-accent-hover"
                         >
                           <Star className="h-3.5 w-3.5" /> Avaliação no Google
                         </button>
@@ -276,7 +276,7 @@ export function SupervisorPanel({
                           <button
                             type="button"
                             onClick={() => onUsarTexto(msgs[1])}
-                            className="rounded-full border border-[#00a884]/50 px-3 py-1.5 text-[13px] text-[#008069] dark:text-[#00a884] hover:bg-[#00a884]/10"
+                            className="rounded-full border border-wa-accent/50 px-3 py-1.5 text-[13px] text-wa-accent-text hover:bg-wa-accent/10"
                           >
                             Convite para as redes
                           </button>
@@ -285,12 +285,12 @@ export function SupervisorPanel({
                     );
                   })()}
                 </div>
-                <p className="mt-2 text-[11px] text-aura-graphite-soft dark:text-[#8696a0]">
+                <p className="mt-2 text-[11px] text-wa-text-2">
                   Mande primeiro a avaliação, depois o convite. O texto vai para o campo de mensagem; confira e envie.
                 </p>
               </>
             ) : (
-              <p className="text-xs text-aura-gold-700 dark:text-[#ffd279]">
+              <p className="text-xs text-wa-warning-text">
                 A loja {configDoPedido.empresa} ainda não tem o link de avaliação. O gestor cadastra em Painel do Gestor → Avaliações.
               </p>
             )}
@@ -313,7 +313,7 @@ export function SupervisorPanel({
                     else onUsarTexto(texto);
                   }}
                   title={`Pedido de avaliação no Google da ${c.empresa}`}
-                  className="inline-flex items-center gap-1 rounded-full border border-aura-gold/50 dark:border-[#ffd279]/50 px-3 py-1.5 text-[13px] text-aura-gold-700 dark:text-[#ffd279] hover:bg-aura-gold/10 dark:hover:bg-[#ffd279]/10"
+                  className="inline-flex items-center gap-1 rounded-full border border-aura-gold/50 dark:border-[#ffd279]/50 px-3 py-1.5 text-[13px] text-wa-warning-text hover:bg-aura-gold/10 dark:hover:bg-[#ffd279]/10"
                 >
                   <Star className="h-3.5 w-3.5" />
                   {lojasComAvaliacao.length > 1 ? `Avaliação ${SIGLA_DA_LOJA[c.empresa] ?? c.empresa}` : "Avaliação Google"}
@@ -325,13 +325,13 @@ export function SupervisorPanel({
                   type="button"
                   onClick={() => onUsarTexto(textoParaWhatsapp(l))}
                   title={l.mensagemWhatsapp ?? l.url}
-                  className="rounded-full border border-[#00a884]/50 px-3 py-1.5 text-[13px] text-[#008069] dark:text-[#00a884] hover:bg-[#00a884]/10"
+                  className="rounded-full border border-wa-accent/50 px-3 py-1.5 text-[13px] text-wa-accent-text hover:bg-wa-accent/10"
                 >
                   {l.titulo}
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[11px] text-aura-graphite-soft dark:text-[#8696a0]">
+            <p className="mt-2 text-[11px] text-wa-text-2">
               O texto vai para o campo de mensagem; confira e envie. O gestor edita a lista em Configurações.
             </p>
           </Secao>
@@ -339,20 +339,20 @@ export function SupervisorPanel({
 
         {/* Alertas de atendimento */}
         {(alertas.length > 0 || (lead?.alertasIa.length ?? 0) > 0) && (
-          <Secao icone={<AlertTriangle className="h-4 w-4 text-aura-danger dark:text-[#f15c6d]" />} titulo="Atenção">
+          <Secao icone={<AlertTriangle className="h-4 w-4 text-wa-danger" />} titulo="Atenção">
             <ul className="space-y-1.5">
               {alertas.map((a) => (
                 <li
                   key={a.tipo + a.desde}
                   className={`rounded-md px-3 py-2 text-sm ${
-                    a.nivel === "critico" ? "bg-aura-danger/10 dark:bg-[#3d1d22] text-aura-danger dark:text-[#f15c6d]" : a.nivel === "alto" ? "bg-[#c2410c]/10 dark:bg-[#3d2a19] text-[#c2410c] dark:text-[#ffa65c]" : "bg-aura-warning/10 dark:bg-[#3d3219] text-aura-gold-700 dark:text-[#ffd279]"
+                    a.nivel === "critico" ? "bg-wa-danger-bg text-wa-danger" : a.nivel === "alto" ? "bg-[#c2410c]/10 dark:bg-[#3d2a19] text-[#c2410c] dark:text-[#ffa65c]" : "bg-wa-warning-bg text-wa-warning-text"
                   }`}
                 >
                   {a.texto}
                 </li>
               ))}
               {lead?.alertasIa.map((t, i) => (
-                <li key={i} className="rounded-md bg-aura-danger/10 dark:bg-[#3d1d22] px-3 py-2 text-sm text-aura-danger dark:text-[#f15c6d]">
+                <li key={i} className="rounded-md bg-wa-danger-bg px-3 py-2 text-sm text-wa-danger">
                   {t}
                 </li>
               ))}
@@ -387,7 +387,7 @@ export function SupervisorPanel({
                   style={
                     marcada
                       ? { background: `light-dark(color-mix(in srgb, ${info.cor} 14%, transparent), ${info.fundo})`, borderColor: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})`, color: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})` }
-                      : { background: "transparent", borderColor: "light-dark(var(--aura-mist), #2a3942)", color: "light-dark(var(--aura-graphite-soft), #8696a0)" }
+                      : { background: "transparent", borderColor: "var(--wa-border)", color: "var(--wa-text-2)" }
                   }
                 >
                   {ocupado === `nat-${n}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
@@ -397,7 +397,7 @@ export function SupervisorPanel({
             })}
           </div>
 
-          <p className="mt-2 text-xs text-aura-graphite-soft dark:text-[#8696a0]">
+          <p className="mt-2 text-xs text-wa-text-2">
             {lead?.natureza
               ? INFO_NATUREZA[lead.natureza].descricao
               : "Ninguém decidiu ainda. Enquanto isso a AURA pergunta em vez de criar lead."}
@@ -406,7 +406,7 @@ export function SupervisorPanel({
           {/* Por que nao e lead: a AURA usa isto para aprender o padrao. */}
           {lead?.natureza === "nao_lead" && (
             <div className="mt-3">
-              <p className="mb-1.5 text-xs text-aura-graphite-soft dark:text-[#8696a0]">
+              <p className="mb-1.5 text-xs text-wa-text-2">
                 O que ele é? {lead.motivoNatureza ? "" : "(a AURA aprende com isso)"}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -420,8 +420,8 @@ export function SupervisorPanel({
                       onClick={() => acao(`mot-${m}`, { action: "classify", motivo: m })}
                       className={`rounded-full border px-2.5 py-1 text-xs transition disabled:opacity-60 ${
                         marcado
-                          ? "border-aura-graphite-soft dark:border-[#8696a0] bg-aura-sunken dark:bg-[#202c33] text-aura-graphite dark:text-[#e9edef]"
-                          : "border-aura-mist dark:border-[#2a3942] text-aura-graphite-soft dark:text-[#8696a0] hover:bg-aura-sunken dark:hover:bg-[#202c33]"
+                          ? "border-wa-text-2 bg-wa-section-chip text-wa-text"
+                          : "border-wa-border text-wa-text-2 hover:bg-wa-section-hover"
                       }`}
                     >
                       {m}
@@ -435,7 +435,7 @@ export function SupervisorPanel({
           {/* Categoria: a etiqueta que aparece ao lado do nome na lista. */}
           {lead?.natureza !== "nao_lead" && (
             <div className="mt-3">
-              <p className="mb-1.5 text-xs text-aura-graphite-soft dark:text-[#8696a0]">
+              <p className="mb-1.5 text-xs text-wa-text-2">
                 Categoria
                 {!lead?.categoria && lead?.categoriaSugerida
                   ? ` — a AURA achou que é ${lead.categoriaSugerida}, confirme`
@@ -459,7 +459,7 @@ export function SupervisorPanel({
                           ? { background: `light-dark(color-mix(in srgb, ${info.cor} 14%, transparent), ${info.fundo})`, borderColor: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})`, color: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})` }
                           : sugerida
                           ? { background: "transparent", borderColor: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})`, color: `light-dark(color-mix(in srgb, ${info.cor} 62%, black), ${info.cor})`, borderStyle: "dashed" }
-                          : { background: "transparent", borderColor: "light-dark(var(--aura-mist), #2a3942)", color: "light-dark(var(--aura-graphite-soft), #8696a0)" }
+                          : { background: "transparent", borderColor: "var(--wa-border)", color: "var(--wa-text-2)" }
                       }
                     >
                       {c}
@@ -482,7 +482,7 @@ export function SupervisorPanel({
               técnico. Agora, quando ela não tem certeza, pergunta em vez de
               decidir — quem conhece o contato é o vendedor.
             */}
-            <p className="text-sm text-aura-graphite-soft dark:text-[#8696a0]">
+            <p className="text-sm text-wa-text-2">
               {lead?.natureza === "cliente"
                 ? "Cliente antigo. Foi para o pós-venda da loja (coluna Clientes antigos) e saiu do funil e dos alertas de lead. Continua na sua carteira."
                 : lead?.natureza === "nao_lead" || lead?.ignorado
@@ -507,14 +507,14 @@ export function SupervisorPanel({
             */}
             {!lead?.natureza && PALPITES_DE_CLIENTE_ANTIGO.some((p) => p === lead?.motivoNatureza) && (
               <div className="mt-3 rounded-md border border-[#027eb5]/40 dark:border-[#53bdeb]/40 bg-[#027eb5]/10 dark:bg-[#0d2b36] px-3 py-2.5">
-                <p className="text-sm text-aura-graphite dark:text-[#e9edef]">
+                <p className="text-sm text-wa-text">
                   Parece cliente antigo: já comprou da casa ou fala do que já tem instalado.
                 </p>
                 <button
                   type="button"
                   onClick={() => acao("nat-cliente", { action: "classify", natureza: "cliente" })}
                   disabled={!!ocupado}
-                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#027eb5] dark:bg-[#53bdeb] px-4 py-2 text-sm font-medium text-white dark:text-[#111b21] hover:bg-[#026a99] dark:hover:bg-[#7fd1ff] disabled:opacity-60"
+                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#027eb5] dark:bg-[#53bdeb] px-4 py-2 text-sm font-medium text-wa-on-accent hover:bg-[#026a99] dark:hover:bg-[#7fd1ff] disabled:opacity-60"
                 >
                   {ocupado === "nat-cliente" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   Sim, cliente antigo · pós-venda
@@ -527,7 +527,7 @@ export function SupervisorPanel({
                 type="button"
                 onClick={() => acao("lead", { action: "classify", natureza: "lead" })}
                 disabled={!!ocupado}
-                className="inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-medium text-white dark:text-[#111b21] hover:bg-[#008069] dark:hover:bg-[#06cf9c] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-full bg-wa-accent px-4 py-2 text-sm font-medium text-wa-on-accent hover:bg-wa-accent-hover disabled:opacity-60"
               >
                 {ocupado === "lead" ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                 {lead?.leadSugerido ? "Sim, é um lead" : "Tratar como lead"}
@@ -550,12 +550,12 @@ export function SupervisorPanel({
                         onClick={() => acao(`etapa-${e}`, { action: "stage", etapa: e })}
                         title={atual ? "Etapa atual" : `Mover para ${e}`}
                         className={`flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left text-sm transition ${
-                          atual ? "bg-aura-petrol-50 dark:bg-[#0a332c] font-medium text-aura-graphite dark:text-[#e9edef]" : "text-aura-graphite-soft dark:text-[#aebac1] hover:bg-aura-sunken dark:hover:bg-[#202c33]"
+                          atual ? "bg-wa-chip font-medium text-wa-text" : "text-wa-icon hover:bg-wa-section-hover"
                         }`}
                       >
                         <span
                           className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-                            atual ? "border-[#00a884] bg-[#00a884] text-white dark:text-[#111b21]" : feito ? "border-[#00a884] text-[#008069] dark:text-[#00a884]" : "border-aura-mist dark:border-[#3b4a54]"
+                            atual ? "border-wa-accent bg-wa-accent text-wa-on-accent" : feito ? "border-wa-accent text-wa-accent-text" : "border-wa-border"
                           }`}
                         >
                           {feito ? <CheckCircle2 className="h-4 w-4" /> : ocupado === `etapa-${e}` ? <Loader2 className="h-3 w-3 animate-spin" /> : i + 1}
@@ -572,32 +572,32 @@ export function SupervisorPanel({
                   disabled={!!ocupado}
                   onClick={() => acao(`etapa-${nomeDePerda}`, { action: "stage", etapa: nomeDePerda })}
                   style={ehPerda(etapaAtual, funil) ? estiloDaEtapa("#f15c6d") : undefined}
-                  className="rounded-full px-2 py-1 text-aura-danger dark:text-[#f15c6d] hover:bg-aura-danger/10 dark:hover:bg-[#3d1d22]"
+                  className="rounded-full px-2 py-1 text-wa-danger hover:bg-wa-danger-bg"
                 >
                   {ehPerda(etapaAtual, funil) ? "Marcado como perdido" : "Marcar como perdido"}
                 </button>
-                <Link href="/pipeline" className="flex items-center gap-1 text-[#008069] dark:text-[#00a884] hover:underline">
+                <Link href="/pipeline" className="flex items-center gap-1 text-wa-accent-text hover:underline">
                   Abrir pipeline <ExternalLink className="h-3 w-3" />
                 </Link>
               </div>
-              <p className="mt-2 text-xs text-aura-graphite-soft dark:text-[#8696a0]">
+              <p className="mt-2 text-xs text-wa-text-2">
                 A IA avança o card sozinha conforme a conversa (apresentação, orçamento, negociação, fechamento). Clique numa etapa para corrigir.
               </p>
             </Secao>
 
             {lead?.proximaAcao && !fechado && (
               <Secao icone={<Target className="h-4 w-4" />} titulo="Próxima ação">
-                <p className="text-sm text-aura-graphite dark:text-[#e9edef]">{lead.proximaAcao}</p>
+                <p className="text-sm text-wa-text">{lead.proximaAcao}</p>
               </Secao>
             )}
 
             {lead?.resumo && (
               <Secao icone={<Bot className="h-4 w-4" />} titulo="Resumo do lead">
-                <p className="text-sm text-aura-graphite dark:text-[#e9edef]">{lead.resumo}</p>
+                <p className="text-sm text-wa-text">{lead.resumo}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {lead.interesse && <span className="rounded-full bg-aura-sunken dark:bg-[#202c33] px-2 py-1 text-aura-graphite-soft dark:text-[#aebac1]">Interesse: {lead.interesse}</span>}
+                  {lead.interesse && <span className="rounded-full bg-wa-section-chip px-2 py-1 text-wa-icon">Interesse: {lead.interesse}</span>}
                   {lead.valorEstimado ? (
-                    <span className="rounded-full bg-aura-sunken dark:bg-[#202c33] px-2 py-1 text-aura-graphite-soft dark:text-[#aebac1]">
+                    <span className="rounded-full bg-wa-section-chip px-2 py-1 text-wa-icon">
                       ~ {lead.valorEstimado.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}
                     </span>
                   ) : null}
@@ -606,8 +606,8 @@ export function SupervisorPanel({
             )}
 
             {lead && lead.dicas.length > 0 && !fechado && (
-              <Secao icone={<Lightbulb className="h-4 w-4 text-aura-warning dark:text-[#ffd279]" />} titulo="Dicas do manual">
-                <ul className="list-disc space-y-1.5 pl-4 text-sm text-aura-graphite dark:text-[#e9edef]">
+              <Secao icone={<Lightbulb className="h-4 w-4 text-wa-warning" />} titulo="Dicas do manual">
+                <ul className="list-disc space-y-1.5 pl-4 text-sm text-wa-text">
                   {lead.dicas.map((d, i) => (
                     <li key={i}>{d}</li>
                   ))}
@@ -619,13 +619,13 @@ export function SupervisorPanel({
               <Secao icone={<History className="h-4 w-4" />} titulo="Movimentações">
                 <ul className="space-y-2">
                   {[...lead.historico].reverse().map((h, i) => (
-                    <li key={i} className="text-xs text-aura-graphite-soft dark:text-[#aebac1]">
-                      <span className="font-medium text-aura-graphite dark:text-[#e9edef]">
+                    <li key={i} className="text-xs text-wa-icon">
+                      <span className="font-medium text-wa-text">
                         {h.de ? `${h.de} → ${h.para}` : h.para}
                       </span>{" "}
                       · {new Date(h.em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       {h.fonte === "ia" ? " · IA" : h.fonte === "regras" ? " · automático" : " · manual"}
-                      {h.evidencia && <p className="mt-0.5 italic text-aura-graphite-soft dark:text-[#8696a0]">“{h.evidencia}”</p>}
+                      {h.evidencia && <p className="mt-0.5 italic text-wa-text-2">“{h.evidencia}”</p>}
                     </li>
                   ))}
                 </ul>

@@ -320,12 +320,12 @@ export function Composer({
   return (
     <>
       {arquivo && (
-        <div className="absolute inset-0 z-30 flex flex-col bg-aura-bg dark:bg-[#0b141a]">
-          <div className="flex items-center gap-4 bg-aura-sunken dark:bg-[#202c33] px-4 py-3">
-            <button type="button" onClick={() => setArquivo(null)} className="rounded-full p-1 text-aura-graphite-soft dark:text-[#aebac1] hover:bg-black/5 dark:hover:bg-white/10" aria-label="Cancelar">
+        <div className="absolute inset-0 z-30 flex flex-col bg-wa-preview">
+          <div className="flex items-center gap-4 bg-wa-bar px-4 py-3">
+            <button type="button" onClick={() => setArquivo(null)} className="rounded-full p-1 text-wa-icon hover:bg-wa-icon-hover" aria-label="Cancelar">
               <X className="h-6 w-6" />
             </button>
-            <p className="truncate text-aura-graphite dark:text-[#e9edef]">{arquivo.name}</p>
+            <p className="truncate text-wa-text">{arquivo.name}</p>
           </div>
           <div className="flex flex-1 items-center justify-center overflow-hidden p-6">
             {previewUrl && arquivo.type.startsWith("image/") ? (
@@ -334,21 +334,21 @@ export function Composer({
             ) : previewUrl && arquivo.type.startsWith("video/") ? (
               <video src={previewUrl} controls className="max-h-full max-w-full rounded-md bg-black" />
             ) : (
-              <div className="flex flex-col items-center gap-3 rounded-lg bg-aura-sunken dark:bg-[#202c33] px-10 py-8">
-                {arquivo.type.startsWith("audio/") ? <Headphones className="h-16 w-16 text-[#ff8b1f]" /> : <FileText className="h-16 w-16 text-aura-danger dark:text-[#f15c6d]" />}
-                <p className="max-w-xs truncate text-sm text-aura-graphite dark:text-[#e9edef]">{arquivo.name}</p>
-                <p className="text-xs text-aura-graphite-soft dark:text-[#8696a0]">{(arquivo.size / 1024 / 1024).toFixed(2)} MB</p>
+              <div className="flex flex-col items-center gap-3 rounded-lg bg-wa-bar px-10 py-8">
+                {arquivo.type.startsWith("audio/") ? <Headphones className="h-16 w-16 text-[#ff8b1f]" /> : <FileText className="h-16 w-16 text-wa-danger" />}
+                <p className="max-w-xs truncate text-sm text-wa-text">{arquivo.name}</p>
+                <p className="text-xs text-wa-text-2">{(arquivo.size / 1024 / 1024).toFixed(2)} MB</p>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3 bg-aura-sunken dark:bg-[#202c33] px-6 py-4">
+          <div className="flex items-center gap-3 bg-wa-bar px-6 py-4">
             {!arquivo.type.startsWith("audio/") && (
               <input
                 value={legenda}
                 onChange={(e) => setLegenda(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && enviarArquivo()}
                 placeholder="Adicione uma legenda"
-                className="flex-1 rounded-lg bg-aura-surface dark:bg-[#2a3942] px-4 py-2.5 text-[15px] text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
+                className="flex-1 rounded-lg bg-wa-input px-4 py-2.5 text-[15px] text-wa-text outline-none placeholder:text-wa-text-2"
                 autoFocus
               />
             )}
@@ -356,56 +356,56 @@ export function Composer({
               type="button"
               onClick={enviarArquivo}
               disabled={enviando}
-              className="ml-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#00a884] text-white dark:text-[#111b21] shadow hover:bg-[#008069] dark:hover:bg-[#06cf9c] disabled:opacity-60"
+              className="ml-auto flex h-12 w-12 items-center justify-center rounded-full bg-wa-accent text-wa-on-accent shadow hover:bg-wa-accent-hover disabled:opacity-60"
               aria-label="Enviar arquivo"
             >
               {enviando ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
             </button>
           </div>
-          {erro && <p className="bg-aura-sunken dark:bg-[#202c33] px-6 pb-3 text-sm text-aura-danger dark:text-[#f15c6d]">{erro}</p>}
+          {erro && <p className="bg-wa-bar px-6 pb-3 text-sm text-wa-danger">{erro}</p>}
         </div>
       )}
 
-      <div className="relative z-10 bg-aura-sunken dark:bg-[#202c33] px-3 py-2">
+      <div className="relative z-10 bg-wa-bar px-3 py-2">
         {sugestao && !texto && (
           <button
             type="button"
             onClick={() => setTexto(sugestao)}
-            className="mb-2 flex w-full items-start gap-2 rounded-lg border border-[#00a884]/40 bg-aura-surface dark:bg-[#111b21] px-3 py-2 text-left text-sm text-aura-graphite dark:text-[#e9edef] hover:bg-aura-petrol-50 dark:hover:bg-[#0a332c]"
+            className="mb-2 flex w-full items-start gap-2 rounded-lg border border-wa-accent/40 bg-wa-input px-3 py-2 text-left text-sm text-wa-text hover:bg-wa-chip"
             title="Clique para usar a sugestão"
           >
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[#008069] dark:text-[#00a884]" />
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-wa-accent-text" />
             <span className="line-clamp-2">
-              <span className="font-medium text-[#008069] dark:text-[#00a884]">Sugestão da AURA: </span>
+              <span className="font-medium text-wa-accent-text">Sugestão da AURA: </span>
               {sugestao}
             </span>
           </button>
         )}
         {respondendo && (
-          <div className="mb-2 flex items-stretch gap-2 overflow-hidden rounded-lg bg-aura-surface dark:bg-[#1d282f]">
-            <span aria-hidden className={`w-1 shrink-0 ${respondendo.fromMe ? "bg-[#00a884]" : "bg-[#53bdeb]"}`} />
+          <div className="mb-2 flex items-stretch gap-2 overflow-hidden rounded-lg bg-wa-reply">
+            <span aria-hidden className={`w-1 shrink-0 ${respondendo.fromMe ? "bg-wa-accent" : "bg-[#53bdeb]"}`} />
             <div className="min-w-0 flex-1 py-2">
-              <p className={`text-[13px] font-medium ${respondendo.fromMe ? "text-[#008069] dark:text-[#00a884]" : "text-[#027eb5] dark:text-[#53bdeb]"}`}>
+              <p className={`text-[13px] font-medium ${respondendo.fromMe ? "text-wa-accent-text" : "text-wa-link"}`}>
                 {respondendo.fromMe ? "Você" : "Cliente"}
               </p>
-              <p className="line-clamp-2 text-[13px] leading-[18px] text-aura-graphite-soft dark:text-[#8696a0]">{resumoCitado(respondendo)}</p>
+              <p className="line-clamp-2 text-[13px] leading-[18px] text-wa-text-2">{resumoCitado(respondendo)}</p>
             </div>
             <button
               type="button"
               onClick={onCancelarResposta}
               aria-label="Cancelar resposta"
-              className="shrink-0 self-start p-2 text-aura-graphite-soft dark:text-[#8696a0] hover:text-aura-graphite dark:hover:text-[#e9edef]"
+              className="shrink-0 self-start p-2 text-wa-text-2 hover:text-wa-text"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
-        {erro && !arquivo && <p className="mb-1 text-sm text-aura-danger dark:text-[#f15c6d]">{erro}</p>}
+        {erro && !arquivo && <p className="mb-1 text-sm text-wa-danger">{erro}</p>}
 
         {emojis && (
-          <div className="mb-2 grid grid-cols-10 gap-1 rounded-lg bg-aura-surface dark:bg-[#111b21] p-2 sm:grid-cols-[repeat(20,minmax(0,1fr))]">
+          <div className="mb-2 grid grid-cols-10 gap-1 rounded-lg bg-wa-panel p-2 sm:grid-cols-[repeat(20,minmax(0,1fr))]">
             {EMOJIS.map((em) => (
-              <button key={em} type="button" onClick={() => setTexto((t) => t + em)} className="rounded p-1 text-xl hover:bg-black/5 dark:hover:bg-white/10">
+              <button key={em} type="button" onClick={() => setTexto((t) => t + em)} className="rounded p-1 text-xl hover:bg-wa-icon-hover">
                 {em}
               </button>
             ))}
@@ -419,18 +419,18 @@ export function Composer({
               onClick={cancelarGravacao}
               aria-label="Descartar gravação"
               title="Descartar"
-              className="rounded-full p-2 text-aura-danger dark:text-[#f15c6d] transition hover:bg-black/5 dark:hover:bg-white/10"
+              className="rounded-full p-2 text-wa-danger transition hover:bg-wa-icon-hover"
             >
               <Trash2 className="h-6 w-6" />
             </button>
             <span className="h-3 w-3 shrink-0 animate-pulse rounded-full bg-[#f15c6d]" aria-hidden />
-            <span className="tabular-nums text-[15px] text-aura-graphite dark:text-[#e9edef]">{duracaoLegivel(segundos)}</span>
-            <span className="flex-1 text-sm text-aura-graphite-soft dark:text-[#8696a0]">Gravando… toque no verde para enviar</span>
+            <span className="tabular-nums text-[15px] text-wa-text">{duracaoLegivel(segundos)}</span>
+            <span className="flex-1 text-sm text-wa-text-2">Gravando… toque no verde para enviar</span>
             <button
               type="button"
               onClick={pararEEnviar}
               aria-label="Enviar mensagem de voz"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#00a884] text-white dark:text-[#111b21] shadow hover:bg-[#008069] dark:hover:bg-[#06cf9c]"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-wa-accent text-wa-on-accent shadow hover:bg-wa-accent-hover"
             >
               <Send className="h-5 w-5" />
             </button>
@@ -441,19 +441,19 @@ export function Composer({
             <button
               type="button"
               onClick={() => setMenu((v) => !v)}
-              className={`rounded-full p-2 text-aura-graphite-soft dark:text-[#aebac1] transition hover:bg-black/5 dark:hover:bg-white/10 ${menu ? "rotate-45 bg-black/5 dark:bg-white/10" : ""}`}
+              className={`rounded-full p-2 text-wa-icon transition hover:bg-wa-icon-hover ${menu ? "rotate-45 bg-wa-icon-hover" : ""}`}
               aria-label="Anexar"
             >
               <Plus className="h-6 w-6" />
             </button>
             {menu && (
-              <div className="absolute bottom-12 left-0 w-56 overflow-hidden rounded-xl bg-aura-surface dark:bg-[#233138] py-2 shadow-2xl ring-1 ring-aura-mist dark:ring-0">
+              <div className="absolute bottom-12 left-0 w-56 overflow-hidden rounded-xl bg-wa-menu py-2 shadow-2xl ring-1 ring-wa-menu-ring">
                 {itensMenu.map((item) => (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => item.ref.current?.click()}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[15px] text-aura-graphite dark:text-[#e9edef] hover:bg-aura-sunken dark:hover:bg-[#182229]"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-[15px] text-wa-text hover:bg-wa-menu-hover"
                   >
                     <span style={{ color: item.cor }}>{item.icone}</span>
                     {item.label}
@@ -469,7 +469,7 @@ export function Composer({
             <input ref={videoRef} type="file" accept="video/*" capture="environment" hidden onChange={aoEscolher} onClick={limparInput} />
             <input ref={audioRef} type="file" accept="audio/*" hidden onChange={aoEscolher} onClick={limparInput} />
           </div>
-          <button type="button" onClick={() => setEmojis((v) => !v)} className={`rounded-full p-2 transition hover:bg-black/5 dark:hover:bg-white/10 ${emojis ? "text-[#008069] dark:text-[#00a884]" : "text-aura-graphite-soft dark:text-[#aebac1]"}`} aria-label="Emojis">
+          <button type="button" onClick={() => setEmojis((v) => !v)} className={`rounded-full p-2 transition hover:bg-wa-icon-hover ${emojis ? "text-wa-accent-text" : "text-wa-icon"}`} aria-label="Emojis">
             <Smile className="h-6 w-6" />
           </button>
           {links && links.length > 0 && (
@@ -480,24 +480,24 @@ export function Composer({
                   setMenuLinks((v) => !v);
                   setMenu(false);
                 }}
-                className={`rounded-full p-2 transition hover:bg-black/5 dark:hover:bg-white/10 ${menuLinks ? "text-[#008069] dark:text-[#00a884]" : "text-aura-graphite-soft dark:text-[#aebac1]"}`}
+                className={`rounded-full p-2 transition hover:bg-wa-icon-hover ${menuLinks ? "text-wa-accent-text" : "text-wa-icon"}`}
                 aria-label="Links da loja"
                 title="Catálogo e links da loja"
               >
                 <Link2 className="h-6 w-6" />
               </button>
               {menuLinks && (
-                <div className="absolute bottom-12 left-0 z-20 w-72 overflow-hidden rounded-xl bg-aura-surface dark:bg-[#233138] py-2 shadow-2xl ring-1 ring-aura-mist dark:ring-0">
-                  <p className="px-4 pb-1 pt-1 text-[11px] uppercase tracking-wide text-aura-graphite-soft dark:text-[#8696a0]">Links da loja</p>
+                <div className="absolute bottom-12 left-0 z-20 w-72 overflow-hidden rounded-xl bg-wa-menu py-2 shadow-2xl ring-1 ring-wa-menu-ring">
+                  <p className="px-4 pb-1 pt-1 text-[11px] uppercase tracking-wide text-wa-text-2">Links da loja</p>
                   {links.map((l) => (
                     <button
                       key={l.id}
                       type="button"
                       onClick={() => usarLink(l)}
-                      className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left hover:bg-aura-sunken dark:hover:bg-[#182229]"
+                      className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left hover:bg-wa-menu-hover"
                     >
-                      <span className="text-[15px] text-aura-graphite dark:text-[#e9edef]">{l.titulo}</span>
-                      <span className="line-clamp-1 text-xs text-aura-graphite-soft dark:text-[#8696a0]">{l.mensagemWhatsapp}</span>
+                      <span className="text-[15px] text-wa-text">{l.titulo}</span>
+                      <span className="line-clamp-1 text-xs text-wa-text-2">{l.mensagemWhatsapp}</span>
                     </button>
                   ))}
                 </div>
@@ -523,14 +523,14 @@ export function Composer({
               }
             }}
             placeholder="Digite uma mensagem"
-            className="mx-1 max-h-[140px] flex-1 resize-none rounded-lg bg-aura-surface dark:bg-[#2a3942] px-3 py-[9px] text-[15px] leading-5 text-aura-graphite dark:text-[#e9edef] outline-none placeholder:text-aura-graphite-soft dark:placeholder:text-[#8696a0]"
+            className="mx-1 max-h-[140px] flex-1 resize-none rounded-lg bg-wa-input px-3 py-[9px] text-[15px] leading-5 text-wa-text outline-none placeholder:text-wa-text-2"
           />
           {texto.trim() ? (
             <button
               type="button"
               onClick={enviarTexto}
               disabled={enviando}
-              className="rounded-full p-2 text-aura-graphite-soft dark:text-[#aebac1] transition hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40"
+              className="rounded-full p-2 text-wa-icon transition hover:bg-wa-icon-hover disabled:opacity-40"
               aria-label="Enviar"
             >
               {enviando ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}
@@ -540,7 +540,7 @@ export function Composer({
               type="button"
               onClick={comecarAGravar}
               disabled={enviando}
-              className="rounded-full p-2 text-aura-graphite-soft dark:text-[#aebac1] transition hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40"
+              className="rounded-full p-2 text-wa-icon transition hover:bg-wa-icon-hover disabled:opacity-40"
               aria-label="Gravar mensagem de voz"
               title="Gravar mensagem de voz"
             >

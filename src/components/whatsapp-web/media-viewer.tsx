@@ -37,20 +37,20 @@ export function MediaViewer({ mensagens, abertoId, onTrocar, onFechar, contatoJi
   const quando = new Date(atual.timestamp).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-aura-bg/[0.97] dark:bg-[#0b141a]/[0.97]" onClick={onFechar}>
+    <div className="fixed inset-0 z-[100] flex flex-col bg-wa-viewer/[0.97]" onClick={onFechar}>
       <header className="flex h-[60px] shrink-0 items-center justify-between px-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-3">
           <Avatar jid={atual.fromMe ? meuJid : contatoJid} name={atual.fromMe ? meuNome : contatoNome} size={40} />
           <div>
-            <p className="text-[15px] text-aura-graphite dark:text-[#e9edef]">{atual.fromMe ? "Você" : contatoNome}</p>
-            <p className="text-xs text-aura-graphite-soft dark:text-[#8696a0]">{quando}</p>
+            <p className="text-[15px] text-wa-text">{atual.fromMe ? "Você" : contatoNome}</p>
+            <p className="text-xs text-wa-text-2">{quando}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-aura-graphite-soft dark:text-[#aebac1]">
-          <a href={`${mediaUrl(atual.id)}&download=1`} className="rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10" title="Baixar" download>
+        <div className="flex items-center gap-2 text-wa-icon">
+          <a href={`${mediaUrl(atual.id)}&download=1`} className="rounded-full p-2 hover:bg-wa-icon-hover" title="Baixar" download>
             <Download className="h-6 w-6" />
           </a>
-          <button type="button" onClick={onFechar} className="rounded-full p-2 hover:bg-black/5 dark:hover:bg-white/10" title="Fechar (Esc)">
+          <button type="button" onClick={onFechar} className="rounded-full p-2 hover:bg-wa-icon-hover" title="Fechar (Esc)">
             <X className="h-6 w-6" />
           </button>
         </div>
@@ -64,7 +64,7 @@ export function MediaViewer({ mensagens, abertoId, onTrocar, onFechar, contatoJi
               e.stopPropagation();
               onTrocar(midias[idx - 1].id);
             }}
-            className="absolute left-4 rounded-full bg-aura-sunken dark:bg-[#202c33] p-2 text-aura-graphite-soft dark:text-[#aebac1] hover:bg-aura-mist dark:hover:bg-[#2a3942]"
+            className="absolute left-4 rounded-full bg-wa-bar p-2 text-wa-icon hover:bg-wa-bar-hover"
             aria-label="Anterior"
           >
             <ChevronLeft className="h-7 w-7" />
@@ -77,7 +77,7 @@ export function MediaViewer({ mensagens, abertoId, onTrocar, onFechar, contatoJi
           ) : (
             <video key={atual.id} src={mediaUrl(atual.id)} controls autoPlay className="max-h-[calc(100dvh-210px)] max-w-full bg-black shadow-2xl" />
           )}
-          {atual.text && <p className="mt-3 max-w-2xl text-center text-[15px] text-aura-graphite dark:text-[#e9edef]">{atual.text}</p>}
+          {atual.text && <p className="mt-3 max-w-2xl text-center text-[15px] text-wa-text">{atual.text}</p>}
         </div>
         {idx < midias.length - 1 && (
           <button
@@ -86,7 +86,7 @@ export function MediaViewer({ mensagens, abertoId, onTrocar, onFechar, contatoJi
               e.stopPropagation();
               onTrocar(midias[idx + 1].id);
             }}
-            className="absolute right-4 rounded-full bg-aura-sunken dark:bg-[#202c33] p-2 text-aura-graphite-soft dark:text-[#aebac1] hover:bg-aura-mist dark:hover:bg-[#2a3942]"
+            className="absolute right-4 rounded-full bg-wa-bar p-2 text-wa-icon hover:bg-wa-bar-hover"
             aria-label="Próxima"
           >
             <ChevronRight className="h-7 w-7" />
@@ -95,13 +95,13 @@ export function MediaViewer({ mensagens, abertoId, onTrocar, onFechar, contatoJi
       </div>
 
       {midias.length > 1 && (
-        <div className="flex h-[90px] shrink-0 items-center justify-center gap-2 overflow-x-auto border-t border-aura-mist dark:border-[#222d34] px-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex h-[90px] shrink-0 items-center justify-center gap-2 overflow-x-auto border-t border-wa-divider px-4" onClick={(e) => e.stopPropagation()}>
           {midias.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => onTrocar(m.id)}
-              className={`h-[62px] w-[62px] shrink-0 overflow-hidden rounded ${m.id === atual.id ? "ring-4 ring-[#00a884]" : "opacity-60 hover:opacity-100"}`}
+              className={`h-[62px] w-[62px] shrink-0 overflow-hidden rounded ${m.id === atual.id ? "ring-4 ring-wa-accent" : "opacity-60 hover:opacity-100"}`}
             >
               {m.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element

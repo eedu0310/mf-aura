@@ -50,7 +50,7 @@ export function Avatar({ jid, name, size = 49 }: { jid?: string | null; name: st
         referrerPolicy="no-referrer"
         onError={() => setErro(true)}
         style={{ width: size, height: size }}
-        className="shrink-0 rounded-full bg-[#dfe5e7] dark:bg-[#6b7c85] object-cover"
+        className="shrink-0 rounded-full bg-wa-avatar object-cover"
       />
     );
   }
@@ -63,7 +63,7 @@ export function Avatar({ jid, name, size = 49 }: { jid?: string | null; name: st
         width: size,
         height: size,
         // No claro: véu da cor do contato e a inicial escurecida; no escuro, como era.
-        backgroundColor: texto ? `light-dark(color-mix(in srgb, ${cor} 14%, white), #103529)` : "light-dark(#dfe5e7, #6b7c85)",
+        backgroundColor: texto ? `light-dark(color-mix(in srgb, ${cor} 14%, white), #103529)` : "var(--wa-avatar)",
         color: `light-dark(color-mix(in srgb, ${cor} 72%, black), ${cor})`,
         fontSize: size * 0.38,
       }}
@@ -71,8 +71,8 @@ export function Avatar({ jid, name, size = 49 }: { jid?: string | null; name: st
     >
       {texto || (
         <svg viewBox="0 0 212 212" width={size} height={size} aria-hidden>
-          <path fill="#6b7c85" className="fill-[#dfe5e7] dark:fill-[#6b7c85]" d="M106 0C47.5 0 0 47.5 0 106s47.5 106 106 106 106-47.5 106-106S164.5 0 106 0z" />
-          <path fill="#cfd4d6" className="fill-white dark:fill-[#cfd4d6]" d="M173.6 180.7c-7.5-24-31.8-39.7-67.6-39.7s-60.1 15.7-67.6 39.7c18 17.1 42.3 27.3 67.6 27.3s49.6-10.2 67.6-27.3zM106 128c20.4 0 37-16.6 37-37s-16.6-37-37-37-37 16.6-37 37 16.6 37 37 37z" />
+          <path fill="#6b7c85" className="fill-wa-avatar" d="M106 0C47.5 0 0 47.5 0 106s47.5 106 106 106 106-47.5 106-106S164.5 0 106 0z" />
+          <path fill="#cfd4d6" className="fill-wa-avatar-fg" d="M173.6 180.7c-7.5-24-31.8-39.7-67.6-39.7s-60.1 15.7-67.6 39.7c18 17.1 42.3 27.3 67.6 27.3s49.6-10.2 67.6-27.3zM106 128c20.4 0 37-16.6 37-37s-16.6-37-37-37-37 16.6-37 37 16.6 37 37 37z" />
         </svg>
       )}
     </div>

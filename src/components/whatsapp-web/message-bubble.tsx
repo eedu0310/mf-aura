@@ -9,9 +9,9 @@ export const mediaUrl = (id: string) => `${API}?media=${encodeURIComponent(id)}`
 
 function Ticks({ status }: { status?: number }) {
   if (status === undefined) return null;
-  if (status <= 1) return <Clock className="h-3.5 w-3.5 text-aura-graphite-soft dark:text-[#ffffff99]" />;
-  if (status === 2) return <Check className="h-4 w-4 text-aura-graphite-soft dark:text-[#ffffff99]" />;
-  return <CheckCheck className={`h-4 w-4 ${status >= 4 ? "text-[#027eb5] dark:text-[#53bdeb]" : "text-aura-graphite-soft dark:text-[#ffffff99]"}`} />;
+  if (status <= 1) return <Clock className="h-3.5 w-3.5 text-wa-meta" />;
+  if (status === 2) return <Check className="h-4 w-4 text-wa-meta" />;
+  return <CheckCheck className={`h-4 w-4 ${status >= 4 ? "text-wa-tick-read" : "text-wa-meta"}`} />;
 }
 
 /**
@@ -43,7 +43,7 @@ function linkify(texto: string, onAbrirNumero?: (numero: string) => void) {
   return texto.split(/(https?:\/\/[^\s]+)/g).flatMap((parte, i) => {
     if (/^https?:\/\//.test(parte)) {
       return [
-        <a key={`l${i}`} href={parte} target="_blank" rel="noreferrer" className="break-all text-[#027eb5] dark:text-[#53bdeb] hover:underline">
+        <a key={`l${i}`} href={parte} target="_blank" rel="noreferrer" className="break-all text-wa-link hover:underline">
           {parte}
         </a>,
       ];
@@ -57,7 +57,7 @@ function linkify(texto: string, onAbrirNumero?: (numero: string) => void) {
             type="button"
             onClick={() => onAbrirNumero(trecho.replace(/\D/g, ""))}
             title="Abrir conversa com este número"
-            className="font-medium text-[#027eb5] dark:text-[#53bdeb] underline decoration-dotted underline-offset-2 hover:text-[#015f88] dark:hover:text-[#8ad4f5]"
+            className="font-medium text-wa-link underline decoration-dotted underline-offset-2 hover:opacity-80"
           >
             {trecho}
           </button>
@@ -116,9 +116,9 @@ function NotaDeVoz({ msg, avatarJid, avatarNome }: { msg: WaMessage; avatarJid: 
     <div className="flex w-[300px] max-w-full items-center gap-3 py-1 pl-1 pr-2">
       <div className="relative">
         <Avatar jid={avatarJid} name={avatarNome} size={52} />
-        <Mic className={`absolute -bottom-0.5 -right-1 h-5 w-5 ${msg.fromMe ? "text-[#027eb5] dark:text-[#53bdeb]" : "text-[#008069] dark:text-[#00a884]"}`} />
+        <Mic className={`absolute -bottom-0.5 -right-1 h-5 w-5 ${msg.fromMe ? "text-wa-link" : "text-wa-accent-text"}`} />
       </div>
-      <button type="button" onClick={alternar} disabled={erro} className="text-aura-graphite-soft dark:text-[#aebac1] disabled:opacity-40" aria-label={tocando ? "Pausar" : "Tocar"}>
+      <button type="button" onClick={alternar} disabled={erro} className="text-wa-icon disabled:opacity-40" aria-label={tocando ? "Pausar" : "Tocar"}>
         {tocando ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
       </button>
       <div className="flex-1">
@@ -127,11 +127,11 @@ function NotaDeVoz({ msg, avatarJid, avatarNome }: { msg: WaMessage; avatarJid: 
             <span
               key={i}
               style={{ height: `${h}%` }}
-              className={`w-[3px] rounded-full ${i / ondas.length <= progresso ? (msg.fromMe ? "bg-[#53bdeb]" : "bg-[#00a884]") : "bg-aura-graphite/20 dark:bg-[#ffffff4d]"}`}
+              className={`w-[3px] rounded-full ${i / ondas.length <= progresso ? (msg.fromMe ? "bg-[#53bdeb]" : "bg-wa-accent") : "bg-wa-wave"}`}
             />
           ))}
         </div>
-        <p className="mt-0.5 text-[11px] text-aura-graphite-soft dark:text-[#ffffff99]">{erro ? "Áudio indisponível" : fmtSeg(tocando || atual ? atual : duracao)}</p>
+        <p className="mt-0.5 text-[11px] text-wa-meta">{erro ? "Áudio indisponível" : fmtSeg(tocando || atual ? atual : duracao)}</p>
       </div>
       <audio
         ref={ref}
@@ -158,7 +158,7 @@ function Midia({ msg, onAbrir }: { msg: WaMessage; onAbrir: () => void }) {
 
   if (erro) {
     return (
-      <div className="mb-1 flex items-center gap-2 rounded-md bg-black/5 dark:bg-black/20 px-3 py-4 text-sm text-aura-graphite-soft dark:text-[#8696a0]">
+      <div className="mb-1 flex items-center gap-2 rounded-md bg-black/5 dark:bg-black/20 px-3 py-4 text-sm text-wa-text-2">
         <ImageOff className="h-4 w-4" /> Mídia indisponível
       </div>
     );
@@ -188,13 +188,13 @@ function Midia({ msg, onAbrir }: { msg: WaMessage; onAbrir: () => void }) {
     case "document":
       return (
         <a href={`${url}&download=1`} className="mb-1 flex min-w-[240px] items-center gap-3 rounded-md bg-black/5 dark:bg-black/20 px-3 py-3 hover:bg-black/10 dark:hover:bg-black/30">
-          <FileText className="h-9 w-9 shrink-0 text-aura-danger dark:text-[#f15c6d]" />
+          <FileText className="h-9 w-9 shrink-0 text-wa-danger" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm text-aura-graphite dark:text-[#e9edef]">{msg.fileName ?? "Documento"}</p>
-            <p className="text-xs uppercase text-aura-graphite-soft dark:text-[#8696a0]">{msg.mimetype?.split("/")[1]?.split(";")[0] ?? "arquivo"}</p>
+            <p className="truncate text-sm text-wa-text">{msg.fileName ?? "Documento"}</p>
+            <p className="text-xs uppercase text-wa-text-2">{msg.mimetype?.split("/")[1]?.split(";")[0] ?? "arquivo"}</p>
           </div>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-aura-graphite-soft/50 dark:border-[#8696a0]/50">
-            <Download className="h-4 w-4 text-aura-graphite-soft dark:text-[#8696a0]" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-wa-text-2/50">
+            <Download className="h-4 w-4 text-wa-text-2" />
           </span>
         </a>
       );
@@ -231,12 +231,12 @@ function Citacao({ quote, nomeDoOutro, onIr }: { quote: WaQuote; nomeDoOutro: st
       className="mb-1 flex w-full items-stretch gap-2 overflow-hidden rounded-md bg-black/5 dark:bg-black/25 text-left hover:bg-black/10 dark:hover:bg-black/35"
       title="Ver a mensagem respondida"
     >
-      <span aria-hidden className={`w-1 shrink-0 ${quote.fromMe ? "bg-[#00a884]" : "bg-[#53bdeb]"}`} />
+      <span aria-hidden className={`w-1 shrink-0 ${quote.fromMe ? "bg-wa-accent" : "bg-[#53bdeb]"}`} />
       <span className="min-w-0 flex-1 py-1.5 pr-2">
-        <span className={`block text-[13px] font-medium ${quote.fromMe ? "text-[#008069] dark:text-[#00a884]" : "text-[#027eb5] dark:text-[#53bdeb]"}`}>
+        <span className={`block text-[13px] font-medium ${quote.fromMe ? "text-wa-accent-text" : "text-wa-link"}`}>
           {quote.fromMe ? "Você" : nomeDoOutro}
         </span>
-        <span className="line-clamp-2 block text-[13px] leading-[18px] text-aura-graphite-soft dark:text-[#ffffffb3]">{resumoDaCitacao(quote)}</span>
+        <span className="line-clamp-2 block text-[13px] leading-[18px] text-wa-quote-text">{resumoDaCitacao(quote)}</span>
       </span>
     </button>
   );
@@ -271,11 +271,11 @@ function Reacoes({
           disabled={!onReagir}
           title={r.minha ? "Tirar a sua reação" : `Reagir com ${r.emoji}`}
           className={`flex items-center gap-0.5 rounded-full border px-1.5 py-[1px] text-[11px] leading-[16px] transition ${
-            r.minha ? "border-[#00a884] bg-aura-petrol-50 dark:bg-[#0a332c]" : "border-aura-mist dark:border-[#2a3942] bg-aura-surface dark:bg-[#202c33]"
+            r.minha ? "border-wa-accent bg-wa-chip" : "border-wa-divider bg-wa-in"
           } ${onReagir ? "hover:brightness-125" : ""}`}
         >
           <span>{r.emoji}</span>
-          {r.total > 1 && <span className="text-aura-graphite-soft dark:text-[#aebac1]">{r.total}</span>}
+          {r.total > 1 && <span className="text-wa-icon">{r.total}</span>}
         </button>
       ))}
     </div>
@@ -320,9 +320,9 @@ export function MessageBubble({
   const podeEditar = !!onEditar && msg.fromMe && !msg.apagada && msg.type === "text" && idade !== null && idade < PRAZO_EDITAR_MS;
   const podeApagar = !!onApagar && msg.fromMe && !msg.apagada && idade !== null && idade < PRAZO_APAGAR_MS;
   const sticker = msg.type === "sticker";
-  const cor = msg.fromMe ? "bg-aura-petrol-100 dark:bg-[#005c4b]" : "bg-aura-surface dark:bg-[#202c33]";
-  // A cauda acompanha a bolha nos dois temas (light-dark segue o color-scheme do <html>).
-  const corCauda = msg.fromMe ? "light-dark(var(--aura-petrol-100), #005c4b)" : "light-dark(var(--aura-surface), #202c33)";
+  const cor = msg.fromMe ? "bg-wa-out wa-saida" : "bg-wa-in";
+  // A cauda tem a mesma cor da bolha (as variáveis --wa-* mudam com o tema).
+  const corCauda = msg.fromMe ? "var(--wa-out)" : "var(--wa-in)";
   return (
     <div
       id={`msg-${msg.id}`}
@@ -337,7 +337,7 @@ export function MessageBubble({
               onClick={() => onEditar!(msg)}
               aria-label="Editar esta mensagem"
               title="Editar (até 15 min depois do envio)"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Pencil className="h-4 w-4" />
             </button>
@@ -348,7 +348,7 @@ export function MessageBubble({
               onClick={() => onApagar!(msg)}
               aria-label="Apagar para todos"
               title="Apagar para todos"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-danger dark:hover:text-[#f15c6d] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-danger focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -359,7 +359,7 @@ export function MessageBubble({
               onClick={() => onResponder(msg)}
               aria-label="Responder esta mensagem"
               title="Responder"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Reply className="h-4 w-4" />
             </button>
@@ -370,7 +370,7 @@ export function MessageBubble({
               onClick={() => setAbrindoEmoji((v) => !v)}
               aria-label="Reagir a esta mensagem"
               title="Reagir"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <SmilePlus className="h-4 w-4" />
             </button>
@@ -381,7 +381,7 @@ export function MessageBubble({
               onClick={() => onEncaminhar(msg)}
               aria-label="Encaminhar esta mensagem"
               title="Encaminhar"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Forward className="h-4 w-4" />
             </button>
@@ -389,7 +389,7 @@ export function MessageBubble({
 
           {/* Barra rapida de emoji, como no WhatsApp. */}
           {abrindoEmoji && onReagir && (
-            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-aura-mist dark:border-[#2a3942] bg-aura-surface dark:bg-[#233138] px-1.5 py-1 shadow-lg right-0">
+            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-wa-border bg-wa-menu px-1.5 py-1 shadow-lg right-0">
               {EMOJIS_RAPIDOS.map((e) => {
                 const minha = msg.reacoes?.some((r) => r.emoji === e && r.minha);
                 return (
@@ -403,7 +403,7 @@ export function MessageBubble({
                     }}
                     title={minha ? "Tirar a sua reação" : `Reagir com ${e}`}
                     className={`rounded-full px-1 text-[20px] leading-7 transition hover:scale-125 ${
-                      minha ? "bg-aura-petrol-50 dark:bg-[#0a332c]" : ""
+                      minha ? "bg-wa-chip" : ""
                     }`}
                   >
                     {e}
@@ -434,7 +434,7 @@ export function MessageBubble({
           />
         )}
         {msg.apagada ? (
-          <p className="flex items-center gap-1.5 px-1.5 text-[14px] italic leading-[19px] text-aura-graphite-soft dark:text-[#8696a0]">
+          <p className="flex items-center gap-1.5 px-1.5 text-[14px] italic leading-[19px] text-wa-meta">
             <Ban className="h-4 w-4" />
             {msg.fromMe ? "Você apagou esta mensagem" : "Esta mensagem foi apagada"}
             <span className="inline-block w-[60px]" aria-hidden />
@@ -444,16 +444,16 @@ export function MessageBubble({
         ) : (
           msg.hasMedia && <Midia msg={msg} onAbrir={() => onAbrirMidia(msg.id)} />
         )}
-        {msg.type === "location" && <MapPin className="mb-1 ml-1 h-5 w-5 text-aura-graphite-soft dark:text-[#8696a0]" />}
+        {msg.type === "location" && <MapPin className="mb-1 ml-1 h-5 w-5 text-wa-text-2" />}
         {msg.text && (
-          <p className="whitespace-pre-wrap break-words px-1.5 text-[14.2px] leading-[19px] text-aura-graphite dark:text-[#e9edef]">
+          <p className="whitespace-pre-wrap break-words px-1.5 text-[14.2px] leading-[19px] text-wa-text">
             {linkify(msg.text, onAbrirNumero)}
             <span className={`inline-block ${msg.editada ? "w-[116px]" : "w-[68px]"}`} aria-hidden />
           </p>
         )}
         <div className={`flex items-center justify-end gap-1 px-1.5 ${msg.text || msg.apagada ? "-mt-3.5" : msg.type === "audio" ? "-mt-4" : ""}`}>
-          {msg.editada && !msg.apagada && <span className="text-[11px] italic text-aura-graphite-soft dark:text-[#ffffff99]">Editada</span>}
-          <span className="text-[11px] text-aura-graphite-soft dark:text-[#ffffff99]">{formatHour(msg.timestamp)}</span>
+          {msg.editada && !msg.apagada && <span className="text-[11px] italic text-wa-meta">Editada</span>}
+          <span className="text-[11px] text-wa-meta">{formatHour(msg.timestamp)}</span>
           {msg.fromMe && <Ticks status={msg.status} />}
         </div>
         {/* As reacoes ficam no pe da bolha, como no WhatsApp. */}
@@ -467,7 +467,7 @@ export function MessageBubble({
               onClick={() => onResponder(msg)}
               aria-label="Responder esta mensagem"
               title="Responder"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Reply className="h-4 w-4" />
             </button>
@@ -478,7 +478,7 @@ export function MessageBubble({
               onClick={() => setAbrindoEmoji((v) => !v)}
               aria-label="Reagir a esta mensagem"
               title="Reagir"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <SmilePlus className="h-4 w-4" />
             </button>
@@ -489,7 +489,7 @@ export function MessageBubble({
               onClick={() => onEncaminhar(msg)}
               aria-label="Encaminhar esta mensagem"
               title="Encaminhar"
-              className="rounded-full p-1.5 text-aura-graphite-soft dark:text-[#8696a0] opacity-0 transition hover:bg-black/5 dark:hover:bg-white/10 hover:text-aura-graphite dark:hover:text-[#e9edef] focus-visible:opacity-100 group-hover:opacity-100"
+              className="rounded-full p-1.5 text-wa-text-2 opacity-0 transition hover:bg-wa-icon-hover hover:text-wa-text focus-visible:opacity-100 group-hover:opacity-100"
             >
               <Forward className="h-4 w-4" />
             </button>
@@ -497,7 +497,7 @@ export function MessageBubble({
 
           {/* Barra rapida de emoji, como no WhatsApp. */}
           {abrindoEmoji && onReagir && (
-            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-aura-mist dark:border-[#2a3942] bg-aura-surface dark:bg-[#233138] px-1.5 py-1 shadow-lg left-0">
+            <div className="absolute bottom-full z-20 mb-1 flex gap-0.5 rounded-full border border-wa-border bg-wa-menu px-1.5 py-1 shadow-lg left-0">
               {EMOJIS_RAPIDOS.map((e) => {
                 const minha = msg.reacoes?.some((r) => r.emoji === e && r.minha);
                 return (
@@ -511,7 +511,7 @@ export function MessageBubble({
                     }}
                     title={minha ? "Tirar a sua reação" : `Reagir com ${e}`}
                     className={`rounded-full px-1 text-[20px] leading-7 transition hover:scale-125 ${
-                      minha ? "bg-aura-petrol-50 dark:bg-[#0a332c]" : ""
+                      minha ? "bg-wa-chip" : ""
                     }`}
                   >
                     {e}
