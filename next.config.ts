@@ -88,6 +88,12 @@ const nextConfig: NextConfig = {
   // não existe, e todo PDF falhava com "Setting up fake worker failed"
   // (17/11/2026). Fora do pacote, ela acha o worker em node_modules.
   serverExternalPackages: ["@whiskeysockets/baileys", "pino", "qrcode", "jimp", "sharp", "pdfjs-dist"],
+  experimental: {
+    // O proxy (src/proxy.ts) corta o corpo do pedido em 10 MB por padrão: o
+    // vídeo do celular mandado pelo Instagram do AURA chegava pela metade e
+    // falhava (25/11/2026). O nginx já limita em 25 MB.
+    proxyClientMaxBodySize: "26mb",
+  },
 };
 
 export default nextConfig;

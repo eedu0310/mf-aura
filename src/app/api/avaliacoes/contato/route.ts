@@ -76,6 +76,25 @@ export async function GET(request: Request) {
     pedido = data;
   }
 
+  // 4) Pelo primeiro nome, ainda entre os pendentes do próprio vendedor: o
+  //    nome do contato no WhatsApp ("Geneci Obra Farroupilha") raramente é
+  //    igual ao da venda ("Geneci"). Só vale se achar UM pedido, para não
+  //    mandar o link de outro cliente.
+  if (!pedido && nome.length >= 3 && !/^[+\d(]/.test(nome)) {
+    const primeiro = nome.split(/\s+/)[0].replace(/[%_]/g, "");
+    if (primeiro.length >= 3) {
+      const { data } = await sb
+        .from("pedidos_avaliacao")
+        .select(campos)
+        .eq("vendedor_id", auth.userId)
+        .is("enviado_em", null)
+        .ilike("cliente", `${primeiro}%`)
+        .order("criado_em", { ascending: false })
+        .limit(2);
+      if ((data ?? []).length === 1) pedido = data![0];
+    }
+  }
+
   return NextResponse.json({
     empresa: auth.empresa,
     // O gestor mestre atende pelas quatro lojas: vê o link de cada uma.

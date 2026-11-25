@@ -7,12 +7,12 @@
  * A chave precisa ser a mesma de lá ("aura-tema").
  *
  * Páginas que o CLIENTE abre (formulário embutido no site /f, landing pages /s,
- * avaliação /av e /avaliar, materiais) ficam sempre claras: têm o visual da
+ * avaliação /av e /avaliar, materiais, privacidade e exclusão de dados) ficam sempre claras: têm o visual da
  * marca, e o modo escuro do celular do visitante não pode trocar as cores delas.
  */
 export const CHAVE_DO_TEMA = "aura-tema";
 
 /** Rotas públicas, de cliente, que nunca entram no tema escuro. */
-export const ROTAS_SEMPRE_CLARAS = /^\/(f|s|av|avaliar|materiais)(\/|$)/;
+export const ROTAS_SEMPRE_CLARAS = /^\/(f|s|av|avaliar|materiais|privacidade|exclusao-de-dados)(\/|$)/;
 
 export const SCRIPT_DO_TEMA = `(function(){try{if(${ROTAS_SEMPRE_CLARAS}.test(location.pathname)){document.documentElement.classList.remove("dark");return;}var t=localStorage.getItem("${CHAVE_DO_TEMA}");var e=t==="escuro"||((!t||t==="sistema")&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",e);}catch(_){}})();`;

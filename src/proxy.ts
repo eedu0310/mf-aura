@@ -150,6 +150,10 @@ export async function proxy(request: NextRequest) {
     caminho === "/api/versao" ||
     // Destrava navegador preso em versão antiga; precisa abrir mesmo sem login.
     caminho === "/limpar" ||
+    // Política de privacidade e exclusão de dados: a Meta exige as duas
+    // abertas sem login para liberar o Instagram do AURA.
+    caminho === "/privacidade" ||
+    caminho === "/exclusao-de-dados" ||
     // Site MF: a LP (/s/…), o formulário embutido no site (/f/…) e o envio
     // dele. Quem abre é o visitante, sem login; a rota de envio tem a própria
     // proteção (formulário ativo, armadilha de robô, limite por IP).

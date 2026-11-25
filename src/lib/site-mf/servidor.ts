@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { EMPRESA_DO_SITE } from "./tipos";
+import { juntarHistorico, separarHistorico } from "@/lib/leads/historico-ia";
 
 /**
  * Quem pode usar a área do Site: quem é da MF International e o gestor
@@ -80,6 +81,35 @@ export async function abrirLeadDoSite(
     .single();
   if (error || !lead) return { id: null, novo: false, erro: error?.message ?? "sem retorno" };
   return { id: lead.id, novo: true };
+}
+
+/**
+ * Grava no lead a conversa que a IA teve com o cliente (e o resumo, se
+ * houver), para o vendedor que assumir saber o que já foi falado. O
+ * cabeçalho do recado (nome, cidade, mensagem do formulário) fica; a
+ * conversa antiga é trocada pela atual.
+ */
+export async function gravarHistoricoNoLead(
+  sb: ClienteServico,
+  leadId: string,
+  conversa: string,
+  resumo?: string | null,
+  cabecalhoNovo?: string,
+) {
+  const { data: lead } = await sb.from("leads_recebidos").select("mensagem_inicial").eq("id", leadId).maybeSingle();
+  if (!lead) return;
+  const atual = separarHistorico(lead.mensagem_inicial as string | null);
+  // Lead que já existia (veio antes por outro canal): mantém o recado dele e
+  // acrescenta o cabeçalho novo embaixo.
+  const novo = cabecalhoNovo?.trim() ?? "";
+  const cabecalho =
+    novo && atual.cabecalho && !atual.cabecalho.includes(novo.split("\n")[0])
+      ? `${atual.cabecalho}\n\n${novo}`
+      : novo || atual.cabecalho || "Atendido pelo assistente de IA";
+  const patch: Record<string, unknown> = { mensagem_inicial: juntarHistorico(cabecalho, conversa) };
+  if (resumo?.trim()) patch.resumo_ia = resumo.trim().slice(0, 500);
+  const { error } = await sb.from("leads_recebidos").update(patch).eq("id", leadId);
+  if (error) console.error("[lead] gravar histórico da IA:", error.message);
 }
 
 /** Segredo da conversa do visitante: ele guarda o valor, o banco guarda o hash. */

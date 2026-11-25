@@ -10,6 +10,7 @@ import { ITEM_COACH, ITEM_INSTAGRAM, comSiteMf, emSecoes, menuDeGestao, menuDoCa
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useLembrarPaginaDoCrm } from "@/lib/voltar-crm";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
+import { useLeadsPendentes } from "@/components/leads/aviso-leads-pendentes";
 
 /**
  * Menu lateral: claro e silencioso, no padrão dos CRMs de alto padrão.
@@ -33,6 +34,7 @@ export function VendorSidebar() {
   const secoes = emSecoes([...itensNav, ...(podeInstagram ? [ITEM_INSTAGRAM] : []), ITEM_COACH]);
   const itensGestao = menuDeGestao(profile.cargo);
   const naoLidasSite = useNaoLidasDoSite();
+  const leadsPendentes = useLeadsPendentes().length;
 
   const ativoEm = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
@@ -76,6 +78,11 @@ export function VendorSidebar() {
                     {item.href === "/site-mf" && naoLidasSite > 0 && (
                       <span className="ml-auto rounded-full bg-aura-danger px-1.5 py-px text-[0.65rem] font-semibold text-white">
                         {naoLidasSite}
+                      </span>
+                    )}
+                    {item.href === "/leads" && leadsPendentes > 0 && (
+                      <span className="ml-auto animate-pulse rounded-full bg-aura-danger px-1.5 py-px text-[0.65rem] font-semibold text-white">
+                        {leadsPendentes}
                       </span>
                     )}
                     {coach && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-aura-success" aria-label="ativa" />}

@@ -31,6 +31,8 @@ import { hrefDaAbaGestor, useAbaGestor } from "@/components/gestor/areas";
 export default function GestorPage() {
   const { atual, areaAtual, abasDaArea, souMestre } = useAbaGestor();
 
+  // ?aba=instagram (a volta do "Conectar com o Instagram") já abre a aba: ela vem do endereço.
+
   return (
     <div className="pb-16">
       <header className="mb-4">

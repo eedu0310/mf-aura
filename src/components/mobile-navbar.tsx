@@ -11,6 +11,7 @@ import { SeletorTema } from "@/components/tema";
 import { ITEM_COACH, ITEM_INSTAGRAM, comSiteMf, emSecoes, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
+import { useLeadsPendentes } from "@/components/leads/aviso-leads-pendentes";
 import { numeroDoSino, useSino } from "@/lib/use-sino";
 import { PainelDoSino } from "@/components/notificacoes/painel-sino";
 
@@ -27,6 +28,7 @@ export function MobileNavbar() {
   const { profile } = useUserProfile();
   const acesso = usarMeuAcesso();
   const naoLidasSite = useNaoLidasDoSite();
+  const leadsPendentes = useLeadsPendentes().length;
   const sino = useSino();
 
   // O menu segue o cargo: um SDR não vê Pipeline, um pós-venda não vê Vendas.
@@ -86,9 +88,10 @@ export function MobileNavbar() {
               onClick={() => setAberto(!aberto)}
               aria-label={aberto ? "Fechar menu" : "Abrir menu"}
               aria-expanded={aberto}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-aura-graphite active:bg-aura-sunken"
+              className="relative flex h-10 w-10 items-center justify-center rounded-lg text-aura-graphite active:bg-aura-sunken"
             >
               {aberto ? <X size={22} /> : <Menu size={22} />}
+              {!aberto && leadsPendentes > 0 && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-aura-danger ring-2 ring-aura-surface" />}
             </button>
           </div>
         </div>
@@ -140,6 +143,9 @@ export function MobileNavbar() {
                         <span>{label}</span>
                         {href === "/site-mf" && naoLidasSite > 0 && (
                           <span className="ml-auto rounded-full bg-aura-danger px-2 py-0.5 text-xs font-semibold text-white">{naoLidasSite}</span>
+                        )}
+                        {href === "/leads" && leadsPendentes > 0 && (
+                          <span className="ml-auto rounded-full bg-aura-danger px-2 py-0.5 text-xs font-semibold text-white">{leadsPendentes}</span>
                         )}
                       </Link>
                     );
