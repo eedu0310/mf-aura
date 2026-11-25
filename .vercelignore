@@ -5,3 +5,10 @@ node_modules
 *.log
 .data
 tsconfig.tsbuildinfo
+# Nunca sobe: sessões e histórico do WhatsApp, backups e configurações locais.
+.whatsapp-sessions
+.backups
+.env*
+.claude
+.vercel
+coverage
