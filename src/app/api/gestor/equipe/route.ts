@@ -6,6 +6,7 @@ import { carregarFunil } from "@/lib/funil-servidor";
 import { colunaDoNegocio, ehFechada, ehGanho, ehPerda } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
 import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
+import { negocioEmAberto, pipelineAberto, totalVendido } from "@/lib/kpis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -149,6 +150,8 @@ export async function GET(request: Request) {
         dias_parado: diasParadoDaLinha(o, ultimaAtividade.get(o.relacionamento_id as string)),
         coluna: colunaDoNegocio(o.etapa as string, funil),
         fechado: ehFechada(o.etapa as string, funil),
+        // Em jogo (src/lib/kpis.ts): só estes podem estar "parados" — pós-venda não.
+        emAberto: negocioEmAberto(o.etapa as string, funil),
         ganho: ehGanho(o.etapa as string, funil),
         perdido: ehPerda(o.etapa as string, funil),
         vendedorNome: pessoas?.find((p) => p.id === o.owner_id)?.nome ?? null,
@@ -225,6 +228,8 @@ export async function GET(request: Request) {
         dias_parado: diasParadoDaLinha(o, ultimaAtividadeDoVendedor.get(o.relacionamento_id as string)),
         coluna: colunaDoNegocio(o.etapa as string, funil),
         fechado: ehFechada(o.etapa as string, funil),
+        // Em jogo (src/lib/kpis.ts): só estes podem estar "parados" — pós-venda não.
+        emAberto: negocioEmAberto(o.etapa as string, funil),
         ganho: ehGanho(o.etapa as string, funil),
         perdido: ehPerda(o.etapa as string, funil),
         papel: o.owner_id === vendedorId ? "dono" : "parceiro",
@@ -299,7 +304,7 @@ export async function GET(request: Request) {
     const ultimaAtividadeDaLoja = await buscarUltimaAtividade(
       sb,
       (negocios ?? [])
-        .filter((o) => !ehFechada(o.etapa as string, funil))
+        .filter((o) => negocioEmAberto(o.etapa as string, funil))
         .map((o) => o.relacionamento_id as string | null),
     );
     const meus = <T extends { owner_id: string | null; parceiro_id?: string | null }>(
@@ -314,7 +319,7 @@ export async function GET(request: Request) {
         .map((p) => {
           const minhasConversas = meus(conversas, p.id);
           const meusNegocios = meus(negocios, p.id);
-          const abertos = meusNegocios.filter((o) => !ehFechada(o.etapa as string, funil));
+          const abertos = meusNegocios.filter((o) => negocioEmAberto(o.etapa as string, funil));
           return {
             id: p.id,
             nome: p.nome,
@@ -329,7 +334,8 @@ export async function GET(request: Request) {
               (c) => Array.isArray(c.alertas) && c.alertas.length > 0,
             ).length,
             negociosAbertos: abertos.length,
-            pipeline: abertos.reduce((s, o) => s + Number(o.valor ?? 0), 0),
+            // A mesma conta do quadro do Pipeline: só as etapas que contam.
+            pipeline: pipelineAberto(meusNegocios, funil).valor,
             negociosParados: abertos.filter(
               (o) =>
                 diasParadoDaLinha(o, ultimaAtividadeDaLoja.get(o.relacionamento_id as string)) >=
@@ -402,7 +408,7 @@ export async function GET(request: Request) {
     (negocios ?? [])
       .filter((o) => {
         const f = funis.get(o.empresa as string);
-        return !!f && !ehFechada(o.etapa as string, f);
+        return !!f && negocioEmAberto(o.etapa as string, f);
       })
       .map((o) => o.relacionamento_id as string | null),
   );
@@ -411,23 +417,21 @@ export async function GET(request: Request) {
   for (const nome of nomesDasLojas) {
     const funil = funis.get(nome)!;
     const dela = (negocios ?? []).filter((o) => o.empresa === nome);
-    const abertos = dela.filter((o) => !ehFechada(o.etapa as string, funil));
+    const abertos = dela.filter((o) => negocioEmAberto(o.etapa as string, funil));
     const conversasDela = (conversas ?? []).filter((c) => c.empresa === nome);
     lojas.push({
       nome,
       vendedores: (pessoas ?? []).filter(
         (p) => p.empresa === nome && p.ativo !== false && /vendedor/i.test(String(p.cargo ?? "")),
       ).length,
-      vendido: (vendas ?? [])
-        .filter((v) => v.empresa === nome)
-        .reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0),
+      vendido: totalVendido((vendas ?? []).filter((v) => v.empresa === nome)),
       vendas: (vendas ?? []).filter((v) => v.empresa === nome).length,
       conversas: conversasDela.length,
       conversasComAlerta: conversasDela.filter(
         (c) => Array.isArray(c.alertas) && c.alertas.length > 0,
       ).length,
       negociosAbertos: abertos.length,
-      pipeline: abertos.reduce((s, o) => s + Number(o.valor ?? 0), 0),
+      pipeline: pipelineAberto(dela, funil).valor,
       negociosParados: abertos.filter(
         (o) =>
           diasParadoDaLinha(o, ultimaAtividadeDasLojas.get(o.relacionamento_id as string)) >=

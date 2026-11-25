@@ -46,6 +46,8 @@ import {
 
 export const ID_REVISOR = "revisor-aprendizado";
 const MAX_POR_RODADA = 60;
+/** Um lote de 10 leva ~50 s de IA (rodadas reais de 25/11); mais a folga para gravar as decisões. */
+const TEMPO_POR_LOTE_MS = 80_000;
 
 interface LinhaPendente extends ItemRevisao {
   canal: string;
@@ -167,8 +169,16 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
    */
   const comecou = Date.now();
   const PRAZO_LOTES_MS = 150_000;
+  /*
+   * Com o prazo real da rodada (ctx.prazo), o corte é pelo que SOBRA: um lote
+   * leva ~50 s e a gravação precisa de folga. Pela fila do cron o revisor
+   * pode começar com bem menos que 200 s (outros agentes rodaram antes), e
+   * aí os 150 s fixos não protegiam — a rodada era cortada sem gravar nada.
+   */
+  const semTempoParaOutroLote = () =>
+    ctx.prazo !== undefined ? ctx.prazo - Date.now() < TEMPO_POR_LOTE_MS : Date.now() - comecou > PRAZO_LOTES_MS;
   for (const lote of emLotes(paraIA)) {
-    if (Date.now() - comecou > PRAZO_LOTES_MS) {
+    if (semTempoParaOutroLote()) {
       semIA += lote.length;
       continue;
     }

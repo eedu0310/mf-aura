@@ -39,8 +39,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type IdAgente = string;
 
 /** Departamento do escritório: agrupa as mesas na tela. */
-/** "atendimento" = os agentes que CONVERSAM com o cliente (Instagram, chat do site, WhatsApp). */
-export type Setor = "direcao" | "vendas" | "atendimento" | "pos-venda" | "marketing" | "gestao" | "conhecimento" | "dados";
+/**
+ * "atendimento" = os agentes que CONVERSAM com o cliente (Instagram, chat do site, WhatsApp).
+ * "seguranca" = a Equipe Vermelha: os "sabotadores" que só LEEM e SONDAM o
+ * próprio CRM procurando brecha e erro, e dizem como arrumar (nunca mexem).
+ */
+export type Setor =
+  | "direcao"
+  | "vendas"
+  | "atendimento"
+  | "pos-venda"
+  | "marketing"
+  | "gestao"
+  | "conhecimento"
+  | "dados"
+  | "seguranca";
 
 export type Prioridade = "baixa" | "media" | "alta" | "urgente";
 
@@ -165,6 +178,13 @@ export interface ContextoAgente {
    * saldo, se o orçamento do agente acabou ou se a IA falhar.
    */
   ia: (chamada: ChamadaIA) => Promise<string | Record<string, unknown> | null>;
+  /**
+   * Até quando a rodada pode ir (epoch em ms). Passou disso, o motor corta a
+   * rodada e NADA do que o agente achou é gravado. Agente com laço de IA
+   * confere antes de abrir chamada nova (o ctx.ia já recusa sozinho quando
+   * não dá mais tempo). Ausente na simulação e nos testes.
+   */
+  prazo?: number;
   /** Lê as mensagens recentes do escritório endereçadas a este agente. */
   caixaDeEntrada: () => Promise<Array<MensagemEscritorio & { id: string; criadoEm: string }>>;
   log: (...partes: unknown[]) => void;

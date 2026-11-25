@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, X, UserCircle, Settings, Bell } from "lucide-react";
+import { Menu, X, UserCircle, Settings, Bell, LogOut } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
 import { AuraLogoFull } from "@/components/aura-logo";
@@ -25,7 +25,9 @@ export function MobileNavbar() {
   const [aberto, setAberto] = useState(false);
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false);
   const pathname = usePathname();
-  const { profile } = useUserProfile();
+  const router = useRouter();
+  const { profile, clearProfile } = useUserProfile();
+  const [saindo, setSaindo] = useState(false);
   const acesso = usarMeuAcesso();
   const naoLidasSite = useNaoLidasDoSite();
   const leadsPendentes = useLeadsPendentes().length;
@@ -41,6 +43,19 @@ export function MobileNavbar() {
   useEffect(() => {
     setAberto(false);
   }, [pathname]);
+
+  /**
+   * No celular não havia "Sair": a barra de cima do computador (onde fica o
+   * botão) some abaixo de lg, e a gaveta só tinha perfil e configurações. Quem
+   * divide o aparelho precisava achar o botão no fim de Configurações.
+   */
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+    setAberto(false);
+    await clearProfile();
+    router.push("/login");
+  }
 
   const ativoEm = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const classe = (ativo: boolean) =>
@@ -178,6 +193,15 @@ export function MobileNavbar() {
                 <Settings size={19} className={icone(ativoEm("/configuracoes"))} />
                 <span>Configurações</span>
               </Link>
+              <button
+                type="button"
+                onClick={sair}
+                disabled={saindo}
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[0.9rem] font-medium text-aura-danger transition active:bg-aura-danger/5 disabled:opacity-60"
+              >
+                <LogOut size={19} />
+                <span>{saindo ? "Saindo..." : "Sair da conta"}</span>
+              </button>
             </nav>
           </div>
         )}

@@ -204,6 +204,16 @@ export const MOLDES: Record<TipoSala, Molde> = {
     receita: [PLANTA_G, ARQUIVO],
     extra: [PLANTA],
   },
+  // A Equipe Vermelha: os "sabotadores" que sondam o próprio CRM atrás de
+  // brecha e erro. Sala de servidores, como a de Dados, mais apertada.
+  seguranca: {
+    rotulo: "Equipe Vermelha",
+    colsMax: 2,
+    faixa: 2,
+    minLugares: 2,
+    receita: [SERVIDOR, SERVIDOR, ARQUIVO, PLANTA],
+    extra: [SERVIDOR],
+  },
   copa: {
     rotulo: "Copa",
     colsMax: 0,
@@ -223,11 +233,22 @@ export const ORDEM_SALAS: TipoSala[] = [
   "gestao",
   "conhecimento",
   "dados",
+  "seguranca",
   "outros",
   "copa",
 ];
 
-const SETORES_COM_SALA = new Set<string>(["direcao", "vendas", "atendimento", "pos-venda", "marketing", "gestao", "conhecimento", "dados"]);
+const SETORES_COM_SALA = new Set<string>([
+  "direcao",
+  "vendas",
+  "atendimento",
+  "pos-venda",
+  "marketing",
+  "gestao",
+  "conhecimento",
+  "dados",
+  "seguranca",
+]);
 
 /** Tamanho da Copa (sala só de enfeite). */
 const COPA_L = 9;

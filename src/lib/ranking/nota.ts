@@ -1,6 +1,7 @@
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { ehGanho, FUNIL_PADRAO, nomeDaChave, type EtapaFunil } from "@/lib/funil";
 import { participaDaVenda, somaDoVendedor } from "@/lib/parceria";
+import { ehAtividadeDoVendedor } from "@/lib/kpis";
 
 /**
  * A nota do mês, de 0 a 10.
@@ -70,7 +71,7 @@ export interface Insumos {
     /** "marketing" = lead de anúncio/campanha, que o vendedor recebeu e não trouxe. */
     origem_lead?: string | null;
   }[];
-  atividades: { owner_id: string | null; titulo?: string | null; relacionamento_id?: string | null }[];
+  atividades: { owner_id: string | null; tipo?: string | null; titulo?: string | null; relacionamento_id?: string | null }[];
   avaliacoes: {
     vendedor_id: string | null;
     enviado_em?: string | null;
@@ -202,7 +203,12 @@ function quantoFez(
     }
 
     case "atividades":
-      return d.atividades.filter((a) => a.owner_id === pessoaId).length;
+      // Só o que o vendedor fez: "Etapa alterada", "IA moveu", "Oportunidade
+      // criada" são registros automáticos (30 só em novembro) e davam ponto
+      // de atividade a quem só arrastou um card. Mesma régua das "atividades
+      // na semana" da AURA (src/lib/kpis.ts). O critério "negociacao" acima
+      // continua lendo esses registros — é deles que ele precisa.
+      return d.atividades.filter((a) => a.owner_id === pessoaId && ehAtividadeDoVendedor(a)).length;
 
     case "crm_em_dia":
       return calcularCrmEmDia(d.relacionamentos.filter((r) => r.owner_id === pessoaId));

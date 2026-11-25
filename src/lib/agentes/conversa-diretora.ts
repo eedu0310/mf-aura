@@ -230,7 +230,11 @@ export async function conversarComDiretora(
   const { resultado, barrada } = await chamarIAComOrcamento(sb, diretora, {
     perfil: "redacao",
     json: true,
-    maxTokens: 900,
+    // Resposta + até 3 encaminhamentos + uma proposta com a configuração
+    // inteira: 900 ficava no limite e o JSON cortado virava "sem IA".
+    maxTokens: 1500,
+    // A rota tem 120 s; a resposta tem de chegar antes, com folga para gravar.
+    ateMs: Date.now() + 90_000,
     sistema: SISTEMA,
     usuario,
     empresa: quem.empresa || null,

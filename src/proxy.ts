@@ -193,7 +193,9 @@ export async function proxy(request: NextRequest) {
     }
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";
-    destino.search = `?voltar=${encodeURIComponent(caminho)}`;
+    // Leva a busca junto (/relacionamentos?id=…): sem ela o login devolvia
+    // a pessoa para a lista, não para o cliente que ela abriu.
+    destino.search = `?voltar=${encodeURIComponent(caminho + request.nextUrl.search)}`;
     return NextResponse.redirect(destino);
   }
 

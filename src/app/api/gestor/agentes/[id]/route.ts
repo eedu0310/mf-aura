@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { administra, getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { carregarRegistro, temMigracao108 } from "@/lib/agentes/motor";
-import { MOTIVO_SEM_108 } from "@/lib/agentes/util";
+import { MOTIVO_SEM_108, setorParaOBanco } from "@/lib/agentes/util";
 import { TabelaFaltando, montarPainelDoAgente } from "@/lib/agentes/painel-dados";
 
 export const runtime = "nodejs";
@@ -107,7 +107,8 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
         id: agente.id,
         nome: agente.nome,
         cargo: agente.cargo,
-        setor: agente.setor,
+        // A mesa usa o setor do código; aqui só precisa caber na regra do banco.
+        setor: setorParaOBanco(agente.setor),
         icone: agente.icone,
         missao: agente.missao,
         tipo: agente.tipo,

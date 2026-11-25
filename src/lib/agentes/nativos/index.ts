@@ -2,7 +2,8 @@
  * A equipe de agentes de função, na ordem em que aparece no escritório:
  * primeiro quem cuida da venda do dia (leads, follow-up, agenda, pipeline),
  * depois o cliente que já comprou (pós-venda, manutenção, reativação), o
- * marketing, a gestão (metas, orçamento, resumo), os dados e o conhecimento.
+ * marketing, a gestão (metas, orçamento, resumo), os dados, o conhecimento e,
+ * por último, a Equipe Vermelha (os sabotadores do bem).
  *
  * Cada arquivo traz a regra do agente explicada no topo. Agente novo entra
  * aqui e passa a valer no motor e na tela.
@@ -23,6 +24,8 @@ import { agenteQualidade } from "./qualidade";
 import { agenteConversas } from "./conversas";
 import { agenteCurador } from "./curador";
 import { agenteRevisorAprendizado } from "./revisor-aprendizado";
+import { agenteCacadorBrechas } from "./cacador-brechas";
+import { agenteCacadorErros } from "./cacador-erros";
 
 export const AGENTES_NATIVOS: DefinicaoAgente[] = [
   agenteLeads,
@@ -40,6 +43,9 @@ export const AGENTES_NATIVOS: DefinicaoAgente[] = [
   agenteConversas,
   agenteRevisorAprendizado,
   agenteCurador,
+  // Equipe Vermelha: só leem e sondam; dizem o que está aberto ou quebrado e como arrumar.
+  agenteCacadorBrechas,
+  agenteCacadorErros,
 ];
 
 export function agenteNativo(id: string): DefinicaoAgente | undefined {

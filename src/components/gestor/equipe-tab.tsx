@@ -469,7 +469,8 @@ function NivelVendedor({
                       perdido
                     </span>
                   )}
-                  {o.fechado !== true && Number(o.dias_parado ?? 0) >= 7 && (
+                  {/* Só negócio em jogo fica "parado": o card de pós-venda não. */}
+                  {(o.emAberto ?? o.fechado !== true) === true && Number(o.dias_parado ?? 0) >= 7 && (
                     <span className="aura-selo aura-selo-atencao">
                       <Clock size={11} /> {String(o.dias_parado)} dias parado
                     </span>
@@ -636,7 +637,7 @@ function NivelNegocio({ dados }: { dados: Record<string, unknown> }) {
           <Campo rotulo="Produto" valor={o.produto as string} />
           <Campo
             rotulo="Dias parado"
-            valor={o.fechado === true ? "—" : String(o.dias_parado ?? 0)}
+            valor={(o.emAberto ?? o.fechado !== true) === true ? String(o.dias_parado ?? 0) : "—"}
           />
           <Campo rotulo="Aberto em" valor={quando(o.created_at as string)} />
         </dl>

@@ -235,9 +235,9 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
     if (!slugValido(slug)) return setErro("O endereço precisa ter só letras minúsculas, números e hífen.");
     const publicada = publicar ?? p.publicada;
     if (publicada && !p.formulario_id) return setErro("Escolha o formulário antes de pôr no ar: sem ele, a página não gera lead.");
-    setSalvando(true);
     const sb = getSupabaseBrowserClient();
-    if (!sb) return;
+    if (!sb) return setErro("Banco de dados não configurado neste navegador.");
+    setSalvando(true);
     const linha = {
       empresa: p.empresa || EMPRESA_DO_SITE,
       titulo: p.titulo.trim(),
@@ -267,7 +267,11 @@ function EditorPagina({ inicial, formularios, onVoltar }: { inicial: Pagina; for
     if (!p.id) return onVoltar();
     if (!confirm(`Apagar a página "${p.titulo}"? O endereço dela deixa de funcionar.`)) return;
     const sb = getSupabaseBrowserClient();
-    await sb?.from("site_paginas").delete().eq("id", p.id);
+    if (!sb) return setErro("Banco de dados não configurado neste navegador.");
+    // Antes voltava para a lista mesmo com o banco recusando: a página
+    // "sumia" da tela e reaparecia no próximo carregamento, sem explicação.
+    const { error } = await sb.from("site_paginas").delete().eq("id", p.id);
+    if (error) return setErro(error.message || "Não consegui apagar a página.");
     onVoltar();
   }
 

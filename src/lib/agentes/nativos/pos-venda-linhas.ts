@@ -57,6 +57,10 @@ export function posVendaDaLinha(l: LinhaPosVendaAgente): PosVendaAgente {
     origem: l.origem === "cliente_antigo" ? "cliente_antigo" : "venda",
     empresa: l.empresa,
     status: l.status as StatusPosVenda,
+    // A data da instalação é data_agendamento (é onde a tela grava). Não cai
+    // para instalacao_agendada_em de propósito: aquele é o carimbo de QUANDO
+    // agendaram (src/lib/supabase/pos-venda.ts), e usá-lo como data da
+    // instalação faria toda instalação recém-agendada parecer atrasada.
     dataAgendamento: l.data_agendamento,
     horaAgendamento: l.hora_agendamento,
     observacao: l.observacao,

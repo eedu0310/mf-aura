@@ -98,6 +98,13 @@ conferir("sala de dados tem rack", planta.salas.find((s) => s.id === "dados")!.d
 const copa = planta.salas.find((s) => s.id === "copa")!;
 conferir("Copa tem mesa redonda e balcão", ["mesa-redonda", "balcao"].every((t) => copa.decor.some((d) => d.tipo === t)), true);
 conferir("Copa não tem mesa de trabalho", copa.lugares.length, 0);
+
+// A Equipe Vermelha (setor "seguranca") ganha sala própria, antes de Outros e da Copa.
+const comVermelha: AgenteNaPlanta[] = [...EQUIPE, { id: "cacador-brechas", setor: "seguranca" }, { id: "cacador-erros", setor: "seguranca" }];
+const plantaVermelha = montarPlanta(comVermelha);
+conferirPlanta("equipe com a Equipe Vermelha", plantaVermelha, comVermelha);
+conferir("sala da Equipe Vermelha entra depois de Dados", plantaVermelha.salas.map((s) => s.id).slice(-3), ["dados", "seguranca", "copa"]);
+conferir("caçadores na sala deles", salaDoAgente("seguranca"), "seguranca");
 conferir("prédio mais largo que alto", planta.largura > planta.altura, true);
 conferir("porta: primeira sala da fileira não tem porta à esquerda", diretoria.portaEsquerda, null);
 conferir("fileira de cima tem janelas, as outras têm porta no topo", [diretoria.portaTopo, copa.portaTopo !== null], [null, true]);

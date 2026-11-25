@@ -7,6 +7,8 @@ import { Card, CardHeader, StatCard } from "@/components/ui";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useAppData } from "@/lib/app-data-context";
 import { colunaDoNegocio, etapasVisiveis } from "@/lib/funil";
+import { negocioEmAberto, pipelineAberto, totalVendido, vendasDoMes } from "@/lib/kpis";
+import { mesEmSaoPaulo } from "@/lib/fuso";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { carregarEquipe, type MembroEquipe } from "@/lib/supabase/team";
 import { TeamRoster } from "@/components/gestor/team-roster";
@@ -63,8 +65,14 @@ export function DashboardTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const valorPipeline = oportunidadesTodasLojas.reduce((soma, o) => soma + o.valor, 0);
-  const valorVendido = vendasTodasLojas.reduce((soma, v) => soma + v.valor, 0);
+  /*
+   * As duas contas de src/lib/kpis.ts, as mesmas do quadro do Pipeline e da
+   * tela de Vendas. O cartão "Pipeline" somava TODOS os negócios — ganhos,
+   * perdidos e pós-venda junto — e o "Vendido" somava todas as vendas desde
+   * sempre, ao lado de telas que falam do mês.
+   */
+  const valorPipeline = pipelineAberto(oportunidadesTodasLojas, funil).valor;
+  const valorVendido = totalVendido(vendasDoMes(vendasTodasLojas, mesEmSaoPaulo()));
 
   const dadosFaturamento = useMemo(() => {
     const porMes = new Map<string, { mes: string; confirmado: number; previsto: number }>();
@@ -88,10 +96,10 @@ export function DashboardTab() {
   }, [vendasTodasLojas]);
 
   const dadosPipeline = useMemo(() => {
-    // As etapas do funil da loja, sem a de perda: num gráfico de valor em
-    // aberto, negócio perdido não é dinheiro em jogo.
+    // Só as etapas em jogo (src/lib/kpis.ts): num gráfico de valor em aberto,
+    // negócio ganho, perdido ou já no pós-venda não é dinheiro em jogo.
     return etapasVisiveis(funil)
-      .filter((e) => e.tipo !== "perda")
+      .filter((e) => negocioEmAberto(e.nome, funil))
       .map((e) => ({
         nome: e.nome,
         valor: oportunidadesTodasLojas
@@ -103,10 +111,17 @@ export function DashboardTab() {
 
   const dadosAtividades = useMemo(() => {
     const dias = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+    // Só os últimos sete dias: o gráfico se chama "da Semana", mas juntava
+    // todas as atividades carregadas (as 400 mais recentes) por dia da semana.
+    const umaSemanaAtras = Date.now() - 7 * 86_400_000;
+    const daSemana = atividades.filter((atividade: any) => {
+      const data = new Date(atividade.quando || atividade.criadoEm || "");
+      return !Number.isNaN(data.getTime()) && data.getTime() >= umaSemanaAtras;
+    });
     return dias.map((dia, indice) => {
-      const doDia = atividades.filter((atividade: any) => {
-        const data = new Date(atividade.data ?? atividade.quando ?? atividade.createdAt ?? atividade.created_at ?? "");
-        return !Number.isNaN(data.getTime()) && data.getDay() === (indice + 1) % 7;
+      const doDia = daSemana.filter((atividade: any) => {
+        const data = new Date(atividade.quando || atividade.criadoEm || "");
+        return data.getDay() === (indice + 1) % 7;
       });
       return {
         dia,
@@ -140,8 +155,8 @@ export function DashboardTab() {
       {/* Resumo Consolidado */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard rotulo="Vendedores" valor={equipe.length} icone={Users} tom="marca" />
-        <StatCard rotulo="Pipeline" valor={formatarMoeda(valorPipeline)} icone={Filter} tom="marca" />
-        <StatCard rotulo="Vendido" valor={formatarMoeda(valorVendido)} icone={DollarSign} tom="sucesso" />
+        <StatCard rotulo="Pipeline aberto" valor={formatarMoeda(valorPipeline)} icone={Filter} tom="marca" />
+        <StatCard rotulo="Vendido no mês" valor={formatarMoeda(valorVendido)} icone={DollarSign} tom="sucesso" />
       </div>
 
       {/* Alertas */}

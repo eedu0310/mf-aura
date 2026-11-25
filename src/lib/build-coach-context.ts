@@ -5,6 +5,9 @@ import type { MembroEquipe } from "@/lib/supabase/team";
 import type { Lead } from "@/lib/supabase/leads";
 import type { CompromissoMensal } from "@/lib/supabase/compromisso-mensal";
 import { colunaDoNegocio, etapasVisiveis, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
+import { negocioEmAberto, pipelineAberto, totalVendido, vendasDoMes } from "@/lib/kpis";
+import { diasSemContato, esfriando, followupVencido } from "@/lib/relacionamento-atencao";
+import { DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -64,12 +67,27 @@ export function montarContextoDados({
   // janela de 7 dias andava um dia à frente.
   const em7diasISO = `${em7dias.getFullYear()}-${String(em7dias.getMonth() + 1).padStart(2, "0")}-${String(em7dias.getDate()).padStart(2, "0")}`;
 
-  const valorPipeline = oportunidades.reduce((s, o) => s + o.valor, 0);
-  const valorVendido = vendas.reduce((s, v) => s + v.valor, 0);
+  /*
+   * Os números pelas réguas de src/lib/kpis.ts, os mesmos das telas. Antes o
+   * "pipeline em aberto" somava todos os negócios (ganhos e perdidos junto) e
+   * a meta do MÊS era comparada com o vendido de TODOS OS TEMPOS.
+   */
+  const pipe = pipelineAberto(oportunidades, funil);
+  const valorPipeline = pipe.valor;
+  const negociosEmAberto = oportunidades.filter((o) => negocioEmAberto(o.etapa, funil)).length;
+  const valorVendido = totalVendido(vendas);
+  const valorVendidoNoMes = totalVendido(vendasDoMes(vendas, hojeISO.slice(0, 7)));
 
-  const atrasados = relacionamentos.filter((r) => r.proximoContato.toLowerCase().includes("atrasado"));
+  /*
+   * Follow-up atrasado pela régua oficial (src/lib/relacionamento-atencao.ts),
+   * a do cartão do Meu Dia. Antes procurava "atrasado" no texto antigo
+   * proximo_contato, que ninguém mais escreve: o Coach dizia "nenhum
+   * follow-up atrasado" para quem tinha dezenas vencidos.
+   */
+  const agoraMs = Date.now();
+  const atrasados = relacionamentos.filter((r) => followupVencido(r, agoraMs));
   const paraHoje = relacionamentos.filter(
-    (r) => r.proximoContato.toLowerCase().includes("hoje") && !atrasados.includes(r)
+    (r) => !!r.proximoContatoEm && r.proximoContatoEm.slice(0, 10) === hojeISO && !atrasados.includes(r)
   );
 
   const followUpsDeAtividades = atividades
@@ -82,8 +100,11 @@ export function montarContextoDados({
     });
 
   const pendenciasHoje = [
-    ...atrasados.map((r) => `- [ATRASADO] ${r.nome} (${r.categoria}) — próximo contato: ${r.proximoContato}`),
-    ...paraHoje.map((r) => `- [HOJE] ${r.nome} (${r.categoria}) — próximo contato: ${r.proximoContato}`),
+    ...atrasados
+      .slice(0, 15)
+      .map((r) => `- [ATRASADO] ${r.nome} (${r.categoria}) — contato marcado para ${String(r.proximoContatoEm).slice(0, 10)}`),
+    ...(atrasados.length > 15 ? [`- … e mais ${atrasados.length - 15} follow-up(s) vencido(s)`] : []),
+    ...paraHoje.map((r) => `- [HOJE] ${r.nome} (${r.categoria}) — próximo contato: hoje`),
     ...followUpsDeAtividades,
   ].join("\n");
 
@@ -120,16 +141,23 @@ export function montarContextoDados({
     })
     .join("\n");
 
+  // Só negócio em jogo pode estar parado: o card de pós-venda fica parado
+  // por natureza (o cliente já comprou).
   const paradas = oportunidades
-    .filter((o) => Number(o.diasParado ?? 0) >= 7)
+    .filter((o) => negocioEmAberto(o.etapa, funil) && Number(o.diasParado ?? 0) >= DIAS_PARA_PARADO)
     .sort((a, b) => Number(b.diasParado ?? 0) - Number(a.diasParado ?? 0))
     .slice(0, 10)
     .map((o) => `- ${o.cliente} — ${o.diasParado} dias sem avanço, etapa ${o.etapa}, valor ${formatarMoeda(o.valor)}`)
     .join("\n");
 
+  // Esfriando = 15 dias ou mais sem contato (a régua do Meu Dia), e não a
+  // temperatura marcada à mão, que quase ninguém atualiza.
   const semContatoRecente = relacionamentos
-    .filter((r) => r.temperatura === "esfriando" || r.temperatura === "frio")
-    .map((r) => `- ${r.nome} (${r.categoria}), último contato: ${r.ultimoContato}`)
+    .filter((r) => !atrasados.includes(r) && esfriando(r, agoraMs))
+    .map((r) => ({ r, dias: diasSemContato(r, agoraMs) ?? 0 }))
+    .sort((a, b) => b.dias - a.dias)
+    .slice(0, 10)
+    .map(({ r, dias }) => `- ${r.nome} (${r.categoria}), ${dias} dias sem contato`)
     .join("\n");
 
   const ultimasAtividades = [...atividades]
@@ -219,7 +247,7 @@ Orçamentos enviados registrados: ${orcamentosEnviados} (comparar com o total de
     const ligacoesFeitas = atividades.filter((a) => a.tipo?.toLowerCase().includes("liga")).length;
 
     secaoMetas = `\n\nMETAS DO MÊS (Compromisso Mensal — ele mesmo definiu, o gestor já aprovou. Já estamos em aproximadamente ${percentualMesDecorrido}% do mês, use isso como referência de ritmo esperado):
-Faturamento: meta ${formatarMoeda(compromissoMensal.metaFaturamento)} — vendido até agora ${formatarMoeda(valorVendido)}
+Faturamento: meta ${formatarMoeda(compromissoMensal.metaFaturamento)} — vendido até agora neste mês ${formatarMoeda(valorVendidoNoMes)}
 Clientes novos: meta ${compromissoMensal.metaClientesNovos} — feito até agora ${clientesNovosFeitos}
 Arquitetos: meta ${compromissoMensal.metaArquitetos} — feito até agora ${arquitetosFeitos}
 Construtoras: meta ${compromissoMensal.metaConstrutoras} — feito até agora ${construtorasFeitos}
@@ -239,11 +267,11 @@ ${agendaTexto}
 PENDÊNCIAS DE FOLLOW-UP (prioridade máxima — atrasados ou marcados para hoje):
 ${pendenciasHoje || "Nenhum follow-up atrasado ou marcado para hoje."}
 
-PIPELINE (${formatarMoeda(valorPipeline)} em aberto, ${oportunidades.length} oportunidades):
+PIPELINE (${formatarMoeda(valorPipeline)} em aberto nas etapas que contam, ${negociosEmAberto} negócio(s) em andamento):
 ${porEtapa || "Nenhuma oportunidade no momento."}
 
 ${paradas ? `OPORTUNIDADES PARADAS HÁ 7+ DIAS (merecem atenção):\n${paradas}\n` : ""}
-VENDAS (total ${formatarMoeda(valorVendido)}, ${vendas.length} negócios fechados)
+VENDAS (neste mês ${formatarMoeda(valorVendidoNoMes)}; desde o início ${formatarMoeda(valorVendido)}, ${vendas.length} negócios fechados)
 
 RELACIONAMENTOS: ${relacionamentos.length} no total.
 ${semContatoRecente ? `Esfriando ou sem contato recente (bons candidatos a uma ligação hoje):\n${semContatoRecente}\n` : ""}

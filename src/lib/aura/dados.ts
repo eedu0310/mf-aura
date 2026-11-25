@@ -50,6 +50,8 @@ export interface Ativ {
   ocorrida_em: string | null;
   created_at: string;
   origem: string | null;
+  /** O cliente da atividade: é o que diz se um negócio dele está parado. */
+  relacionamento_id: string | null;
 }
 
 export interface Venda {
@@ -65,6 +67,10 @@ export interface Venda {
    *  (src/lib/parceria.ts) — nunca de um filtro por owner_id. */
   parceiro_id: string | null;
   percentual_parceiro: number | null;
+  /** Preço de tabela: a base do desconto e da margem do relatório detalhado. */
+  valor_original?: number | null;
+  oportunidade_id?: string | null;
+  relacionamento_id?: string | null;
 }
 
 export interface Comp {
@@ -194,7 +200,7 @@ export async function carregarDados(
     lerTudo<Ativ>("atividades", (de, ate) =>
       sb
         .from("atividades")
-        .select("id, owner_id, empresa, tipo, titulo, ocorrida_em, created_at, origem")
+        .select("id, owner_id, empresa, tipo, titulo, ocorrida_em, created_at, origem, relacionamento_id")
         .gte("created_at", desdeAtiv)
         .order("id")
         .range(de, ate),
@@ -202,7 +208,7 @@ export async function carregarDados(
     lerTudo<Venda>("vendas", (de, ate) =>
       sb
         .from("vendas")
-        .select("id, owner_id, empresa, cliente, valor, valor_fechado, data, status, parceiro_id, percentual_parceiro")
+        .select("id, owner_id, empresa, cliente, valor, valor_fechado, valor_original, data, status, parceiro_id, percentual_parceiro, oportunidade_id, relacionamento_id")
         .gte("data", desdeVenda)
         .order("id")
         .range(de, ate),
@@ -241,6 +247,7 @@ export async function carregarDados(
       ...v,
       valor: num(v.valor),
       valor_fechado: v.valor_fechado == null ? null : num(v.valor_fechado),
+      valor_original: v.valor_original == null ? null : num(v.valor_original),
       percentual_parceiro:
         v.percentual_parceiro == null ? null : num(v.percentual_parceiro),
     })),

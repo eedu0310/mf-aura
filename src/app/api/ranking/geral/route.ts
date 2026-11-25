@@ -4,6 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { inicioDoMesEmSaoPaulo } from "@/lib/fuso";
+import { ehAtividadeDoVendedor, quantidadeDeVendas, totalVendido } from "@/lib/kpis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,7 +104,7 @@ export async function GET(request: Request) {
     todasAsLinhas((de, ate) =>
       supabase
         .from("atividades")
-        .select("id,owner_id,titulo,relacionamento_id")
+        .select("id,owner_id,tipo,titulo,relacionamento_id")
         .gte("created_at", desdeIso)
         .order("id")
         .range(de, ate),
@@ -193,11 +194,12 @@ export async function GET(request: Request) {
     nota: n.nota,
     crmEmDia: n.crmEmDia,
     bonus: n.bonus,
-    faturamento: insumos.vendas
-      .filter((v) => v.owner_id === n.vendedorId)
-      .reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0),
-    vendas: insumos.vendas.filter((v) => v.owner_id === n.vendedorId).length,
-    atividades: insumos.atividades.filter((a) => a.owner_id === n.vendedorId).length,
+    // A mesma conta do critério "faturamento" da nota (src/lib/kpis.ts): a
+    // fatia de cada um na venda em dupla. Filtrar pelo dono dava a venda
+    // inteira a ele e nada ao parceiro, e esta coluna não batia com a nota.
+    faturamento: totalVendido(insumos.vendas, n.vendedorId),
+    vendas: quantidadeDeVendas(insumos.vendas, n.vendedorId),
+    atividades: insumos.atividades.filter((a) => a.owner_id === n.vendedorId && ehAtividadeDoVendedor(a)).length,
     relacionamentos: insumos.relacionamentos.filter((r) => r.owner_id === n.vendedorId).length,
   }));
 

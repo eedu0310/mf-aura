@@ -13,6 +13,18 @@
 import { createElement, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
+  AtSign,
+  BadgeCheck,
+  Bug,
+  CalendarCheck,
+  DatabaseBackup,
+  Globe,
+  Library,
+  MessageSquareWarning,
+  RefreshCcw,
+  ShieldAlert,
+  Shuffle,
+  Sun,
   AlarmClock,
   Archive,
   BarChart3,
@@ -195,6 +207,7 @@ export const SETORES: Array<{ id: Setor; rotulo: string; descricao: string; icon
   { id: "gestao", rotulo: "Gestão", descricao: "Metas, equipe e rotina das lojas", icone: Briefcase },
   { id: "conhecimento", rotulo: "Conhecimento", descricao: "O que a AURA aprende e guarda", icone: BookOpen },
   { id: "dados", rotulo: "Dados", descricao: "Qualidade, backup e saúde do sistema", icone: Database },
+  { id: "seguranca", rotulo: "Equipe Vermelha", descricao: "Sabotadores do bem: procuram brecha e erro no próprio CRM e dizem como arrumar", icone: ShieldAlert },
 ];
 
 export function rotuloSetor(s: Setor | string) {
@@ -254,6 +267,9 @@ const ICONES: Record<string, LucideIcon> = {
   GraduationCap, Handshake, HardDrive, HeartHandshake, HeartPulse, Inbox, Layers, Lightbulb, LineChart,
   Mail, Megaphone, MessageCircle, MessagesSquare, PhoneCall, Radar, Search, ShieldCheck, Snowflake,
   Sparkles, Star, Target, Timer, TrendingUp, UserCheck, Users, Wallet, Wrench, Zap,
+  // Os que os agentes já usavam e caíam no robô, e os da Equipe Vermelha.
+  AtSign, BadgeCheck, Bug, CalendarCheck, DatabaseBackup, Globe, Library, MessageSquareWarning, RefreshCcw,
+  ShieldAlert, Shuffle, Sun,
 };
 
 export function iconeDoAgente(nome: string | null | undefined): LucideIcon {

@@ -7,8 +7,9 @@
 # Faz, nesta ordem, parando no primeiro erro:
 #   1. git pull (como o usuário aura, dono da pasta)
 #   2. npm ci se o package-lock mudou, senão pula
-#   3. npm run build
-#   4. atualiza /etc/cron.d/aura se deploy/aura-crons mudou (mantém o CRON_SECRET)
+#   3. build (next build --webpack; o `npm run build` usa o Turbopack)
+#   4. atualiza /etc/cron.d/aura se deploy/aura-crons mudou (mantém o CRON_SECRET);
+#      numa máquina sem crons NÃO instala nada (só com INSTALAR_CRONS=1)
 #   5. systemctl restart aura
 #   6. confere que o site responde
 #
@@ -48,10 +49,17 @@ fi
 #           Sem ele, enviar áudio dá "O servidor ainda não converte áudio".
 #   tar     empacota as sessões do WhatsApp no backup noturno.
 # Instala só o que falta (numa VPS nova, o primeiro deploy já deixa pronto).
+# A lista de pacotes de uma VPS recém-criada costuma vir vazia: sem o
+# apt-get update antes, o install responde "Unable to locate package".
+LISTA_APT_ATUALIZADA=0
 for PROGRAMA in ffmpeg tar; do
   if ! command -v "$PROGRAMA" >/dev/null 2>&1; then
     echo "== instalando $PROGRAMA (faltava no servidor)"
     if command -v apt-get >/dev/null 2>&1; then
+      if [ "$LISTA_APT_ATUALIZADA" = "0" ]; then
+        DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null || true
+        LISTA_APT_ATUALIZADA=1
+      fi
       DEBIAN_FRONTEND=noninteractive apt-get install -y "$PROGRAMA" >/dev/null \
         || echo "   AVISO: não consegui instalar $PROGRAMA; rode: sudo apt install -y $PROGRAMA"
     else
@@ -87,16 +95,29 @@ done
 sudo -u "$USUARIO" env NODE_OPTIONS=--max-old-space-size=3072 npx next build --webpack
 
 echo "== 4/6 crons"
+# Só ATUALIZA crons que já existem. Numa VPS nova o deploy instalava o
+# /etc/cron.d/aura sozinho (lendo o CRON_SECRET do .env.local) já no primeiro
+# deploy — e aí a VPS nova rodava supervisão, agentes, atendentes, avisos e
+# o deploy automático junto com a VPS antiga, contra o MESMO banco: tudo em
+# dobro (docs/vps-nova.md, regra de ouro). Ligar os crons numa máquina é
+# decisão de gente (passo 7 do guia) ou INSTALAR_CRONS=1 de propósito.
+# O `|| true` nos grep: sem a linha, o grep sai com 1 e o `set -e` matava o
+# deploy inteiro aqui, depois do build, sem reiniciar o serviço.
+SEGREDO=""
 if [ -f "$CRON_DESTINO" ]; then
-  SEGREDO=$(grep -m1 '^CRON_SECRET=' "$CRON_DESTINO" | cut -d= -f2-)
-else
-  SEGREDO=$(grep -m1 '^CRON_SECRET=' "$PASTA/.env.local" | cut -d= -f2- | tr -d '"')
+  SEGREDO=$(grep -m1 '^CRON_SECRET=' "$CRON_DESTINO" | cut -d= -f2- || true)
+elif [ "${INSTALAR_CRONS:-0}" = "1" ]; then
+  SEGREDO=$(grep -m1 '^CRON_SECRET=' "$PASTA/.env.local" | cut -d= -f2- | tr -d "\"'" || true)
 fi
-if [ -z "$SEGREDO" ] || [ "$SEGREDO" = "SEU_CRON_SECRET" ]; then
+if [ ! -f "$CRON_DESTINO" ] && [ "${INSTALAR_CRONS:-0}" != "1" ]; then
+  echo "   crons ainda não instalados nesta máquina: nada feito (docs/vps-nova.md, passo 7)"
+elif [ -z "$SEGREDO" ] || [ "$SEGREDO" = "SEU_CRON_SECRET" ]; then
   echo "   AVISO: CRON_SECRET não encontrado; /etc/cron.d/aura não foi tocado"
 else
   TMP=$(mktemp)
-  sed "s|^CRON_SECRET=.*|CRON_SECRET=$SEGREDO|" "$PASTA/deploy/aura-crons" > "$TMP"
+  # Escapa o que o sed entende como comando na substituição (& | \).
+  SEGREDO_SED=$(printf '%s' "$SEGREDO" | sed 's/[&|\\]/\\&/g')
+  sed "s|^CRON_SECRET=.*|CRON_SECRET=$SEGREDO_SED|" "$PASTA/deploy/aura-crons" > "$TMP"
   if [ -f "$CRON_DESTINO" ] && cmp -s "$TMP" "$CRON_DESTINO"; then
     echo "   sem mudança"
   else

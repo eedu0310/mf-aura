@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Layers, TrendingUp, Target, Plus, GripVertical, Columns3, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { negocioEmAberto } from "@/lib/kpis";
 import { moedaParaNumero } from "@/components/registrar-atividade/activity-date";
 import { Botao, StatCard, classeBotao } from "@/components/ui";
 import { NewOpportunityModal } from "./new-opportunity-modal";
@@ -305,11 +306,11 @@ export function PipelineBoard({}: PipelineBoardProps) {
     }),
   );
 
-  // Contagem de "em jogo": segue tudo que não foi fechado nem perdido, porque
-  // é um número de cabeças, não de dinheiro.
-  const oportunidadesAtivas = oportunidades.filter(
-    (o) => !ehPerda(o.etapa, funil) && !ehGanho(o.etapa, funil),
-  );
+  // Contagem de "em jogo": é um número de cabeças, não de dinheiro, com a
+  // regra única de "negócio em aberto" (src/lib/kpis.ts). Antes contava tudo
+  // que não era ganho nem perda — o pós-venda (cliente que já comprou) e a
+  // coluna de leads frios entravam como negócio em jogo.
+  const oportunidadesAtivas = oportunidades.filter((o) => negocioEmAberto(o.etapa, funil));
   // Dinheiro só conta nas etapas que o gestor marcou como "conta no pipeline":
   // lead no começo do funil é intenção, não negócio na mesa, e somar tudo
   // inflava o total com qualquer contato novo.

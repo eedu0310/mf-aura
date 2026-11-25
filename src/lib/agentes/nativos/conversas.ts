@@ -42,6 +42,11 @@ export function tipoDoAlerta(texto: string): TipoAlerta | null {
 
 const PESO: Record<TipoAlerta, number> = { risco: 3, espera: 2, fechou: 1 };
 const PRIORIDADE: Record<TipoAlerta, Prioridade> = { risco: "alta", espera: "alta", fechou: "media" };
+/** Validade do card de cada tipo, em dias — e até quantos dias depois da última análise o alerta ainda vale. */
+// Risco e espera: 1 dia (na simulação de 25/11, 48 h davam 40 "riscos" de conversa
+// já parada — isso é do follow-up/pipeline); venda para confirmar: 2 dias.
+export const DIAS_ALERTA: Record<TipoAlerta, number> = { risco: 1, espera: 1, fechou: 2 };
+const DIAS_ALERTA_MAX = Math.max(...Object.values(DIAS_ALERTA));
 
 /**
  * Confiança de um aprendizado tirado dos resumos (0–1). Começa baixa, sobe
@@ -125,9 +130,17 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const { sb, agora } = ctx;
   const equipe = await responsaveisDaLoja(sb);
   const comIA = HORAS_COM_IA.includes(horaEmSaoPaulo(agora));
-  // Janela dos alertas: desde a rodada anterior (2h) com folga. Para a IA, as últimas 4h.
-  const desdeAlertas = agora.getTime() - 2.25 * HORA_MS;
-  const desde = new Date(agora.getTime() - (comIA ? 4.25 : 2.25) * HORA_MS).toISOString();
+  /*
+   * Janela dos alertas = a validade do card de cada tipo (DIAS_ALERTA:
+   * 1 dia para risco e espera, 2 para venda), contada da última análise.
+   * Antes era só desde a rodada anterior (2h15): a conversa em risco que não
+   * teve mensagem nova em duas horas sumia da lista e o card virava
+   * "resolvido sozinho" com o cliente ainda esperando. O alerta é o da
+   * ÚLTIMA análise do supervisor: se a pessoa respondeu, ele já mudou.
+   * Para a IA continuam só as últimas 4h (o que é novo de hoje).
+   */
+  const desde = new Date(agora.getTime() - DIAS_ALERTA_MAX * 24 * HORA_MS).toISOString();
+  const desdeIA = agora.getTime() - 4.25 * HORA_MS;
 
   const linhas = (
     await lerTudo<LeadWa>((de, ate) =>
@@ -144,7 +157,6 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const comPeso: Array<{ peso: number; a: Achado }> = [];
   const contagem: Record<TipoAlerta, number> = { risco: 0, espera: 0, fechou: 0 };
   for (const l of linhas) {
-    if (Date.parse(l.updated_at) < desdeAlertas) continue;
     const alertas = Array.isArray(l.alertas) ? l.alertas.map(String) : [];
     let melhor: { tipo: TipoAlerta; texto: string } | null = null;
     for (const texto of alertas) {
@@ -152,6 +164,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       if (tipo && (!melhor || PESO[tipo] > PESO[melhor.tipo])) melhor = { tipo, texto };
     }
     if (!melhor) continue;
+    if (Date.parse(l.updated_at) < agora.getTime() - DIAS_ALERTA[melhor.tipo] * 24 * HORA_MS) continue;
     contagem[melhor.tipo]++;
     const destino = equipe.destinoDoItem(l.owner_id, l.empresa as string);
     if (!destino) continue;
@@ -168,8 +181,9 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       entidadeTipo: l.oportunidade_id ? "oportunidade" : l.relacionamento_id ? "relacionamento" : undefined,
       entidadeId: l.oportunidade_id ?? l.relacionamento_id ?? undefined,
       acaoUrl: "/whatsapp",
-      expiraEmDias: melhor.tipo === "espera" ? 1 : 2,
-      podeGerarMensagem: melhor.tipo !== "fechou",
+      expiraEmDias: DIAS_ALERTA[melhor.tipo],
+      // "Gerar mensagem" precisa de um cliente ligado (a rota lê o contato pela entidade).
+      podeGerarMensagem: melhor.tipo !== "fechou" && Boolean(l.oportunidade_id ?? l.relacionamento_id),
     } });
   }
   // Risco primeiro, depois espera: o corte por pessoa respeita esta ordem.
@@ -179,7 +193,10 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const mensagens: MensagemEscritorio[] = [];
   if (comIA) {
     const porLoja = new Map<string, LeadWa[]>();
-    for (const l of linhas) porLoja.set(l.empresa as string, [...(porLoja.get(l.empresa as string) ?? []), l]);
+    for (const l of linhas) {
+      if (Date.parse(l.updated_at) < desdeIA) continue;
+      porLoja.set(l.empresa as string, [...(porLoja.get(l.empresa as string) ?? []), l]);
+    }
     for (const [empresa, daLoja] of porLoja) {
       const novos = await aprenderDaLoja(ctx, empresa, daLoja);
       if (!novos.length) continue;

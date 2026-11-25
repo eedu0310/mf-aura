@@ -41,13 +41,13 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const oitoDias = new Date(agora.getTime() - 8 * DIA_MS).toISOString();
   const desde = inicioMes < oitoDias ? inicioMes : oitoDias;
 
-  const [saldo, usos, { AGENTES_NATIVOS }] = await Promise.all([
+  const [saldo, usos, { carregarRegistro }] = await Promise.all([
     saldoIA(true),
     lerTudo<{ funcao: string; custo_usd: number; criado_em: string }>((de, ate) =>
       sb.from("ia_uso").select("funcao, custo_usd, criado_em").gte("criado_em", desde).order("id").range(de, ate),
     ),
-    // Import tardio: o índice importa este arquivo.
-    import("./index"),
+    // Import tardio: o motor importa o índice, que importa este arquivo.
+    import("../motor"),
   ]);
 
   const t = agora.getTime();
@@ -71,7 +71,11 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const projecao = dia > 0 ? (gastoMes / dia) * diasNoMes(hoje) : gastoMes;
   const maiores = [...porFuncao].sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  const agentesNoLimite = AGENTES_NATIVOS.filter((a) => a.orcamentoMensalUsd > 0)
+  // O registro inteiro (com o teto que o mestre mudou na tela, a Diretora e os
+  // configuráveis): antes só os nativos com o teto do código entravam na conta.
+  const registro = await carregarRegistro(sb, true);
+  const agentesNoLimite = registro
+    .filter((a) => a.tipo !== "sistema" && a.orcamentoMensalUsd > 0)
     .map((a) => ({ a, gasto: porFuncao.get(`agente/${a.id}`) ?? 0 }))
     .filter((x) => x.gasto >= x.a.orcamentoMensalUsd * ALERTA_AGENTE);
 

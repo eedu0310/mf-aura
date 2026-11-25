@@ -1,8 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chamarClaude } from "@/lib/aura/texto-ia";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { ehGanho } from "@/lib/funil";
+import { ehGanho, ehPerda } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
+import { diaEmSaoPaulo } from "@/lib/fuso";
+import { taxaConversao } from "@/lib/kpis";
+import { valorDoVendedor, type VendaComParceria } from "@/lib/parceria";
+import { diasSemContato, followupVencido } from "@/lib/relacionamento-atencao";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+
+/** À vista: uma parcela só, ou forma de pagamento que é dinheiro na mão. */
+function ehAVista(v: { quantidade_parcelas?: unknown; forma_pagamento?: unknown }) {
+  return Number(v.quantidade_parcelas ?? 1) <= 1 || ["À vista", "Pix", "Dinheiro"].includes(String(v.forma_pagamento));
+}
 
 interface MetaCompromisso {
   metaFaturamento: number;
@@ -28,10 +38,24 @@ interface DadosVendedor {
   valorAVista: number;
   vendasParceladas: number;
   valorParcelado: number;
+  /** Os follow-ups vencidos mais antigos (até 8), com dias de atraso. */
   clientesSemContato: { nome: string; dias: number }[];
-  conversaoAtual: number;
-  conversaoAnterior: number;
+  /** Total de follow-ups vencidos — o mesmo número do cartão do Meu Dia. */
+  qtdFollowupsVencidos: number;
+  /** Ganhos ÷ (ganhos + perdidos), em %; null quando nada se decidiu. */
+  conversaoAtual: number | null;
+  conversaoAnterior: number | null;
   metas: MetaCompromisso | null;
+}
+
+const pct = (n: number | null) => (n == null ? "sem negócio decidido" : `${n}%`);
+
+/**
+ * Começo do período anterior, do mesmo tamanho do atual. Em milissegundos:
+ * o setDate() com fração de dia que havia aqui truncava o tamanho.
+ */
+function inicioDoPeriodoAnterior(inicio: Date, fim: Date): Date {
+  return new Date(inicio.getTime() - Math.max(0, fim.getTime() - inicio.getTime()));
 }
 
 async function buscarCompromissoAprovado(
@@ -71,12 +95,19 @@ async function coletarDadosVendedor(
   inicioAnteriorISO: string,
   empresa?: string,
 ): Promise<DadosVendedor> {
-  const mesDoRelatorio = fimISO.slice(0, 7);
+  /*
+   * Mês e dias de Brasília. `fimISO.slice(0, 7)` é UTC: das 21h do último dia
+   * do mês em diante o relatório buscava a meta do mês seguinte (que ainda não
+   * existe) e dizia que o vendedor estava sem compromisso aprovado.
+   */
+  const mesDoRelatorio = diaEmSaoPaulo(new Date(fimISO)).slice(0, 7);
+  const primeiroDia = diaEmSaoPaulo(new Date(inicioISO));
+  const ultimoDia = diaEmSaoPaulo(new Date(fimISO));
 
   const [
     { data: atividades },
     { data: vendas },
-    { data: relacionamentos },
+    relacionamentos,
     { data: oportunidades },
     { data: oportunidadesAnterior },
     metas,
@@ -87,14 +118,39 @@ async function coletarDadosVendedor(
       .eq("owner_id", vendedorId)
       .gte("created_at", inicioISO)
       .lte("created_at", fimISO),
+    // Dono OU parceiro: a venda em dupla é dos dois, cada um com a sua fatia
+    // (src/lib/parceria.ts) — a mesma conta do ranking e da AURA.
     supabase
       .from("vendas")
-      .select("valor, valor_fechado, forma_pagamento, quantidade_parcelas, data")
+      .select("owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado, forma_pagamento, quantidade_parcelas, data")
+      .or(`owner_id.eq.${vendedorId},parceiro_id.eq.${vendedorId}`)
+      .gte("data", primeiroDia)
+      .lte("data", ultimoDia),
+    // A carteira passa de mil clientes em algumas pessoas: lida até o fim.
+    todasAsLinhas<{
+      id: string;
+      nome: string;
+      categoria: string | null;
+      proximo_contato_em: string | null;
+      ultimo_contato_em: string | null;
+      created_at: string | null;
+    }>((de, ate) =>
+      supabase
+        .from("relacionamentos")
+        .select("id, nome, categoria, proximo_contato_em, ultimo_contato_em, created_at")
+        .eq("owner_id", vendedorId)
+        .order("id")
+        .range(de, ate),
+    ).catch((e) => {
+      console.error("gerarRelatorio: carteira:", e instanceof Error ? e.message : e);
+      return [];
+    }),
+    supabase
+      .from("oportunidades")
+      .select("etapa")
       .eq("owner_id", vendedorId)
-      .gte("data", inicioISO.slice(0, 10))
-      .lte("data", fimISO.slice(0, 10)),
-    supabase.from("relacionamentos").select("id, nome, categoria, ultimo_contato, proximo_contato").eq("owner_id", vendedorId),
-    supabase.from("oportunidades").select("etapa").eq("owner_id", vendedorId).gte("created_at", inicioISO).lte("created_at", fimISO),
+      .gte("created_at", inicioISO)
+      .lte("created_at", fimISO),
     supabase
       .from("oportunidades")
       .select("etapa")
@@ -113,24 +169,55 @@ async function coletarDadosVendedor(
   const visitas = (atividades ?? []).filter((a) => a.tipo?.toLowerCase().includes("visita")).length;
   const ligacoes = (atividades ?? []).filter((a) => a.tipo?.toLowerCase().includes("liga")).length;
   const followUps = (atividades ?? []).filter((a) => a.tipo === "Follow-up").length;
-  const valorVendido = (vendas ?? []).reduce((s, v) => s + Number(v.valor), 0);
-  const vendasAVista = (vendas ?? []).filter((v) => Number(v.quantidade_parcelas ?? 1) <= 1 || ["À vista", "Pix", "Dinheiro"].includes(String(v.forma_pagamento))).length;
-  const vendasParceladas = (vendas ?? []).length - vendasAVista;
-  const valorAVista = (vendas ?? []).filter((v) => Number(v.quantidade_parcelas ?? 1) <= 1 || ["À vista", "Pix", "Dinheiro"].includes(String(v.forma_pagamento))).reduce((s, v) => s + Number(v.valor_fechado ?? v.valor), 0);
-  const valorParcelado = (vendas ?? []).filter((v) => !(Number(v.quantidade_parcelas ?? 1) <= 1 || ["À vista", "Pix", "Dinheiro"].includes(String(v.forma_pagamento)))).reduce((s, v) => s + Number(v.valor_fechado ?? v.valor), 0);
+  /*
+   * Vendido = a fatia desta pessoa, pelo valor fechado. Antes somava `valor`
+   * (o de tabela, sem o desconto) só das vendas em que ela era a dona: o
+   * relatório dava um número diferente do da tela de Vendas e do ranking.
+   */
+  const minhas = (vendas ?? []) as (VendaComParceria & { quantidade_parcelas?: unknown; forma_pagamento?: unknown })[];
+  const fatia = (v: VendaComParceria) => valorDoVendedor(v, vendedorId);
+  const valorVendido = minhas.reduce((s, v) => s + fatia(v), 0);
+  const aVista = minhas.filter(ehAVista);
+  const parceladas = minhas.filter((v) => !ehAVista(v));
+  const vendasAVista = aVista.length;
+  const vendasParceladas = parceladas.length;
+  const valorAVista = aVista.reduce((s, v) => s + fatia(v), 0);
+  const valorParcelado = parceladas.reduce((s, v) => s + fatia(v), 0);
 
-  const clientesSemContato = (relacionamentos ?? [])
-    .filter((r) => r.proximo_contato?.toLowerCase().includes("atrasad"))
-    .slice(0, 8)
-    .map((r) => ({ nome: r.nome as string, dias: 0 }));
+  /*
+   * Follow-up atrasado pela régua oficial (src/lib/relacionamento-atencao.ts),
+   * a mesma do cartão do Meu Dia. Antes procurava a palavra "atrasad" no campo
+   * de texto antigo proximo_contato, que ninguém mais escreve: em 25/11/2026
+   * eram 0 clientes assim contra 305 follow-ups vencidos de verdade, e o
+   * relatório dizia "nenhum" para todo mundo.
+   */
+  const agora = Date.now();
+  const comoContato = (r: { proximo_contato_em: string | null; ultimo_contato_em: string | null; created_at: string | null }) => ({
+    proximoContatoEm: r.proximo_contato_em ?? undefined,
+    ultimoContatoEm: r.ultimo_contato_em ?? undefined,
+    criadoEm: r.created_at ?? undefined,
+  });
+  const vencidos = relacionamentos
+    .filter((r) => followupVencido(comoContato(r), agora))
+    .sort((a, b) => String(a.proximo_contato_em).localeCompare(String(b.proximo_contato_em)));
+  const clientesSemContato = vencidos.slice(0, 8).map((r) => ({
+    nome: r.nome,
+    // Dias desde a data em que o contato estava marcado.
+    dias: diasSemContato({ ultimoContatoEm: r.proximo_contato_em ?? undefined }, agora) ?? 0,
+  }));
 
-  // Qual etapa significa "fechou" é do funil da loja; comparar com o nome
-  // antigo deixaria a taxa de conversão em zero depois de uma renomeação.
+  /*
+   * Conversão com a régua do resto do sistema: ganhos ÷ (ganhos + perdidos)
+   * entre os negócios abertos no período. Antes dividia pelos negócios
+   * criados, e um negócio que ainda está em andamento contava como derrota.
+   * Qual etapa é ganho ou perda vem do funil da loja.
+   */
   const funilDaLoja = await carregarFunil(supabase, empresa);
-  const fechadasAtual = (oportunidades ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length;
-  const totalAtual = (oportunidades ?? []).length;
-  const fechadasAnterior = (oportunidadesAnterior ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length;
-  const totalAnterior = (oportunidadesAnterior ?? []).length;
+  const conversao = (lista: { etapa: string }[] | null) =>
+    taxaConversao(
+      (lista ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length,
+      (lista ?? []).filter((o) => ehPerda(o.etapa, funilDaLoja)).length,
+    );
 
   return {
     nome,
@@ -140,15 +227,16 @@ async function coletarDadosVendedor(
     visitas,
     ligacoes,
     followUps,
-    vendas: (vendas ?? []).length,
+    vendas: minhas.length,
     valorVendido,
     vendasAVista,
     valorAVista,
     vendasParceladas,
     valorParcelado,
     clientesSemContato,
-    conversaoAtual: totalAtual > 0 ? Math.round((fechadasAtual / totalAtual) * 100) : 0,
-    conversaoAnterior: totalAnterior > 0 ? Math.round((fechadasAnterior / totalAnterior) * 100) : 0,
+    qtdFollowupsVencidos: vencidos.length,
+    conversaoAtual: conversao(oportunidades),
+    conversaoAnterior: conversao(oportunidadesAnterior),
     metas,
   };
 }
@@ -161,8 +249,8 @@ Fez ${d.visitas} visitas e ${d.ligacoes} ligações registradas
 Fez ${d.followUps} follow-ups
 Registrou ${d.vendas} venda(s), totalizando R$ ${d.valorVendido.toLocaleString("pt-BR")}
 Forma de recebimento: ${d.vendasAVista} à vista (R$ ${d.valorAVista.toLocaleString("pt-BR")}) e ${d.vendasParceladas} parcelada(s) (R$ ${d.valorParcelado.toLocaleString("pt-BR")})
-Taxa de conversão do período: ${d.conversaoAtual}% (período anterior: ${d.conversaoAnterior}%)
-Clientes com follow-up atrasado: ${d.clientesSemContato.length > 0 ? d.clientesSemContato.map((c) => c.nome).join(", ") : "nenhum"}`;
+Taxa de conversão do período (ganhos ÷ ganhos + perdidos): ${pct(d.conversaoAtual)} (período anterior: ${pct(d.conversaoAnterior)})
+Follow-ups vencidos na carteira: ${d.qtdFollowupsVencidos}${d.clientesSemContato.length > 0 ? ` — os mais antigos: ${d.clientesSemContato.map((c) => `${c.nome} (${c.dias} dias)`).join(", ")}` : ""}`;
 
   if (d.metas) {
     texto += `
@@ -195,8 +283,7 @@ export async function gerarRelatorioVendedor(
     return { erro: msg };
   }
 
-  const periodoAnteriorInicio = new Date(periodoInicio);
-  periodoAnteriorInicio.setDate(periodoAnteriorInicio.getDate() - (periodoFim.getTime() - periodoInicio.getTime()) / 86400000);
+  const periodoAnteriorInicio = inicioDoPeriodoAnterior(periodoInicio, periodoFim);
 
   const dados = await coletarDadosVendedor(
     supabase,
@@ -293,7 +380,9 @@ export async function gerarRelatorioLoja(
         v.nome as string,
         periodoInicio.toISOString(),
         periodoFim.toISOString(),
-        periodoInicio.toISOString(),
+        // Antes passava o próprio início aqui: o período anterior tinha
+        // tamanho zero e a "conversão anterior" de todo vendedor saía 0%.
+        inicioDoPeriodoAnterior(periodoInicio, periodoFim).toISOString(),
         empresa,
       )
     )

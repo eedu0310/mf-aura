@@ -28,6 +28,12 @@ AGENTES DE FUNÇÃO (nativos/*)          GUARDIÃO DO CONHECIMENTO (guardiao.ts)
    curador, revisor do aprendizado,    AGENTES CONFIGURÁVEIS (configuravel.ts)
    resumo do gestor…                      nascem de proposta aprovada pelo
                                           gestor mestre; leem só uma fonte.
+EQUIPE VERMELHA (nativos/cacador-*.ts, setor "seguranca")
+   Caçador de Brechas (6h) e Caçador de Erros (de 6 em 6 h): os
+   "sabotadores do bem". Só LEEM e SONDAM (GET sem login nas rotas
+   protegidas); nunca gravam dado nem mexem em código. Dizem o que está
+   aberto ou quebrado e COMO ARRUMAR (regra; a IA rápida só reescreve o
+   texto); alerta para a Diretora e card para os mestres no que é alto.
 ROTINAS DO SISTEMA (sistema.ts)
    sentinelas, backup, supervisão, briefing, repasse de leads, cobranças,
    relatórios, aprendizado da semana. Rodam pelos crons de sempre; aqui só
@@ -53,15 +59,26 @@ O cron `GET /api/cron/agentes` roda **a cada 10 minutos**. O motor:
    60 s de prazo, até 2 novas tentativas, custo registrado com
    `registrarUsoIA`. Falhou ou foi barrada → devolve `null` e o agente segue
    só com regras. Perfil `rapido` = modelo de volume, `redacao` = modelo de
-   raciocínio (`src/lib/aura/modelos.ts`).
+   raciocínio (`src/lib/aura/modelos.ts`). **Prazo da rodada** (`ctx.prazo`):
+   o `ctx.ia` não abre chamada com menos de 20 s sobrando e encolhe o tempo
+   de espera e as novas tentativas para a resposta chegar antes do corte —
+   rodada cortada pelo prazo não grava NADA. Agente com laço de IA (o
+   Revisor) confere `ctx.prazo` antes de abrir lote novo. Resposta cortada no
+   teto de tokens (JSON ou texto) conta como falha e vai o texto por regra.
 5. **Grava o resultado**:
    - **achados → `aura_recomendacoes`**, sem repetir: a mesma `chave`
      pendente é atualizada (texto, prioridade, destinatário, link); chave nova
      é criada — menos se a pessoa concluiu/dispensou o mesmo item há menos que
      o prazo dele; pendente que o agente não relatou mais vira
-     `resolvida_sozinha` (só se nenhuma chamada de IA falhou na rodada); a que
-     passou de `expira_em` vira `expirada` (e volta, como item novo, se o
-     problema continuar);
+     `resolvida_sozinha` (só se nenhuma chamada de IA falhou na rodada, e
+     nunca nos configuráveis, cuja IA escolhe só uma parte dos itens);
+   - **validade**: card que o agente confirmou e que venceria antes da
+     próxima rodada dele tem a validade renovada (`venceAntesDaProximaRodada`,
+     `agenda.ts`); a data de criação não muda. Só vira `expirada` (1 h depois
+     de `expira_em`) o que o agente parou de relatar sem poder dar como
+     resolvido. Antes a validade nunca era renovada e a varredura tirava do
+     ar, no mesmo dia, o card que o agente acabara de confirmar (o Ritmo da
+     Meta sumia um dia sim, um dia não; a Reativação ficava a semana fora);
    - **um aviso por pessoa por dia** no sino ("AURA: N itens novos para você
      hoje", leva ao `/meu-dia`) — os seguintes só atualizam o número;
    - **falas** no escritório (`aura_escritorio_mensagens`);
@@ -93,7 +110,7 @@ falas sem loja); o gestor mestre vê tudo.
 | `POST /api/gestor/agentes/propostas/<id>` | gestor mestre | `{ decisao: "aprovar" \| "recusar" }` |
 | `GET /api/gestor/agentes/diretora` | gestor aprovado | a conversa dele com a Diretora (últimas 50 mensagens) |
 | `POST /api/gestor/agentes/diretora` | gestor aprovado | `{ texto }` (até 2000) → `{ pergunta, resposta }`: ela responde na hora (IA dela, sem inventar número), encaminha pedidos a agentes e pode propor um agente novo (status `proposta`) |
-| `POST /api/agentes/mensagem` | dono do card ou gestor da loja | `{ recomendacaoId, refazer? }` → `{ mensagem, telefone }` |
+| `POST /api/agentes/mensagem` | dono do card ou gestor da loja | `{ recomendacaoId, refazer? }` → `{ mensagem, telefone }` (cliente, negócio, pós-venda, lead, manutenção e compromisso) |
 | `GET /api/aura/supervisao` | o próprio vendedor | cards do Meu Dia, agora com `agente`, `agente_nome`, `acao_url`, `pode_gerar_mensagem` |
 | `POST /api/gestor/aprendizado` | gestor da loja / mestre | agora também `acao: "desfazer"` |
 
@@ -199,6 +216,12 @@ hora de aplicar; a 110 trava sozinha se a 105 não estiver lá.)
   `expirada` e `resolvida_sozinha`; único `(agente, chave)` pendente);
   colunas de revisão em `aura_aprendizado`; `aura_conhecimento_historico`
   com os gatilhos; RLS em tudo (gestor aprovado lê; escrita só pelo servidor).
+
+**Pendente para uma migração futura:** o CHECK de `aura_agentes.setor` ainda
+não aceita `atendimento` nem `seguranca`. Até lá o código grava o setor mais
+próximo (`setorParaOBanco`, `util.ts`) — a mesa usa o setor do código, então
+ligar/desligar os caçadores funciona; um configurável proposto nesses setores
+nasce em "gestao"/"dados".
 
 **Sem a 110** nada quebra: o motor responde "aguardando migração 110" (o cron
 fica verde), a tela mostra a equipe com o aviso, o Meu Dia e o aprendizado

@@ -60,6 +60,8 @@ export function FotoDePerfil() {
   }
 
   async function tirar() {
+    // Apaga o arquivo no servidor: um toque sem querer não pode custar a foto.
+    if (!window.confirm("Tirar sua foto de perfil? Você pode enviar outra depois.")) return;
     setOcupado(true);
     setErro(null);
     try {

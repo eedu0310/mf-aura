@@ -94,6 +94,8 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
   }
+  // Corpo "null" (JSON válido) estourava no corpo.envioId abaixo como 500.
+  if (!corpo || typeof corpo !== "object") return NextResponse.json({ erro: "Pedido inválido." }, { status: 400 });
 
   const { data: envio } = await sb
     .from("site_envios")

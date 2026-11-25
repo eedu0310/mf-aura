@@ -102,9 +102,11 @@ export async function atualizarPostagem(id: string, patch: Partial<PostagemMarke
   return true;
 }
 
-export async function apagarPostagem(id: string) {
+/** true = apagou. Antes a falha (permissão, rede) sumia no console. */
+export async function apagarPostagem(id: string): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
-  const { error } = await supabase.from("postagens_marketing").delete().eq("id", id);
+  if (!supabase) return false;
+  const { data, error } = await supabase.from("postagens_marketing").delete().eq("id", id).select("id");
   if (error) console.error("Erro ao apagar postagem:", error);
+  return !error && (data?.length ?? 0) > 0;
 }

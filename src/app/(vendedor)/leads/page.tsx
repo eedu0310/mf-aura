@@ -107,15 +107,23 @@ export default function LeadsPage() {
   }, []);
 
   async function responder(lead: Lead) {
+    const anterior = lead.status;
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: "respondido" } : l)));
-    await marcarLeadRespondido(lead.id);
+    if (!(await marcarLeadRespondido(lead.id))) {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: anterior } : l)));
+      window.alert("Não consegui marcar como respondido. Tente de novo.");
+    }
   }
 
   async function perder(lead: Lead) {
     const motivo = prompt(`Por que "${lead.nome || lead.telefone}" foi perdido?`, "");
     if (motivo === null) return;
+    const anterior = lead.status;
     setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: "perdido", motivoPerda: motivo } : l)));
-    await marcarLeadPerdido(lead.id, motivo);
+    if (!(await marcarLeadPerdido(lead.id, motivo))) {
+      setLeads((prev) => prev.map((l) => (l.id === lead.id ? { ...l, status: anterior, motivoPerda: lead.motivoPerda } : l)));
+      window.alert("Não consegui marcar como perdido. Tente de novo.");
+    }
   }
 
   async function esfriar(lead: Lead) {

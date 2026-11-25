@@ -117,6 +117,17 @@ const SDR: ItemMenu[] = [
 const VENDEDOR_INTERNO: ItemMenu[] = VENDEDOR;
 
 /**
+ * Marketing entra na Central de Marketing (rotaInicial), mas tudo que é do CRM
+ * (Configurações, Meu Dia, o "Voltar" da área) abre com o menu de vendedor, e
+ * nele não havia caminho de volta para /marketing: a pessoa só voltava
+ * digitando o endereço ou saindo e entrando de novo. A Central vem primeiro.
+ */
+const MARKETING: ItemMenu[] = [
+  { href: "/marketing", label: "Central de Marketing", icon: Megaphone, secao: "inicio" },
+  ...VENDEDOR,
+];
+
+/**
  * Menu principal do cargo.
  *
  * AGENDA VALE PARA TODO MUNDO. Ela só estava no menu de Vendedor, então
@@ -142,6 +153,7 @@ export function menuDoCargo(cargo?: string | null): ItemMenu[] {
   if (c === "pós-venda" || c === "pos-venda") return POS_VENDA;
   if (c === "sdr") return SDR;
   if (c === "vendedor interno") return VENDEDOR_INTERNO;
+  if (c === "marketing") return MARKETING;
   return VENDEDOR;
 }
 

@@ -152,7 +152,8 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       entidadeId: c.id,
       acaoUrl: "/agenda",
       expiraEmDias: 1,
-      podeGerarMensagem: true,
+      // A mensagem precisa do cliente cadastrado (é de onde vem o telefone).
+      podeGerarMensagem: Boolean(c.relacionamento_id),
     });
   }
 

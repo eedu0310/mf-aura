@@ -263,9 +263,9 @@ export function CalendarioPostagens() {
 
   async function salvarNova(e: React.FormEvent) {
     e.preventDefault();
-    if (!titulo.trim() || !dataPlanejada) return;
+    if (!titulo.trim() || !dataPlanejada || salvando) return;
     setSalvando(true);
-    await criarPostagem({
+    const ok = await criarPostagem({
       empresa: profile.empresa,
       titulo: titulo.trim(),
       descricao: descricao.trim() || undefined,
@@ -273,36 +273,55 @@ export function CalendarioPostagens() {
       linkDrive: linkDrive.trim() || undefined,
       status: linkDrive.trim() ? "aguardando_aprovacao" : "planejado",
     });
+    setSalvando(false);
+    // Antes o formulário era limpo e fechado mesmo quando o banco recusava:
+    // a postagem sumia sem aviso e a pessoa achava que tinha salvo.
+    if (!ok) {
+      window.alert("Não consegui salvar a postagem. Confira a conexão e tente de novo.");
+      return;
+    }
     setTitulo("");
     setDataPlanejada("");
     setLinkDrive("");
     setDescricao("");
-    setSalvando(false);
     setFormAberto(false);
+    // Não depende só do tempo real: a lista volta certa mesmo se ele cair.
+    void carregar();
+  }
+
+  /** Muda a postagem e avisa se o banco recusar (antes falhava calado). */
+  async function atualizar(p: PostagemMarketing, patch: Partial<PostagemMarketing>) {
+    const ok = await atualizarPostagem(p.id, patch);
+    if (!ok) {
+      window.alert("Não consegui atualizar a postagem. Tente de novo.");
+      return;
+    }
+    void carregar();
   }
 
   async function marcarPublicado(p: PostagemMarketing) {
-    await atualizarPostagem(p.id, { status: "publicado", dataPublicacao: diaEmSaoPaulo() });
+    await atualizar(p, { status: "publicado", dataPublicacao: diaEmSaoPaulo() });
   }
 
   async function aprovar(p: PostagemMarketing) {
-    await atualizarPostagem(p.id, { status: "aprovado", feedbackGestor: null });
+    await atualizar(p, { status: "aprovado", feedbackGestor: null });
   }
 
   async function pedirAjuste(p: PostagemMarketing) {
     const feedback = prompt("O que precisa ajustar nessa postagem?");
     if (!feedback) return;
-    await atualizarPostagem(p.id, { status: "planejado", feedbackGestor: feedback });
+    await atualizar(p, { status: "planejado", feedbackGestor: feedback });
   }
 
   async function rejeitar(p: PostagemMarketing) {
     if (!confirm(`Rejeitar a postagem "${p.titulo}"?`)) return;
-    await atualizarPostagem(p.id, { status: "rejeitado" });
+    await atualizar(p, { status: "rejeitado" });
   }
 
   async function excluir(id: string) {
     if (!confirm("Excluir essa postagem?")) return;
-    await apagarPostagem(id);
+    if (!(await apagarPostagem(id))) window.alert("Não consegui excluir a postagem. Tente de novo.");
+    void carregar();
   }
 
   const hojeISO = diaEmSaoPaulo();

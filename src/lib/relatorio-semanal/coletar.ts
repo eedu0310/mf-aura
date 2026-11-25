@@ -3,6 +3,7 @@ import { carregarFunil } from "@/lib/funil-servidor";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { ehGanho, ehPerda, type EtapaFunil } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor, type VendaComParceria } from "@/lib/parceria";
+import { negocioEmAberto, pipelineAberto, totalVendido } from "@/lib/kpis";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 
 /**
@@ -381,7 +382,12 @@ export async function coletarSemanaDaLoja(
    */
   const comAtividade = new Set<string>();
   for (const a of atividades) if (a.owner_id) comAtividade.add(String(a.owner_id));
-  for (const v of vendas) if (v.owner_id) comAtividade.add(String(v.owner_id));
+  // O parceiro da venda em dupla também: sem ele, a fatia dele sumia do total
+  // da loja quando a pessoa não tinha outra atividade na semana.
+  for (const v of vendas) {
+    if (v.owner_id) comAtividade.add(String(v.owner_id));
+    if (v.parceiro_id) comAtividade.add(String(v.parceiro_id));
+  }
   for (const c of conversas) {
     if (c.owner_id && c.ultima_analise_em && c.ultima_analise_em >= inicioISO && c.ultima_analise_em < fimISO) {
       comAtividade.add(String(c.owner_id));
@@ -577,9 +583,18 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
       ehPerda(String(o.etapa ?? ""), f.funil) &&
       (o.data_perda ? noPeriodo(o.data_perda, true) : noPeriodo(o.updated_at)),
   );
-  const emAberto = minhasOportunidades.filter(
-    (o) => !ehGanho(String(o.etapa ?? ""), f.funil) && !ehPerda(String(o.etapa ?? ""), f.funil),
-  );
+  /*
+   * Em aberto e "R$ em aberto" pelas réguas de src/lib/kpis.ts: o número de
+   * negócios é o que está em jogo (sem pós-venda nem lead frio), e o dinheiro
+   * é o do quadro do Pipeline (só as etapas que contam no pipeline). Antes o
+   * relatório somava Prospecção e pós-venda e dava um "em aberto" diferente
+   * do que o gestor via na tela.
+   */
+  const emAberto = minhasOportunidades.filter((o) => negocioEmAberto(String(o.etapa ?? ""), f.funil));
+  const valorEmAberto = pipelineAberto(
+    minhasOportunidades as { etapa?: string | null; valor?: number | string | null }[],
+    f.funil,
+  ).valor;
 
   const porEtapaMapa = new Map<string, { negocios: number; valor: number }>();
   for (const o of emAberto) {
@@ -734,7 +749,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
       ganhos: criadasNoPeriodo.filter((o) => ehGanho(String(o.etapa ?? ""), f.funil)).length,
       perdidos: perdidasNoPeriodo.length,
       emAberto: emAberto.length,
-      valorEmAberto: emAberto.reduce((s, o) => s + Number(o.valor ?? 0), 0),
+      valorEmAberto,
       porEtapa: [...porEtapaMapa.entries()]
         .map(([etapa, v]) => ({ etapa, ...v }))
         .sort((a, b) => b.negocios - a.negocios),
@@ -747,7 +762,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     vendas: {
       quantidade: minhasVendas.length,
       valor: somaDoVendedor(vendasDoPeriodo as unknown as VendaComParceria[], id),
-      valorCheio: minhasVendas.reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0),
+      valorCheio: totalVendido(minhasVendas),
     },
     atendimento: {
       conversasAtivas: ativas.length,

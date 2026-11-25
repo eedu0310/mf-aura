@@ -4,7 +4,7 @@ import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { carregarRegistro, temMigracao108 } from "@/lib/agentes/motor";
 import { configuracaoValida } from "@/lib/agentes/configuravel";
 import { ID_DIRETORA } from "@/lib/agentes/diretora";
-import { MOTIVO_SEM_108, ehUuid, slug } from "@/lib/agentes/util";
+import { MOTIVO_SEM_108, ehUuid, setorParaOBanco, slug } from "@/lib/agentes/util";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +66,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     return NextResponse.json({ erro: "A configuração desta proposta não é segura para virar agente." }, { status: 400 });
   }
 
+  /*
+   * Trava antes de criar: a proposta passa de "proposta" para "aprovada" só
+   * se ainda estava aberta. Dois cliques (ou dois mestres ao mesmo tempo)
+   * criavam dois agentes iguais; agora o segundo recebe 409.
+   */
+  const { data: travada, error: erroTrava } = await sb
+    .from("aura_agente_propostas")
+    .update({ status: "aprovada", decidido_por: auth.userId, decidido_em: agora })
+    .eq("id", id)
+    .eq("status", "proposta")
+    .select("id");
+  if (erroTrava) return NextResponse.json({ erro: "Não consegui registrar a decisão." }, { status: 500 });
+  if (!travada?.length) return NextResponse.json({ erro: "Esta proposta já foi decidida." }, { status: 409 });
+
   // Id legível e único: "cfg-vigia-de-reclamacoes", "cfg-vigia-de-reclamacoes-2"…
   const registro = await carregarRegistro(sb, true);
   const base = `cfg-${slug(String(proposta.nome)) || "agente"}`;
@@ -76,7 +90,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     id: agenteId,
     nome: proposta.nome,
     cargo: "Agente criado pela equipe",
-    setor: proposta.setor,
+    setor: setorParaOBanco(String(proposta.setor)),
     icone: "Bot",
     missao: proposta.missao ?? "",
     tipo: "configuravel",
@@ -90,6 +104,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   });
   if (erroAgente) {
     console.error("[gestor/agentes/propostas]", erroAgente.message);
+    // Devolve a proposta para a fila: o mestre pode tentar de novo.
+    await sb.from("aura_agente_propostas").update({ status: "proposta", decidido_por: null, decidido_em: null }).eq("id", id);
     return NextResponse.json({ erro: "Não consegui criar o agente." }, { status: 500 });
   }
 

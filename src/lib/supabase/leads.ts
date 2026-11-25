@@ -83,24 +83,27 @@ export async function listarLeads(): Promise<Lead[] | null> {
   return (data ?? []).map(doBanco);
 }
 
-export async function marcarLeadRespondido(id: string) {
+/** true = gravou. Antes engolia o erro e a tela mostrava a mudança sem nada salvo. */
+export async function marcarLeadRespondido(id: string): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
+  if (!supabase) return false;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("leads_recebidos")
     .update({
       status: "respondido",
       respondido_em: new Date().toISOString(),
       respondido_por: user?.id ?? null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) console.error("Erro ao marcar lead como respondido:", error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 /**
@@ -128,16 +131,19 @@ export async function marcarLeadFrio(id: string, jaRespondidoEm?: string | null)
   return true;
 }
 
-export async function marcarLeadPerdido(id: string, motivo: string) {
+/** true = gravou (idem marcarLeadRespondido). */
+export async function marcarLeadPerdido(id: string, motivo: string): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
+  if (!supabase) return false;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("leads_recebidos")
     .update({ status: "perdido", motivo_perda: motivo || null })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) console.error("Erro ao marcar lead como perdido:", error);
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function excluirLead(id: string): Promise<boolean> {

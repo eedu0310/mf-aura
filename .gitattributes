@@ -1,5 +1,8 @@
 # Scripts e o crontab rodam na VPS (Linux): sempre com quebra de linha LF,
-# mesmo editados no Windows. Um  no fim da linha quebra o bash e o cron.
+# mesmo editados no Windows. Um "\r" no fim da linha quebra o bash e o cron.
+# (Este comentário tinha um \r de verdade no meio, e o git passou a tratar o
+# próprio .gitattributes como binário.)
 *.sh text eol=lf
-deploy/aura-crons text eol=lf
 *.sql text eol=lf
+# Tudo o que vai para a VPS como está: crontab, unidade do systemd e nginx.
+deploy/* text eol=lf

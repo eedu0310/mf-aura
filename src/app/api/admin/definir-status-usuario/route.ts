@@ -22,7 +22,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const { usuarioId, ativo } = await request.json();
+  // JSON quebrado (ou "null") virava 500 aqui; agora é pedido inválido.
+  const corpo = await request.json().catch(() => null);
+  const { usuarioId, ativo } = (corpo && typeof corpo === "object" ? corpo : {}) as { usuarioId?: string; ativo?: unknown };
   if (!usuarioId || typeof ativo !== "boolean") {
     return NextResponse.json({ erro: "Parâmetros ausentes." }, { status: 400 });
   }

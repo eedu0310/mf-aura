@@ -417,6 +417,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         (payload) => {
           if (payload.eventType === "INSERT") {
             const novoLead = payload.new as Lead;
+            // Mesma régua da leitura inicial (SO_LEADS_DE_VERDADE): cliente
+            // antigo e não-lead que chegam já classificados não entram na
+            // lista — antes entravam pelo tempo real e inflavam o contador de
+            // leads até a próxima recarga.
+            const natureza = (payload.new as { natureza?: string | null }).natureza;
+            if (natureza && natureza !== "lead") return;
             setLeads((prev) =>
               prev.some((x) => x.id === novoLead.id)
                 ? prev

@@ -4,6 +4,7 @@ import { administra, getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { chamarIA, temMigracao108 } from "@/lib/agentes/motor";
 import { MOTIVO_SEM_108, ehUuid } from "@/lib/agentes/util";
+import { limparPII } from "@/lib/agentes/nativos/comum";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
     funcao: "agentes/mensagem",
     perfil: "rapido",
     maxTokens: 400,
+    // A rota tem 90 s: sem prazo, o SDK podia esperar 3 tentativas de 60 s.
+    ateMs: Date.now() + 75_000,
     empresa: rec.empresa as string,
     usuarioId: auth.userId,
     sistema: `Você escreve mensagens de WhatsApp para um vendedor de uma loja de lareiras e aquecimento (${rec.empresa}) mandar a um cliente.
@@ -147,7 +150,7 @@ async function lerEntidade(sb: SupabaseClient, tipo: string | null, id: string |
   if (tipo === "pos_venda") {
     const { data } = await sb
       .from("pos_vendas")
-      .select("id, cliente, produto, status, instalacao_agendada_em, instalacao_realizada_em, possui_reclamacao, reclamacao_resolvida, relacionamento_id, oportunidade_id, telefone")
+      .select("id, cliente, produto, status, data_agendamento, hora_agendamento, instalacao_realizada_em, possui_reclamacao, reclamacao_resolvida, relacionamento_id, oportunidade_id, telefone")
       .eq("id", id)
       .maybeSingle();
     if (!data) return null;
@@ -158,6 +161,73 @@ async function lerEntidade(sb: SupabaseClient, tipo: string | null, id: string |
       telefone: (telefone as string | null) ?? (await telefoneDoContato(sb, relacionamentoId)),
       relacionamentoId,
       oportunidadeId: (data.oportunidade_id as string | null) ?? null,
+    };
+  }
+  /*
+   * Os três abaixo os agentes já marcavam com "Gerar mensagem" (Guardião dos
+   * Leads, Manutenção, Secretária de Agenda), mas a rota só conhecia os três
+   * de cima: o botão aparecia e respondia "não tem um cliente ligado".
+   */
+  if (tipo === "lead") {
+    const { data } = await sb
+      .from("leads_recebidos")
+      .select("id, nome, origem, classificacao, urgencia, resumo_ia, created_at, relacionamento_id, telefone")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return null;
+    const relacionamentoId = (data.relacionamento_id as string | null) ?? null;
+    return {
+      resumo: {
+        tipo: "lead novo esperando a primeira resposta",
+        nome: data.nome,
+        origem: data.origem,
+        classificacao: data.classificacao,
+        urgencia: data.urgencia,
+        // O resumo da IA pode repetir telefone ou e-mail que o cliente escreveu: sai antes de ir para a IA.
+        resumo: data.resumo_ia ? limparPII(String(data.resumo_ia)).slice(0, 600) : null,
+        chegouEm: data.created_at,
+      },
+      telefone: (data.telefone as string | null) ?? (await telefoneDoContato(sb, relacionamentoId)),
+      relacionamentoId,
+      oportunidadeId: null,
+    };
+  }
+  if (tipo === "manutencao") {
+    // O id é do registro de manutenção; sem o registro (só a previsão), é o próprio pós-venda.
+    const { data: registro } = await sb
+      .from("pos_venda_manutencoes")
+      .select("pos_venda_id, tipo, data_prevista, data_agendada, status")
+      .eq("id", id)
+      .maybeSingle();
+    const pv = await lerEntidade(sb, "pos_venda", (registro?.pos_venda_id as string | undefined) ?? id);
+    if (!pv) return null;
+    return {
+      ...pv,
+      resumo: {
+        ...pv.resumo,
+        tipo: "limpeza ou revisão anual da lareira/chaminé",
+        manutencao: registro
+          ? { tipo: registro.tipo, prevista: registro.data_prevista, agendada: registro.data_agendada, status: registro.status }
+          : "prevista para um ano depois da instalação",
+      },
+    };
+  }
+  if (tipo === "compromisso") {
+    const { data } = await sb
+      .from("compromissos")
+      .select("id, tipo, titulo, data, hora, relacionamento_nome, relacionamento_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data?.relacionamento_id) return null;
+    const contato = await lerEntidade(sb, "relacionamento", data.relacionamento_id as string);
+    if (!contato) return null;
+    return {
+      ...contato,
+      resumo: {
+        ...contato.resumo,
+        compromisso: { tipo: data.tipo, titulo: data.titulo, data: data.data, hora: data.hora },
+        objetivo: "confirmar o compromisso marcado com o cliente",
+      },
     };
   }
   return null;

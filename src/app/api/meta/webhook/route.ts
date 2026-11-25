@@ -24,6 +24,9 @@ export const dynamic = "force-dynamic";
 
 const JANELA_MS = 24 * 3600_000;
 
+/** Teto do corpo de um aviso: folga grande sobre o que a Meta manda de fato. */
+const TETO_DO_CORPO = 1024 * 1024;
+
 /** GET — o aperto de mão do cadastro do webhook no painel da Meta. */
 export async function GET(request: Request) {
   const sp = new URL(request.url).searchParams;
@@ -195,21 +198,34 @@ async function guardarComentario(empresa: string, igUserId: string, valor: any) 
 
 /** POST — as mensagens e os comentários que a Meta empurra. */
 export async function POST(request: Request) {
+  // Aviso da Meta é pequeno (a mídia vem por link). Sem teto, qualquer um
+  // mandava até o limite do proxy (26 MB) e o servidor lia tudo na memória
+  // antes de saber se a assinatura conferia.
+  const declarado = Number(request.headers.get("content-length") ?? 0);
+  if (declarado > TETO_DO_CORPO) return new NextResponse("Aviso grande demais.", { status: 413 });
   const corpoCru = await request.text();
+  if (corpoCru.length > TETO_DO_CORPO) return new NextResponse("Aviso grande demais.", { status: 413 });
   let corpo: any = {};
   try {
     corpo = JSON.parse(corpoCru);
   } catch {
     corpo = {};
   }
+  // O envelope é montado ANTES de conferir a assinatura (para o diagnóstico
+  // mostrar também o que foi recusado), então vem de quem quer que tenha
+  // batido aqui: `entry` que não fosse lista derrubava a rota com 500, e uma
+  // lista enorme ficava guardada na memória (40 avisos). Só listas, cortadas.
+  const entradas: any[] = Array.isArray(corpo?.entry) ? corpo.entry.slice(0, 20) : [];
   const envelope = {
     em: new Date().toISOString(),
-    objeto: corpo?.object ?? null,
-    contas: (corpo?.entry ?? []).map((e: any) => String(e?.id ?? "")),
-    campos: (corpo?.entry ?? []).flatMap((e: any) => [
-      ...(e?.messaging?.length ? ["messaging"] : []),
-      ...(e?.changes ?? []).map((c: any) => String(c?.field ?? "?")),
-    ]),
+    objeto: typeof corpo?.object === "string" ? corpo.object.slice(0, 40) : null,
+    contas: entradas.map((e: any) => String(e?.id ?? "").slice(0, 40)),
+    campos: entradas
+      .flatMap((e: any) => [
+        ...(Array.isArray(e?.messaging) && e.messaging.length ? ["messaging"] : []),
+        ...(Array.isArray(e?.changes) ? e.changes : []).map((c: any) => String(c?.field ?? "?").slice(0, 40)),
+      ])
+      .slice(0, 40),
   };
 
   if (!assinaturaConfere(corpoCru, request.headers.get("x-hub-signature-256"))) {

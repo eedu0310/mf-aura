@@ -77,9 +77,9 @@ export function CampanhasMarketing() {
 
   async function salvarNova(e: React.FormEvent) {
     e.preventDefault();
-    if (!nome.trim() || !canalInput.trim()) return;
+    if (!nome.trim() || !canalInput.trim() || salvando) return;
     setSalvando(true);
-    await criarCampanha({
+    const ok = await criarCampanha({
       empresa: profile.empresa,
       nome: nome.trim(),
       canal: canalInput.trim(),
@@ -87,27 +87,47 @@ export function CampanhasMarketing() {
       dataFim: dataFim || undefined,
       orcamento: orcamento ? Number(orcamento) : undefined,
     });
+    setSalvando(false);
+    // Antes o formulário era limpo e fechado mesmo quando o banco recusava:
+    // a campanha sumia sem aviso e a pessoa achava que tinha salvo.
+    if (!ok) {
+      window.alert("Não consegui salvar a campanha. Confira a conexão e tente de novo.");
+      return;
+    }
     setNome("");
     setCanalInput("");
     setDataInicio("");
     setDataFim("");
     setOrcamento("");
-    setSalvando(false);
     setFormAberto(false);
+    // Não depende só do tempo real: a lista volta certa mesmo se ele cair.
+    void carregar();
+  }
+
+  /** Muda a campanha e avisa se o banco recusar (antes falhava calado). */
+  async function atualizar(c: Campanha, patch: Partial<Campanha>) {
+    const ok = await atualizarCampanha(c.id, patch);
+    if (!ok) {
+      window.alert("Não consegui atualizar a campanha. Tente de novo.");
+      return;
+    }
+    void carregar();
   }
 
   async function mudarStatus(c: Campanha, status: StatusCampanha) {
-    await atualizarCampanha(c.id, { status });
+    await atualizar(c, { status });
   }
 
   async function atualizarLeadsGerados(c: Campanha, valor: string) {
     const numero = Number(valor) || 0;
-    await atualizarCampanha(c.id, { leadsGerados: numero });
+    if (numero === c.leadsGerados) return;
+    await atualizar(c, { leadsGerados: numero });
   }
 
   async function excluir(id: string) {
     if (!confirm("Excluir essa campanha?")) return;
-    await apagarCampanha(id);
+    if (!(await apagarCampanha(id))) window.alert("Não consegui excluir a campanha. Tente de novo.");
+    void carregar();
   }
 
   const ativas = campanhas.filter((c) => c.status === "ativa").length;

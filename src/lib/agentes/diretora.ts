@@ -26,6 +26,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
+import { acharEtapa, FUNIL_PADRAO, type EtapaFunil } from "@/lib/funil";
+import { carregarFunil } from "@/lib/funil-servidor";
 import { equipeAtiva, gestoresDaLoja } from "./pessoas";
 import { numerosConferem } from "./util";
 import type {
@@ -44,8 +46,8 @@ const DIA = 86_400_000;
 
 export const ID_DIRETORA = "diretora";
 
-/** Acima disto, a pessoa tem itens demais parados e o gestor é avisado. */
-const LIMITE_ACUMULO = 25;
+/** A partir disto de itens abertos há mais de um dia, a pessoa acumulou e o gestor é avisado. */
+const LIMITE_ACUMULO = 15;
 /** Resolução abaixo disto, com pelo menos AMOSTRA_RESOLUCAO itens fechados, é baixa. */
 const RESOLUCAO_BAIXA = 0.25;
 const AMOSTRA_RESOLUCAO = 20;
@@ -83,6 +85,30 @@ async function contar(consulta: PromiseLike<{ count: number | null; error: { mes
   return error ? 0 : (count ?? 0);
 }
 
+/** Negócios com orçamento enviado (etapa de chave followup/negociacao no funil da loja) parados há `dias` dias. */
+async function contarOrcamentosParados(sb: SupabaseClient, agora: Date, dias: number): Promise<number> {
+  const linhas = await todasAsLinhas<{ empresa: string; etapa: string }>((de, ate) =>
+    sb
+      .from("oportunidades")
+      .select("empresa, etapa")
+      .lt("updated_at", new Date(agora.getTime() - dias * DIA).toISOString())
+      .order("id")
+      .range(de, ate),
+  );
+  const funis = new Map<string, EtapaFunil[]>();
+  let n = 0;
+  for (const l of linhas) {
+    let funil = funis.get(l.empresa);
+    if (!funil) {
+      funil = await carregarFunil(sb, l.empresa).catch(() => FUNIL_PADRAO);
+      funis.set(l.empresa, funil);
+    }
+    const chave = acharEtapa(l.etapa, funil)?.chave;
+    if (chave === "followup" || chave === "negociacao") n += 1;
+  }
+  return n;
+}
+
 const CANDIDATOS: Candidato[] = [
   {
     nome: "Vigia de reclamações",
@@ -115,21 +141,17 @@ const CANDIDATOS: Candidato[] = [
     setor: "vendas",
     cobertura: /or[cç]amento|proposta/i,
     limite: 10,
-    medir: (sb, agora) =>
-      contar(
-        sb
-          .from("oportunidades")
-          .select("id", { count: "exact", head: true })
-          .eq("etapa", "Proposta")
-          .lt("updated_at", new Date(agora.getTime() - 10 * DIA).toISOString()),
-      ),
-    descricaoDoSinal: (n) => `${n} negócios na etapa Proposta sem movimento há mais de 10 dias`,
+    // Nenhum funil tem uma etapa chamada "Proposta" (a conta dava sempre 0):
+    // orçamento enviado é a etapa de chave "followup" ou "negociacao" do funil
+    // de cada loja, seja qual for o nome que a loja deu a ela.
+    medir: (sb, agora) => contarOrcamentosParados(sb, agora, 10),
+    descricaoDoSinal: (n) => `${n} negócios com orçamento enviado (Follow-up ou Negociação) sem movimento há mais de 10 dias`,
     missao: "Achar orçamento enviado que ficou sem retorno e lembrar o vendedor de retomar a conversa.",
     config: {
       fonte: "oportunidades",
-      filtroDescricao: "Negócios na etapa Proposta parados há mais de 10 dias (updated_at antigo).",
+      filtroDescricao: "Negócios nas etapas de Follow-up ou Negociação (orçamento já enviado) parados há mais de 10 dias (updated_at antigo).",
       instrucoes:
-        "Escolha os negócios na etapa Proposta parados há mais tempo. Título com o cliente; descrição sugerindo retomar o contato perguntando se ficou alguma dúvida sobre o orçamento. Não cite valor nem desconto.",
+        "Escolha os negócios em Follow-up ou Negociação parados há mais tempo. Título com o cliente; descrição sugerindo retomar o contato perguntando se ficou alguma dúvida sobre o orçamento. Não cite valor nem desconto.",
       agenda: { tipo: "diario", horas: [8], minuto: 30, diasSemana: [1, 2, 3, 4, 5, 6] },
       destinatario: "dono",
       limitePorExecucao: 15,
@@ -280,13 +302,22 @@ async function executarDiretora(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const comErro = [...new Set(erros24h.map((e) => e.agente_id))];
   const totalAbertos = abertos.length;
   const altos = abertos.filter((a) => a.prioridade === "alta" || a.prioridade === "urgente").length;
-  const porPessoa = new Map<string, { n: number; empresa: string; maisAntigo: number }>();
+  /*
+   * `parados` = itens abertos há mais de um dia. É isso que mostra acúmulo:
+   * no primeiro dia da equipe um vendedor recebe ~25 cards de uma vez (10 do
+   * follow-up, 10 do pipeline, os do cadastro…) e a Diretora cobrava o
+   * gestor por algo que ninguém teve tempo de fazer.
+   */
+  const porPessoa = new Map<string, { n: number; parados: number; empresa: string; maisAntigo: number }>();
   const porAgente = new Map<string, number>();
+  const umDiaAtras = agora.getTime() - DIA;
   for (const a of abertos) {
     porAgente.set(a.agente, (porAgente.get(a.agente) ?? 0) + 1);
-    const p = porPessoa.get(a.vendedor_id) ?? { n: 0, empresa: a.empresa, maisAntigo: agora.getTime() };
+    const p = porPessoa.get(a.vendedor_id) ?? { n: 0, parados: 0, empresa: a.empresa, maisAntigo: agora.getTime() };
+    const criado = new Date(a.criado_em).getTime();
     p.n += 1;
-    p.maisAntigo = Math.min(p.maisAntigo, new Date(a.criado_em).getTime());
+    if (criado < umDiaAtras) p.parados += 1;
+    p.maisAntigo = Math.min(p.maisAntigo, criado);
     porPessoa.set(a.vendedor_id, p);
   }
   const resolvidosHoje = fechados30.filter(
@@ -363,7 +394,7 @@ async function executarDiretora(ctx: ContextoAgente): Promise<ResultadoAgente> {
 
   // ---------- quem acumulou itens parados → gestor da loja ----------
   for (const [pessoaId, p] of porPessoa) {
-    if (p.n < LIMITE_ACUMULO) continue;
+    if (p.parados < LIMITE_ACUMULO) continue;
     const pessoa = equipe.find((e) => e.id === pessoaId);
     if (!pessoa || pessoa.gestorAprovado) continue;
     const dias = Math.max(0, Math.floor((agora.getTime() - p.maisAntigo) / DIA));
@@ -373,9 +404,9 @@ async function executarDiretora(ctx: ContextoAgente): Promise<ResultadoAgente> {
         chave: `acumulo:${pessoaId}:${gestor.id}`,
         empresa: pessoa.empresa,
         destinatarioId: gestor.id,
-        titulo: `${pessoa.nome} tem ${p.n} itens da AURA em aberto`,
+        titulo: `${pessoa.nome} tem ${p.parados} itens da AURA parados há mais de um dia`,
         descricao: `O mais antigo está parado há ${dias} ${dias === 1 ? "dia" : "dias"}. Vale uma conversa rápida para destravar o que é importante e dispensar o que não faz sentido.`,
-        prioridade: p.n >= LIMITE_ACUMULO * 2 ? "alta" : "media",
+        prioridade: p.parados >= LIMITE_ACUMULO * 2 ? "alta" : "media",
         entidadeTipo: "perfil",
         entidadeId: pessoaId,
         acaoUrl: "/gestor",

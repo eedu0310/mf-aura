@@ -97,7 +97,10 @@ export const FONTES: Record<FonteConfiguravel, Fonte> = {
   pos_vendas: {
     tabela: "pos_vendas",
     colunas:
-      "id, empresa, vendedor_id, responsavel_id, cliente, produto, status, instalacao_agendada_em, instalacao_realizada_em, possui_reclamacao, reclamacao_resolvida, reclamacao_aberta_em, pos_venda_realizado_em, avaliacao_nota, relacionamento_id, created_at, updated_at",
+      // data_agendamento/hora_agendamento é onde a tela grava a data da
+      // instalação (instalacao_agendada_em é só o carimbo de QUANDO agendaram);
+      // a nota da avaliação é nota_avaliacao (avaliacao_nota fica sempre vazia).
+      "id, empresa, vendedor_id, responsavel_id, cliente, produto, status, data_agendamento, hora_agendamento, instalacao_realizada_em, possui_reclamacao, reclamacao_resolvida, reclamacao_aberta_em, pos_venda_realizado_em, avaliou_loja, nota_avaliacao, relacionamento_id, created_at, updated_at",
     ordem: "updated_at",
     donos: ["responsavel_id", "vendedor_id"],
     rotulo: (l) => String(l.cliente ?? "Pós-venda"),
@@ -225,7 +228,9 @@ export async function executarConfiguravel(
   const resposta = await ctx.ia({
     perfil: "rapido",
     json: true,
-    maxTokens: 2500,
+    // Cada achado escolhido custa ~100 tokens (id, título, descrição): o teto
+    // acompanha o limite do agente para o JSON não vir cortado no meio.
+    maxTokens: Math.min(8000, 600 + limite * 140),
     sistema: `Você é "${meta.nome}", um agente da equipe da AURA, o CRM de um grupo de lojas de lareiras e aquecimento.
 O QUE VOCÊ PROCURA: ${config.filtroDescricao || "(não descrito)"}
 INSTRUÇÕES DO GESTOR: ${config.instrucoes}

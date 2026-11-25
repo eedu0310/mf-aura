@@ -174,9 +174,9 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
       chaves.add(c.chave);
       if (c.tipo === "selecao" && !(c.opcoes ?? []).filter(Boolean).length) return setErro(`"${c.rotulo}" precisa de opções.`);
     }
-    setSalvando(true);
     const sb = getSupabaseBrowserClient();
-    if (!sb) return;
+    if (!sb) return setErro("Banco de dados não configurado neste navegador.");
+    setSalvando(true);
     const linha = {
       empresa: f.empresa || EMPRESA_DO_SITE,
       nome: f.nome.trim(),
@@ -210,7 +210,11 @@ function EditorFormulario({ inicial, onVoltar }: { inicial: Formulario; onVoltar
     if (!f.id) return onVoltar();
     if (!confirm(`Apagar o formulário "${f.nome}"? As LPs que usam ele ficam sem formulário. Os leads que já chegaram continuam.`)) return;
     const sb = getSupabaseBrowserClient();
-    await sb?.from("site_formularios").delete().eq("id", f.id);
+    if (!sb) return setErro("Banco de dados não configurado neste navegador.");
+    // Antes voltava para a lista mesmo com o banco recusando: o formulário
+    // "sumia" da tela e reaparecia no próximo carregamento, sem explicação.
+    const { error } = await sb.from("site_formularios").delete().eq("id", f.id);
+    if (error) return setErro(error.message || "Não consegui apagar o formulário.");
     onVoltar();
   }
 

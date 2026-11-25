@@ -18,6 +18,7 @@ export function ConfiguracoesView() {
   // Os valores salvos são lidos depois que a tela monta: ler no estado
   // inicial faz o servidor e o navegador desenharem coisas diferentes e o
   // React acusa erro de hidratação.
+  const [saindo, setSaindo] = useState(false);
   const [notifFollowUp, setNotifFollowUp] = useState(true);
   const [notifMissoes, setNotifMissoes] = useState(false);
 
@@ -102,8 +103,13 @@ export function ConfiguracoesView() {
     setEditando(false);
   }
 
-  function sair() {
-    void clearProfile();
+  // Espera a sessão terminar antes de abrir o login: o login agora manda quem
+  // ainda tem sessão direto para a tela inicial, e sem o await ele via a sessão
+  // velha e devolvia a pessoa para dentro do CRM.
+  async function sair() {
+    if (saindo) return;
+    setSaindo(true);
+    await clearProfile();
     router.push("/login");
   }
 
@@ -261,10 +267,11 @@ export function ConfiguracoesView() {
       <button
         type="button"
         onClick={sair}
+        disabled={saindo}
         className={classeBotao("perigo-suave", "lg", "w-full")}
       >
         <LogOut size={16} />
-        Sair da conta
+        {saindo ? "Saindo..." : "Sair da conta"}
       </button>
     </PageContainer>
   );

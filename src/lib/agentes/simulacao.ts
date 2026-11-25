@@ -22,6 +22,13 @@ import type { Achado, ContextoAgente, MensagemEscritorio, ResultadoAgente } from
 
 const ESCRITAS = new Set(["insert", "update", "upsert", "delete"]);
 
+/**
+ * Funções do banco que só LEEM (conferido no corpo de cada uma): passam na
+ * simulação. Qualquer outra rpc continua bloqueada — pode gravar.
+ * São as que o Caçador de Brechas usa para olhar RLS, políticas e esquema.
+ */
+const RPCS_SO_LEITURA = new Set(["aura_tabelas_sem_rls", "aura_politicas_abertas", "aura_esquema_ddl"]);
+
 /** Um "builder" que aceita qualquer encadeamento e termina vazio, sem rede. */
 function escritaIgnorada(registrar: (o: string) => void, operacao: string): unknown {
   registrar(operacao);
@@ -62,7 +69,11 @@ export function clienteSoLeitura(sb: SupabaseClient, registrar: (o: string) => v
         return { from: () => new Proxy({}, { get: (_, m) => () => (registrar(`storage.${String(m)}`), Promise.resolve({ data: null, error: { message: "simulação: storage bloqueado" } })) }) };
       }
       if (prop === "rpc") {
-        return (nome: string) => (registrar(`rpc ${nome}`), Promise.resolve({ data: null, error: { message: "simulação: rpc bloqueado" } }));
+        return (nome: string, ...resto: unknown[]) => {
+          if (RPCS_SO_LEITURA.has(nome)) return (alvo.rpc as (...a: unknown[]) => unknown).call(alvo, nome, ...resto);
+          registrar(`rpc ${nome}`);
+          return Promise.resolve({ data: null, error: { message: "simulação: rpc bloqueado" } });
+        };
       }
       const v = Reflect.get(alvo, prop, receptor);
       return typeof v === "function" ? v.bind(alvo) : v;

@@ -6,16 +6,27 @@
 import type { Ativ, Comp, DadosCrm, Op, Rel, Venda } from "./dados";
 import {
   colunaDoNegocio,
-  contaNoPipeline,
   etapasVisiveis,
   ehFechada,
   ehGanho,
-  ehLeadFrio,
   ehPerda,
   nomesDasEtapas,
   type EtapaFunil,
 } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
+import {
+  ehAtividadeDoVendedor,
+  negocioEmAberto,
+  pipelineAberto,
+  taxaConversao,
+  ticketMedio,
+  totalVendido,
+} from "@/lib/kpis";
+import {
+  DIAS_PARA_PARADO,
+  diasParadoDaLinha,
+  ultimaAtividadePorRelacionamento,
+} from "@/lib/oportunidade-parada";
 
 /**
  * As três listas de etapas que existiam aqui viraram perguntas ao funil da
@@ -60,10 +71,7 @@ function diasNoMes(mes: string) {
   return new Date(Date.UTC(a, m, 0)).getUTCDate();
 }
 
-const valorVenda = (v: Venda) => v.valor_fechado ?? v.valor ?? 0;
 const quandoAtiv = (a: Ativ) => a.ocorrida_em ?? a.created_at;
-const ehAtividadeDoVendedor = (a: Ativ) =>
-  !(a.tipo === "Outro" && /^(Oportunidade |IA moveu|Etapa alterada)/.test(a.titulo ?? ""));
 
 export function diasDesde(iso: string | null | undefined, agora = Date.now()) {
   if (!iso) return null;
@@ -85,6 +93,31 @@ export interface Escopo {
 
 function noEscopo<T extends { owner_id: string; empresa?: string | null }>(lista: T[], e: Escopo) {
   return lista.filter((x) => (!e.vendedorId || x.owner_id === e.vendedorId) && (!e.loja || x.empresa === e.loja));
+}
+
+/**
+ * As vendas do escopo. Diferente das outras listas, a venda em dupla é dos
+ * DOIS: filtrar só pelo dono escondia do parceiro a venda que ele ajudou a
+ * fechar, e o "Vendido no mês" dele não batia com o ranking (que já somava a
+ * fatia). O valor de cada um sai de totalVendido(vendas, vendedorId).
+ */
+function vendasNoEscopo(lista: Venda[], e: Escopo) {
+  const daLoja = lista.filter((v) => !e.loja || v.empresa === e.loja);
+  return e.vendedorId ? vendasDoVendedor(daLoja, e.vendedorId) : daLoja;
+}
+
+/**
+ * Dias parado pela régua oficial (src/lib/oportunidade-parada.ts): a mais
+ * recente entre a última alteração do negócio e a última atividade com o
+ * cliente. A AURA olhava só o updated_at, e o cartão "Negócios parados" dela
+ * acusava negócio que o painel do gestor (que olha as duas datas) já via
+ * andando.
+ */
+function medidorDeParado(d: DadosCrm, agora: number) {
+  const ultima = ultimaAtividadePorRelacionamento(d.atividades);
+  const quando = new Date(agora);
+  return (o: Op) =>
+    diasParadoDaLinha(o, o.relacionamento_id ? ultima.get(o.relacionamento_id) : null, quando);
 }
 
 // ------------------------------------------------------------------ resumo do vendedor
@@ -139,10 +172,12 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
   const mesAnt = mesAnterior(mes);
   const e: Escopo = vendedorId ? { vendedorId } : {};
 
-  const vendas = noEscopo(d.vendas, e);
+  const vendas = vendasNoEscopo(d.vendas, e);
   const doMes = vendas.filter((v) => v.data?.slice(0, 7) === mes);
   const doMesAnt = vendas.filter((v) => v.data?.slice(0, 7) === mesAnt);
-  const valorMes = doMes.reduce((s, v) => s + valorVenda(v), 0);
+  // A fatia de quem olha (venda em dupla dividida); sem vendedor, a loja
+  // inteira — a mesma conta do ranking e do painel da equipe.
+  const valorMes = totalVendido(doMes, vendedorId);
 
   // Meta e ranking sao pessoais: quem olha a equipe inteira nao tem os seus.
   const meta = vendedorId ? d.metas.find((m) => m.owner_id === vendedorId && m.mes === mes)?.valor_meta ?? null : null;
@@ -153,14 +188,20 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
   const ops = noEscopo(d.oportunidades, e);
   // Lead frio não é negócio parado nem pipeline aberto: é contato para
   // reaquecer mais adiante, e cobrar "parado há 9 dias" por ele seria ruído.
-  const abertas = ops.filter((o) => !ehFechada(o.etapa, d.funil) && !ehLeadFrio(o.etapa, d.funil));
+  // Pós-venda também não: o cliente já comprou (src/lib/kpis.ts).
+  const abertas = ops.filter((o) => negocioEmAberto(o.etapa, d.funil));
+  // O dinheiro do pipeline é o do cabeçalho do quadro: só as etapas marcadas
+  // "conta no pipeline". Este cartão somava toda etapa em aberto, Prospecção
+  // inclusive, e mostrava mais do que o quadro logo ao lado.
+  const pipe = pipelineAberto(ops, d.funil);
+  const diasParadoDe = medidorDeParado(d, agora);
   const pipeline = nomesDasEtapas(d.funil).map((etapa) => {
     const l = ops.filter((o) => colunaDoNegocio(o.etapa, d.funil) === etapa);
     return { etapa, qtd: l.length, valor: l.reduce((s, o) => s + (o.valor || 0), 0) };
   });
   const paradas = abertas
-    .map((o) => ({ cliente: o.cliente, etapa: o.etapa, dias: diasDesde(o.updated_at ?? o.created_at, agora) ?? 0, valor: o.valor }))
-    .filter((o) => o.dias >= 7)
+    .map((o) => ({ cliente: o.cliente, etapa: o.etapa, dias: diasParadoDe(o), valor: o.valor }))
+    .filter((o) => o.dias >= DIAS_PARA_PARADO)
     .sort((a, b) => b.valor - a.valor || b.dias - a.dias);
 
   const rels = noEscopo(d.relacionamentos, e);
@@ -219,15 +260,15 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     hoje,
     mes,
     vendasMes: { valor: valorMes, qtd: doMes.length },
-    vendasMesAnterior: { valor: doMesAnt.reduce((s, v) => s + valorVenda(v), 0), qtd: doMesAnt.length },
+    vendasMesAnterior: { valor: totalVendido(doMesAnt, vendedorId), qtd: doMesAnt.length },
     metaMes: meta,
     pctMeta: meta ? Math.round((valorMes / meta) * 100) : null,
     diasRestantesMes: diasRestantes,
     faltaParaMeta: falta,
     ritmoNecessarioDia: falta != null && diasRestantes > 0 ? Math.ceil(falta / diasRestantes) : null,
-    ticketMedio: doMes.length ? Math.round(valorMes / doMes.length) : 0,
+    ticketMedio: ticketMedio(valorMes, doMes.length),
     pipeline,
-    pipelineAbertoValor: abertas.reduce((s, o) => s + (o.valor || 0), 0),
+    pipelineAbertoValor: pipe.valor,
     pipelineAbertoQtd: abertas.length,
     oportunidadesParadas: paradas.slice(0, 8),
     followupsVencidos: vencidos.slice(0, 8),
@@ -244,7 +285,7 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     compromissosAtrasados: atrasados,
     proximosCompromissos: proximos,
     whatsAlertas: whats.slice(0, 8),
-    conversao90d: fech + perd > 0 ? Math.round((fech / (fech + perd)) * 100) : null,
+    conversao90d: taxaConversao(fech, perd),
     ranking: {
       posicao: pos >= 0 ? pos + 1 : null,
       total: placar.length,
@@ -427,7 +468,9 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   const inicio = agora - periodoDias * DIA;
   const noPeriodo = (iso: string) => new Date(iso).getTime() >= inicio;
 
-  const vendas = noEscopo(d.vendas, e).filter((v) => noPeriodo(`${v.data}T12:00:00-03:00`));
+  const vendas = vendasNoEscopo(d.vendas, e).filter((v) => noPeriodo(`${v.data}T12:00:00-03:00`));
+  // Valor de uma venda neste escopo: a fatia do vendedor, ou a venda cheia.
+  const valorNoEscopo = (v: Venda) => totalVendido([v], e.vendedorId);
   const ativs = noEscopo(d.atividades, e).filter((a) => ehAtividadeDoVendedor(a) && noPeriodo(quandoAtiv(a)));
   const ops = noEscopo(d.oportunidades, e);
   const rels = noEscopo(d.relacionamentos, e);
@@ -437,7 +480,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   if (dias[dias.length - 1] !== diaSP(agora)) dias.push(diaSP(agora));
 
   const vendasDia = new Map<string, number>();
-  for (const v of vendas) vendasDia.set(v.data, (vendasDia.get(v.data) ?? 0) + valorVenda(v));
+  for (const v of vendas) vendasDia.set(v.data, (vendasDia.get(v.data) ?? 0) + valorNoEscopo(v));
   const ativDia = new Map<string, number>();
   for (const a of ativs) {
     const k = diaSP(quandoAtiv(a));
@@ -450,7 +493,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   const fech = opsPeriodo.filter((o) => ehGanho(o.etapa, d.funil)).length;
   const perd = opsPeriodo.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
-  const vendido = vendas.reduce((s, v) => s + valorVenda(v), 0);
+  const vendido = totalVendido(vendas, e.vendedorId);
 
   // ativo !== false: conta desativada continua no banco, e sem este filtro quem
   // saiu da empresa seguia aparecendo no painel da equipe e no ranking, com
@@ -472,7 +515,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       vendido: somaDoVendedor(vendas, p.id),
       vendas: vendasDoVendedor(vendas, p.id).length,
       atividades: ativs.filter((a) => a.owner_id === p.id).length,
-      pipeline: ops.filter((o) => o.owner_id === p.id && contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
+      pipeline: pipelineAberto(ops.filter((o) => o.owner_id === p.id), d.funil).valor,
       // Leads que entraram para esta pessoa no periodo. O gestor pedia para
       // ver "os leads e as vendas de cada vendedor": sem este numero a tabela
       // mostrava o resultado sem mostrar a materia-prima que a pessoa recebeu.
@@ -488,27 +531,27 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   const porLoja = lojas
     .map((loja) => ({
       loja,
-      vendido: vendas.filter((v) => v.empresa === loja).reduce((s, v) => s + valorVenda(v), 0),
+      vendido: vendas.filter((v) => v.empresa === loja).reduce((s, v) => s + valorNoEscopo(v), 0),
       vendas: vendas.filter((v) => v.empresa === loja).length,
       atividades: ativs.filter((a) => a.empresa === loja).length,
-      pipeline: ops.filter((o) => o.empresa === loja && contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
+      pipeline: pipelineAberto(ops.filter((o) => o.empresa === loja), d.funil).valor,
       clientes: rels.filter((r) => r.empresa === loja).length,
     }))
     .sort((a, b) => b.vendido - a.vendido);
 
   const porCliente = new Map<string, number>();
-  for (const v of vendas) porCliente.set(v.cliente, (porCliente.get(v.cliente) ?? 0) + valorVenda(v));
+  for (const v of vendas) porCliente.set(v.cliente, (porCliente.get(v.cliente) ?? 0) + valorNoEscopo(v));
 
   return {
     periodoDias,
     kpis: {
       vendido,
       qtdVendas: vendas.length,
-      ticket: vendas.length ? Math.round(vendido / vendas.length) : 0,
+      ticket: ticketMedio(vendido, vendas.length),
       atividades: ativs.length,
       novosClientes: rels.filter((r) => noPeriodo(r.created_at)).length,
-      conversao: fech + perd ? Math.round((fech / (fech + perd)) * 100) : null,
-      pipelineAberto: ops.filter((o) => contaNoPipeline(o.etapa, d.funil)).reduce((s, o) => s + o.valor, 0),
+      conversao: taxaConversao(fech, perd),
+      pipelineAberto: pipelineAberto(ops, d.funil).valor,
     },
     vendasPorDia: dias.map((dia) => ({ dia, valor: vendasDia.get(dia) ?? 0 })),
     atividadesPorDia: dias.map((dia) => ({ dia, qtd: ativDia.get(dia) ?? 0 })),
@@ -580,13 +623,14 @@ export function painelGestor(d: DadosCrm, loja?: string, agora = Date.now()) {
   });
 
   const nomeDono = new Map(d.perfis.map((p) => [p.id, p.nome]));
+  const diasParadoDe = medidorDeParado(d, agora);
   const leadsEmRisco = [
     ...d.leadsWhats
       .filter((l) => l.alertas.length && (!loja || vendedores.some((v) => v.id === l.owner_id)))
       .map((l) => ({ cliente: l.nome ?? "Contato", vendedor: nomeDono.get(l.owner_id) ?? "—", motivo: l.alertas[0], origem: "WhatsApp" })),
     ...d.oportunidades
-      .filter((o) => (!loja || o.empresa === loja) && !ehFechada(o.etapa, d.funil))
-      .map((o) => ({ o, dias: diasDesde(o.updated_at ?? o.created_at, agora) ?? 0 }))
+      .filter((o) => (!loja || o.empresa === loja) && negocioEmAberto(o.etapa, d.funil))
+      .map((o) => ({ o, dias: diasParadoDe(o) }))
       .filter(({ dias }) => dias >= 10)
       .sort((a, b) => b.o.valor - a.o.valor)
       .slice(0, 10)

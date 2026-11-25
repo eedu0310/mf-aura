@@ -57,6 +57,8 @@ export async function POST(request: Request) {
   } catch {
     return respostaCors({ ok: false, erro: "Envio inválido." }, 400);
   }
+  // Corpo "null" (JSON válido) estourava no corpo.c abaixo como 500.
+  if (!corpo || typeof corpo !== "object") return respostaCors({ ok: false, erro: "Envio inválido." }, 400);
   const conversa = await conversaDoVisitante(sb, corpo.c, corpo.t);
   if (!conversa) return respostaCors({ ok: false, erro: "Conversa não encontrada." }, 404);
 

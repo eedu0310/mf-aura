@@ -23,21 +23,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { administra, getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
+import { valorDoVendedor, donoDaVenda, parceiroDaVenda } from "@/lib/parceria";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const FUSO = "America/Sao_Paulo";
 
-/** Começo e fim do dia local, em UTC — o banco guarda tudo em UTC. */
+/**
+ * Começo e fim do dia de Brasília, em UTC — o banco guarda tudo em UTC.
+ *
+ * Usava setHours(), que é o relógio do SERVIDOR: numa VPS em UTC o "dia"
+ * ia das 21h da véspera às 21h do dia, e o que o vendedor fez à noite caía
+ * no dia seguinte. O Brasil não tem horário de verão desde 2019: -03:00 fixo
+ * (a mesma conta de src/lib/fuso.ts).
+ */
 function janelaDoDia(dia: string): { de: string; ate: string } {
-  // Meio-dia local evita a troca de horário de verão virar o dia errado.
-  const base = new Date(`${dia}T12:00:00`);
-  const inicio = new Date(base);
-  inicio.setHours(0, 0, 0, 0);
-  const fim = new Date(base);
-  fim.setHours(23, 59, 59, 999);
-  return { de: inicio.toISOString(), ate: fim.toISOString() };
+  return {
+    de: new Date(`${dia}T00:00:00-03:00`).toISOString(),
+    ate: new Date(`${dia}T23:59:59.999-03:00`).toISOString(),
+  };
 }
 
 function horaLocal(iso: string | null): string | null {
@@ -110,9 +116,36 @@ export async function GET(req: NextRequest) {
   const { de, ate } = janelaDoDia(dia);
   // Sete dias para trás, para o número do dia ter com o que ser comparado.
   const inicioJanela = janelaDoDia(
-    new Date(new Date(`${dia}T12:00:00`).getTime() - 7 * 86400000)
+    new Date(new Date(`${dia}T12:00:00-03:00`).getTime() - 7 * 86400000)
       .toLocaleDateString("en-CA", { timeZone: FUSO }),
   ).de;
+
+  /*
+   * De mil em mil até o fim (src/lib/supabase/todas-as-linhas.ts): oito dias
+   * de uma loja cabem hoje em um pedido, mas uma importação de contatos ou um
+   * mutirão de prospecção passa de mil, e o banco corta calado.
+   */
+  type Linha = Record<string, unknown>;
+  const ler = async (
+    tabela: string,
+    colunas: string,
+    coluna: string,
+    desde: string,
+  ): Promise<{ data: Linha[] }> => ({
+    data: await todasAsLinhas<Linha>((a, b) =>
+      sb
+        .from(tabela)
+        .select(colunas)
+        .eq("empresa", loja)
+        .gte(coluna, desde)
+        .lte(coluna, ate)
+        .order("id")
+        .range(a, b) as unknown as PromiseLike<{ data: Linha[] | null; error: { message: string } | null }>,
+    ).catch((e) => {
+      console.error(`[movimentacao] ${tabela}:`, e instanceof Error ? e.message : e);
+      return [];
+    }),
+  });
 
   const [pessoas, atividades, contatos, leads, oportunidades, conversas, vendas] =
     await Promise.all([
@@ -121,42 +154,22 @@ export async function GET(req: NextRequest) {
         .select("id, nome, cargo")
         .eq("empresa", loja)
         .neq("ativo", false),
-      sb
-        .from("atividades")
-        .select("owner_id, tipo, created_at")
-        .eq("empresa", loja)
-        .gte("created_at", inicioJanela)
-        .lte("created_at", ate),
-      sb
-        .from("relacionamentos")
-        .select("owner_id, created_at")
-        .eq("empresa", loja)
-        .gte("created_at", inicioJanela)
-        .lte("created_at", ate),
-      sb
-        .from("leads_recebidos")
-        .select("vendedor_id, sdr_id, created_at, respondido_em, respondido_por, prazo_resposta, status, natureza")
-        .eq("empresa", loja)
-        .gte("created_at", inicioJanela)
-        .lte("created_at", ate),
-      sb
-        .from("oportunidades")
-        .select("owner_id, etapa, valor, created_at, updated_at")
-        .eq("empresa", loja)
-        .gte("updated_at", inicioJanela)
-        .lte("updated_at", ate),
-      sb
-        .from("whatsapp_ia_leads")
-        .select("owner_id, updated_at")
-        .eq("empresa", loja)
-        .gte("updated_at", inicioJanela)
-        .lte("updated_at", ate),
-      sb
-        .from("vendas")
-        .select("owner_id, valor, valor_fechado, created_at")
-        .eq("empresa", loja)
-        .gte("created_at", de)
-        .lte("created_at", ate),
+      ler("atividades", "owner_id, tipo, created_at", "created_at", inicioJanela),
+      ler("relacionamentos", "owner_id, created_at", "created_at", inicioJanela),
+      ler(
+        "leads_recebidos",
+        "vendedor_id, sdr_id, created_at, respondido_em, respondido_por, prazo_resposta, status, natureza",
+        "created_at",
+        inicioJanela,
+      ),
+      ler("oportunidades", "owner_id, etapa, valor, created_at, updated_at", "updated_at", inicioJanela),
+      ler("whatsapp_ia_leads", "owner_id, updated_at", "updated_at", inicioJanela),
+      ler(
+        "vendas",
+        "owner_id, parceiro_id, percentual_parceiro, valor, valor_fechado, created_at",
+        "created_at",
+        de,
+      ),
     ]);
 
   const noDia = (iso: string | null | undefined) => !!iso && iso >= de && iso <= ate;
@@ -239,13 +252,17 @@ export async function GET(req: NextRequest) {
   }
 
   const vendasPorDono = new Map<string, { qtd: number; valor: number }>();
+  // Venda em dupla: conta para o dono e para o parceiro, cada um com a sua
+  // fatia (src/lib/parceria.ts) — a soma da equipe continua sendo o que a
+  // loja vendeu.
   for (const v of vendas.data ?? []) {
-    const id = v.owner_id as string;
-    if (!id) continue;
-    const atual = vendasPorDono.get(id) ?? { qtd: 0, valor: 0 };
-    atual.qtd++;
-    atual.valor += Number(v.valor_fechado ?? v.valor ?? 0);
-    vendasPorDono.set(id, atual);
+    for (const id of [donoDaVenda(v), parceiroDaVenda(v)]) {
+      if (!id) continue;
+      const atual = vendasPorDono.get(id) ?? { qtd: 0, valor: 0 };
+      atual.qtd++;
+      atual.valor += valorDoVendedor(v, id);
+      vendasPorDono.set(id, atual);
+    }
   }
 
   const equipe = (pessoas.data ?? []).filter((p) =>
@@ -308,7 +325,11 @@ export async function GET(req: NextRequest) {
       oportunidadesNovas: soma((l) => l.oportunidadesNovas),
       oportunidadesMovidas: soma((l) => l.oportunidadesMovidas),
       conversas: soma((l) => l.conversas),
-      vendas: soma((l) => l.vendas),
+      // Contadas uma vez cada: somar as linhas contaria duas vezes a venda em
+      // dupla (ela aparece para o dono e para o parceiro).
+      vendas: (vendas.data ?? []).filter((v) =>
+        linhas.some((l) => l.id === donoDaVenda(v) || l.id === parceiroDaVenda(v)),
+      ).length,
       faturamento: soma((l) => l.faturamento),
     },
   });

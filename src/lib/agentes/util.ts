@@ -128,3 +128,24 @@ export function gestorDaFala(id: string | null | undefined): string | null {
   const uid = id.slice(PREFIXO_GESTOR.length);
   return ehUuid(uid) ? uid : null;
 }
+
+/* ------------------------------------------------------------------ */
+/* Setor no banco                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Os setores que a coluna aura_agentes.setor aceita hoje (CHECK da 110).
+ * "atendimento" e "seguranca" (a Equipe Vermelha) nasceram depois e ainda
+ * não estão na regra do banco: gravar um deles faz o insert falhar.
+ */
+export const SETORES_DO_BANCO = new Set(["direcao", "vendas", "pos-venda", "marketing", "gestao", "conhecimento", "dados"]);
+
+/**
+ * O setor que dá para gravar em aura_agentes. Para agente do código isso não
+ * muda nada na tela (o setor da mesa vem do código, não da linha); para o
+ * configurável, setor novo cai em "gestao" até a regra do banco ser ampliada.
+ */
+export function setorParaOBanco(setor: string): string {
+  if (SETORES_DO_BANCO.has(setor)) return setor;
+  return setor === "seguranca" ? "dados" : "gestao";
+}

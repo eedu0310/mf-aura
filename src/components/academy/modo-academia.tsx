@@ -22,6 +22,9 @@ export function ModoAcademia() {
   const [carregando, setCarregando] = useState(false);
 
   async function escolherTema(tema: string) {
+    // Um tema por vez: clicar em outro no meio da resposta trocava o título
+    // e deixava duas respostas disputando a mesma caixa.
+    if (carregando) return;
     setTemaEscolhido(tema);
     setResposta(null);
     setCarregando(true);
@@ -32,6 +35,14 @@ export function ModoAcademia() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           modo: "chat",
+          // O chat da AURA recusa (400) pedido sem "contexto": ele exige o
+          // retrato de quem pergunta. Sem isto, todo tema caía em "Não
+          // consegui gerar sugestões" — o Modo Academia nunca respondeu.
+          contexto: [
+            "Pedido vindo do Modo Academia (treino guiado, não é sobre um cliente específico).",
+            `Vendedor: ${profile.nome || "não informado"}; cargo: ${profile.cargo || "não informado"}; loja: ${profile.empresa || "não informada"}.`,
+            `Tema escolhido para treinar: ${tema}.`,
+          ].join("\n"),
           mensagens: [
             {
               autor: "usuario",
@@ -40,8 +51,12 @@ export function ModoAcademia() {
           ],
         }),
       });
-      const dados = await resp.json();
-      setResposta(dados.resposta ?? "Não consegui gerar sugestões agora.");
+      const dados = await resp.json().catch(() => ({}));
+      if (!resp.ok || !dados.resposta) {
+        setResposta(dados.erro ?? "Não consegui gerar sugestões agora. Tente novamente.");
+        return;
+      }
+      setResposta(dados.resposta);
     } catch {
       setResposta("Não consegui gerar sugestões agora. Tente novamente.");
     } finally {
@@ -69,8 +84,9 @@ export function ModoAcademia() {
             key={tema}
             type="button"
             onClick={() => escolherTema(tema)}
+            disabled={carregando}
             aria-pressed={temaEscolhido === tema}
-            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition ${
+            className={`rounded-md border px-3 py-1.5 text-xs font-medium transition disabled:cursor-wait disabled:opacity-60 ${
               temaEscolhido === tema
                 ? "border-aura-petrol-500/40 bg-aura-petrol-500/10 text-aura-petrol-600"
                 : "border-aura-mist bg-aura-surface text-aura-graphite-soft hover:bg-aura-sunken hover:text-aura-graphite"

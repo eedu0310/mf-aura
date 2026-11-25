@@ -128,6 +128,20 @@ export function proximaExecucao(agenda: Agenda, ultimoInicio: Date | null, agora
 }
 
 /**
+ * O card que o agente acabou de confirmar (o problema continua) venceria
+ * antes de ele rodar de novo? Então a validade tem de ser renovada agora —
+ * senão o card some entre uma rodada e outra, com o problema ainda aberto.
+ *
+ * `proxima` é a próxima rodada marcada (proximaExecucao). Sem agenda
+ * conhecida, renova o que já venceu ou vence na próxima hora.
+ */
+export function venceAntesDaProximaRodada(venceEmMs: number, proxima: Date | null, agora: Date): boolean {
+  if (!Number.isFinite(venceEmMs) || venceEmMs <= agora.getTime()) return true;
+  if (!proxima) return venceEmMs - agora.getTime() <= 60 * MINUTO;
+  return venceEmMs <= proxima.getTime();
+}
+
+/**
  * Dos agentes ligados, quais rodam agora. `ultimas` é o início da última
  * rodada de cada um (id → ISO), vindo de aura_agente_execucoes.
  *

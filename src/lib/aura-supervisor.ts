@@ -6,6 +6,7 @@ import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { diaEmSaoPaulo, inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 import { diasSemContato, esfriando, followupVencido } from "@/lib/relacionamento-atencao";
+import { negocioEmAberto } from "@/lib/kpis";
 
 /** Quantos contatos de cada tipo viram recomendação, para sobrar vaga aos negócios parados. */
 const MAX_FOLLOWUP_VENCIDO = 6;
@@ -140,7 +141,10 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
     supabase,
     (oportunidades.data ?? []).map((o) => o.relacionamento_id as string | null),
   );
+  // A consulta já tira ganho e perda; aqui sai também o pós-venda (e o lead
+  // frio), que ficam parados por natureza — a régua de src/lib/kpis.ts.
   const opps = (oportunidades.data ?? [])
+    .filter((o) => negocioEmAberto(o.etapa as string, funilDaLoja))
     .map((o) => ({ ...o, dias_parado: diasParadoDaLinha(o, ultimaAtividade.get(o.relacionamento_id as string)) }))
     .sort((a, b) => b.dias_parado - a.dias_parado);
   const acts = atividades.data ?? [];

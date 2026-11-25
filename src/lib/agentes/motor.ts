@@ -41,10 +41,11 @@ import { DIRETORA } from "./diretora";
 import { GUARDIAO } from "./guardiao";
 import { AGENTES_DO_SISTEMA } from "./sistema";
 import { configuracaoValida, executarConfiguravel } from "./configuravel";
-import { agendaValida, escolherDevidos } from "./agenda";
+import { agendaValida, escolherDevidos, proximaExecucao, venceAntesDaProximaRodada } from "./agenda";
 import { ehUuid, faltaNoBanco, lerJsonDaIA, MOTIVO_SEM_108 } from "./util";
 import type {
   Achado,
+  Agenda,
   ChamadaIA,
   ConfigAgenteConfiguravel,
   ContextoAgente,
@@ -66,8 +67,15 @@ const DIA = 86_400_000;
 const RODADA_MORTA_MS = 20 * MINUTO;
 /** Prazo padrão de uma rodada, para um agente travado não segurar o cron. */
 const PRAZO_PADRAO_MS = 200_000;
+/** Card pendente só vira "expirada" uma hora depois da validade (ver gravarAchados). */
+const TOLERANCIA_VENCIDA_MS = 60 * MINUTO;
 
-const SETORES: Setor[] = ["direcao", "vendas", "pos-venda", "marketing", "gestao", "conhecimento", "dados"];
+const SETORES: Setor[] = ["direcao", "vendas", "atendimento", "pos-venda", "marketing", "gestao", "conhecimento", "dados", "seguranca"];
+
+/** Abaixo disto de tempo restante na rodada, o ctx.ia nem abre chamada (não daria para esperar a resposta). */
+const IA_TEMPO_MINIMO_MS = 20_000;
+/** Folga entre o fim da chamada de IA e o corte da rodada, para gravar o resultado. */
+const IA_FOLGA_MS = 8_000;
 const PRIORIDADES = new Set(["baixa", "media", "alta", "urgente"]);
 const TIPOS_DE_FALA = new Set(["relato", "pedido", "resposta", "ideia", "alerta", "aprendizado", "plano"]);
 
@@ -225,7 +233,19 @@ function clienteIA(): Anthropic | null {
  * Usada pelo contexto dos agentes e pela rota "Gerar mensagem".
  */
 export async function chamarIA(
-  ch: ChamadaIA & { funcao: string; empresa?: string | null; usuarioId?: string | null },
+  ch: ChamadaIA & {
+    funcao: string;
+    empresa?: string | null;
+    usuarioId?: string | null;
+    /**
+     * Prazo final (epoch ms) para a resposta chegar. O SDK sozinho pode
+     * levar 60 s × 3 tentativas = 3 minutos numa chamada só — mais que a
+     * rodada inteira. Com o prazo, o tempo de espera e as novas tentativas
+     * encolhem para caber, e a rodada termina com o que as regras acharam
+     * em vez de ser cortada sem gravar nada.
+     */
+    ateMs?: number;
+  },
 ): Promise<string | Record<string, unknown> | null> {
   const client = clienteIA();
   if (!client) return null;
@@ -234,13 +254,24 @@ export async function chamarIA(
   const sistema = ch.json
     ? `${ch.sistema}\n\nResponda SOMENTE com um objeto JSON válido, sem texto antes ou depois e sem cercas de código.`
     : ch.sistema;
+  let opcoes: { timeout: number; maxRetries: number } | undefined;
+  if (ch.ateMs !== undefined) {
+    const resta = ch.ateMs - Date.now();
+    if (resta < IA_TEMPO_MINIMO_MS) return null;
+    // Cada tentativa espera até 60 s; só tenta de novo se ainda couber outra inteira.
+    const timeout = Math.min(60_000, resta);
+    opcoes = { timeout, maxRetries: Math.max(0, Math.min(2, Math.floor(resta / timeout) - 1)) };
+  }
   try {
-    const resp = await client.messages.create({
-      model: modelo,
-      max_tokens: ch.maxTokens ?? 1500,
-      system: sistema,
-      messages: [{ role: "user", content: ch.usuario }],
-    });
+    const resp = await client.messages.create(
+      {
+        model: modelo,
+        max_tokens: ch.maxTokens ?? 1500,
+        system: sistema,
+        messages: [{ role: "user", content: ch.usuario }],
+      },
+      opcoes,
+    );
     await registrarUsoIA({
       funcao: ch.funcao,
       modelo,
@@ -249,9 +280,10 @@ export async function chamarIA(
       usuarioId: ch.usuarioId ?? null,
     });
     if ((resp.stop_reason as string) === "refusal") return null;
-    if (ch.json && resp.stop_reason === "max_tokens") {
-      // Resposta cortada no teto: o JSON vem pela metade. Registra como falha
-      // com o motivo (antes sumia calado e o agente só via "sem IA").
+    if (resp.stop_reason === "max_tokens") {
+      // Resposta cortada no teto: o JSON vem pela metade e o texto para no
+      // meio da frase (ia para o mural e para o resumo do gestor assim).
+      // Registra como falha com o motivo e quem chamou usa o texto por regra.
       await registrarFalhaIA({
         funcao: ch.funcao,
         erro: new Error(`Resposta cortada no limite de ${ch.maxTokens ?? 1500} tokens (aumente maxTokens ou o lote é grande demais).`),
@@ -306,7 +338,7 @@ async function custoDesde(sb: SupabaseClient, agenteId: string, desde: Date): Pr
 export async function chamarIAComOrcamento(
   sb: SupabaseClient,
   def: Pick<AgenteRegistrado, "id" | "usaIA" | "orcamentoMensalUsd">,
-  ch: ChamadaIA & { empresa?: string | null; usuarioId?: string | null },
+  ch: ChamadaIA & { empresa?: string | null; usuarioId?: string | null; ateMs?: number },
 ): Promise<{ resultado: string | Record<string, unknown> | null; barrada?: "sem_ia" | "saldo" | "orcamento" }> {
   if (!def.usaIA) return { resultado: null, barrada: "sem_ia" };
   if (!(await podeChamarIA())) return { resultado: null, barrada: "saldo" };
@@ -321,9 +353,23 @@ interface EstadoIA {
   bloqueadas: number;
 }
 
-function criarIA(sb: SupabaseClient, def: AgenteRegistrado, agora: Date, estado: EstadoIA, log: (...p: unknown[]) => void) {
+function criarIA(
+  sb: SupabaseClient,
+  def: AgenteRegistrado,
+  agora: Date,
+  estado: EstadoIA,
+  log: (...p: unknown[]) => void,
+  prazo: number,
+) {
   return async (ch: ChamadaIA) => {
     estado.chamadas += 1;
+    // A resposta tem de chegar antes do corte da rodada, com folga para gravar.
+    const ateMs = prazo - IA_FOLGA_MS;
+    if (ateMs - Date.now() < IA_TEMPO_MINIMO_MS) {
+      estado.bloqueadas += 1;
+      log("sem tempo para outra chamada de IA nesta rodada; seguindo só com as regras");
+      return null;
+    }
     if (!def.usaIA) {
       estado.bloqueadas += 1;
       log("este agente está marcado como sem IA; chamada recusada");
@@ -340,7 +386,7 @@ function criarIA(sb: SupabaseClient, def: AgenteRegistrado, agora: Date, estado:
       log(`orçamento do mês esgotado (US$ ${gasto.toFixed(2)} de ${def.orcamentoMensalUsd})`);
       return null;
     }
-    const r = await chamarIA({ ...ch, funcao: `agente/${def.id}` });
+    const r = await chamarIA({ ...ch, funcao: `agente/${def.id}`, ateMs });
     if (r === null) estado.falhas += 1;
     return r;
   };
@@ -394,6 +440,7 @@ export interface ResultadoRodada {
   achados?: number;
   novos?: number;
   atualizados?: number;
+  renovados?: number;
   resolvidosSozinhos?: number;
   expirados?: number;
   avisados?: number;
@@ -471,13 +518,16 @@ export async function rodarAgente(
   };
   const estadoIA: EstadoIA = { chamadas: 0, falhas: 0, bloqueadas: 0 };
   const lidas: string[] = [];
+  const limiteMs = opcoes.limiteMs ?? PRAZO_PADRAO_MS;
+  const prazo = inicio.getTime() + limiteMs;
 
   const ctx: ContextoAgente = {
     sb,
     agora,
     hoje: diaEmSaoPaulo(agora),
     agente: id,
-    ia: criarIA(sb, def, agora, estadoIA, log),
+    prazo,
+    ia: criarIA(sb, def, agora, estadoIA, log, prazo),
     caixaDeEntrada: async () => {
       let consulta = sb
         .from("aura_escritorio_mensagens")
@@ -512,7 +562,7 @@ export async function rodarAgente(
   let resultado: ResultadoAgente | null = null;
   let erro: string | null = null;
   try {
-    resultado = await comPrazo(def.executar(ctx), opcoes.limiteMs ?? PRAZO_PADRAO_MS);
+    resultado = await comPrazo(def.executar(ctx), limiteMs);
     if (!resultado || typeof resultado !== "object") throw new Error("O agente não devolveu resultado.");
   } catch (e) {
     erro = e instanceof Error ? e.message : String(e);
@@ -522,6 +572,7 @@ export async function rodarAgente(
   const contagem = {
     novos: 0,
     atualizados: 0,
+    renovados: 0,
     resolvidosSozinhos: 0,
     expirados: 0,
     descartados: 0,
@@ -537,7 +588,10 @@ export async function rodarAgente(
       // Se alguma chamada de IA falhou ou foi barrada, a rodada pode ter
       // relatado MENOS do que existe: não dá para concluir que o problema
       // sumiu. Nesse caso não marca nada como "resolvida sozinha".
-      const podeResolver = estadoIA.falhas === 0 && estadoIA.bloqueadas === 0;
+      // O configurável também nunca fecha sozinho: a IA ESCOLHE uma parte
+      // dos itens a cada rodada, então "não escolhido hoje" não quer dizer
+      // "resolvido" — o item dele vence pela validade (7 dias).
+      const podeResolver = estadoIA.falhas === 0 && estadoIA.bloqueadas === 0 && def.tipo !== "configuravel";
       const r = await gravarAchados(sb, def, resultado.achados ?? [], agora, podeResolver);
       Object.assign(contagem, r.contagem);
       contagem.avisados = await avisarPessoas(sb, [...r.novosPorPessoa.keys()], agora);
@@ -587,6 +641,7 @@ export async function rodarAgente(
     achados: resultado?.achados?.length ?? 0,
     novos: contagem.novos,
     atualizados: contagem.atualizados,
+    renovados: contagem.renovados,
     resolvidosSozinhos: contagem.resolvidosSozinhos,
     expirados: contagem.expirados,
     avisados: contagem.avisados,
@@ -652,9 +707,17 @@ async function emLotes<T>(itens: T[], tamanho: number, fazer: (lote: T[]) => Pro
  * Achados → aura_recomendacoes, sem repetir.
  *
  *  - mesma chave pendente: atualiza texto, prioridade, destinatário e link
- *    (só se mudou). A validade NÃO é empurrada para frente: o contrato diz
- *    que o item some depois do prazo e VOLTA se o problema continuar — só
- *    encurta, se o agente pedir prazo menor;
+ *    (só se mudou). A validade é RENOVADA só quando venceria antes da
+ *    próxima rodada do agente (venceAntesDaProximaRodada, agenda.ts): o
+ *    problema continua, o agente continua relatando, o card fica. Antes ela
+ *    nunca era renovada e a varredura de "expirada" (que roda a cada 10 min,
+ *    pelo Guardião dos Leads) tirava o card do ar no mesmo dia em que o
+ *    agente o confirmava — o Ritmo da Meta sumia um dia sim, um dia não, e a
+ *    Reativação (semanal) ficava uma semana inteira fora. A data de criação
+ *    não muda: a idade do item continua sendo a do problema. Prazo menor
+ *    pedido pelo agente encurta;
+ *  - item que o agente parou de relatar e não pôde ser dado como resolvido
+ *    (IA falhou, configurável) vence pela validade, como antes;
  *  - chave nova: cria — menos se a pessoa concluiu ou dispensou o mesmo
  *    item há menos que o prazo dele (dispensar não pode virar "volta amanhã");
  *  - pendente que o agente não relatou mais: "resolvida_sozinha";
@@ -662,15 +725,25 @@ async function emLotes<T>(itens: T[], tamanho: number, fazer: (lote: T[]) => Pro
  */
 export async function gravarAchados(
   sb: SupabaseClient,
-  def: { id: string },
+  def: { id: string; agenda?: Agenda },
   achados: Achado[],
   agora: Date,
   podeResolver: boolean,
 ): Promise<{
-  contagem: { novos: number; atualizados: number; resolvidosSozinhos: number; expirados: number; descartados: number; respeitados: number };
+  contagem: {
+    novos: number;
+    atualizados: number;
+    renovados: number;
+    resolvidosSozinhos: number;
+    expirados: number;
+    descartados: number;
+    respeitados: number;
+  };
   novosPorPessoa: Map<string, number>;
 }> {
-  const contagem = { novos: 0, atualizados: 0, resolvidosSozinhos: 0, expirados: 0, descartados: 0, respeitados: 0 };
+  const contagem = { novos: 0, atualizados: 0, renovados: 0, resolvidosSozinhos: 0, expirados: 0, descartados: 0, respeitados: 0 };
+  // Quando o agente volta a rodar (para saber se o card venceria antes disso).
+  const proxima = def.agenda ? proximaExecucao(def.agenda, agora, agora) : null;
   const novosPorPessoa = new Map<string, number>();
 
   const validos = new Map<string, Achado>();
@@ -722,11 +795,20 @@ export async function gravarAchados(
       if (atual.prioridade !== prioridade) mudou.prioridade = prioridade;
       if (atual.vendedor_id !== a.destinatarioId) mudou.vendedor_id = a.destinatarioId;
       if ((atual.acao_url ?? null) !== (a.acaoUrl ?? null)) mudou.acao_url = a.acaoUrl ?? null;
-      if (!atual.expira_em || new Date(atual.expira_em).getTime() > expira.getTime()) mudou.expira_em = expira.toISOString();
+      const venceEm = atual.expira_em ? new Date(atual.expira_em).getTime() : NaN;
+      let renovou = false;
+      if (!Number.isFinite(venceEm) || venceEm > expira.getTime()) {
+        mudou.expira_em = expira.toISOString();
+      } else if (venceAntesDaProximaRodada(venceEm, proxima, agora)) {
+        mudou.expira_em = expira.toISOString();
+        mudou.prazo = diaEmSaoPaulo(agora);
+        renovou = true;
+      }
       if (Object.keys(mudou).length) {
-        const { error } = await sb.from("aura_recomendacoes").update(mudou).eq("id", atual.id);
+        const { error } = await sb.from("aura_recomendacoes").update(mudou).eq("id", atual.id).eq("status", "pendente");
         if (error) throw new Error(`atualizar recomendação: ${error.message}`);
-        contagem.atualizados += 1;
+        if (renovou) contagem.renovados += 1;
+        if (Object.keys(mudou).some((k) => k !== "expira_em" && k !== "prazo")) contagem.atualizados += 1;
       }
       continue;
     }
@@ -788,12 +870,15 @@ export async function gravarAchados(
     });
   }
 
+  // Uma hora de tolerância: a varredura roda com QUALQUER agente (o dos
+  // leads, de 10 em 10 min) e não pode tirar o card de um agente que só
+  // atrasou uns minutos na fila do cron para confirmá-lo.
   const { data: vencidas, error: erroVencidas } = await sb
     .from("aura_recomendacoes")
     .update({ status: "expirada" })
     .not("agente", "is", null)
     .eq("status", "pendente")
-    .lt("expira_em", agora.toISOString())
+    .lt("expira_em", new Date(agora.getTime() - TOLERANCIA_VENCIDA_MS).toISOString())
     .select("id");
   if (erroVencidas) throw new Error(`expirar vencidas: ${erroVencidas.message}`);
   contagem.expirados = vencidas?.length ?? 0;

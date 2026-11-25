@@ -37,6 +37,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Etapa } from "@/lib/types";
 import { calcularPrioridadesComerciais, rotuloPrioridade } from "@/lib/aura-prioridades";
 import { colunaDoNegocio, etapasVisiveis } from "@/lib/funil";
+import { diaEmSaoPaulo, mesEmSaoPaulo } from "@/lib/fuso";
+import { totalVendido, vendasDoMes as vendasNoMes } from "@/lib/kpis";
+import { diasSemContato, esfriando, followupVencido } from "@/lib/relacionamento-atencao";
 
 function formatarMoeda(valor: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -63,7 +66,7 @@ const CORES_TIPO: Record<string, string> = {
 };
 
 export default function MeuDiaPage() {
-  const { oportunidades, atividades, vendas, relacionamentos, funil } = useAppData();
+  const { oportunidades, atividades, vendas, relacionamentos, funil, meuId } = useAppData();
 
   const [compromissosHoje, setCompromissosHoje] = useState<Compromisso[]>([]);
   const [posicaoRanking, setPosicaoRanking] = useState<number | null>(null);
@@ -76,8 +79,9 @@ export default function MeuDiaPage() {
   const [missoesHabilitadas, setMissoesHabilitadas] = useState(false);
 
   async function carregarExtras() {
-    const agora = new Date();
-    const hojeISO = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+    // O dia de Brasília, não o do relógio do aparelho: às 22h de um celular
+    // em UTC já é "amanhã" e os compromissos de hoje sumiam do card.
+    const hojeISO = diaEmSaoPaulo();
 
     const [listaCompromissos, equipe, meta, listaNiveis, pendencias] = await Promise.all([
       listarCompromissos(),
@@ -141,10 +145,11 @@ export default function MeuDiaPage() {
      
   }, []);
 
-  const agora = new Date();
-  const mesAtual = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}`;
-  const vendasDoMes = vendas.filter((venda) => venda.data.startsWith(mesAtual));
-  const totalVendasMes = vendasDoMes.reduce((soma, venda) => soma + venda.valor, 0);
+  // Mesma régua do resto do sistema (src/lib/kpis.ts): mês de Brasília e, na
+  // venda em dupla, só a fatia de quem está olhando. Antes o mês vinha do
+  // relógio do aparelho e a venda em dupla entrava inteira para os dois — a
+  // meta "batia" com dinheiro que era metade do colega.
+  const totalVendasMes = totalVendido(vendasNoMes(vendas, mesEmSaoPaulo()), meuId);
 
   // O resumo do funil segue as etapas da loja, menos a de perda: aqui é
   // "onde está o meu dinheiro", e negócio perdido não está em lugar nenhum.
@@ -161,25 +166,27 @@ export default function MeuDiaPage() {
 
   const maiorValorPipeline = Math.max(...pipelinePorEtapa.map((etapa) => etapa.valor), 1);
 
+  /**
+   * Quem precisa de atenção, com a regra oficial (src/lib/relacionamento-atencao.ts),
+   * a mesma do cartão da AURA e do filtro de Relacionamentos: follow-up
+   * vencido primeiro, depois quem está esfriando (15+ dias sem contato). Antes
+   * a lista procurava a palavra "atrasado" no texto do próximo contato e não
+   * batia com o número que a AURA cobrava.
+   */
+  const agoraMs = Date.now();
   const precisamDeAtencao = relacionamentos
-    .filter((relacionamento) => {
-      const proximoContato = relacionamento.proximoContato.toLowerCase();
-      return (
-        relacionamento.temperatura === "esfriando" ||
-        relacionamento.temperatura === "frio" ||
-        proximoContato.includes("hoje") ||
-        proximoContato.includes("atrasado")
-      );
-    })
-    .sort((a, b) => {
-      const prioridade = (relacionamento: typeof a) => {
-        const proximoContato = relacionamento.proximoContato.toLowerCase();
-        if (proximoContato.includes("atrasado")) return 0;
-        if (relacionamento.temperatura === "frio") return 1;
-        return 2;
+    .map((relacionamento) => {
+      const vencido = followupVencido(relacionamento, agoraMs);
+      const dias = diasSemContato(relacionamento, agoraMs);
+      return {
+        relacionamento,
+        vencido,
+        dias,
+        entra: vencido || esfriando(relacionamento, agoraMs),
       };
-      return prioridade(a) - prioridade(b);
     })
+    .filter((item) => item.entra)
+    .sort((a, b) => Number(b.vencido) - Number(a.vencido) || (b.dias ?? 0) - (a.dias ?? 0))
     .slice(0, 6);
 
   const dnaResultado = computeDnaScore({ relacionamentos, oportunidades, atividades, funil });
@@ -194,7 +201,8 @@ export default function MeuDiaPage() {
   const missoes = missoesHabilitadas
     ? computeMissoesDoDia({ relacionamentos, oportunidades, atividades })
     : [];
-  const vendasTotal = vendas.reduce((soma, venda) => soma + venda.valor, 0);
+  // Na venda em dupla, só a fatia de quem está olhando (src/lib/kpis.ts).
+  const vendasTotal = totalVendido(vendas, meuId);
   const conquistas = computeConquistas({
     vendas,
     oportunidades,
@@ -367,21 +375,23 @@ export default function MeuDiaPage() {
             iconColor="text-aura-warning"
             titulo="Follow-ups Pendentes"
             acaoLabel="Ver relacionamentos"
-            acaoHref="/relacionamentos"
+            acaoHref={precisamDeAtencao.some((i) => i.vencido) ? "/relacionamentos?filtro=vencidos" : "/relacionamentos?filtro=esfriando"}
             badge={precisamDeAtencao.length > 0 ? <span className="aura-selo aura-selo-perigo tabular-nums">{precisamDeAtencao.length}</span> : undefined}
           >
             {precisamDeAtencao.length === 0 ? (
               <p className="py-4 text-center text-sm text-aura-graphite-soft">Nada urgente por aqui. Bom trabalho!</p>
             ) : (
               <ul className="flex flex-col divide-y divide-aura-mist">
-                {precisamDeAtencao.map((relacionamento) => (
+                {precisamDeAtencao.map(({ relacionamento, vencido, dias }) => (
                   <li key={relacionamento.id}>
-                    <Link href={`/relacionamentos?buscar=${encodeURIComponent(relacionamento.nome)}`} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0 hover:opacity-70">
+                    <Link href={`/relacionamentos?id=${encodeURIComponent(relacionamento.id)}`} className="flex items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0 hover:opacity-70">
                       <div>
                         <p className="text-sm font-medium text-aura-graphite">{relacionamento.nome}</p>
                         <p className="text-xs text-aura-graphite-soft">{relacionamento.categoria}</p>
                       </div>
-                      <span className={`shrink-0 text-xs font-medium ${relacionamento.proximoContato.toLowerCase().includes("atrasado") ? "text-aura-danger" : "text-aura-graphite-soft"}`}>{relacionamento.proximoContato}</span>
+                      <span className={`shrink-0 text-xs font-medium ${vencido ? "text-aura-danger" : "text-aura-warning"}`}>
+                        {vencido ? "Follow-up vencido" : `Esfriando · ${dias ?? 15} dias`}
+                      </span>
                     </Link>
                   </li>
                 ))}

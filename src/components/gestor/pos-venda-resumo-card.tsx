@@ -6,6 +6,8 @@ import { Wrench, AlertTriangle, Star, ArrowRight } from "lucide-react";
 import { listarPosVendas, type PosVenda } from "@/lib/supabase/pos-venda";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { notaMedia as mediaDasNotas } from "@/lib/kpis";
+import { ehVenda, estaAtrasada, temReclamacaoAberta } from "@/components/pos-venda/regras";
 
 export function PosVendaResumoCard() {
   const [itens, setItens] = useState<PosVenda[]>([]);
@@ -38,15 +40,14 @@ export function PosVendaResumoCard() {
   // Dia de Brasília: em UTC, depois das 21h o "hoje" já virava amanhã e o
   // agendamento do dia contava como atrasado.
   const hojeISO = diaEmSaoPaulo();
-  const atrasadas = itens.filter(
-    (i) => i.status === "agendamento_realizado" && i.dataAgendamento && i.dataAgendamento < hojeISO
-  ).length;
-  const reclamacoesAbertas = itens.filter((i) => i.reclamacao?.trim() && !i.reclamacaoResolvida).length;
-  // Média só entre quem deu nota: avaliar a loja sem marcar nota não pode
-  // puxar a média para baixo.
-  const comNota = itens.filter((i) => i.notaAvaliacao);
-  const notaMedia =
-    comNota.length > 0 ? comNota.reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / comNota.length : 0;
+  // As regras da tela de Pós-venda (components/pos-venda/regras.ts), para o
+  // card do gestor e os KPIs de lá mostrarem os mesmos números.
+  const atrasadas = itens.filter((i) => estaAtrasada(i, hojeISO)).length;
+  const reclamacoesAbertas = itens.filter(temReclamacaoAberta).length;
+  // Média só entre as VENDAS com nota: cliente antigo não é venda (a tela de
+  // Pós-venda já o deixava de fora e este card não), e avaliar a loja sem
+  // marcar nota não pode puxar a média para baixo.
+  const notaMedia = mediaDasNotas(itens.filter(ehVenda).map((i) => i.notaAvaliacao)) ?? 0;
 
   const lojas = [...new Set(itens.map((i) => i.empresa))];
   const multiLoja = lojas.length > 1;
@@ -93,12 +94,14 @@ export function PosVendaResumoCard() {
         <div className="mt-4 grid grid-cols-2 gap-2 border-t border-aura-mist pt-3 sm:grid-cols-4">
           {lojas.map((loja) => {
             const itensLoja = itens.filter((i) => i.empresa === loja);
-            const reclamacoesLoja = itensLoja.filter((i) => i.reclamacao?.trim() && !i.reclamacaoResolvida).length;
+            const reclamacoesLoja = itensLoja.filter(temReclamacaoAberta).length;
+            // "vendas" conta só venda: o card de cliente antigo não é uma.
+            const vendasLoja = itensLoja.filter(ehVenda).length;
             return (
               <div key={loja}>
                 <p className="truncate text-[0.65rem] text-aura-graphite-soft">{loja}</p>
                 <p className="text-xs font-medium text-aura-graphite">
-                  {itensLoja.length} vendas
+                  {vendasLoja} vendas
                   {reclamacoesLoja > 0 ? ` · ${reclamacoesLoja} reclam.` : ""}
                 </p>
               </div>

@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
-import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
+import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth-empresa";
 import { getOpenAIClient } from "@/lib/openai-client";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
-import { diaEmSaoPaulo } from "@/lib/fuso";
+import { diaEmSaoPaulo, mesEmSaoPaulo } from "@/lib/fuso";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { ehFechada, type EtapaFunil } from "@/lib/funil";
+import type { EtapaFunil } from "@/lib/funil";
 import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
+import { negocioEmAberto, notaMedia, pipelineAberto, totalVendido, vendasDoMes } from "@/lib/kpis";
 
 export const runtime = "nodejs";
 
@@ -35,9 +36,14 @@ export async function POST() {
    * dezembro menos um mês" = 1º de dezembro) e comparava o mês com ele mesmo.
    */
   const mesAtual = diaEmSaoPaulo().slice(0, 7);
-  const [anoHoje, mesHoje] = mesAtual.split("-").map(Number);
-  const mesPassado =
-    mesHoje === 1 ? `${anoHoje - 1}-12` : `${anoHoje}-${String(mesHoje - 1).padStart(2, "0")}`;
+  const mesPassado = mesEmSaoPaulo(-1);
+
+  /*
+   * Só as lojas que esta pessoa enxerga. O gestor de uma loja recebia as
+   * quatro: a RLS zerava as outras três e a IA escrevia que elas "não
+   * venderam nada este mês". O mestre continua vendo o grupo inteiro.
+   */
+  const lojas = vejoTodasAsLojas(auth) ? NOMES_EMPRESAS : [auth.empresa];
 
   /*
    * Lidas até o fim, de mil em mil. As consultas simples paravam nas 1000
@@ -50,7 +56,7 @@ export async function POST() {
       todasAsLinhas((de, ate) =>
         supabase
           .from("vendas")
-          .select("empresa, valor, data")
+          .select("empresa, valor, valor_fechado, data")
           .gte("data", `${mesPassado}-01`)
           .order("id")
           .range(de, ate),
@@ -73,7 +79,7 @@ export async function POST() {
       todasAsLinhas((de, ate) =>
         supabase
           .from("pos_vendas")
-          .select("empresa, status, reclamacao, reclamacao_resolvida, avaliou_loja, nota_avaliacao, data_agendamento")
+          .select("empresa, origem, status, reclamacao, reclamacao_resolvida, avaliou_loja, nota_avaliacao, data_agendamento")
           .order("id")
           .range(de, ate),
       ),
@@ -90,27 +96,29 @@ export async function POST() {
    * ainda contava os já ganhos ou perdidos).
    */
   const funis = new Map<string, EtapaFunil[]>();
-  for (const empresa of NOMES_EMPRESAS) funis.set(empresa, await carregarFunil(supabase, empresa));
+  for (const empresa of lojas) funis.set(empresa, await carregarFunil(supabase, empresa));
+  // Em aberto pela régua de src/lib/kpis.ts: pós-venda e lead frio não são
+  // negócio parado.
   const abertaNaLoja = (o: { empresa?: unknown; etapa?: unknown }) => {
     const f = funis.get(String(o.empresa ?? ""));
-    return !!f && !ehFechada(String(o.etapa ?? ""), f);
+    return !!f && negocioEmAberto(String(o.etapa ?? ""), f);
   };
   const ultimaAtividade = await buscarUltimaAtividade(
     supabase,
     (oportunidades ?? []).filter(abertaNaLoja).map((o) => o.relacionamento_id as string | null),
   );
 
-  const linhasPorEmpresa = NOMES_EMPRESAS.map((empresa) => {
+  const linhasPorEmpresa = lojas.map((empresa) => {
+    // Valor fechado (com desconto), não o valor de tabela: é o que as telas
+    // de Vendas e o ranking mostram.
     const vendasLoja = (vendas ?? []).filter((v) => v.empresa === empresa);
-    const vendasMes = vendasLoja
-      .filter((v) => (v.data as string)?.startsWith(mesAtual))
-      .reduce((s, v) => s + Number(v.valor), 0);
-    const vendasMesAnterior = vendasLoja
-      .filter((v) => (v.data as string)?.startsWith(mesPassado))
-      .reduce((s, v) => s + Number(v.valor), 0);
+    const vendasMes = totalVendido(vendasDoMes(vendasLoja, mesAtual));
+    const vendasMesAnterior = totalVendido(vendasDoMes(vendasLoja, mesPassado));
 
+    // Antes somava TODOS os negócios — ganhos, perdidos e pós-venda junto —
+    // e a IA comentava um "pipeline aberto" maior que o do quadro do Pipeline.
     const oportunidadesLoja = (oportunidades ?? []).filter((o) => o.empresa === empresa);
-    const pipelineAberto = oportunidadesLoja.reduce((s, o) => s + Number(o.valor), 0);
+    const pipelineAbertoLoja = pipelineAberto(oportunidadesLoja, funis.get(empresa) ?? []).valor;
     const paradas = oportunidadesLoja.filter(
       (o) =>
         abertaNaLoja(o) &&
@@ -123,11 +131,13 @@ export async function POST() {
 
     const posVendaLoja = (posVendas ?? []).filter((p) => p.empresa === empresa);
     const reclamacoesAbertas = posVendaLoja.filter((p) => p.reclamacao?.trim() && !p.reclamacao_resolvida).length;
-    const avaliaram = posVendaLoja.filter((p) => p.avaliou_loja);
-    const notaMedia =
-      avaliaram.length > 0
-        ? avaliaram.reduce((s, p) => s + Number(p.nota_avaliacao ?? 0), 0) / avaliaram.length
-        : null;
+    // A régua da tela de pós-venda: cliente antigo não é venda, e quem
+    // avaliou sem dar nota não entra na média (antes entrava como zero).
+    const notaMediaLoja = notaMedia(
+      posVendaLoja
+        .filter((p) => p.origem !== "cliente_antigo" && p.avaliou_loja)
+        .map((p) => p.nota_avaliacao as number | null),
+    );
 
     const vendedoresAtivos = (perfis ?? []).filter(
       (p) => p.empresa === empresa && CARGOS_QUE_VENDEM.includes(p.cargo) && p.ativo
@@ -138,12 +148,12 @@ export async function POST() {
       vendedoresAtivos,
       vendasMes,
       vendasMesAnterior,
-      pipelineAberto,
+      pipelineAberto: pipelineAbertoLoja,
       oportunidadesParadas: paradas,
       leadsEscalonados,
       leadsPerdidos,
       reclamacoesAbertas,
-      notaMedia,
+      notaMedia: notaMediaLoja,
     };
   });
 

@@ -23,6 +23,10 @@ const CRONS_ESPERADOS: Array<{ nome: string; horas: number; rotulo: string }> = 
   { nome: "assistentes", horas: 1, rotulo: "Agente do Instagram e assistente do chat do site (a cada 5 min)" },
   { nome: "backup", horas: 26, rotulo: "Backup do banco (22h)" },
   { nome: "gerar-relatorios", horas: 24 * 8, rotulo: "Relatório semanal (sábado)" },
+  // A própria sentinela (7h30 e 13h30) está no deploy/aura-crons e faltava
+  // aqui: parada, ninguém notava — o sino só ficava quieto. Rodada na mão pela
+  // tela de Saúde do sistema, ela acusa o próprio cron parado.
+  { nome: "sentinela", horas: 26, rotulo: "Sentinelas (7h30 e 13h30)" },
 ];
 
 export async function sentinelaDeOperacao(sb: SupabaseClient, agora = new Date()): Promise<ResultadoSentinela> {

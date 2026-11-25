@@ -168,7 +168,7 @@ export type Piso = "madeira" | "carpete" | "ladrilho" | "biblio";
 export function pisoDaSala(sala: Pick<SalaPlanta, "id">): Piso {
   if (sala.id === "direcao") return "carpete";
   if (sala.id === "conhecimento") return "biblio";
-  if (sala.id === "dados" || sala.id === "copa") return "ladrilho";
+  if (sala.id === "dados" || sala.id === "seguranca" || sala.id === "copa") return "ladrilho";
   return "madeira";
 }
 

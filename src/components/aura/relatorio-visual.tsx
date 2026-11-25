@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import { Activity, DollarSign, Loader2, Percent, Printer, Receipt, Sparkles, Target, Users } from "lucide-react";
 import { Alerta, Segmentado, classeBotao } from "@/components/ui";
+import { IndicadoresDetalhados } from "@/components/aura/indicadores-detalhados";
+import type { RelatorioDetalhado } from "@/lib/aura/relatorio-detalhado";
 
 // Uma cor por gráfico, texto sempre em tinta neutra. Pelas variáveis do tema,
 // para o gráfico acompanhar o claro e o escuro.
@@ -45,6 +47,8 @@ interface Relatorio {
 
 interface Resposta {
   relatorio: Relatorio;
+  /** Os indicadores do time de vendas (receita, prospecções, margem, ciclo...). */
+  detalhado?: RelatorioDetalhado;
   aura: { manchete: string; foco: string; insights: { tipo: string; titulo: string; detalhe?: string }[]; fonte: string };
   gestor: boolean;
   filtros: { lojas: string[]; vendedores: { id: string; nome: string; loja: string }[] } | null;
@@ -505,6 +509,14 @@ export function RelatorioVisual() {
                 conta as etapas que o gestor marcou como “conta no pipeline”.
               </p>
             </Cartao>
+          )}
+
+          {dados?.detalhado && (
+            <IndicadoresDetalhados
+              r={dados.detalhado}
+              gestor={!!dados.gestor}
+              mostrarEquipe={!!dados.gestor && !vendedor}
+            />
           )}
 
           {/* Top clientes */}

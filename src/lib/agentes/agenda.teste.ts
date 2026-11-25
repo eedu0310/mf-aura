@@ -6,7 +6,7 @@
  * Rodar com:
  *   node --experimental-strip-types --no-warnings --import <reg.mjs> src/lib/agentes/agenda.teste.ts
  */
-import { agendaTexto, agendaValida, escolherDevidos, estaDevido, proximaExecucao } from "./agenda";
+import { agendaTexto, agendaValida, escolherDevidos, estaDevido, proximaExecucao, venceAntesDaProximaRodada } from "./agenda";
 import type { Agenda } from "./tipos";
 
 let passou = 0;
@@ -79,6 +79,46 @@ conferir(
   proximaExecucao(dezMin, sp("2026-11-25", "10:00"), sp("2026-11-25", "10:03"))?.toISOString(),
   sp("2026-11-25", "10:10").toISOString(),
 );
+
+
+// ---- validade dos cards: renova se venceria antes da próxima rodada
+{
+  const metas: Agenda = { tipo: "diario", horas: [9], diasSemana: [1, 2, 3, 4, 5, 6] };
+  // Card criado ontem 9h00min05s com 1 dia de validade; hoje a rodada é 9h00min03s.
+  const agora = new Date(sp("2026-11-25", "09:00").getTime() + 3_000);
+  const vence = sp("2026-11-25", "09:00").getTime() + 5_000;
+  conferir(
+    "metas 1 dia: renova hoje (amanhã já teria sumido)",
+    venceAntesDaProximaRodada(vence, proximaExecucao(metas, agora, agora), agora),
+    true,
+  );
+  const followup: Agenda = { tipo: "diario", horas: [7], minuto: 40, diasSemana: [1, 2, 3, 4, 5, 6] };
+  const agoraF = sp("2026-11-25", "07:41");
+  const venceF = sp("2026-11-26", "07:40").getTime() + 10_000;
+  conferir(
+    "follow-up 2 dias, 1º dia depois: ainda não renova",
+    venceAntesDaProximaRodada(venceF, proximaExecucao(followup, agoraF, agoraF), agoraF),
+    false,
+  );
+  const sabado = sp("2026-11-28", "07:41");
+  conferir(
+    "sábado: vence domingo, próxima rodada só segunda → renova",
+    venceAntesDaProximaRodada(sp("2026-11-29", "07:40").getTime(), proximaExecucao(followup, sabado, sabado), sabado),
+    true,
+  );
+  const agoraL = sp("2026-11-25", "10:00");
+  conferir(
+    "intervalo 10 min: vence em 5 min → renova",
+    venceAntesDaProximaRodada(agoraL.getTime() + 5 * 60_000, proximaExecucao(dezMin, agoraL, agoraL), agoraL),
+    true,
+  );
+  conferir(
+    "intervalo 10 min: vence em 1 dia → não",
+    venceAntesDaProximaRodada(agoraL.getTime() + 86_400_000, proximaExecucao(dezMin, agoraL, agoraL), agoraL),
+    false,
+  );
+  conferir("já vencido (ainda pendente) → renova", venceAntesDaProximaRodada(agoraL.getTime() - 1, null, agoraL), true);
+}
 
 // ---- texto
 conferir("texto Diretora", agendaTexto(diretora), "De segunda a sábado às 7h20 e 18h");

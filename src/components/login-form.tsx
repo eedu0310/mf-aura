@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useUserProfile } from "@/lib/user-profile-context";
@@ -25,7 +25,7 @@ function traduzirErro(mensagem: string) {
 
 export function LoginForm() {
   const router = useRouter();
-  const { setProfile } = useUserProfile();
+  const { setProfile, profile, isOnboarded, carregando } = useUserProfile();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,11 +33,33 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [recuperacaoEnviada, setRecuperacaoEnviada] = useState(false);
   const [bloqueado, setBloqueado] = useState(false);
+  const jaRedirecionou = useRef(false);
 
   // O proxy manda para cá com ?bloqueado=1 quando a conta foi desativada.
   useEffect(() => {
     setBloqueado(new URLSearchParams(window.location.search).has("bloqueado"));
   }, []);
+
+  /**
+   * QUEM JÁ ESTÁ LOGADO NÃO PRECISA VER O LOGIN.
+   *
+   * O app instalado no celular abre em "/" (start_url do manifest), que manda
+   * para cá — e o formulário aparecia toda vez, com a sessão viva, pedindo a
+   * senha de novo. Agora, com sessão e cadastro completo, segue direto para a
+   * tela inicial do cargo.
+   *
+   * Não segue quando a URL traz ?voltar= ou ?bloqueado=: nesses casos foi o
+   * proxy (que confere a sessão no servidor) quem mandou para cá, então a
+   * sessão que o navegador guarda não vale mais. Seguir dali faria o proxy
+   * devolver para o login, e de novo, em círculo.
+   */
+  useEffect(() => {
+    if (carregando || !isOnboarded || isSubmitting || jaRedirecionou.current) return;
+    const busca = new URLSearchParams(window.location.search);
+    if (busca.has("voltar") || busca.has("bloqueado")) return;
+    jaRedirecionou.current = true;
+    router.replace(rotaInicial(profile.cargo));
+  }, [carregando, isOnboarded, isSubmitting, profile.cargo, router]);
 
   const supabase = getSupabaseBrowserClient();
 
@@ -53,14 +75,12 @@ export function LoginForm() {
     }
 
     const { data, error: erroLogin } = await supabase.auth.signInWithPassword({ email, password });
-    setIsSubmitting(false);
 
-    if (erroLogin) {
-      setError(traduzirErro(erroLogin.message));
+    if (erroLogin || !data.user) {
+      setIsSubmitting(false);
+      if (erroLogin) setError(traduzirErro(erroLogin.message));
       return;
     }
-
-    if (!data.user) return;
 
     const { data: perfilSalvo } = await supabase
       .from("profiles")
@@ -68,12 +88,29 @@ export function LoginForm() {
       .eq("id", data.user.id)
       .single();
 
+    // O botão segue "Entrando..." até a troca de tela: liberar antes deixava
+    // um segundo clique disparar outro login no meio da navegação.
     if (perfilSalvo) {
       setProfile(perfilSalvo.nome, perfilSalvo.empresa, perfilSalvo.cargo);
-      router.push(rotaInicial(perfilSalvo.cargo));
+      router.push(destinoDepoisDoLogin() ?? rotaInicial(perfilSalvo.cargo));
     } else {
       router.push("/onboarding");
     }
+  }
+
+  /**
+   * O proxy manda quem abriu um link sem sessão (aviso do sino, link do
+   * WhatsApp, /relacionamentos?id=…) para /login?voltar=<caminho>, mas o
+   * login ignorava isso e sempre abria a tela inicial: a pessoa entrava e
+   * perdia o cliente que tinha ido ver. Só aceita caminho interno ("/x", nunca
+   * "//site" nem "/login"); se o cargo não puder abrir a tela, o RoleGuard
+   * dela manda para a tela inicial do cargo, como sempre.
+   */
+  function destinoDepoisDoLogin(): string | null {
+    const voltar = new URLSearchParams(window.location.search).get("voltar");
+    if (!voltar || !voltar.startsWith("/") || voltar.startsWith("//") || voltar.includes("\\")) return null;
+    if (voltar === "/" || voltar.startsWith("/login") || voltar.startsWith("/onboarding")) return null;
+    return voltar;
   }
 
   async function esqueciSenha(e: React.MouseEvent) {

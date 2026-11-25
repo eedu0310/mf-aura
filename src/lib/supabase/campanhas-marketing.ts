@@ -126,9 +126,11 @@ export async function atualizarCampanha(id: string, patch: Partial<Campanha>): P
   return true;
 }
 
-export async function apagarCampanha(id: string) {
+/** true = apagou. Antes a falha (permissão, rede) sumia no console. */
+export async function apagarCampanha(id: string): Promise<boolean> {
   const supabase = getSupabaseBrowserClient();
-  if (!supabase) return;
-  const { error } = await supabase.from("campanhas_marketing").delete().eq("id", id);
+  if (!supabase) return false;
+  const { data, error } = await supabase.from("campanhas_marketing").delete().eq("id", id).select("id");
   if (error) console.error("Erro ao apagar campanha:", error);
+  return !error && (data?.length ?? 0) > 0;
 }
