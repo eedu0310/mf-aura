@@ -1,60 +1,33 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Star, AlertTriangle, ClipboardCheck, Clock, Search, HeartHandshake, CalendarDays } from "lucide-react";
-import { listarPosVendas, type PosVenda, type StatusPosVenda } from "@/lib/supabase/pos-venda";
+import { CalendarDays, HeartHandshake, KanbanSquare, List, Search, X } from "lucide-react";
+import { listarPosVendas, type PosVenda } from "@/lib/supabase/pos-venda";
 import { PosVendaModal } from "@/components/pos-venda/pos-venda-modal";
+import { PosVendaKpis } from "@/components/pos-venda/pos-venda-kpis";
+import { PosVendaAtencao } from "@/components/pos-venda/pos-venda-atencao";
+import { PosVendaQuadro } from "@/components/pos-venda/pos-venda-quadro";
+import { PosVendaLista } from "@/components/pos-venda/pos-venda-lista";
+import { PosVendaAgenda } from "@/components/pos-venda/pos-venda-agenda";
+import { EsqueletoPosVenda } from "@/components/pos-venda/pos-venda-pecas";
+import { FILTROS, hojeISO, passaNoFiltro, type Filtro } from "@/components/pos-venda/regras";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { EstadoVazio, PageContainer, PageHeader, Segmentado, StatCard } from "@/components/ui";
+import { Botao, EstadoVazio, PageContainer, PageHeader, Segmentado } from "@/components/ui";
 
-/**
- * As colunas do quadro, no vocabulário que o banco aceita.
- *
- * Três destas colunas tinham nome que a tabela pos_vendas recusa no CHECK
- * ("instalacao_agendada", "instalacao_realizada", "concluido"): arrastar um
- * card para elas dava erro no banco, e o alerta de instalação atrasada nunca
- * disparava. Ver a explicação inteira em src/lib/supabase/pos-venda.ts.
- */
-const COLUNAS: { status: StatusPosVenda; titulo: string; cor: string }[] = [
-  { status: "aguardando_instalacao", titulo: "Aguardando Instalação", cor: "bg-aura-graphite-soft" },
-  { status: "agendamento_realizado", titulo: "Instalação Agendada", cor: "bg-aura-petrol-500" },
-  { status: "instalacao_pendente", titulo: "Instalação Pendente", cor: "bg-aura-warning" },
-  { status: "reclamacao", titulo: "Reclamação", cor: "bg-aura-danger" },
-  { status: "pos_venda_realizado", titulo: "Pós-venda Concluído", cor: "bg-aura-success" },
-  // Quem comprou antes do CRM e o vendedor marcou como cliente antigo no
-  // WhatsApp. Daqui ele vai para Reclamação ou Concluído como qualquer outro.
-  { status: "cliente_antigo", titulo: "Clientes antigos", cor: "bg-aura-gold" },
+type Visao = "quadro" | "lista" | "agenda";
+
+const VISOES: { valor: Visao; rotulo: string; icone: typeof List }[] = [
+  { valor: "quadro", rotulo: "Quadro", icone: KanbanSquare },
+  { valor: "lista", rotulo: "Lista", icone: List },
+  { valor: "agenda", rotulo: "Agenda", icone: CalendarDays },
 ];
 
-type Filtro = "todas" | "atrasadas" | "reclamacoes" | "sem_avaliacao";
+/** Guarda a visão escolhida neste navegador, para abrir do mesmo jeito amanhã. */
+const CHAVE_VISAO = "aura:pos-venda:visao";
 
-const FILTROS: { valor: Filtro; label: string }[] = [
-  { valor: "todas", label: "Todas" },
-  { valor: "atrasadas", label: "Atrasadas" },
-  { valor: "reclamacoes", label: "Reclamações abertas" },
-  { valor: "sem_avaliacao", label: "Sem avaliação" },
-];
-
-function formatarMoeda(valor: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  }).format(valor);
-}
-
-function estaAtrasada(item: PosVenda) {
-  if (!item.dataAgendamento) return false;
-  if (item.status !== "agendamento_realizado") return false;
-  // "Hoje" no fuso de quem olha. O toISOString() é UTC: depois das 21h no
-  // Brasil já era amanhã, e a instalação marcada para hoje aparecia atrasada.
-  const agora = new Date();
-  const hojeISO = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
-  return item.dataAgendamento < hojeISO;
-}
-
-function temReclamacaoAberta(item: PosVenda) {
-  return Boolean(item.reclamacao?.trim()) && !item.reclamacaoResolvida;
+/** Só dígitos, para achar o cliente pelo telefone escrito de qualquer jeito. */
+function digitos(texto: string) {
+  return texto.replace(/\D/g, "");
 }
 
 export default function PosVendaPage() {
@@ -64,6 +37,7 @@ export default function PosVendaPage() {
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas");
+  const [visao, setVisao] = useState<Visao>("quadro");
 
   async function carregar() {
     const lista = await listarPosVendas();
@@ -86,51 +60,91 @@ export default function PosVendaPage() {
     return () => {
       supabase.removeChannel(canal);
     };
-     
   }, []);
 
-  const lojas = useMemo(() => [...new Set(itens.map((i) => i.empresa))], [itens]);
+  // A visão salva só é lida depois de montar: no servidor não há localStorage,
+  // e ler antes faria a página do servidor e a do navegador saírem diferentes.
+  useEffect(() => {
+    try {
+      const salva = window.localStorage.getItem(CHAVE_VISAO);
+      if (salva === "quadro" || salva === "lista" || salva === "agenda") setVisao(salva);
+    } catch {
+      // navegador sem armazenamento (aba privada): fica no quadro
+    }
+  }, []);
+
+  function trocarVisao(nova: Visao) {
+    setVisao(nova);
+    try {
+      window.localStorage.setItem(CHAVE_VISAO, nova);
+    } catch {
+      // sem armazenamento: só não lembra da escolha
+    }
+  }
+
+  const hoje = hojeISO();
+
+  const lojas = useMemo(() => [...new Set(itens.map((i) => i.empresa))].sort(), [itens]);
   const multiLoja = lojas.length > 1;
+  const mostrarLoja = multiLoja && empresaFiltro === "todas";
 
   const itensDaLoja = useMemo(
     () => (empresaFiltro === "todas" ? itens : itens.filter((i) => i.empresa === empresaFiltro)),
     [itens, empresaFiltro]
   );
 
-  // Cliente antigo não é venda: fica fora do total de vendas e da taxa de avaliação.
-  const totalVendas = itensDaLoja.filter((i) => i.origem !== "cliente_antigo").length;
-  const totalReclamacoes = itensDaLoja.filter((i) => i.status === "reclamacao").length;
-  const totalAvaliaram = itensDaLoja.filter((i) => i.avaliouLoja && i.origem !== "cliente_antigo").length;
-  // Soma e divisor do mesmo grupo: antes somava as notas de todos (cliente
-  // antigo e quem tinha nota sem "avaliou") e dividia só por quem avaliou,
-  // então a média podia passar de 5 ou cair sem motivo.
-  const comNota = itensDaLoja.filter((i) => i.notaAvaliacao && i.origem !== "cliente_antigo");
-  const notaMedia =
-    comNota.length > 0 ? comNota.reduce((s, i) => s + (i.notaAvaliacao ?? 0), 0) / comNota.length : 0;
-
-  const atrasadas = itensDaLoja.filter(estaAtrasada);
-  const reclamacoesAbertas = itensDaLoja.filter(temReclamacaoAberta);
-  const pendenciasUrgentes = [...atrasadas, ...reclamacoesAbertas.filter((i) => !atrasadas.includes(i))];
-
   const itensFiltrados = useMemo(() => {
-    let resultado = itensDaLoja;
-    if (busca.trim()) {
-      const termo = busca.trim().toLowerCase();
-      resultado = resultado.filter((i) => i.cliente.toLowerCase().includes(termo));
-    }
-    if (filtro === "atrasadas") resultado = resultado.filter(estaAtrasada);
-    if (filtro === "reclamacoes") resultado = resultado.filter(temReclamacaoAberta);
-    if (filtro === "sem_avaliacao") resultado = resultado.filter((i) => !i.avaliouLoja);
-    return resultado;
-  }, [itensDaLoja, busca, filtro]);
+    const termo = busca.trim().toLowerCase();
+    const termoDigitos = digitos(termo);
+    return itensDaLoja.filter((i) => {
+      if (!passaNoFiltro(i, filtro, hoje)) return false;
+      if (!termo) return true;
+      return (
+        i.cliente.toLowerCase().includes(termo) ||
+        i.produto.toLowerCase().includes(termo) ||
+        (termoDigitos.length >= 4 && digitos(i.telefone ?? "").includes(termoDigitos))
+      );
+    });
+  }, [itensDaLoja, busca, filtro, hoje]);
+
+  const contagemFiltro = useMemo(() => {
+    const mapa = {} as Record<Filtro, number>;
+    for (const f of FILTROS) mapa[f.valor] = itensDaLoja.filter((i) => passaNoFiltro(i, f.valor, hoje)).length;
+    return mapa;
+  }, [itensDaLoja, hoje]);
+
+  const temFiltro = filtro !== "todas" || busca.trim() !== "";
+
+  function limparFiltros() {
+    setFiltro("todas");
+    setBusca("");
+  }
+
+  const propsVisao = { itens: itensFiltrados, hoje, mostrarLoja, aoAbrir: setSelecionado };
 
   return (
-    <PageContainer className="flex flex-col gap-6">
+    <PageContainer className="flex flex-col gap-5">
       <PageHeader
         titulo="Pós-venda"
         icone={HeartHandshake}
         className="mb-0"
-        descricao="Todas as vendas fechadas pelo time, do agendamento da instalação até a avaliação do cliente, e os clientes antigos marcados no WhatsApp."
+        descricao="Da venda fechada à avaliação do cliente: instalação, reclamações e clientes antigos."
+        acoes={
+          <Segmentado<Visao>
+            rotulo="Modo de ver"
+            valor={visao}
+            aoMudar={trocarVisao}
+            opcoes={VISOES.map((v) => ({
+              valor: v.valor,
+              rotulo: (
+                <span className="inline-flex items-center gap-1.5">
+                  <v.icone size={14} aria-hidden />
+                  {v.rotulo}
+                </span>
+              ),
+            }))}
+          />
+        }
       />
 
       {multiLoja && (
@@ -146,148 +160,74 @@ export default function PosVendaPage() {
         />
       )}
 
-      {pendenciasUrgentes.length > 0 && (
-        <div className="aura-card flex items-start gap-3 p-4">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aura-danger/10">
-            <AlertTriangle size={16} className="text-aura-danger" />
-          </span>
-          <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-aura-graphite">
-            {pendenciasUrgentes.length} pendência{pendenciasUrgentes.length > 1 ? "s" : ""} urgente
-            {pendenciasUrgentes.length > 1 ? "s" : ""}
-          </p>
-          <ul className="mt-2 flex flex-col divide-y divide-aura-mist">
-            {pendenciasUrgentes.slice(0, 5).map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelecionado(item)}
-                  className="flex w-full items-center justify-between gap-2 py-1.5 text-left text-sm text-aura-graphite hover:text-aura-petrol-600"
-                >
-                  <span className="truncate">{item.cliente}</span>
-                  <span className="shrink-0 text-xs text-aura-danger">
-                    {estaAtrasada(item) ? "Instalação atrasada" : "Reclamação em aberto"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard rotulo="Total de vendas" valor={totalVendas} />
-        <StatCard rotulo="Reclamações" valor={totalReclamacoes} icone={AlertTriangle} tom={totalReclamacoes > 0 ? "perigo" : "neutro"} />
-        <StatCard rotulo="Avaliaram a loja" valor={`${totalAvaliaram} de ${totalVendas}`} icone={ClipboardCheck} />
-        <StatCard rotulo="Nota média" valor={notaMedia > 0 ? notaMedia.toFixed(1) : "—"} icone={Star} tom="ouro" />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:w-64">
-          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft" />
-          <input
-            type="text"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por cliente..."
-            className="aura-input pl-9"
-          />
-        </div>
-        <Segmentado<Filtro>
-          rotulo="Filtrar vendas"
-          valor={filtro}
-          aoMudar={setFiltro}
-          opcoes={FILTROS.map((f) => ({ valor: f.valor, rotulo: f.label }))}
-        />
-      </div>
-
       {carregando ? (
-        <div className="flex justify-center py-16 text-aura-graphite-soft">
-          <Loader2 size={20} className="animate-spin" />
-        </div>
-      ) : itensFiltrados.length === 0 ? (
-        <EstadoVazio icone={Search} titulo="Nenhuma venda encontrada com esse filtro." />
+        <EsqueletoPosVenda />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {COLUNAS.map((coluna) => {
-            const itensColuna = itensFiltrados.filter((i) => i.status === coluna.status);
-            return (
-              <div key={coluna.status} className="flex flex-col gap-2 rounded-xl border border-aura-mist bg-aura-sunken/50 p-2.5">
-                <div className="flex items-center justify-between gap-2 px-1 py-0.5">
-                  <p className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-aura-graphite">
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${coluna.cor}`} />
-                    <span className="truncate">{coluna.titulo}</span>
-                  </p>
-                  <span className="rounded-md bg-aura-surface px-1.5 py-0.5 text-xs tabular-nums text-aura-graphite-soft">{itensColuna.length}</span>
-                </div>
+        <>
+          <PosVendaKpis itens={itensDaLoja} hoje={hoje} filtro={filtro} aoFiltrar={setFiltro} />
 
-                <div className="flex flex-col gap-2">
-                  {itensColuna.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-aura-mist px-3 py-4 text-center text-xs text-aura-graphite-soft">
-                      Nenhuma venda aqui
-                    </p>
-                  ) : (
-                    itensColuna.map((item) => {
-                      const atrasada = estaAtrasada(item);
-                      const reclamacaoAberta = temReclamacaoAberta(item);
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setSelecionado(item)}
-                          className={`flex flex-col gap-1 rounded-lg border bg-aura-surface p-3 text-left shadow-sm transition hover:border-aura-petrol-500/40 ${
-                            atrasada || reclamacaoAberta ? "border-aura-danger/50" : "border-aura-mist"
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            {(atrasada || reclamacaoAberta) && (
-                              <Clock size={11} className="shrink-0 text-aura-danger" />
-                            )}
-                            <p className="truncate text-sm font-medium text-aura-graphite">{item.cliente}</p>
-                          </div>
-                          <p className="truncate text-xs text-aura-graphite-soft">{item.produto}</p>
-                          {multiLoja && empresaFiltro === "todas" && (
-                            <span className="aura-selo aura-selo-neutro w-fit">
-                              {item.empresa}
-                            </span>
-                          )}
-                          <div className="flex items-center justify-between">
-                            {item.origem === "cliente_antigo" ? (
-                              <span className="aura-selo aura-selo-ouro">
-                                Cliente antigo
-                              </span>
-                            ) : (
-                              <span className="text-xs font-semibold tabular-nums text-aura-graphite">
-                                {formatarMoeda(item.valor)}
-                              </span>
-                            )}
-                            {item.avaliouLoja && item.notaAvaliacao && (
-                              <span className="flex items-center gap-0.5 text-[0.65rem] font-medium text-aura-gold-700">
-                                <Star size={10} className="fill-aura-gold" />
-                                {item.notaAvaliacao}
-                              </span>
-                            )}
-                          </div>
-                          {item.dataAgendamento && (
-                            <span
-                              className={`flex items-center gap-1 text-[0.65rem] ${atrasada ? "font-medium text-aura-danger" : "text-aura-graphite-soft"}`}
-                            >
-                              <CalendarDays size={11} className="shrink-0" />
-                              {item.dataAgendamento.split("-").reverse().join("/")}
-                              {item.horaAgendamento ? ` ${item.horaAgendamento}` : ""}
-                              {atrasada ? " · atrasada" : ""}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          {itensDaLoja.length > 0 && (
+            <PosVendaAtencao itens={itensDaLoja} hoje={hoje} mostrarLoja={mostrarLoja} aoAbrir={setSelecionado} />
+          )}
+
+          {/* Barra de busca e filtro, logo acima do que ela filtra */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative lg:w-72">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar cliente, produto ou telefone"
+                aria-label="Buscar no pós-venda"
+                className="aura-input pl-9"
+              />
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <Segmentado<Filtro>
+                rotulo="Filtrar"
+                valor={filtro}
+                aoMudar={setFiltro}
+                className="min-w-0"
+                opcoes={FILTROS.map((f) => ({ valor: f.valor, rotulo: f.rotulo, contagem: contagemFiltro[f.valor] }))}
+              />
+              {temFiltro && (
+                <Botao variante="fantasma" tamanho="sm" icone={X} onClick={limparFiltros} className="shrink-0">
+                  Limpar
+                </Botao>
+              )}
+            </div>
+          </div>
+
+          {itens.length === 0 ? (
+            <EstadoVazio
+              icone={HeartHandshake}
+              titulo="Nenhuma venda no pós-venda ainda"
+              descricao="Quando uma venda é fechada, ela aparece aqui sozinha para agendar a instalação. Clientes antigos marcados no WhatsApp também entram aqui."
+            />
+          ) : itensFiltrados.length === 0 ? (
+            <EstadoVazio
+              icone={Search}
+              titulo="Nada encontrado com esses filtros"
+              descricao="Tente outro nome ou tire o filtro para ver todas as vendas."
+              acao={
+                <Botao tamanho="sm" icone={X} onClick={limparFiltros}>
+                  Limpar filtros
+                </Botao>
+              }
+            />
+          ) : visao === "lista" ? (
+            <PosVendaLista {...propsVisao} />
+          ) : visao === "agenda" ? (
+            <PosVendaAgenda {...propsVisao} />
+          ) : (
+            <PosVendaQuadro {...propsVisao} />
+          )}
+        </>
       )}
 
       {selecionado && (

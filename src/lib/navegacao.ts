@@ -20,14 +20,47 @@ import {
   LayoutDashboard,
   Megaphone,
   Globe,
+  AtSign,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
+
+/**
+ * Seções do menu. Eram quinze itens seguidos sob um rótulo só ("Trabalho"); a
+ * pessoa lia a lista inteira para achar a tela. Agrupado por assunto, o olho
+ * vai direto: quem é o cliente, onde se conversa, o que fazer no dia, como
+ * estou indo, onde aprender.
+ */
+export type SecaoMenu = "inicio" | "clientes" | "conversas" | "rotina" | "desempenho" | "aprender";
+
+export const SECOES_MENU: Array<{ id: SecaoMenu; titulo: string }> = [
+  { id: "inicio", titulo: "" },
+  { id: "clientes", titulo: "Clientes" },
+  { id: "conversas", titulo: "Conversas" },
+  { id: "rotina", titulo: "Rotina" },
+  { id: "desempenho", titulo: "Desempenho" },
+  { id: "aprender", titulo: "Aprender" },
+];
 
 export interface ItemMenu {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Sem seção, o item entra em "Clientes" (o assunto principal do CRM). */
+  secao?: SecaoMenu;
 }
+
+/** Agrupa os itens nas seções, na ordem de SECOES_MENU; seção vazia some. */
+export function emSecoes(itens: ItemMenu[]) {
+  return SECOES_MENU.map((s) => ({
+    ...s,
+    itens: itens.filter((i) => (i.secao ?? "clientes") === s.id),
+  })).filter((s) => s.itens.length > 0);
+}
+
+/** Itens que dependem da pessoa, não do cargo (os menus acrescentam). */
+export const ITEM_INSTAGRAM: ItemMenu = { href: "/instagram", label: "Instagram", icon: AtSign, secao: "conversas" };
+export const ITEM_COACH: ItemMenu = { href: "/aura-coach", label: "AURA Coach", icon: Sparkles, secao: "aprender" };
 
 function normalizar(texto?: string | null) {
   return (texto ?? "").trim().toLowerCase();
@@ -42,43 +75,43 @@ function normalizar(texto?: string | null) {
  * vêm logo depois do Meu Dia porque são o que a pessoa abre primeiro.
  */
 const VENDEDOR: ItemMenu[] = [
-  { href: "/meu-dia", label: "Meu Dia", icon: Home },
-  { href: "/leads", label: "Leads", icon: UserPlus },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/relacionamentos", label: "Relacionamentos", icon: Users },
-  { href: "/pipeline", label: "Pipeline", icon: Filter },
-  { href: "/vendas", label: "Vendas", icon: ShoppingBag },
-  { href: "/registrar-atividade", label: "Atividades", icon: ClipboardCheck },
-  { href: "/relatorio", label: "Relatórios", icon: FileText },
-  { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/academy", label: "Academy", icon: GraduationCap },
-  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
+  { href: "/meu-dia", label: "Meu Dia", icon: Home, secao: "inicio" },
+  { href: "/leads", label: "Leads", icon: UserPlus, secao: "clientes" },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, secao: "conversas" },
+  { href: "/agenda", label: "Agenda", icon: Calendar, secao: "rotina" },
+  { href: "/relacionamentos", label: "Relacionamentos", icon: Users, secao: "clientes" },
+  { href: "/pipeline", label: "Pipeline", icon: Filter, secao: "clientes" },
+  { href: "/vendas", label: "Vendas", icon: ShoppingBag, secao: "clientes" },
+  { href: "/registrar-atividade", label: "Atividades", icon: ClipboardCheck, secao: "rotina" },
+  { href: "/relatorio", label: "Relatórios", icon: FileText, secao: "desempenho" },
+  { href: "/ranking", label: "Ranking", icon: Trophy, secao: "desempenho" },
+  { href: "/academy", label: "Academy", icon: GraduationCap, secao: "aprender" },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2, secao: "aprender" },
 ];
 
 const POS_VENDA: ItemMenu[] = [
-  { href: "/meu-dia", label: "Meu Dia", icon: Home },
-  { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/relacionamentos", label: "Clientes", icon: Users },
-  { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
-  { href: "/atividades", label: "Atividades", icon: Activity },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/academy", label: "Academy", icon: GraduationCap },
-  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
+  { href: "/meu-dia", label: "Meu Dia", icon: Home, secao: "inicio" },
+  { href: "/pos-venda", label: "Pós-venda", icon: Wrench, secao: "clientes" },
+  { href: "/agenda", label: "Agenda", icon: Calendar, secao: "rotina" },
+  { href: "/relacionamentos", label: "Clientes", icon: Users, secao: "clientes" },
+  { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck, secao: "rotina" },
+  { href: "/atividades", label: "Atividades", icon: Activity, secao: "rotina" },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, secao: "conversas" },
+  { href: "/academy", label: "Academy", icon: GraduationCap, secao: "aprender" },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2, secao: "aprender" },
 ];
 
 const SDR: ItemMenu[] = [
-  { href: "/meu-dia", label: "Meu Dia", icon: Home },
-  { href: "/leads", label: "Leads Recebidos", icon: UserPlus },
-  { href: "/agenda", label: "Agenda", icon: Calendar },
-  { href: "/relacionamentos", label: "Clientes", icon: Users },
-  { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck },
-  { href: "/atividades", label: "Atividades", icon: Activity },
-  { href: "/ranking", label: "Ranking", icon: Trophy },
-  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
-  { href: "/academy", label: "Academy", icon: GraduationCap },
-  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2 },
+  { href: "/meu-dia", label: "Meu Dia", icon: Home, secao: "inicio" },
+  { href: "/leads", label: "Leads Recebidos", icon: UserPlus, secao: "clientes" },
+  { href: "/agenda", label: "Agenda", icon: Calendar, secao: "rotina" },
+  { href: "/relacionamentos", label: "Clientes", icon: Users, secao: "clientes" },
+  { href: "/registrar-atividade", label: "Registrar Atividade", icon: ClipboardCheck, secao: "rotina" },
+  { href: "/atividades", label: "Atividades", icon: Activity, secao: "rotina" },
+  { href: "/ranking", label: "Ranking", icon: Trophy, secao: "desempenho" },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, secao: "conversas" },
+  { href: "/academy", label: "Academy", icon: GraduationCap, secao: "aprender" },
+  { href: "/area-vendedor", label: "Área do Vendedor", icon: Link2, secao: "aprender" },
 ];
 
 const VENDEDOR_INTERNO: ItemMenu[] = VENDEDOR;
@@ -121,7 +154,7 @@ export function menuDeGestao(cargo?: string | null): ItemMenu[] {
   // da chave repetida) — o teste navegacao.teste.ts pegou.
   return [
     { href: "/gestor", label: "Visão do Gestor", icon: LayoutDashboard },
-    { href: "/pos-venda", label: "Pós-venda", icon: Wrench },
+    { href: "/pos-venda", label: "Pós-venda", icon: Wrench, secao: "clientes" },
     { href: "/marketing", label: "Marketing", icon: Megaphone },
   ];
 }
@@ -133,7 +166,7 @@ export function menuDeGestao(cargo?: string | null): ItemMenu[] {
  * sem mexer no resto do menu. O resto das outras lojas não vê. O servidor confere de
  * novo em cada rota, então esconder aqui é só para não mostrar caminho fechado.
  */
-export const ITEM_SITE_MF: ItemMenu = { href: "/site-mf", label: "Site MF", icon: Globe };
+export const ITEM_SITE_MF: ItemMenu = { href: "/site-mf", label: "Site MF", icon: Globe, secao: "conversas" };
 
 export function comSiteMf(itens: ItemMenu[], empresa?: string | null, gestorMestre = false): ItemMenu[] {
   if (normalizar(empresa) !== "mf international" && !gestorMestre) return itens;

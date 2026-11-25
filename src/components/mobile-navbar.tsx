@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, X, UserCircle, Settings, Bell, Sparkles, AtSign } from "lucide-react";
+import { Menu, X, UserCircle, Settings, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { SeletorTema } from "@/components/tema";
-import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { ITEM_COACH, ITEM_INSTAGRAM, comSiteMf, emSecoes, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 import { numeroDoSino, useSino } from "@/lib/use-sino";
@@ -33,6 +33,7 @@ export function MobileNavbar() {
   const principais = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
   const gestao = menuDeGestao(profile.cargo);
   const podeInstagram = acesso.permissoes.usar_instagram || acesso.cargo === "Gestor";
+  const secoes = emSecoes([...principais, ...(podeInstagram ? [ITEM_INSTAGRAM] : []), ITEM_COACH]);
 
   // Trocar de tela fecha a gaveta (inclusive pelo botão voltar do celular).
   useEffect(() => {
@@ -121,30 +122,31 @@ export function MobileNavbar() {
               </div>
             </div>
 
-            <nav aria-label="Menu principal" className="flex flex-col gap-0.5 p-2">
-              {principais.map(({ href, label, icon: Icon }) => {
-                const ativo = ativoEm(href);
-                return (
-                  <Link key={href} href={href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
-                    <Icon size={19} className={icone(ativo)} />
-                    <span>{label}</span>
-                    {href === "/site-mf" && naoLidasSite > 0 && (
-                      <span className="ml-auto rounded-full bg-aura-danger px-2 py-0.5 text-xs font-semibold text-white">{naoLidasSite}</span>
-                    )}
-                  </Link>
-                );
-              })}
-              {podeInstagram && (
-                <Link href="/instagram" className={classe(ativoEm("/instagram"))}>
-                  <AtSign size={19} className={icone(ativoEm("/instagram"))} />
-                  <span>Instagram</span>
-                </Link>
-              )}
-              <Link href="/aura-coach" className={classe(ativoEm("/aura-coach"))}>
-                <Sparkles size={19} className="text-aura-gold" />
-                <span>AURA Coach</span>
-              </Link>
-            </nav>
+            {/* Mesmas seções da barra do computador (src/lib/navegacao.ts). */}
+            <div className="p-2">
+              {secoes.map((secao) => (
+                <nav key={secao.id} aria-label={secao.titulo || "Início"} className="flex flex-col gap-0.5">
+                  {secao.titulo && (
+                    <p className="px-3 pb-1 pt-3 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft">
+                      {secao.titulo}
+                    </p>
+                  )}
+                  {secao.itens.map(({ href, label, icon: Icon }) => {
+                    const ativo = ativoEm(href);
+                    const coach = href === ITEM_COACH.href;
+                    return (
+                      <Link key={href} href={href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
+                        <Icon size={19} className={coach ? "text-aura-gold" : icone(ativo)} />
+                        <span>{label}</span>
+                        {href === "/site-mf" && naoLidasSite > 0 && (
+                          <span className="ml-auto rounded-full bg-aura-danger px-2 py-0.5 text-xs font-semibold text-white">{naoLidasSite}</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              ))}
+            </div>
 
             {gestao.length > 0 && (
               <nav aria-label="Gestão" className="flex flex-col gap-0.5 border-t border-aura-mist p-2">

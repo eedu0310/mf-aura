@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Settings, AtSign } from "lucide-react";
+import { Settings } from "lucide-react";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { AvatarUsuario } from "@/components/avatar-usuario";
-import { SeletorTema } from "@/components/tema";
 import { useUserProfile } from "@/lib/user-profile-context";
-import { comSiteMf, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
+import { ITEM_COACH, ITEM_INSTAGRAM, comSiteMf, emSecoes, menuDeGestao, menuDoCargo } from "@/lib/navegacao";
 import { usarMeuAcesso } from "@/lib/usar-permissoes";
 import { useNaoLidasDoSite } from "@/components/site-mf/vigia-chat-site";
 
 /**
  * Menu lateral: claro e silencioso, no padrão dos CRMs de alto padrão.
  * O item ativo ganha fundo afundado e ícone na cor da marca; o resto fica em
- * cinza. Grupos com rótulo pequeno: o dia a dia, as ferramentas e a gestão.
+ * cinza. Itens agrupados por assunto (seções de src/lib/navegacao.ts), e a
+ * gestão por último, só para o gestor.
  */
 export function VendorSidebar() {
   const pathname = usePathname();
@@ -26,6 +26,7 @@ export function VendorSidebar() {
   // servidor; aqui so evitamos mostrar um caminho que vai recusar.
   const podeInstagram = acesso.permissoes.usar_instagram || acesso.cargo === "Gestor";
   const itensNav = comSiteMf(menuDoCargo(profile.cargo), profile.empresa, acesso.gestorMestre);
+  const secoes = emSecoes([...itensNav, ...(podeInstagram ? [ITEM_INSTAGRAM] : []), ITEM_COACH]);
   const itensGestao = menuDeGestao(profile.cargo);
   const naoLidasSite = useNaoLidasDoSite();
 
@@ -52,53 +53,39 @@ export function VendorSidebar() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-2.5 pb-4">
-        <p className="px-2.5 pb-1.5 pt-3 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
-          Trabalho
-        </p>
-        <nav className="flex flex-col gap-0.5" aria-label="Menu principal">
-          {itensNav.map((item) => {
-            const ativo = ativoEm(item.href);
-            const Icon = item.icon;
-            return (
-              <Link key={item.href} href={item.href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
-                <Icon size={17} strokeWidth={1.9} className={classeIcone(ativo)} />
-                {item.label}
-                {item.href === "/site-mf" && naoLidasSite > 0 && (
-                  <span className="ml-auto rounded-full bg-aura-danger px-1.5 py-px text-[0.65rem] font-semibold text-white">
-                    {naoLidasSite}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-
-          {podeInstagram && (
-            <Link href="/instagram" className={classe(ativoEm("/instagram"))}>
-              <AtSign size={17} strokeWidth={1.9} className={classeIcone(ativoEm("/instagram"))} />
-              Instagram
-            </Link>
-          )}
-        </nav>
-
-        <p className="px-2.5 pb-1.5 pt-5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
-          Inteligência
-        </p>
-        <nav className="flex flex-col gap-0.5" aria-label="AURA">
-          <Link href="/aura-coach" className={classe(ativoEm("/aura-coach"))}>
-            <Sparkles size={17} strokeWidth={1.9} className="text-aura-gold" />
-            AURA Coach
-            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-aura-success" aria-label="ativa" />
-          </Link>
-          <Link href="/configuracoes" className={classe(ativoEm("/configuracoes"))}>
-            <Settings size={17} strokeWidth={1.9} className={classeIcone(ativoEm("/configuracoes"))} />
-            Configurações
-          </Link>
-        </nav>
+        {secoes.map((secao) => (
+          <div key={secao.id}>
+            {secao.titulo && (
+              <p className="px-2.5 pb-1 pt-4 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
+                {secao.titulo}
+              </p>
+            )}
+            <nav className={`flex flex-col gap-0.5 ${secao.titulo ? "" : "pt-2"}`} aria-label={secao.titulo || "Início"}>
+              {secao.itens.map((item) => {
+                const ativo = ativoEm(item.href);
+                const Icon = item.icon;
+                const coach = item.href === ITEM_COACH.href;
+                return (
+                  <Link key={item.href} href={item.href} className={classe(ativo)} aria-current={ativo ? "page" : undefined}>
+                    <Icon size={17} strokeWidth={1.9} className={coach ? "text-aura-gold" : classeIcone(ativo)} />
+                    {item.label}
+                    {item.href === "/site-mf" && naoLidasSite > 0 && (
+                      <span className="ml-auto rounded-full bg-aura-danger px-1.5 py-px text-[0.65rem] font-semibold text-white">
+                        {naoLidasSite}
+                      </span>
+                    )}
+                    {coach && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-aura-success" aria-label="ativa" />}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        ))}
 
         {/* Só o gestor enxerga as outras áreas */}
         {itensGestao.length > 0 && (
           <>
-            <p className="px-2.5 pb-1.5 pt-5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
+            <p className="px-2.5 pb-1 pt-4 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80">
               Gestão
             </p>
             <nav className="flex flex-col gap-0.5" aria-label="Gestão">
@@ -117,11 +104,15 @@ export function VendorSidebar() {
         )}
       </div>
 
-      <div className="border-t border-aura-mist p-3">
-        <SeletorTema compacto />
+      {/*
+        Rodapé: a pessoa e as configurações. O seletor de tema saiu daqui: ele
+        já está no topo (botão de lua/sol e no menu do perfil), e aqui estourava
+        a largura da barra.
+      */}
+      <div className="flex items-center gap-1 border-t border-aura-mist p-3">
         <Link
           href="/configuracoes"
-          className="mt-2.5 flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition hover:bg-aura-sunken"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition hover:bg-aura-sunken"
         >
           <AvatarUsuario
             foto={profile.fotoUrl}
@@ -132,6 +123,16 @@ export function VendorSidebar() {
             <span className="block truncate text-[0.8125rem] font-medium text-aura-graphite">{profile.nome}</span>
             <span className="block truncate text-xs text-aura-graphite-soft">{profile.empresa}</span>
           </span>
+        </Link>
+        <Link
+          href="/configuracoes"
+          aria-label="Configurações"
+          title="Configurações"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:bg-aura-sunken ${
+            ativoEm("/configuracoes") ? "text-aura-petrol-600" : "text-aura-graphite-soft hover:text-aura-graphite"
+          }`}
+        >
+          <Settings size={17} strokeWidth={1.9} />
         </Link>
       </div>
     </aside>

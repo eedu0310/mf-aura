@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Megaphone, AlertTriangle, Loader2 } from "lucide-react";
+import { Users, Loader2 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { moeda } from "@/components/marketing/rotulos";
+import { Alerta, Card, CardHeader, EstadoVazio } from "@/components/ui";
 
 /**
  * Quem está vivendo de lead de campanha, e o que fez com eles.
@@ -31,9 +33,6 @@ interface Agregado {
   valor: number;
   campanhas: number;
 }
-
-const moeda = (v: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(v);
 
 export function LeadsPorVendedor() {
   const [linhas, setLinhas] = useState<Agregado[]>([]);
@@ -82,28 +81,26 @@ export function LeadsPorVendedor() {
   }, [carregar]);
 
   return (
-    <div className="aura-card p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <Megaphone size={15} className="text-aura-petrol-600" />
-        <p className="text-sm font-semibold text-aura-graphite">Leads de anúncio por vendedor</p>
-      </div>
+    <Card>
+      <CardHeader
+        titulo="Leads de anúncio por vendedor"
+        descricao="Quem recebeu os leads das campanhas e quanto fechou com eles."
+        icone={Users}
+      />
 
-      {erro && (
-        <div className="mb-3 flex items-start gap-2 rounded-lg border border-aura-danger/30 bg-aura-danger/10 p-3 text-xs text-aura-danger">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <span>{erro}</span>
-        </div>
-      )}
+      {erro && <Alerta tom="perigo" titulo={erro} className="mb-3 shadow-none" />}
 
       {carregando ? (
         <p className="flex items-center gap-2 text-sm text-aura-graphite-soft">
           <Loader2 size={14} className="animate-spin" /> Carregando...
         </p>
       ) : linhas.length === 0 ? (
-        <p className="text-sm text-aura-graphite-soft">
-          Nenhum lead de anúncio atribuído ainda. Quem clica em &ldquo;Enviar mensagem&rdquo; nos
-          seus anúncios do Facebook e do Instagram passa a aparecer aqui sozinho.
-        </p>
+        !erro && (
+          <EstadoVazio
+            titulo="Nenhum lead de anúncio atribuído ainda"
+            descricao="Quem clica em “Enviar mensagem” nos seus anúncios do Facebook e do Instagram passa a aparecer aqui sozinho."
+          />
+        )
       ) : (
         <div className="-mx-5 overflow-x-auto border-t border-aura-mist">
           <table className="aura-tabela">
@@ -130,7 +127,7 @@ export function LeadsPorVendedor() {
                     <td className="text-right tabular-nums">{l.leads}</td>
                     <td className="text-right tabular-nums">{l.fechadas}</td>
                     <td className="text-right tabular-nums">{conversao}%</td>
-                    <td className="text-right font-semibold tabular-nums">{moeda(l.valor)}</td>
+                    <td className="whitespace-nowrap text-right font-semibold tabular-nums">{moeda(l.valor)}</td>
                   </tr>
                 );
               })}
@@ -138,6 +135,6 @@ export function LeadsPorVendedor() {
           </table>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

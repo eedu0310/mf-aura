@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Filter, RefreshCw, Table2, TrendingUp } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, Search, Table2, TrendingUp } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Alerta, EstadoVazio, PageContainer, PageHeader, StatCard, classeBotao } from "@/components/ui";
+import { Alerta, Botao, BotaoLink, EstadoVazio, PageContainer, PageHeader, StatCard } from "@/components/ui";
 
 interface DadosVendedor {
   usuario_nome: string;
@@ -188,108 +188,95 @@ export default function PlanilhaLeadsPage() {
 
   return (
     <PageContainer>
+      <BotaoLink href="/marketing?secao=indicadores" variante="fantasma" tamanho="sm" icone={ArrowLeft} className="-ml-2 mb-3">
+        Indicadores
+      </BotaoLink>
       <PageHeader
-        titulo="Planilha de Leads — Controle de Marketing"
-        descricao="Acompanhe os indicadores de leads de todos os vendedores."
+        rotulo="Central de Marketing · Indicadores"
+        titulo="Planilha de leads por vendedor"
+        descricao="Indicadores de cada vendedor, semana a semana, no mês escolhido."
         icone={Table2}
+        acoes={
+          <>
+            <Botao icone={RefreshCw} tamanho="sm" onClick={() => void carregarDados()} disabled={carregando}>
+              {carregando ? "Atualizando..." : "Atualizar"}
+            </Botao>
+            <Botao
+              variante="primario"
+              icone={Download}
+              tamanho="sm"
+              onClick={exportarExcel}
+              disabled={vendedores.length === 0}
+            >
+              Exportar CSV
+            </Botao>
+          </>
+        }
       />
 
       <div>
-        <div className="aura-card mb-6 p-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Filter size={16} className="text-aura-graphite-soft" />
-              <label
-                htmlFor="mes-leads"
-                className="text-[0.8125rem] font-medium text-aura-graphite"
-              >
-                Mês:
-              </label>
-              <select
-                id="mes-leads"
-                value={mesSelecionado}
-                onChange={(event) =>
-                  setMesSelecionado(Number(event.target.value))
-                }
-                className="aura-input h-9 w-auto capitalize"
-              >
-                {Array.from({ length: 12 }, (_, index) => index + 1).map(
-                  (mes) => (
-                    <option key={mes} value={mes}>
-                      {nomeMes(mes)}
-                    </option>
-                  ),
-                )}
-              </select>
-            </div>
+        {/* Filtros: período e vendedor */}
+        <div className="aura-card mb-6 grid grid-cols-2 gap-3 p-4 sm:grid-cols-[auto_auto_1fr]">
+          <label htmlFor="mes-leads" className="block">
+            <span className="aura-label">Mês</span>
+            <select
+              id="mes-leads"
+              value={mesSelecionado}
+              onChange={(event) => setMesSelecionado(Number(event.target.value))}
+              className="aura-input capitalize sm:w-40"
+            >
+              {Array.from({ length: 12 }, (_, index) => index + 1).map((mes) => (
+                <option key={mes} value={mes}>
+                  {nomeMes(mes)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="ano-leads"
-                className="text-[0.8125rem] font-medium text-aura-graphite"
-              >
-                Ano:
-              </label>
-              <select
-                id="ano-leads"
-                value={anoSelecionado}
-                onChange={(event) =>
-                  setAnoSelecionado(Number(event.target.value))
-                }
-                className="aura-input h-9 w-auto"
-              >
-                {Array.from(
-                  { length: 5 },
-                  (_, index) => new Date().getFullYear() - 2 + index,
-                ).map((ano) => (
-                  <option key={ano} value={ano}>
-                    {ano}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <label htmlFor="ano-leads" className="block">
+            <span className="aura-label">Ano</span>
+            <select
+              id="ano-leads"
+              value={anoSelecionado}
+              onChange={(event) => setAnoSelecionado(Number(event.target.value))}
+              className="aura-input sm:w-28"
+            >
+              {Array.from({ length: 5 }, (_, index) => new Date().getFullYear() - 2 + index).map((ano) => (
+                <option key={ano} value={ano}>
+                  {ano}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            <div className="flex min-w-[220px] flex-1 items-center gap-2">
-              <label
-                htmlFor="vendedor-leads"
-                className="text-[0.8125rem] font-medium text-aura-graphite"
-              >
-                Vendedor:
-              </label>
+          <label htmlFor="vendedor-leads" className="col-span-2 block sm:col-span-1">
+            <span className="aura-label">Vendedor</span>
+            <span className="relative block">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-aura-graphite-soft"
+              />
               <input
                 id="vendedor-leads"
                 type="search"
                 value={vendedorFiltro}
                 onChange={(event) => setVendedorFiltro(event.target.value)}
                 placeholder="Buscar vendedor..."
-                className="aura-input h-9 flex-1"
+                className="aura-input pl-9"
               />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void carregarDados()}
-              disabled={carregando}
-              className={classeBotao("secundario")}
-            >
-              <RefreshCw
-                size={15}
-                className={carregando ? "animate-spin" : ""}
-              />
-              Atualizar
-            </button>
-
-            <button
-              type="button"
-              onClick={exportarExcel}
-              disabled={vendedores.length === 0}
-              className={classeBotao("primario")}
-            >
-              <Download size={15} />
-              Exportar CSV
-            </button>
-          </div>
+            </span>
+          </label>
         </div>
+
+        {/* Resumo antes da tabela: o número que importa aparece primeiro */}
+        {!carregando && vendedores.length > 0 && (
+          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatCard rotulo="Total de leads" valor={totalGeral} tom="sucesso" />
+            <StatCard rotulo="Vendedores" valor={vendedores.length} />
+            <StatCard rotulo="Indicadores rastreados" valor={indicadores.length} />
+            <StatCard rotulo="Período" valor={<span className="capitalize">{mesFormatado}</span>} />
+          </div>
+        )}
 
         {erro && (
           <Alerta tom="perigo" className="mb-6" titulo={<>Não foi possível carregar a planilha: {erro}</>} />
@@ -386,17 +373,6 @@ export default function PlanilhaLeadsPage() {
           </div>
         )}
 
-        {vendedores.length > 0 && (
-          <div className="mt-6">
-            <p className="aura-rotulo mb-3">Resumo</p>
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <StatCard rotulo="Total de vendedores" valor={vendedores.length} />
-              <StatCard rotulo="Indicadores rastreados" valor={indicadores.length} />
-              <StatCard rotulo="Período" valor={<span className="capitalize">{mesFormatado}</span>} />
-              <StatCard rotulo="Total de leads" valor={totalGeral} tom="sucesso" />
-            </div>
-          </div>
-        )}
       </div>
     </PageContainer>
   );

@@ -1,16 +1,19 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Suspense, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronUp, User, Settings, LogOut } from "lucide-react";
+import { ChevronUp, User, Settings, LogOut, ArrowLeft, LayoutDashboard } from "lucide-react";
 import { OnboardingGuard } from "@/components/onboarding-guard";
 import { RoleGuard } from "@/components/role-guard";
 import { useUserProfile } from "@/lib/user-profile-context";
 import { AvatarUsuario } from "@/components/avatar-usuario";
 import { AuraLogoFull } from "@/components/aura-logo";
 import { BotaoTema, SeletorTema } from "@/components/tema";
-import { ABAS_MARKETING, AbaMarketingContext, type AbaMarketing, type AbaMarketingContextValue } from "@/components/marketing/aba-marketing";
+import { ABAS_MARKETING, hrefDaAba, useAbaMarketing } from "@/components/marketing/aba-marketing";
+
+/** Para onde o "Voltar ao CRM" leva: o Meu Dia abre para todos os cargos. */
+const ROTA_CRM = "/meu-dia";
 
 function PerfilMenu() {
   const router = useRouter();
@@ -92,7 +95,24 @@ function PerfilMenu() {
   );
 }
 
-function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
+const CLASSE_ITEM =
+  "group flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[0.8125rem] font-medium transition";
+const CLASSE_ITEM_ATIVO = "bg-aura-sunken text-aura-graphite";
+const CLASSE_ITEM_PARADO = "text-aura-graphite-soft hover:bg-aura-sunken/70 hover:text-aura-graphite";
+const CLASSE_TITULO_GRUPO =
+  "hidden px-2.5 pb-1.5 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80 sm:block";
+
+/**
+ * O único menu da Central de Marketing. No computador é a coluna da esquerda;
+ * no celular vira uma faixa que rola de lado logo abaixo da marca. Antes a
+ * página repetia as mesmas seções num segundo trilho, e a pessoa não sabia
+ * qual dos dois mandava.
+ */
+function BarraLateral() {
+  const { profile } = useUserProfile();
+  const { aba } = useAbaMarketing();
+  const ehGestor = profile.cargo === "Gestor";
+
   return (
     <aside className="flex shrink-0 flex-col border-b border-aura-mist bg-aura-surface sm:sticky sm:top-0 sm:h-dvh sm:w-60 sm:border-b-0 sm:border-r">
       <div className="flex h-14 items-center justify-between gap-2 px-4">
@@ -100,28 +120,38 @@ function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
           <AuraLogoFull />
           <span className="aura-selo aura-selo-neutro">MKT</span>
         </Link>
-        <BotaoTema className="sm:hidden" />
+        <div className="flex items-center gap-1 sm:hidden">
+          <Link
+            href={ROTA_CRM}
+            className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-aura-graphite-soft transition hover:bg-aura-sunken hover:text-aura-graphite"
+          >
+            <ArrowLeft size={14} />
+            Voltar ao CRM
+          </Link>
+          <BotaoTema />
+        </div>
+      </div>
+
+      {/* Saída do marketing: sempre no mesmo lugar, logo abaixo da marca. */}
+      <div className="hidden px-2.5 sm:block">
+        <Link href={ROTA_CRM} className={`${CLASSE_ITEM} ${CLASSE_ITEM_PARADO}`}>
+          <ArrowLeft size={16} strokeWidth={1.9} className="text-aura-graphite-soft group-hover:text-aura-graphite" />
+          Voltar ao CRM
+        </Link>
       </div>
 
       <div className="overflow-x-auto px-2.5 pb-2.5 sm:flex-1 sm:overflow-y-auto sm:pb-4">
-        <p className="hidden px-2.5 pb-1.5 pt-3 text-[0.68rem] font-medium uppercase tracking-wider text-aura-graphite-soft/80 sm:block">
-          Marketing
-        </p>
-        <nav className="flex flex-row gap-0.5 sm:flex-col" aria-label="Marketing">
+        <p className={`${CLASSE_TITULO_GRUPO} pt-4`}>Central de Marketing</p>
+        <nav className="flex flex-row gap-0.5 sm:flex-col" aria-label="Seções do marketing">
           {ABAS_MARKETING.map((a) => {
             const Icon = a.icon;
             const ativo = aba === a.id;
             return (
-              <button
+              <Link
                 key={a.id}
-                type="button"
-                onClick={() => setAba(a.id)}
+                href={hrefDaAba(a.id)}
                 aria-current={ativo ? "page" : undefined}
-                className={`group flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[0.8125rem] font-medium transition ${
-                  ativo
-                    ? "bg-aura-sunken text-aura-graphite"
-                    : "text-aura-graphite-soft hover:bg-aura-sunken/70 hover:text-aura-graphite"
-                }`}
+                className={`${CLASSE_ITEM} ${ativo ? CLASSE_ITEM_ATIVO : CLASSE_ITEM_PARADO}`}
               >
                 <Icon
                   size={17}
@@ -129,9 +159,25 @@ function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
                   className={ativo ? "text-aura-petrol-600" : "text-aura-graphite-soft group-hover:text-aura-graphite"}
                 />
                 <span className="whitespace-nowrap">{a.label}</span>
-              </button>
+              </Link>
             );
           })}
+
+          {/* Atalho só do gestor, separado das seções para não parecer mais uma delas. */}
+          {ehGestor && (
+            <>
+              <span className="mx-1 my-1.5 w-px shrink-0 bg-aura-mist sm:hidden" aria-hidden />
+              <p className={`${CLASSE_TITULO_GRUPO} pt-5`}>Gestão</p>
+              <Link href="/gestor" className={`${CLASSE_ITEM} ${CLASSE_ITEM_PARADO}`}>
+                <LayoutDashboard
+                  size={17}
+                  strokeWidth={1.9}
+                  className="text-aura-graphite-soft group-hover:text-aura-graphite"
+                />
+                <span className="whitespace-nowrap">Painel do gestor</span>
+              </Link>
+            </>
+          )}
         </nav>
       </div>
 
@@ -146,17 +192,16 @@ function BarraLateral({ aba, setAba }: AbaMarketingContextValue) {
 }
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
-  const [aba, setAba] = useState<AbaMarketing>("visao-geral");
-
   return (
     <OnboardingGuard>
       <RoleGuard papeisPermitidos={["Marketing", "Gestor"]}>
-        <AbaMarketingContext.Provider value={{ aba, setAba }}>
+        {/* A seção aberta vem da URL (useSearchParams), que pede um Suspense em volta. */}
+        <Suspense fallback={null}>
           <div className="flex min-h-screen flex-col bg-aura-bg sm:flex-row">
-            <BarraLateral aba={aba} setAba={setAba} />
+            <BarraLateral />
             <div className="min-w-0 flex-1">{children}</div>
           </div>
-        </AbaMarketingContext.Provider>
+        </Suspense>
       </RoleGuard>
     </OnboardingGuard>
   );
