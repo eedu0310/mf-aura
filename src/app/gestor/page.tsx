@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { SaudeSistema } from "@/components/gestor/saude-sistema";
 import { DashboardTab } from "@/components/gestor/dashboard-tab";
 import { UsuariosTab } from "@/components/gestor/usuarios-tab";
@@ -23,8 +24,26 @@ import { PontuacaoTab } from "@/components/gestor/pontuacao-tab";
 import { EquipeTab } from "@/components/gestor/equipe-tab";
 import { hrefDaAbaGestor, useAbaGestor } from "@/components/gestor/areas";
 
+// A área Agentes só carrega o código dela quando alguém abre uma das abas.
+// (As opções do dynamic ficam escritas em cada chamada: o compilador do Next lê o objeto ali mesmo.)
+function CarregandoAgentes() {
+  return <div className="h-64 rounded-xl bg-aura-sunken motion-safe:animate-pulse" aria-hidden />;
+}
+const Escritorio = dynamic(() => import("@/components/agentes/escritorio").then((m) => m.Escritorio), {
+  loading: () => <CarregandoAgentes />,
+});
+const EquipeAgentes = dynamic(() => import("@/components/agentes/equipe").then((m) => m.EquipeAgentes), {
+  loading: () => <CarregandoAgentes />,
+});
+const PropostasAgentes = dynamic(() => import("@/components/agentes/propostas").then((m) => m.PropostasAgentes), {
+  loading: () => <CarregandoAgentes />,
+});
+const ConhecimentoAgentes = dynamic(() => import("@/components/agentes/conhecimento").then((m) => m.ConhecimentoAgentes), {
+  loading: () => <CarregandoAgentes />,
+});
+
 /**
- * Conteúdo do Painel do Gestor. O menu das seis áreas está no layout (casca de
+ * Conteúdo do Painel do Gestor. O menu das áreas está no layout (casca de
  * área de trabalho); aqui ficam o título da área, as abas dela e a tela da aba
  * aberta. Tudo segue a aba do endereço (src/components/gestor/areas.ts).
  */
@@ -73,6 +92,10 @@ export default function GestorPage() {
           <GestorPainelAura />
         </div>
       )}
+      {atual.id === "escritorio" && <Escritorio />}
+      {atual.id === "agentes-equipe" && <EquipeAgentes />}
+      {atual.id === "propostas" && <PropostasAgentes />}
+      {atual.id === "conhecimento" && <ConhecimentoAgentes />}
       {atual.id === "equipe" && <EquipeTab />}
       {atual.id === "movimentacao" && <MovimentacaoTab />}
       {atual.id === "atendimento" && <AtendimentoTab />}

@@ -17,7 +17,9 @@ const CRONS_ESPERADOS: Array<{ nome: string; horas: number; rotulo: string }> = 
   { nome: "supervisao-aura", horas: 26, rotulo: "Supervisão da AURA (9h)" },
   { nome: "cobranca-supervisora", horas: 50, rotulo: "Cobrança da supervisora (seg a sáb)" },
   { nome: "cobrar-metas", horas: 26, rotulo: "Cobrança da meta do mês (11h)" },
-  { nome: "aprendizado-do-dia", horas: 26, rotulo: "Aprendizado do dia (21h)" },
+  // Semanal desde 25/11/2026 (domingo 21h): cobrar em 26 h seria alarme falso.
+  { nome: "aprendizado-do-dia", horas: 24 * 8, rotulo: "Aprendizado da semana (domingo, 21h)" },
+  { nome: "agentes", horas: 2, rotulo: "Equipe de agentes (a cada 10 min)" },
   { nome: "backup", horas: 26, rotulo: "Backup do banco (22h)" },
   { nome: "gerar-relatorios", horas: 24 * 8, rotulo: "Relatório semanal (sábado)" },
 ];

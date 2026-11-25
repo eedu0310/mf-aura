@@ -36,7 +36,21 @@ import { nucleoDoManual } from "./trechos";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 
-const MAX_CONVERSAS_POR_LOJA = 12;
+/*
+ * RODADA SEMANAL (25/11/2026). Rodando toda noite, a rotina despejava
+ * sugestões mais rápido do que o gestor revisava: eram 492 esperando quando
+ * a equipe de agentes nasceu. Agora:
+ *   - roda aos domingos e lê a semana inteira (JANELA_DIAS);
+ *   - PULA a rodada (e diz por quê) enquanto houver mais que
+ *     MAX_SUGESTOES_ESPERANDO sugestões sem revisão — sugestão que ninguém lê
+ *     é só custo de IA.
+ */
+export const JANELA_DIAS = 7;
+export const MAX_SUGESTOES_ESPERANDO = 100;
+/** 0 = domingo, no fuso de São Paulo. */
+const DIA_DA_RODADA = 0;
+
+const MAX_CONVERSAS_POR_LOJA = 20;
 const MENSAGENS_POR_CONVERSA = 40;
 const CARACTERES_POR_MENSAGEM = 400;
 const MAX_APRENDIZADOS_POR_LOJA = 8;
@@ -363,19 +377,46 @@ ${conhecidos ? `\nJÁ REGISTRADO (não repita):\n${conhecidos}` : ""}`;
   return { empresa, conversasLidas: conversas.length, sugeridos: itens.length, novos };
 }
 
-/** A rodada inteira: todas as lojas com conversa de hoje. */
-export async function colherAprendizadoDoDia(sb: SupabaseClient): Promise<ResultadoDaLoja[]> {
-  const client = clienteIA();
-  if (!client) return [{ empresa: "-", conversasLidas: 0, sugeridos: 0, novos: 0, pulou: "sem chave de IA" }];
-  if (!(await podeChamarIA())) {
-    return [{ empresa: "-", conversasLidas: 0, sugeridos: 0, novos: 0, pulou: "saldo de IA bloqueado pelo gestor" }];
+/**
+ * A rodada inteira: todas as lojas com conversa na semana.
+ * `forcar` roda fora do domingo (chamada manual: ?forcar=1 no cron). A trava
+ * das sugestões esperando revisão vale sempre.
+ */
+export async function colherAprendizadoDoDia(
+  sb: SupabaseClient,
+  opcoes: { forcar?: boolean } = {},
+): Promise<ResultadoDaLoja[]> {
+  const pular = (motivo: string): ResultadoDaLoja[] => {
+    console.log(`[aprendizado-semanal] rodada pulada: ${motivo}`);
+    return [{ empresa: "-", conversasLidas: 0, sugeridos: 0, novos: 0, pulou: motivo }];
+  };
+
+  const diaDaSemana = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date())}T12:00:00-03:00`).getUTCDay();
+  if (!opcoes.forcar && diaDaSemana !== DIA_DA_RODADA) {
+    return pular("a rodada de aprendizado é semanal (domingo); use ?forcar=1 para rodar hoje");
   }
 
-  const inicio = inicioDoDiaEmBrasilia();
+  const { count: esperando, error: erroEsperando } = await sb
+    .from("aura_aprendizado")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "sugerido");
+  if (erroEsperando) return pular(`não consegui contar as sugestões esperando revisão (${erroEsperando.message})`);
+  if ((esperando ?? 0) > MAX_SUGESTOES_ESPERANDO) {
+    return pular(
+      `há ${esperando} sugestões esperando revisão do gestor (limite ${MAX_SUGESTOES_ESPERANDO}); revise em Visão do Gestor → Aprendizado`,
+    );
+  }
+
+  const client = clienteIA();
+  if (!client) return pular("sem chave de IA");
+  if (!(await podeChamarIA())) return pular("saldo de IA bloqueado pelo gestor");
+
+  // A semana inteira, terminando agora.
+  const inicio = new Date(inicioDoDiaEmBrasilia().getTime() - (JANELA_DIAS - 1) * 24 * 60 * 60 * 1000);
   const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
   const porLoja = await conversasDoDia(sb, inicio);
 
-  // Lojas com conversa do dia ou com sugestões da AURA medidas desde ontem.
+  // Lojas com conversa da semana ou com sugestões da AURA medidas desde então.
   const desdeCasos = new Date(inicio.getTime() - 24 * 60 * 60 * 1000).toISOString();
   // De mil em mil: o `.limit(5000)` parava em 1000 e uma loja que só tinha
   // sugestões depois da milésima linha ficava fora da rodada.

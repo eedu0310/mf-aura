@@ -18,6 +18,7 @@
  * o preço que ela repete para todos os clientes.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { aprendizadosAprovados, ranquear } from "@/lib/conhecimento/recuperar";
 
 export type TipoAprendizado = "objecao" | "pergunta" | "abordagem";
 
@@ -38,7 +39,7 @@ export interface Aprendizado {
 
 /** Menor que o dos materiais de propósito: o manual é a regra da casa e não
  *  pode ser empurrado para fora do prompt pelo que foi aprendido. */
-const LIMITE_PROMPT = 8_000;
+const LIMITE_PROMPT = 8_000; // em caracteres (~2.000 tokens)
 const CACHE_MS = 5 * 60 * 1000;
 
 const g = globalThis as unknown as {
@@ -67,52 +68,43 @@ export function normalizarChave(gatilho: string): string {
     .slice(0, 180);
 }
 
-const ROTULO: Record<TipoAprendizado, string> = {
-  objecao: "Objeção",
-  pergunta: "Pergunta de cliente",
-  abordagem: "Abordagem",
-};
-
 /**
  * Texto do aprendizado aprovado da loja, pronto para entrar no prompt.
- * Vem ordenado pelo que mais fechou venda, porque o texto é cortado por tamanho
- * e o que fecha mais é o que deve sobreviver ao corte.
+ *
+ * Antes eram os 120 que mais fecharam, cortados em 8 mil caracteres: o 121º
+ * nunca entrava e o último item saía partido no meio. Agora TODOS os
+ * aprovados concorrem (src/lib/conhecimento/recuperar.ts) e entram inteiros
+ * até encher o mesmo orçamento: sem `consulta`, pelo que mais fecha venda e
+ * pelo mais recente; com `consulta` (o assunto da conversa), pelo que tem a
+ * ver com ela. A base pode crescer à vontade que o prompt fica do mesmo
+ * tamanho.
+ *
+ * Sem consulta o texto é guardado 5 minutos e sai sempre igual para a mesma
+ * base — é o que deixa o cache de prompt da IA aproveitar.
  */
 export async function textoDoAprendizado(
   sb: SupabaseClient,
   empresa: string,
+  consulta?: string,
 ): Promise<string> {
-  const hit = cache.get(empresa);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.texto;
+  const comConsulta = !!consulta?.trim();
+  if (!comConsulta) {
+    const hit = cache.get(empresa);
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit.texto;
+  }
 
   let texto = "";
   try {
-    const { data } = await sb
-      .from("aura_aprendizado")
-      .select("tipo, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu")
-      .eq("empresa", empresa)
-      .eq("status", "aprovado")
-      .order("vezes_fechou", { ascending: false })
-      .order("vezes_visto", { ascending: false })
-      .limit(120);
-
-    texto = (data ?? [])
-      .map((a: Pick<Aprendizado, "tipo" | "gatilho" | "resposta" | "vezes_visto" | "vezes_fechou" | "vezes_perdeu">) => {
-        const partes = [`visto ${a.vezes_visto}x`];
-        if (a.vezes_fechou > 0) partes.push(`fechou ${a.vezes_fechou}x`);
-        if ((a.vezes_perdeu ?? 0) > 0) partes.push(`perdeu ${a.vezes_perdeu}x`);
-        const placar = ` (${partes.join(", ")})`;
-        return `- ${ROTULO[a.tipo] ?? a.tipo}: "${a.gatilho}"${placar}\n  Resposta que funcionou: ${a.resposta}`;
-      })
+    const itens = await aprendizadosAprovados(sb, empresa);
+    texto = ranquear(itens, consulta ?? "", Math.floor(LIMITE_PROMPT / 4))
+      .map((i) => i.texto)
       .join("\n");
   } catch {
-    texto = "";
+    // Erro de leitura não fica guardado como "não aprendemos nada".
+    return "";
   }
 
-  if (texto.length > LIMITE_PROMPT) {
-    texto = `${texto.slice(0, LIMITE_PROMPT)}\n[...aprendizado cortado por tamanho...]`;
-  }
-  cache.set(empresa, { at: Date.now(), texto });
+  if (!comConsulta) cache.set(empresa, { at: Date.now(), texto });
   return texto;
 }
 

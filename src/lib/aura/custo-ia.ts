@@ -248,8 +248,31 @@ export async function registrarUsoIA(dados: {
   } | null;
   empresa?: string | null;
   usuarioId?: string | null;
+  /**
+   * Custo já conhecido, para o que não é cobrado por token (o Whisper cobra
+   * por minuto de áudio). Quando vem, vale este número e os tokens ficam 0.
+   */
+  custoUsd?: number;
 }): Promise<void> {
   try {
+    if (dados.custoUsd !== undefined) {
+      const custo = Number(dados.custoUsd);
+      if (!Number.isFinite(custo) || custo <= 0) return;
+      const sbDireto = getSupabaseServiceClient();
+      if (!sbDireto) return;
+      await sbDireto.from("ia_uso").insert({
+        empresa: dados.empresa ?? null,
+        usuario_id: dados.usuarioId ?? null,
+        funcao: dados.funcao,
+        modelo: dados.modelo,
+        tokens_entrada: 0,
+        tokens_saida: 0,
+        custo_usd: Number(custo.toFixed(6)),
+      });
+      g.__auraCustoCache = undefined;
+      return;
+    }
+
     // ATENÇÃO: com cache de prompt ligado, input_tokens traz APENAS a parte que
     // não veio do cache. O que foi lido do cache vem em cache_read_input_tokens
     // e o que foi gravado em cache_creation_input_tokens. Somar só o primeiro

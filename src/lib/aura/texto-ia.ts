@@ -3,7 +3,7 @@
  * Usa a mesma chave da AURA: ANTHROPIC_API_KEY (ou CLAUDE_API_KEY).
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { registrarUsoIA } from "@/lib/aura/custo-ia";
+import { podeChamarIA, registrarUsoIA } from "@/lib/aura/custo-ia";
 
 let cliente: Anthropic | null = null;
 let clienteChave = "";
@@ -17,6 +17,12 @@ export async function chamarClaude(opts: {
 }): Promise<string> {
   const chave = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "";
   if (!chave) throw new Error("Falta a chave da IA (ANTHROPIC_API_KEY) no .env.local do servidor.");
+  // Relatórios também respeitam o bloqueio por saldo do gestor: antes só o
+  // chat e o WhatsApp conferiam, e o relatório de sábado gastava mesmo com a
+  // IA "desligada" no painel.
+  if (!(await podeChamarIA())) {
+    throw new Error("O saldo da IA acabou. Peça ao gestor para registrar um depósito em Painel do Gestor → Custo da IA.");
+  }
   if (!cliente || clienteChave !== chave) {
     cliente = new Anthropic({ apiKey: chave });
     clienteChave = chave;

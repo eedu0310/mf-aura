@@ -5,6 +5,12 @@ import { ehFechada, ehGanho, nomesDasEtapas } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { diaEmSaoPaulo, inicioDoDiaEmSaoPaulo } from "@/lib/fuso";
 import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
+import { diasSemContato, esfriando, followupVencido } from "@/lib/relacionamento-atencao";
+
+/** Quantos contatos de cada tipo viram recomendação, para sobrar vaga aos negócios parados. */
+const MAX_FOLLOWUP_VENCIDO = 6;
+const MAX_ESFRIANDO = 4;
+const ORDEM_PRIORIDADE: Record<SupervisorPrioridade, number> = { urgente: 0, alta: 1, media: 2, baixa: 3 };
 
 export type SupervisorPrioridade = "urgente" | "alta" | "media" | "baixa";
 
@@ -69,7 +75,9 @@ async function resumoComIA(nome: string, riscos: Risco[], atividades: number, op
           content: JSON.stringify({ vendedor: nome, atividadesUltimos7Dias: atividades, oportunidadesAbertas: oportunidades, riscos }),
         },
       ],
-    });
+      // Sem isto a ponte anotava o custo como "chat" e o painel misturava a
+      // supervisão com as conversas do Coach.
+    }, { __funcao: "supervisao" } as never);
     return resposta.choices[0]?.message?.content?.trim() || fallback;
   } catch (erro) {
     console.error("AURA Supervisor: falha no resumo da IA", erro);
@@ -97,7 +105,7 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
   const [relacionamentos, oportunidades, atividades] = await Promise.all([
     supabase
       .from("relacionamentos")
-      .select("id,nome,temperatura,proximo_contato,ultimo_contato")
+      .select("id,nome,proximo_contato_em,ultimo_contato_em,created_at")
       .eq("owner_id", vendedor.id)
       .eq("empresa", vendedor.empresa),
     supabase
@@ -137,16 +145,49 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
     .sort((a, b) => b.dias_parado - a.dias_parado);
   const acts = atividades.data ?? [];
 
-  for (const rel of rels) {
-    const proximo = String(rel.proximo_contato ?? "").toLowerCase();
-    const frio = rel.temperatura === "frio" || rel.temperatura === "esfriando";
-    const atrasado = proximo.includes("atrasado") || proximo.includes("hoje");
-    if (frio || atrasado) {
-      const prioridade = atrasado ? "alta" : "media";
-      const detalhe = `${rel.nome} está ${frio ? "esfriando" : "com contato previsto para hoje/atrasado"}.`;
-      riscos.push({ codigo: "follow_up", titulo: "Follow-up precisa de atenção", detalhe, prioridade, entidadeTipo: "relacionamento", entidadeId: rel.id });
-      recomendacoes.push({ titulo: `Contatar ${rel.nome}`, descricao: `${detalhe} Faça o contato e registre o próximo passo no CRM.`, prioridade, entidadeTipo: "relacionamento", entidadeId: rel.id });
-    }
+  /*
+   * Follow-up e "esfriando" pela MESMA régua do Meu Dia
+   * (src/lib/relacionamento-atencao.ts):
+   *   - vencido = a data marcada em proximo_contato_em já passou (com meio
+   *     dia de folga);
+   *   - esfriando = 15 dias ou mais sem contato registrado.
+   * Antes procurava a palavra "atrasado" no texto de proximo_contato (que a
+   * tela escreve "a definir", "amanhã"…) e usava a temperatura manual: a
+   * supervisão cobrava contatos diferentes dos que o cartão do Meu Dia
+   * mostrava, e quase nunca achava follow-up vencido.
+   */
+  const agoraMs = Date.now();
+  const comoContato = (r: { proximo_contato_em: string | null; ultimo_contato_em: string | null; created_at: string | null }) => ({
+    proximoContatoEm: r.proximo_contato_em ?? undefined,
+    ultimoContatoEm: r.ultimo_contato_em ?? undefined,
+    criadoEm: r.created_at ?? undefined,
+  });
+  const vencidos = rels
+    .filter((r) => followupVencido(comoContato(r), agoraMs))
+    .sort((a, b) => String(a.proximo_contato_em).localeCompare(String(b.proximo_contato_em)));
+  const vencidosIds = new Set(vencidos.map((r) => r.id));
+  const frios = rels
+    .filter((r) => !vencidosIds.has(r.id) && esfriando(comoContato(r), agoraMs))
+    .map((r) => ({ r, dias: diasSemContato(comoContato(r), agoraMs) ?? 0 }))
+    .sort((a, b) => b.dias - a.dias);
+
+  if (vencidos.length > MAX_FOLLOWUP_VENCIDO || frios.length > MAX_ESFRIANDO) {
+    riscos.push({
+      codigo: "follow_up_carteira",
+      titulo: "Carteira pedindo contato",
+      detalhe: `${vencidos.length} follow-up(s) vencido(s) e ${frios.length} contato(s) esfriando (15 dias ou mais sem contato).`,
+      prioridade: vencidos.length ? "alta" : "media",
+    });
+  }
+  for (const rel of vencidos.slice(0, MAX_FOLLOWUP_VENCIDO)) {
+    const detalhe = `${rel.nome} tinha contato marcado para ${new Date(rel.proximo_contato_em as string).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} e o follow-up venceu.`;
+    riscos.push({ codigo: "follow_up", titulo: "Follow-up vencido", detalhe, prioridade: "alta", entidadeTipo: "relacionamento", entidadeId: rel.id });
+    recomendacoes.push({ titulo: `Contatar ${rel.nome}`, descricao: `${detalhe} Faça o contato e registre o próximo passo no CRM.`, prioridade: "alta", entidadeTipo: "relacionamento", entidadeId: rel.id });
+  }
+  for (const { r: rel, dias } of frios.slice(0, MAX_ESFRIANDO)) {
+    const detalhe = `${rel.nome} está há ${dias} dias sem contato registrado (esfriando).`;
+    riscos.push({ codigo: "esfriando", titulo: "Contato esfriando", detalhe, prioridade: "media", entidadeTipo: "relacionamento", entidadeId: rel.id });
+    recomendacoes.push({ titulo: `Reaquecer ${rel.nome}`, descricao: `${detalhe} Retome a conversa e registre o próximo passo no CRM.`, prioridade: "media", entidadeTipo: "relacionamento", entidadeId: rel.id });
   }
 
   for (const opp of opps.slice(0, 10)) {
@@ -178,7 +219,12 @@ async function analisarVendedor(supabase: SupabaseClient, vendedor: Vendedor) {
 
   if (recomendacoes.length) {
     const { error } = await supabase.from("aura_recomendacoes").insert(
-      recomendacoes.slice(0, 12).map((recomendacao) => ({
+      // As mais importantes primeiro: o corte em 12 não pode deixar de fora o
+      // negócio parado (urgente) por causa de um contato esfriando (média).
+      [...recomendacoes]
+        .sort((a, b) => ORDEM_PRIORIDADE[a.prioridade] - ORDEM_PRIORIDADE[b.prioridade])
+        .slice(0, 12)
+        .map((recomendacao) => ({
         supervisao_id: supervisao.id,
         vendedor_id: vendedor.id,
         empresa: vendedor.empresa,

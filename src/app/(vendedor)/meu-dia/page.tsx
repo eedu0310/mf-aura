@@ -16,6 +16,7 @@ import { TarefasInteligentes } from "@/components/tarefas/tarefas-inteligentes";
 import { RetornoPorOrigemCard } from "@/components/meu-dia/retorno-por-origem-card";
 import { AuraSupervisorPanel } from "@/components/aura-supervisor-panel";
 import { AuraCoachPanel } from "@/components/aura-coach-panel";
+import { SeusAgentesCard } from "@/components/agentes/card-meu-dia";
 import { CompromissoMensalBanner } from "@/components/meu-dia/compromisso-mensal-banner";
 import { PedidosAvaliacaoCard } from "@/components/avaliacoes/pedidos-avaliacao-card";
 import { BriefingDoDia } from "@/components/meu-dia/briefing-do-dia";
@@ -302,6 +303,9 @@ export default function MeuDiaPage() {
         </Card>
 
         <AuraSupervisorPanel />
+
+        {/* Recomendações da equipe de agentes (some sozinho quando não há nenhuma). */}
+        <SeusAgentesCard />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <PanelCard icon={Calendar} titulo="Agenda de Hoje" acaoLabel="Ver agenda" acaoHref="/agenda">

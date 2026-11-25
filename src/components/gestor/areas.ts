@@ -4,10 +4,10 @@
  * Áreas e abas do Painel do Gestor.
  *
  * Eram 19 itens no mesmo menu lateral: o gestor lia a lista inteira para achar
- * uma tela, e "Custo da IA" tinha o mesmo peso que "Equipe". Agora são SEIS
- * ÁREAS, na ordem do dia do gestor — ver como está, cobrar a equipe, olhar os
- * números, cuidar dos acessos, cuidar da AURA, ajustar o sistema — e cada área
- * abre poucas abas de um assunto só.
+ * uma tela, e "Custo da IA" tinha o mesmo peso que "Equipe". Agora são SETE
+ * ÁREAS, na ordem do dia do gestor — ver como está, ver os agentes de IA
+ * trabalhando, cobrar a equipe, olhar os números, cuidar dos acessos, cuidar da
+ * AURA, ajustar o sistema — e cada área abre poucas abas de um assunto só.
  *
  * Moram aqui, e não no layout ou na página, porque os dois usam: o layout
  * desenha o menu (as áreas) e a página desenha as abas e o conteúdo. A aba
@@ -17,14 +17,18 @@
  */
 import {
   Activity,
+  Armchair,
   AtSign,
   BarChart3,
+  BookOpen,
+  Bot,
   CalendarRange,
   FileBarChart,
   GitBranch,
   GraduationCap,
   HeartPulse,
   KeyRound,
+  Lightbulb,
   LayoutDashboard,
   Megaphone,
   MessagesSquare,
@@ -64,12 +68,17 @@ export type AbaGestor =
   | "funil"
   | "pontuacao"
   | "equipe"
-  | "saude";
+  | "saude"
+  | "escritorio"
+  | "agentes-equipe"
+  | "propostas"
+  | "conhecimento";
 
-export type AreaGestor = "visao" | "equipe" | "relatorios" | "acessos" | "aura" | "ajustes";
+export type AreaGestor = "visao" | "agentes" | "equipe" | "relatorios" | "acessos" | "aura" | "ajustes";
 
 export const AREAS_GESTOR: Array<{ id: AreaGestor; titulo: string; descricao: string; icone: LucideIcon }> = [
   { id: "visao", titulo: "Visão geral", descricao: "Como a operação está agora", icone: LayoutDashboard },
+  { id: "agentes", titulo: "Agentes", descricao: "A equipe de IA trabalhando", icone: Bot },
   { id: "equipe", titulo: "Equipe", descricao: "Conversas, metas e prêmios", icone: UsersRound },
   { id: "relatorios", titulo: "Relatórios", descricao: "Fechou, perdeu e leads", icone: FileBarChart },
   { id: "acessos", titulo: "Pessoas e acessos", descricao: "Quem entra e o que pode", icone: KeyRound },
@@ -90,6 +99,11 @@ export const ABAS_GESTOR: Array<{
   { id: "aura", label: "Supervisora AURA", descricao: "Equipe, riscos e o que fazer agora", icon: Sparkles, area: "visao" },
   { id: "movimentacao", label: "Movimentação do dia", descricao: "O que cada um fez hoje, e quem não apareceu", icon: Activity, area: "visao" },
   { id: "dashboard", label: "Dashboard", descricao: "Visão comercial, equipe e resultados", icon: BarChart3, area: "visao" },
+  // Agentes (a equipe de IA: escritório virtual, quem é quem, propostas e o que ela sabe)
+  { id: "escritorio", label: "Escritório", descricao: "Os agentes trabalhando agora, a Diretora e a conversa da equipe", icon: Armchair, area: "agentes" },
+  { id: "agentes-equipe", label: "Equipe", descricao: "Todos os agentes por setor: agenda, achados, custo e orçamento", icon: Bot, area: "agentes" },
+  { id: "propostas", label: "Propostas e criados", descricao: "Agentes novos que a equipe pediu e os que já foram criados", icon: Lightbulb, area: "agentes" },
+  { id: "conhecimento", label: "Base de conhecimento", descricao: "O que a AURA sabe e como isso fica protegido", icon: BookOpen, area: "agentes" },
   // Equipe
   { id: "equipe", label: "Conversa por conversa", descricao: "Loja → vendedor → conversa e negociação, com o laudo da IA", icon: MessagesSquare, area: "equipe" },
   { id: "pontuacao", label: "Metas e prêmios", descricao: "Meta por pessoa, pontos e premiação", icon: Target, area: "equipe" },

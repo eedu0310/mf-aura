@@ -21,7 +21,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
 import { modeloDeRaciocinio } from "./modelos";
-import { registrarUsoIA } from "./custo-ia";
+import { podeChamarIA, registrarUsoIA } from "./custo-ia";
 import { guardarAprendizado, registrarResultadoDasOrigens, type TipoAprendizado } from "./aprendizado";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
@@ -153,6 +153,8 @@ export async function analisarFechamento(opts: {
 }): Promise<Laudo | null> {
   const client = clienteIA();
   if (!client) return null;
+  // Saldo bloqueado pelo gestor: sem laudo, mas a venda é registrada igual.
+  if (!(await podeChamarIA())) return null;
 
   const fechou = opts.resultado === "fechado";
 

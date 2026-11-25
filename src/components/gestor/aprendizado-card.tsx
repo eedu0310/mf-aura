@@ -14,9 +14,14 @@
  *
  * O texto é editável antes de aprovar, porque a IA escreve um rascunho e a
  * palavra final da casa é do gestor.
+ *
+ * REVISOR DO APRENDIZADO (agente, pedido do Elton em 25/11): ele aprova ou
+ * recusa sozinho, com o motivo de cada decisão, e deixa aqui só o que não tem
+ * certeza. Tudo que ele decide aparece com o selo do agente e o motivo, e o
+ * gestor desfaz com um clique (o item volta a esperar revisão).
  */
 import { useEffect, useState, useCallback } from "react";
-import { Check, X, Pencil, GraduationCap, Loader2 } from "lucide-react";
+import { Check, X, Pencil, GraduationCap, Loader2, Undo2, BadgeCheck } from "lucide-react";
 import { Alerta, Card, CardHeader, EstadoVazio, Segmentado, Selo, classeBotao } from "@/components/ui";
 
 interface Item {
@@ -31,6 +36,26 @@ interface Item {
   aprovado_auto?: boolean;
   status: string;
   criado_em: string;
+  /** Preenchidos quando quem decidiu foi um agente (migração 110). */
+  revisado_por_agente?: string | null;
+  revisao_motivo?: string | null;
+  revisao_confianca?: number | null;
+}
+
+/** Linha "Revisor …: motivo" embaixo do item. */
+function MotivoDoAgente({ item, verbo }: { item: Item; verbo: string }) {
+  if (!item.revisado_por_agente || !item.revisao_motivo) return null;
+  const confianca =
+    item.revisao_confianca != null ? ` · confiança ${Math.round(Number(item.revisao_confianca) * 100)}%` : "";
+  return (
+    <p className="mt-2 flex items-start gap-1.5 text-xs text-aura-graphite-soft">
+      <BadgeCheck size={13} className="mt-px shrink-0 text-aura-petrol-600" />
+      <span>
+        <span className="font-medium text-aura-graphite">Revisor {verbo}:</span> {item.revisao_motivo}
+        {confianca}
+      </span>
+    </p>
+  );
 }
 
 interface ResumoSugestoes {
@@ -69,6 +94,8 @@ export function AprendizadoCard() {
     resposta: "",
   });
   const [verAprovados, setVerAprovados] = useState(false);
+  const [recusadosAgente, setRecusadosAgente] = useState<Item[]>([]);
+  const [verRecusados, setVerRecusados] = useState(false);
   const [sugestoes, setSugestoes] = useState<ResumoSugestoes | null>(null);
   // Todo gestor escolhe a loja; aprovar e recusar só na própria (ou mestre).
   const [loja, setLoja] = useState<string | null>(null);
@@ -84,6 +111,7 @@ export function AprendizadoCard() {
       if (!r.ok) throw new Error(d?.erro ?? "Não foi possível carregar.");
       setSugeridos(d.sugeridos ?? []);
       setAprovados(d.aprovados ?? []);
+      setRecusadosAgente(d.recusadosPeloAgente ?? []);
       setSugestoes(d.sugestoes ?? null);
       setLojas(d.lojas ?? null);
       setPodeDecidir(d.podeDecidir !== false);
@@ -99,7 +127,7 @@ export function AprendizadoCard() {
     void carregar();
   }, [carregar]);
 
-  async function decidir(item: Item, acao: "aprovar" | "recusar") {
+  async function decidir(item: Item, acao: "aprovar" | "recusar" | "desfazer") {
     setOcupado(item.id);
     try {
       const corpo: Record<string, unknown> = { id: item.id, acao };
@@ -117,7 +145,23 @@ export function AprendizadoCard() {
 
       // Tira da lista na hora, sem recarregar tudo: o gestor costuma revisar
       // vários seguidos e uma recarga por clique deixaria a tela piscando.
+      if (acao === "desfazer") {
+        // Volta a esperar revisão, sem a marca do agente.
+        const limpo: Item = {
+          ...item,
+          status: "sugerido",
+          aprovado_auto: false,
+          revisado_por_agente: null,
+          revisao_motivo: null,
+          revisao_confianca: null,
+        };
+        setAprovados((atual) => atual.filter((i) => i.id !== item.id));
+        setRecusadosAgente((atual) => atual.filter((i) => i.id !== item.id));
+        setSugeridos((atual) => [limpo, ...atual.filter((i) => i.id !== item.id)]);
+        return;
+      }
       setSugeridos((atual) => atual.filter((i) => i.id !== item.id));
+      setRecusadosAgente((atual) => atual.filter((i) => i.id !== item.id));
       if (acao === "recusar") setAprovados((atual) => atual.filter((i) => i.id !== item.id));
       if (acao === "aprovar") {
         const texto = editando === item.id ? rascunho : {};
@@ -140,7 +184,7 @@ export function AprendizadoCard() {
     <Card>
       <CardHeader
         titulo="O que a AURA aprendeu"
-        descricao="Tirado dos negócios fechados e perdidos e das conversas de cada dia. Só entra sozinho o que se repetiu, já fechou venda e não tem preço, prazo nem número; o resto espera você."
+        descricao="Tirado dos negócios fechados e perdidos e das conversas. O Revisor do Aprendizado (agente) aprova ou recusa cada sugestão com o motivo e deixa aqui só o que não tem certeza. Você pode desfazer qualquer decisão dele."
         icone={GraduationCap}
         acoes={
           sugeridos.length > 0 ? (
@@ -219,6 +263,7 @@ export function AprendizadoCard() {
                       <span className="text-aura-graphite-soft">Resposta: </span>
                       {item.resposta}
                     </p>
+                    <MotivoDoAgente item={item} verbo="deixou para você" />
                   </div>
                 )}
 
@@ -280,7 +325,11 @@ export function AprendizadoCard() {
                 <li key={item.id} className="py-3 text-sm text-aura-graphite-soft">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-aura-graphite">{ROTULO[item.tipo] ?? item.tipo}</span>
-                    {item.aprovado_auto && <Selo tom="ouro">entrou sozinho</Selo>}
+                    {item.revisado_por_agente ? (
+                      <Selo tom="marca">aprovado pelo Revisor</Selo>
+                    ) : (
+                      item.aprovado_auto && <Selo tom="ouro">entrou sozinho</Selo>
+                    )}
                     <span className="text-xs">{placar(item)}</span>
                     {podeDecidir && <button
                       type="button"
@@ -292,10 +341,61 @@ export function AprendizadoCard() {
                     >
                       <X size={12} /> Tirar de uso
                     </button>}
+                    {podeDecidir && item.revisado_por_agente && (
+                      <button
+                        type="button"
+                        disabled={ocupado === item.id}
+                        onClick={() => void decidir(item, "desfazer")}
+                        className={classeBotao("fantasma", "sm")}
+                        title="Volta para a lista de revisão"
+                      >
+                        <Undo2 size={12} /> Desfazer
+                      </button>
+                    )}
                   </div>
                   <p className="mt-1">
                     &ldquo;{item.gatilho}&rdquo; → {item.resposta}
                   </p>
+                  <MotivoDoAgente item={item} verbo="aprovou" />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {recusadosAgente.length > 0 && (
+        <div className="mt-6 border-t border-aura-mist pt-4">
+          <button
+            type="button"
+            onClick={() => setVerRecusados((v) => !v)}
+            className="text-sm font-medium text-aura-petrol-600 hover:underline"
+          >
+            {verRecusados ? "Esconder" : "Ver"} os {recusadosAgente.length} recusados pelo Revisor
+          </button>
+          {verRecusados && (
+            <ul className="mt-3 divide-y divide-aura-mist">
+              {recusadosAgente.map((item) => (
+                <li key={item.id} className="py-3 text-sm text-aura-graphite-soft">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-aura-graphite">{ROTULO[item.tipo] ?? item.tipo}</span>
+                    <Selo tom="perigo">recusado pelo Revisor</Selo>
+                    {podeDecidir && (
+                      <button
+                        type="button"
+                        disabled={ocupado === item.id}
+                        onClick={() => void decidir(item, "desfazer")}
+                        className={classeBotao("fantasma", "sm", "ml-auto")}
+                        title="Volta para a lista de revisão"
+                      >
+                        <Undo2 size={12} /> Desfazer
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1">
+                    &ldquo;{item.gatilho}&rdquo; → {item.resposta}
+                  </p>
+                  <MotivoDoAgente item={item} verbo="recusou" />
                 </li>
               ))}
             </ul>

@@ -45,10 +45,17 @@ ALVO=http://127.0.0.1:3000
 # quem entrar na equipe no meio da janela também seja cobrado.
 0 11 * * * root curl -sS -m 120 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/cobrar-metas >> /var/log/aura-cron.log 2>&1
 
-# Aprendizado do dia, 21h: a AURA relê as conversas de WhatsApp do dia e
-# sugere ao gestor o que guardar (nada entra em uso sem aprovação). Roda antes
-# do backup e depois do horário das lojas, com o dia de conversa já fechado.
-0 21 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/aprendizado-do-dia >> /var/log/aura-cron.log 2>&1
+# Aprendizado da semana, domingo às 21h: a AURA relê as conversas de WhatsApp
+# da semana e sugere ao gestor o que guardar (nada entra em uso sem
+# aprovação). Era todo dia e as sugestões se acumulavam sem revisão; agora é
+# semanal e PULA a rodada enquanto houver mais de 100 esperando o gestor.
+0 21 * * 0 root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/aprendizado-do-dia >> /var/log/aura-cron.log 2>&1
+
+# Equipe de agentes, de 10 em 10 minutos: roda, um de cada vez, os agentes
+# cuja agenda manda rodar agora (a Diretora às 7h20 e 18h, o Guardião do
+# Conhecimento às 23h30, os de função cada um no seu horário). Sem a
+# migração 108 no banco a rota só responde "aguardando migração 108".
+*/10 * * * * root curl -sS -m 290 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/agentes >> /var/log/aura-cron.log 2>&1
 
 # Backup do banco todo dia às 22h. Guarda 7 diários e 4 domingos anteriores a
 # eles — cerca de 30 dias de cobertura — em /opt/aura/.backups.
