@@ -159,7 +159,19 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   // 2. Parecer da IA, em lotes, com o contexto de cada item.
   const materiaisDe = new Map<string, string>();
   let semIA = 0;
+  /*
+   * Cada lote leva ~1 minuto de IA. A rodada tem 240 s; as decisões só são
+   * gravadas no passo 3. Na 2ª rodada real (25/11) os 6 lotes passaram do
+   * prazo e NADA foi gravado (US$ 0,32 perdidos). Agora, passou de 150 s, não
+   * abre lote novo: grava o que já decidiu e o resto fica para a próxima.
+   */
+  const comecou = Date.now();
+  const PRAZO_LOTES_MS = 150_000;
   for (const lote of emLotes(paraIA)) {
+    if (Date.now() - comecou > PRAZO_LOTES_MS) {
+      semIA += lote.length;
+      continue;
+    }
     const entrada = await Promise.all(
       lote.map(async (item) => {
         const daLoja: ItemConhecimento[] = aprovados
