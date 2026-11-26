@@ -154,14 +154,20 @@ async function executarGuardiao(ctx: ContextoAgente): Promise<ResultadoAgente> {
   if (erroUpload) throw new Error(`Não consegui subir ${caminho}: ${erroUpload.message}`);
 
   // ---------- 3. conferir o que subiu ----------
-  const { data: baixado, error: erroDownload } = await sb.storage.from(BUCKET_NUVEM).download(caminho);
-  if (erroDownload || !baixado) throw new Error(`Subi ${caminho}, mas não consegui baixar de volta: ${erroDownload?.message ?? "vazio"}`);
-  const conferido = JSON.parse(zlib.gunzipSync(Buffer.from(await baixado.arrayBuffer())).toString("utf8")) as {
-    tabelas?: Record<string, unknown[]>;
-  };
-  const divergentes = Object.entries(contagens).filter(
-    ([nome, n]) => (conferido.tabelas?.[nome]?.length ?? -1) !== n,
-  );
+  // Na segunda rodada do mesmo dia o arquivo é sobrescrito, e o cache do
+  // armazenamento pode devolver a versão anterior por até ~1 minuto. Por isso
+  // a conferência tenta de novo antes de acusar divergência.
+  let divergentes: [string, number][] = [];
+  for (let tentativa = 1; tentativa <= 4; tentativa++) {
+    const { data: baixado, error: erroDownload } = await sb.storage.from(BUCKET_NUVEM).download(caminho);
+    if (erroDownload || !baixado) throw new Error(`Subi ${caminho}, mas não consegui baixar de volta: ${erroDownload?.message ?? "vazio"}`);
+    const conferido = JSON.parse(zlib.gunzipSync(Buffer.from(await baixado.arrayBuffer())).toString("utf8")) as {
+      tabelas?: Record<string, unknown[]>;
+    };
+    divergentes = Object.entries(contagens).filter(([nome, n]) => (conferido.tabelas?.[nome]?.length ?? -1) !== n);
+    if (!divergentes.length || tentativa === 4) break;
+    await new Promise((r) => setTimeout(r, 20_000));
+  }
   if (divergentes.length) {
     throw new Error(`A cópia na nuvem não bate com o banco em: ${divergentes.map(([n]) => n).join(", ")}`);
   }
