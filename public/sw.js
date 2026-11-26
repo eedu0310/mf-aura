@@ -12,6 +12,7 @@
  * já tinha o service worker antigo.
  */
 const CACHE_NAME = "aura-estatico-v3";
+// v4, 26/11: + notificações push (fim do arquivo).
 
 const EXTENSOES_ESTATICAS = /\.(png|jpe?g|svg|ico|webp|gif|woff2?|ttf|webmanifest)$/i;
 
@@ -63,5 +64,75 @@ self.addEventListener("fetch", (event) => {
         return response;
       });
     }),
+  );
+});
+
+/*
+ * Notificações push (migração 117). O servidor manda {titulo, mensagem, url,
+ * tag}; aqui vira a notificação do aparelho. Tocar nela abre a tela do aviso
+ * no AURA que já estiver aberto, ou abre um novo.
+ */
+self.addEventListener("push", (event) => {
+  let dados = {};
+  try {
+    dados = event.data ? event.data.json() : {};
+  } catch {
+    dados = { mensagem: event.data ? event.data.text() : "" };
+  }
+  const titulo = dados.titulo || "AURA";
+  event.waitUntil(
+    self.registration.showNotification(titulo, {
+      body: dados.mensagem || "",
+      icon: "/icons/aura-192.png",
+      badge: "/icons/aura-maskable-192.png",
+      tag: dados.tag || undefined,
+      data: { url: dados.url || "/meu-dia" },
+      lang: "pt-BR",
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  let destino;
+  try {
+    destino = new URL((event.notification.data && event.notification.data.url) || "/meu-dia", self.location.origin);
+    if (destino.origin !== self.location.origin) destino = new URL("/meu-dia", self.location.origin);
+  } catch {
+    destino = new URL("/meu-dia", self.location.origin);
+  }
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((janelas) => {
+      for (const janela of janelas) {
+        if (new URL(janela.url).origin === self.location.origin && "focus" in janela) {
+          return janela.focus().then((j) => (j && "navigate" in j ? j.navigate(destino.href) : j));
+        }
+      }
+      return self.clients.openWindow(destino.href);
+    }),
+  );
+});
+
+// O navegador trocou a inscrição sozinho (raro): grava a nova para quem está
+// logado neste aparelho. Sem login, fica para o próximo carregamento do AURA.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    fetch("/api/push/inscricao", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("sem login"))))
+      .then(({ chave }) => {
+        const padding = "=".repeat((4 - (chave.length % 4)) % 4);
+        const bruto = atob((chave + padding).replace(/-/g, "+").replace(/_/g, "/"));
+        const bytes = Uint8Array.from(bruto, (c) => c.charCodeAt(0));
+        return self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+      })
+      .then((inscricao) =>
+        fetch("/api/push/inscricao", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(inscricao.toJSON()),
+        }),
+      )
+      .catch(() => {}),
   );
 });

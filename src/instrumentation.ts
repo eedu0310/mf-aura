@@ -22,4 +22,14 @@ export async function register() {
   void religarSessoesSalvas().catch((e) =>
     console.error("[instrumentation] religamento do WhatsApp falhou:", e),
   );
+
+  // Entregador das notificações push: o que cai no sino vai para o celular de
+  // quem ligou os avisos (ver src/lib/push/servidor.ts). Fica à parte do
+  // WhatsApp: se falhar ao carregar, o religamento acima segue normal.
+  try {
+    const { ligarEntregaDePush } = await import("@/lib/push/servidor");
+    ligarEntregaDePush();
+  } catch (e) {
+    console.error("[instrumentation] entregador de push não ligou:", e);
+  }
 }

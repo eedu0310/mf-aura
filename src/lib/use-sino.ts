@@ -6,6 +6,7 @@ import { computePendingTasks, type TarefaPendente } from "@/lib/compute-pending-
 import { useAvisoMissoes } from "@/lib/use-aviso-missoes";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Notificacao } from "@/lib/supabase/notificacoes";
+import { sincronizarPush } from "@/lib/push/cliente";
 
 /**
  * O sininho, igual no computador e no celular.
@@ -92,6 +93,8 @@ export function useSino(): Sino {
     } catch {
       /* sem armazenamento: mantém ligado */
     }
+    // Aparelho com avisos ligados: confirma no servidor que é de quem está logado.
+    sincronizarPush();
   }, []);
 
   const lembretes = useMemo(

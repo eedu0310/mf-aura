@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { esquecerAparelho } from "@/lib/push/cliente";
 
 export interface UserProfile {
   nome: string;
@@ -97,6 +98,8 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
 
   async function clearProfile() {
     const supabase = getSupabaseBrowserClient();
+    // Antes de sair: este aparelho para de receber os avisos desta conta.
+    await esquecerAparelho();
     if (supabase) {
       const { error } = await supabase.auth.signOut();
       if (error)

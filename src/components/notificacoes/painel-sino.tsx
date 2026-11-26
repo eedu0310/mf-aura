@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BellOff } from "lucide-react";
 import type { Sino } from "@/lib/use-sino";
+import { AvisosNoAparelho } from "./avisos-no-aparelho";
 
 function quandoFoi(iso: string): string {
   const t = new Date(iso).getTime();
@@ -78,6 +79,7 @@ export function PainelDoSino({ sino, aoFechar, className }: { sino: Sino; aoFech
           })}
         </ul>
       )}
+      <AvisosNoAparelho />
     </div>
   );
 }
