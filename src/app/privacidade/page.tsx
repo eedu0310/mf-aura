@@ -39,6 +39,12 @@ export default function Privacidade() {
         Não vendemos, alugamos nem compartilhamos esses dados com terceiros para publicidade. Os dados do Instagram são
         usados apenas para o atendimento da conta da loja que os recebeu.
       </p>
+      <p>
+        Para funcionar, o AURA usa prestadores de serviço que tratam os dados só em nome das lojas e só para esta
+        finalidade: Supabase (banco de dados e arquivos), Anthropic (a inteligência artificial que sugere e escreve as
+        respostas do assistente virtual e organiza o atendimento) e OpenAI (transcrição de áudios recebidos). Eles não
+        usam os dados para publicidade.
+      </p>
 
       <h2>Onde ficam e por quanto tempo</h2>
       <p>
@@ -62,7 +68,9 @@ export default function Privacidade() {
       <p>
         AURA CRM is the internal customer-service CRM of Grupo MF (Brazilian fireplace stores). It receives Instagram Direct
         messages and comments sent to the stores&apos; own Instagram accounts only to let each store&apos;s staff read and
-        reply to its customers. Data is not sold or shared with third parties. Users can request deletion at any time (see{" "}
+        reply to its customers. Data is not sold or shared with third parties for advertising; it is processed only by
+        service providers acting on the stores&apos; behalf (Supabase for hosting, Anthropic for the AI assistant, OpenAI
+        for audio transcription). Users can request deletion at any time (see{" "}
         <a href="/exclusao-de-dados">Data deletion</a>). Contact: {RESPONSAVEL.email}.
       </p>
     </PaginaLegal>
