@@ -188,13 +188,16 @@ export function SupervisorPanel({
     }
   }
 
-  // Lojas com link de avaliação para o "Enviar rápido": a do vendedor; quem
-  // enxerga o grupo todo vê uma por loja.
-  const lojasComAvaliacao = (avaliacao?.configs ?? []).filter(
-    (c) => c.link_google && (avaliacao?.todas || c.empresa === avaliacao?.empresa),
-  );
-  const configDoPedido =
-    avaliacao?.configs.find((c) => c.empresa === (avaliacao.pedido?.empresa ?? avaliacao.empresa)) ?? lojasComAvaliacao[0] ?? null;
+  // Lojas com link de avaliação para o "Enviar rápido": a do cliente; quem
+  // enxerga o grupo todo vê uma por loja, com a do cliente em primeiro.
+  const lojasComAvaliacao = (avaliacao?.configs ?? [])
+    .filter((c) => c.link_google && (avaliacao?.todas || c.empresa === avaliacao?.empresa))
+    .sort((a, b) => Number(b.empresa === avaliacao?.empresa) - Number(a.empresa === avaliacao?.empresa));
+  // O link do "Pedir avaliação" é SEMPRE o da loja do cliente (avaliacao.empresa,
+  // que o servidor tira da ficha). Antes vinha da loja do pedido achado pelo
+  // telefone — e um pedido antigo da fábrica ou de outra loja trocava o link.
+  const configDoPedido = avaliacao?.configs.find((c) => c.empresa === avaliacao.empresa) ?? null;
+  const pedidoDaLoja = avaliacao?.pedido && avaliacao.pedido.empresa === avaliacao.empresa ? avaliacao.pedido : null;
 
   // As etapas do caminho normal: as abertas mais a de ganho. Perdidos fica
   // fora da lista numerada porque perder não é um passo do caminho — tem
@@ -279,21 +282,21 @@ export function SupervisorPanel({
             {configDoPedido.link_google ? (
               <>
                 <p className="text-xs text-wa-icon">
-                  {avaliacao?.pedido?.confirmado_em
+                  {pedidoDaLoja?.confirmado_em
                     ? "Este cliente já avaliou. Obrigado!"
-                    : avaliacao?.pedido?.enviado_em || avaliacaoEnviada
+                    : pedidoDaLoja?.enviado_em || avaliacaoEnviada
                       ? "O pedido de avaliação já foi para a conversa. Pode mandar de novo se precisar."
                       : "Venda fechada: peça a avaliação no Google enquanto o cliente está feliz."}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(() => {
-                    const msgs = mensagensDeAvaliacao(configDoPedido, avaliacao?.pedido ?? null);
+                    const msgs = mensagensDeAvaliacao(configDoPedido, pedidoDaLoja);
                     return (
                       <>
                         <button
                           type="button"
                           onClick={() =>
-                            avaliacao?.pedido ? void usarAvaliacao(msgs[0]) : void enviarAvaliacaoDaLoja(configDoPedido)
+                            pedidoDaLoja ? void usarAvaliacao(msgs[0], pedidoDaLoja) : void enviarAvaliacaoDaLoja(configDoPedido)
                           }
                           className="inline-flex items-center gap-1.5 rounded-full bg-wa-accent px-3 py-1.5 text-[13px] font-medium text-wa-on-accent hover:bg-wa-accent-hover"
                         >

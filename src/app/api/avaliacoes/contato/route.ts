@@ -34,15 +34,30 @@ export async function GET(request: Request) {
   const campos = "id, venda_id, empresa, cliente, telefone, token, enviado_em, confirmado_em, criado_em";
   let pedido: Record<string, unknown> | null = null;
 
+  /*
+   * A LOJA DO CLIENTE decide o link (27/11/2026: "o vendedor da A&G vai
+   * enviar o link de avaliação e vai o da MF"). Antes o pedido era achado
+   * pelo telefone ou pela ficha em QUALQUER loja, e o painel usava a loja
+   * desse pedido: cliente que um dia comprou da fábrica ou de outra loja
+   * recebia o link de lá. Agora: a loja da ficha do cliente; sem ficha, a de
+   * quem atende. Todo pedido procurado daqui para baixo é desta loja.
+   */
+  let loja = auth.empresa;
+  if (relacionamento) {
+    const { data: rel } = await sb.from("relacionamentos").select("empresa").eq("id", relacionamento).maybeSingle();
+    if (rel?.empresa) loja = rel.empresa as string;
+  }
+
   // 1) Pela ficha: as vendas desse cliente.
   if (relacionamento) {
-    const { data: vendas } = await sb.from("vendas").select("id").eq("relacionamento_id", relacionamento).limit(50);
+    const { data: vendas } = await sb.from("vendas").select("id").eq("relacionamento_id", relacionamento).eq("empresa", loja).limit(50);
     const ids = (vendas ?? []).map((v) => v.id);
     if (ids.length) {
       const { data } = await sb
         .from("pedidos_avaliacao")
         .select(campos)
         .in("venda_id", ids)
+        .eq("empresa", loja)
         .order("criado_em", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -56,6 +71,7 @@ export async function GET(request: Request) {
     const { data } = await sb
       .from("pedidos_avaliacao")
       .select(campos)
+      .eq("empresa", loja)
       .ilike("telefone", `%${fim.slice(0, 4)}%${fim.slice(4)}%`)
       .order("criado_em", { ascending: false })
       .limit(5);
@@ -69,6 +85,7 @@ export async function GET(request: Request) {
       .from("pedidos_avaliacao")
       .select(campos)
       .eq("vendedor_id", auth.userId)
+      .eq("empresa", loja)
       .is("enviado_em", null)
       .ilike("cliente", nome.replace(/[%_]/g, ""))
       .order("criado_em", { ascending: false })
@@ -88,6 +105,7 @@ export async function GET(request: Request) {
         .from("pedidos_avaliacao")
         .select(campos)
         .eq("vendedor_id", auth.userId)
+        .eq("empresa", loja)
         .is("enviado_em", null)
         .ilike("cliente", `${primeiro}%`)
         .order("criado_em", { ascending: false })
@@ -97,7 +115,8 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    empresa: auth.empresa,
+    // A loja do CLIENTE (é dela o link que vai na conversa).
+    empresa: loja,
     // O gestor mestre atende pelas quatro lojas: vê o link de cada uma.
     todas: vejoTodasAsLojas(auth),
     pedido,
