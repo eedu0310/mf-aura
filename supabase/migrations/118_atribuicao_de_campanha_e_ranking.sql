@@ -172,6 +172,15 @@ create trigger trg_aura_posvenda_sem_venda_cria_venda
 
 -- ---------------------------------------------------------------- 4 ranking
 
+-- As medidas novas que a nota sabe calcular (src/lib/ranking/nota.ts).
+-- "negociacao" continua aceita só para a linha antiga, que fica desligada.
+alter table public.ranking_criterios drop constraint if exists ranking_criterios_medida_check;
+alter table public.ranking_criterios add constraint ranking_criterios_medida_check check (medida = any (array[
+  'avaliacao_conquistada', 'avaliacao_enviada', 'recompra', 'prospeccao_fechada', 'venda_nova', 'venda_lead',
+  'faturamento', 'prospeccao', 'lead_recebido', 'negociacao', 'atividades', 'crm_em_dia',
+  'indicacao', 'ticket_medio', 'conversao', 'preco_mantido', 'ciclo_medio', 'cancelamentos', 'atingimento_meta'
+]::text[]));
+
 update public.ranking_criterios set ativo = false where medida = 'negociacao';
 
 insert into public.ranking_criterios (medida, titulo, descricao, peso, meta_mes, categoria_alvo, ativo, ordem)
@@ -183,7 +192,7 @@ select v.medida, v.titulo, v.descricao, v.peso, v.meta, null, true, v.ordem
     ('ticket_medio', 'Ticket médio', 'Faturamento ÷ número de vendas do mês, em reais.', 1, 15000, 11),
     ('preco_mantido', 'Preço mantido', 'Quanto do preço de tabela foi mantido nas vendas, em %.', 1, 95, 12),
     ('ciclo_medio', 'Ciclo médio', 'Dias do cadastro do cliente até a venda. Menor é melhor: a meta é o teto.', 1, 30, 13),
-    ('cancelamentos', 'Cancelamentos', 'Vendas canceladas no mês. Menor é melhor: 0 = nenhum.', 1, 0, 14)
+    ('cancelamentos', 'Cancelamentos', 'Vendas canceladas no mês. Menor é melhor: a meta é o teto (até 1 no mês).', 1, 1, 14)
   ) as v(medida, titulo, descricao, peso, meta, ordem)
  where not exists (select 1 from public.ranking_criterios c where c.medida = v.medida);
 
