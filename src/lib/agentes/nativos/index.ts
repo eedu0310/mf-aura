@@ -24,6 +24,7 @@ import { agenteQualidade } from "./qualidade";
 import { agenteConversas } from "./conversas";
 import { agenteCurador } from "./curador";
 import { agenteRevisorAprendizado } from "./revisor-aprendizado";
+import { agenteBibliotecario } from "./bibliotecario";
 import { agenteCacadorBrechas } from "./cacador-brechas";
 import { agenteCacadorErros } from "./cacador-erros";
 
@@ -43,6 +44,7 @@ export const AGENTES_NATIVOS: DefinicaoAgente[] = [
   agenteConversas,
   agenteRevisorAprendizado,
   agenteCurador,
+  agenteBibliotecario,
   // Equipe Vermelha: só leem e sondam; dizem o que está aberto ou quebrado e como arrumar.
   agenteCacadorBrechas,
   agenteCacadorErros,

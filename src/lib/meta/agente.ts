@@ -153,7 +153,7 @@ const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * nem o material da fábrica nem o de outra loja.
  */
 async function material(sb: ClienteServico, empresa: string, assunto: string) {
-  return materiaisParaPergunta(sb as never, empresa, assunto, 8).catch(() => "");
+  return materiaisParaPergunta(sb as never, empresa, assunto, 8, { paraCliente: true }).catch(() => "");
 }
 
 function regras(empresa: string, cfg: ConfigAgente, situacao: string, publico: boolean) {

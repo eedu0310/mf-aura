@@ -21,6 +21,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
+/**
+ * Marca no título do material de uso interno (preço, condição comercial). O
+ * "origem" de cada trecho começa pelo título, então a marca chega até ele.
+ * Mesmo texto de MARCA_INTERNO em src/lib/conhecimento/drive-publico.ts.
+ */
+export const MARCA_USO_INTERNO = "[Uso interno]";
+
 /** Quanto do manual buscado cabe no prompt. O núcleo não conta aqui. */
 const LIMITE_TRECHOS = 6_000;
 const CACHE_NUCLEO_MS = 10 * 60 * 1000;
@@ -453,11 +460,21 @@ export async function materiaisParaPergunta(
   empresa: string,
   pergunta: string,
   limite = 8,
+  opcoes: { paraCliente?: boolean } = {},
 ): Promise<string> {
-  const [nucleo, achados] = await Promise.all([
+  const [nucleo, achadosBrutos] = await Promise.all([
     nucleoDoManual(sb, empresa).catch(() => ""),
-    trechosRelevantes(sb, empresa, pergunta, limite),
+    // Para o cliente, pede um pouco mais: os de uso interno saem depois.
+    trechosRelevantes(sb, empresa, pergunta, opcoes.paraCliente ? limite + 4 : limite),
   ]);
+  /*
+   * Quem fala com o CLIENTE (Instagram, chat do site) não lê material de uso
+   * interno — tabela de preço, condição comercial (27/11/2026). O prompt já
+   * proíbe falar preço, mas o que não chega ao modelo não escapa.
+   */
+  const achados = opcoes.paraCliente
+    ? achadosBrutos.filter((t) => !t.origem.startsWith(MARCA_USO_INTERNO)).slice(0, limite)
+    : achadosBrutos;
   // O que já está no núcleo não ocupa vaga da busca.
   const extras = achados.filter((t) => !nucleo.includes(t.texto));
   const busca = textoDosTrechos(extras);

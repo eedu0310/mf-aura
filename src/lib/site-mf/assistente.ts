@@ -147,7 +147,7 @@ export async function responderComAssistente(
     if (!turnos.length) return;
 
     const assunto = falas.filter((f) => f.papel === "user").map((f) => f.texto).join("\n");
-    const material = await materiaisParaPergunta(sb as never, EMPRESA_DO_SITE, assunto, 8).catch(() => "");
+    const material = await materiaisParaPergunta(sb as never, EMPRESA_DO_SITE, assunto, 8, { paraCliente: true }).catch(() => "");
     const horarioTexto = horarioEmTexto(horario) || "horário comercial";
 
     const sistema = `Você é o ${NOME_DO_ASSISTENTE}, o assistente virtual do chat do site da MF International: fábrica de lareiras de alto rendimento em São Sebastião do Caí/RS, desde 1977, pioneira na tripla combustão.

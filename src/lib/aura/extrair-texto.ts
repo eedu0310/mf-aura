@@ -4,6 +4,7 @@
  *  - .txt / .md / .csv / .json → texto direto
  *  - .docx                     → descompacta com jszip e lê word/document.xml
  *  - .pptx                     → o mesmo, lendo o texto de cada slide
+ *  - .xlsx                     → o mesmo, uma linha por linha da planilha
  *  - .pdf                      → pdf.js, a mesma biblioteca do navegador, que
  *                                lê o mapa de caracteres das fontes embutidas
  *                                (PDF que é foto/digitalização não tem texto)
@@ -102,6 +103,67 @@ async function doPptx(buffer: Buffer): Promise<string> {
     if (texto.length > 20) partes.push(`[Anotações] ${texto}`);
   }
 
+  return limpar(partes.join("\n\n"));
+}
+
+// ---------------------------------------------------------------- xlsx
+
+/**
+ * Texto de uma planilha do Excel: uma linha por linha da planilha, células
+ * separadas por " | ", com o nome da aba em cima. Entrou em 27/11/2026 para
+ * as tabelas dos parceiros (Scheer, De Bacco, Seccare), que só existem em
+ * .xlsx. Lê o XML direto (jszip), sem biblioteca nova.
+ */
+async function doXlsx(buffer: Buffer): Promise<string> {
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buffer);
+  const desfazer = (s: string) =>
+    s
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, "&");
+
+  // Textos compartilhados: a célula do tipo "s" guarda só o índice.
+  const compartilhados: string[] = [];
+  const ss = zip.file("xl/sharedStrings.xml");
+  if (ss) {
+    const xml = await ss.async("string");
+    for (const si of xml.match(/<si>[\s\S]*?<\/si>/g) ?? []) {
+      compartilhados.push(desfazer([...si.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((m) => m[1]).join("")));
+    }
+  }
+
+  // Nome de cada aba, na ordem do livro.
+  const nomes: string[] = [];
+  const livro = zip.file("xl/workbook.xml");
+  if (livro) for (const m of (await livro.async("string")).matchAll(/<sheet[^>]*name="([^"]*)"/g)) nomes.push(desfazer(m[1]));
+
+  const abas = Object.keys(zip.files)
+    .filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
+    .sort((a, b) => Number(a.match(/(\d+)\.xml$/)?.[1] ?? 0) - Number(b.match(/(\d+)\.xml$/)?.[1] ?? 0));
+  const partes: string[] = [];
+  for (const [i, nome] of abas.entries()) {
+    const xml = await zip.file(nome)!.async("string");
+    const linhas: string[] = [];
+    for (const row of xml.match(/<row[\s\S]*?<\/row>/g) ?? []) {
+      const celulas: string[] = [];
+      for (const c of row.matchAll(/<c([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+        const attrs = c[1] ?? "";
+        const corpo = c[2] ?? "";
+        const tipoCel = /t="([^"]+)"/.exec(attrs)?.[1];
+        let v = "";
+        if (tipoCel === "s") v = compartilhados[Number(/<v>([\s\S]*?)<\/v>/.exec(corpo)?.[1] ?? -1)] ?? "";
+        else if (tipoCel === "inlineStr") v = desfazer([...corpo.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((m) => m[1]).join(""));
+        else v = desfazer(/<v>([\s\S]*?)<\/v>/.exec(corpo)?.[1] ?? "");
+        v = v.replace(/\s+/g, " ").trim();
+        if (v) celulas.push(v);
+      }
+      if (celulas.length) linhas.push(celulas.join(" | "));
+    }
+    if (linhas.length) partes.push(`# ${nomes[i] ?? `Aba ${i + 1}`}\n${linhas.join("\n")}`);
+  }
   return limpar(partes.join("\n\n"));
 }
 
@@ -216,6 +278,11 @@ export async function extrairTexto(nome: string, tipo: string, buffer: Buffer): 
   if (ext === "pptx" || tipo.includes("presentationml")) {
     const texto = await doPptx(buffer);
     if (!texto) throw new Error("Não achei texto nesta apresentação — os slides podem ser só imagens.");
+    return { texto };
+  }
+  if (ext === "xlsx" || tipo.includes("spreadsheetml")) {
+    const texto = await doXlsx(buffer);
+    if (!texto) throw new Error("Não achei dados nesta planilha.");
     return { texto };
   }
   if (ext === "pdf" || tipo === "application/pdf") return await doPdf(buffer);
