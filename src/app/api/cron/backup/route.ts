@@ -86,6 +86,7 @@ export async function GET(request: Request) {
       sessoes: r.sessoes ? path.basename(r.sessoes) : null,
       apagados: r.apagados,
       nuvem: r.nuvem.erro ? `FALHOU: ${r.nuvem.erro}` : `ok: ${r.nuvem.enviados.join(", ")}`,
+      drive: r.drive,
     };
   });
 }

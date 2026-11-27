@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -10,9 +10,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * ONDE E POR QUÊ: o banco vive no Supabase e a aplicação na VPS. Gravar o
  * arquivo no disco da VPS já coloca a cópia em outra casa — se o Supabase cair
  * ou alguém apagar dado por engano, o arquivo está em outro fornecedor.
- * Guardar dentro do próprio banco não seria backup, e o Google Drive exigiria
- * credencial OAuth que vence e falha calada: a classe de erro que mais dói,
- * porque ninguém descobre que o backup parou até precisar dele.
+ * Guardar dentro do próprio banco não seria backup. Desde 27/11/2026 vai também
+ * para o Google Drive do dono, pelo rclone da VPS (enviarParaDrive): o
+ * resultado aparece no log de toda noite ("drive: ok" ou o motivo), então se
+ * a credencial vencer, aparece — em vez de falhar calado.
  */
 
 export const PASTA_PADRAO = path.join(process.cwd(), ".backups");
@@ -76,6 +77,8 @@ export interface ResultadoBackup {
   sessoes: string | null;
   /** O que subiu para o Supabase Storage (bucket "backups"), ou o motivo de não ter subido. */
   nuvem: { enviados: string[]; apagados: string[]; erro: string | null };
+  /** Cópia no Google Drive do dono, pelo rclone: "ok: …", "não configurado (…)" ou "FALHOU: …". */
+  drive: string;
 }
 
 /** Bucket privado criado na migração 088. Só o service_role lê e grava. */
@@ -213,28 +216,78 @@ async function lerEsquema(sb: SupabaseClient): Promise<{ esquema: string; migrac
  * Usa o `tar` do sistema; na VPS (Linux) ele sempre existe. Se não existir
  * (Windows de desenvolvimento), devolve null em vez de quebrar o backup.
  */
-function empacotarSessoes(pastaSessoes: string, destino: string): string | null {
+async function empacotarSessoes(pastaSessoes: string, destino: string): Promise<string | null> {
   if (!fs.existsSync(pastaSessoes)) return null;
   const temporario = `${destino}.tmp`;
-  const r = spawnSync(
-    "tar",
-    [
-      "-czf",
-      temporario,
-      "--exclude=diagnostico.log",
-      "--exclude=_media",
-      "-C",
-      path.dirname(pastaSessoes),
-      path.basename(pastaSessoes),
-    ],
-    { stdio: "ignore" },
-  );
-  if (r.status !== 0) {
+  /*
+   * Assíncrono (27/11/2026). Era spawnSync: enquanto o tar empacotava, o
+   * Node inteiro ficava parado — o AURA não respondia ninguém. Com os 6,4 GB
+   * da pasta _media isso levava minutos toda noite.
+   */
+  try {
+    await rodar(
+      "tar",
+      ["-czf", temporario, "--exclude=diagnostico.log", "--exclude=_media", "-C", path.dirname(pastaSessoes), path.basename(pastaSessoes)],
+      10 * 60_000,
+    );
+  } catch {
     try { fs.unlinkSync(temporario); } catch { /* não chegou a existir */ }
     return null;
   }
   fs.renameSync(temporario, destino);
   return destino;
+}
+
+/** Roda um programa sem travar o servidor; rejeita com o fim do stderr se falhar. */
+function rodar(programa: string, args: string[], tempoMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(programa, args, { timeout: tempoMs, maxBuffer: 4 * 1024 * 1024 }, (erro, stdout, stderr) => {
+      if (erro) reject(new Error((String(stderr || "").trim().split("\n").pop() || erro.message).slice(0, 300)));
+      else resolve(String(stdout));
+    });
+  });
+}
+
+/* ------------------------------------------------------------ google drive */
+
+/*
+ * CÓPIA NO GOOGLE DRIVE DO DONO (pedido do Elton, 27/11/2026: "coloca o
+ * backup diário no meu Google Drive, tenho 400 GB; já usei o rclone em outro
+ * sistema e deu certo").
+ *
+ * Pelo rclone instalado na VPS, com um "remote" configurado pelo próprio
+ * dono para o usuário do serviço (aura). O token do Google fica no
+ * rclone.conf da VPS e nunca passa pelo código nem pelo banco. Sem o rclone
+ * ou sem o remote, o backup segue normal e o log diz "drive: não
+ * configurado" — não quebra nada.
+ *
+ * No Drive fica uma pasta por dia em "AURA Backups", e o que passa de
+ * DIAS_NO_DRIVE dias é apagado de lá (só dentro dessa pasta).
+ */
+export const REMOTO_DRIVE = (process.env.AURA_RCLONE_REMOTO || "aura-drive").replace(/:$/, "");
+export const PASTA_NO_DRIVE = "AURA Backups";
+export const DIAS_NO_DRIVE = 30;
+
+export async function enviarParaDrive(arquivos: string[], dia: string): Promise<string> {
+  let remotos = "";
+  try {
+    remotos = await rodar("rclone", ["listremotes"], 20_000);
+  } catch {
+    return "não configurado (rclone não instalado na VPS)";
+  }
+  if (!remotos.split("\n").some((r) => r.trim() === `${REMOTO_DRIVE}:`)) {
+    return `não configurado (falta o remote "${REMOTO_DRIVE}" no rclone)`;
+  }
+  const destino = `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}/${dia}`;
+  try {
+    for (const a of arquivos) await rodar("rclone", ["copy", a, destino, "--retries", "3"], 10 * 60_000);
+    // Limpeza só dentro de "AURA Backups": arquivos com mais de N dias e as pastas que ficarem vazias.
+    await rodar("rclone", ["delete", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--min-age", `${DIAS_NO_DRIVE}d`], 5 * 60_000).catch(() => "");
+    await rodar("rclone", ["rmdirs", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--leave-root"], 5 * 60_000).catch(() => "");
+    return `ok: ${arquivos.map((a) => path.basename(a)).join(", ")} em ${PASTA_NO_DRIVE}/${dia}`;
+  } catch (e) {
+    return `FALHOU: ${e instanceof Error ? e.message : String(e)}`;
+  }
 }
 
 /**
@@ -364,7 +417,7 @@ export async function executarBackup(
   fs.renameSync(temporario, arquivo);
   const bytes = fs.statSync(arquivo).size;
 
-  const sessoes = empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
+  const sessoes = await empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
 
   // No disco fica só o de hoje (ver antigosNoDisco). Só chega aqui com o
   // arquivo do banco de hoje já gravado e conferido pelo rename.
@@ -379,7 +432,8 @@ export async function executarBackup(
     }
   }
 
-  const nuvem = await subirParaNuvem(sb, [arquivo, ...(sessoes ? [sessoes] : [])], dia);
+  const doDia = [arquivo, ...(sessoes ? [sessoes] : [])];
+  const [nuvem, drive] = await Promise.all([subirParaNuvem(sb, doDia, dia), enviarParaDrive(doDia, dia)]);
 
   return {
     arquivo,
@@ -391,5 +445,6 @@ export async function executarBackup(
     migracoes: migracoes.length,
     sessoes,
     nuvem,
+    drive,
   };
 }
