@@ -7,16 +7,22 @@ export const dynamic = "force-dynamic";
 
 /** As medidas que o sistema sabe calcular, para a tela montar o seletor. */
 const MEDIDAS = [
-  { valor: "avaliacao_conquistada", rotulo: "Avaliações recebidas", ajuda: "Conta quando o cliente abre o link ou o gestor confirma — não quando o vendedor manda." },
+  { valor: "avaliacao_conquistada", rotulo: "Avaliações recebidas", ajuda: "Conta quando o cliente abre o link ou o gestor confirma (pela data da abertura) — não quando o vendedor manda." },
   { valor: "avaliacao_enviada", rotulo: "Avaliações enviadas", ajuda: "Pedidos de avaliação que o vendedor mandou ao cliente no período." },
   { valor: "recompra", rotulo: "Recompra", ajuda: "Venda para cliente que já havia comprado antes do período." },
-  { valor: "prospeccao_fechada", rotulo: "Prospecção que fechou", ajuda: "Contato novo trazido pelo vendedor no período (sem lead de anúncio) que chegou a Fechados." },
+  { valor: "prospeccao_fechada", rotulo: "Prospecção que fechou", ajuda: "Venda de cliente que o vendedor trouxe (sem lead de anúncio, sem contato criado sozinho pelo WhatsApp e sem cadastro feito na hora da venda)." },
+  { valor: "indicacao", rotulo: "Indicação de clientes", ajuda: "Clientes que chegaram por indicação (atividade com origem Indicação ou contato de origem indicação), um por cliente." },
+  { valor: "ticket_medio", rotulo: "Ticket médio", ajuda: "Faturamento ÷ número de vendas, em reais. Quem não vendeu fica fora desta medida." },
+  { valor: "conversao", rotulo: "Conversão (%)", ajuda: "Ganhos ÷ (ganhos + perdidos) entre os negócios decididos no período. Meta em %." },
+  { valor: "preco_mantido", rotulo: "Preço mantido (%)", ajuda: "Quanto do preço de tabela foi mantido nas vendas (100% = sem desconto). Meta em %." },
+  { valor: "ciclo_medio", rotulo: "Ciclo médio (dias)", ajuda: "Dias do cadastro do cliente até a venda. Menor é melhor: a meta é o teto." },
+  { valor: "cancelamentos", rotulo: "Cancelamentos", ajuda: "Vendas canceladas no período. Menor é melhor: a meta é o máximo aceitável (0 = nenhum)." },
+  { valor: "atingimento_meta", rotulo: "Atingimento da meta (%)", ajuda: "Faturamento ÷ meta de faturamento aprovada do mês. Meta em % (100 = bateu)." },
   { valor: "venda_lead", rotulo: "Venda de lead fechada", ajuda: "Venda fechada de cliente que veio de anúncio ou campanha de marketing." },
   { valor: "lead_recebido", rotulo: "Leads recebidos", ajuda: "Leads de anúncio ou campanha que chegaram para a pessoa no período." },
-  { valor: "negociacao", rotulo: "Negócios em Negociação", ajuda: "Negócios que chegaram na etapa Negociação no período (um por cliente)." },
   { valor: "venda_nova", rotulo: "Vendas fechadas", ajuda: "Quantidade de negócios fechados no período." },
   { valor: "faturamento", rotulo: "Faturamento", ajuda: "Soma vendida no período, em reais." },
-  { valor: "prospeccao", rotulo: "Prospecção por categoria", ajuda: "Contatos novos que o vendedor trouxe (sem lead de anúncio). Escolha a categoria no campo ao lado." },
+  { valor: "prospeccao", rotulo: "Prospecção por categoria", ajuda: "Clientes que o vendedor prospectou: contato que ele trouxe (sem anúncio, sem WhatsApp automático) ou atividade de Prospecção, um por cliente. Escolha a categoria no campo ao lado." },
   { valor: "atividades", rotulo: "Atividades registradas", ajuda: "Quantidade de atividades lançadas no período." },
   { valor: "crm_em_dia", rotulo: "CRM em dia", ajuda: "Percentual de preenchimento: próximo contato, categoria e último contato. Meta 100." },
 ];

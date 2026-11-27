@@ -77,7 +77,16 @@ type Trilha =
   | { nivel: "negocio"; loja: string; voltarPara: Trilha; id: string };
 
 export function EquipeTab() {
-  const [trilha, setTrilha] = useState<Trilha>({ nivel: "lojas" });
+  /*
+   * Link direto para uma conversa (/gestor?aba=equipe&conversa=<id>): é o
+   * "Abrir o laudo completo da conversa" do Relatório semanal (27/11/2026).
+   * Voltar leva para a lista das lojas.
+   */
+  const [trilha, setTrilha] = useState<Trilha>(() => {
+    if (typeof window === "undefined") return { nivel: "lojas" };
+    const conversa = new URLSearchParams(window.location.search).get("conversa");
+    return conversa ? { nivel: "conversa", loja: "", voltarPara: { nivel: "lojas" }, id: conversa } : { nivel: "lojas" };
+  });
   const [dias, setDias] = useState(90);
   const [dados, setDados] = useState<Record<string, unknown> | null>(null);
   const [carregando, setCarregando] = useState(true);

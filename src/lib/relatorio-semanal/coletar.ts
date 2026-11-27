@@ -45,6 +45,51 @@ export interface ProspeccaoFeita {
   observacao: string;
 }
 
+/**
+ * Um negócio em aberto, para o gestor clicar na etapa ("17 em Prospecção") e
+ * ver QUAIS são — o cliente, o tipo dele e há quanto tempo está parado.
+ * Pedido do Elton, 27/11/2026.
+ */
+export interface NegocioAberto {
+  etapa: string;
+  cliente: string;
+  produto: string;
+  /** Tipo do cliente: arquiteto, cliente final, construtora, distribuidor... */
+  categoria: string;
+  valor: number;
+  /** Dias desde a última mudança do negócio. */
+  diasParado: number;
+  origem: string;
+}
+
+/** Uma atividade lançada no CRM (para abrir cada barra de "O que ele fez no CRM"). */
+export interface AtividadeFeita {
+  dia: string;
+  tipo: string;
+  cliente: string;
+  categoria: string;
+  resultado: string;
+  observacao: string;
+}
+
+/**
+ * Uma conversa do WhatsApp, cliente por cliente: o que a AURA viu nela (o
+ * resumo), onde o vendedor errou (os alertas), o que fazer (as dicas e a
+ * próxima ação). Quem tem muita conversa (lead de campanha) recebe só as que
+ * mais importam — as mais avançadas no funil, com valor ou com alerta.
+ */
+export interface ConversaDoVendedor {
+  id: string;
+  cliente: string;
+  etapa: string | null;
+  interesse: string;
+  valor: number;
+  resumo: string;
+  alertas: string[];
+  dicas: string[];
+  proximaAcao: string;
+}
+
 export interface EtapaDoPipeline {
   etapa: string;
   negocios: number;
@@ -67,6 +112,10 @@ export interface AtendimentoDoVendedor {
   /** Conversas com nome, para a IA citar caso concreto em vez de generalizar. */
   exemplos: { cliente: string; etapa: string | null; alerta: string }[];
   porNatureza: { natureza: string; conversas: number }[];
+  /** As conversas que mais importam, cliente por cliente. Opcional: relatórios antigos não têm. */
+  conversas?: ConversaDoVendedor[];
+  /** Quantas conversas ativas ficaram de fora da lista (quem tem muito lead de campanha). */
+  conversasForaDaLista?: number;
 }
 
 export interface MetasDoMes {
@@ -110,6 +159,8 @@ export interface SemanaDoVendedor {
     ligacoes: number;
     orcamentos: number;
     followUps: number;
+    /** Cada atividade do período (para abrir a barra de cada tipo). Opcional: relatórios antigos não têm. */
+    lista?: AtividadeFeita[];
   };
   /**
    * Agenda da semana. "Marcados" e "realizados" são coisas diferentes e o
@@ -142,6 +193,8 @@ export interface SemanaDoVendedor {
     valorEmAberto: number;
     porEtapa: EtapaDoPipeline[];
     motivosDePerda: { motivo: string; n: number }[];
+    /** Os negócios em aberto, um por um (para abrir cada etapa). Opcional: relatórios antigos não têm. */
+    negocios?: NegocioAberto[];
   };
   vendas: {
     quantidade: number;
@@ -263,7 +316,7 @@ export async function coletarSemanaDaLoja(
     paginado((de, ate) =>
       sb
         .from("oportunidades")
-        .select("owner_id, etapa, valor, created_at, updated_at, motivo_perda, data_perda")
+        .select("owner_id, etapa, valor, created_at, updated_at, motivo_perda, data_perda, cliente, produto, relacionamento_id, origem_lead")
         .eq("empresa", empresa)
         .order("id")
         .range(de, ate),
@@ -278,7 +331,7 @@ export async function coletarSemanaDaLoja(
       sb
         .from("whatsapp_ia_leads")
         .select(
-          "owner_id, nome, etapa, dicas, alertas, natureza, proxima_acao, ignorado, created_at, ultima_analise_em",
+          "id, owner_id, nome, etapa, dicas, alertas, natureza, proxima_acao, ignorado, created_at, ultima_analise_em, resumo, interesse, valor_estimado",
         )
         .eq("empresa", empresa)
         .order("id")
@@ -569,6 +622,21 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     }))
     .sort((a, b) => b.atividades + b.clientesNovos - (a.atividades + a.clientesNovos));
 
+  /** Cada atividade, para a barra de cada tipo abrir a lista (pedido de 27/11/2026). */
+  const listaDeAtividades: AtividadeFeita[] = minhasAtividades
+    .map((a) => {
+      const rel = f.clienteDoRelacionamento?.get(String(a.relacionamento_id ?? ""));
+      return {
+        dia: diaEmBrasilia(String(a.ocorrida_em ?? "")),
+        tipo: String(a.tipo ?? "").trim() || "Sem tipo",
+        cliente: rel?.nome || String(a.cliente_nome ?? "").trim() || "Sem nome",
+        categoria: categoriaDaAtividade(a) || "Sem tipo",
+        resultado: String(a.resultado ?? "").trim(),
+        observacao: limparObservacao(String(a.observacao ?? "")),
+      };
+    })
+    .sort((a, b) => (a.dia < b.dia ? 1 : a.dia > b.dia ? -1 : a.cliente.localeCompare(b.cliente, "pt-BR")));
+
   // ------------------------------------------------------------- pipeline
   const minhasOportunidades = meu(f.oportunidades as { owner_id?: unknown }[]) as Record<string, unknown>[];
   const criadasNoPeriodo = minhasOportunidades.filter((o) => noPeriodo(o.created_at));
@@ -605,6 +673,24 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     porEtapaMapa.set(etapa, atual);
   }
 
+  /** Os negócios em aberto, um por um, do mais parado para o menos. */
+  const agoraMs = new Date(f.fimISO).getTime();
+  const negociosAbertos: NegocioAberto[] = emAberto
+    .map((o) => {
+      const rel = f.clienteDoRelacionamento?.get(String(o.relacionamento_id ?? ""));
+      const desde = new Date(String(o.updated_at ?? o.created_at ?? "")).getTime();
+      return {
+        etapa: String(o.etapa ?? "sem etapa"),
+        cliente: rel?.nome || String(o.cliente ?? "").trim() || "Sem nome",
+        produto: String(o.produto ?? "").trim(),
+        categoria: f.categoriaDoRelacionamento.get(String(o.relacionamento_id ?? "")) || "Sem tipo",
+        valor: Number(o.valor ?? 0),
+        diasParado: Number.isFinite(desde) ? Math.max(0, Math.floor((agoraMs - desde) / 86_400_000)) : 0,
+        origem: String(o.origem_lead ?? "").trim(),
+      };
+    })
+    .sort((a, b) => b.diasParado - a.diasParado || b.valor - a.valor);
+
   // --------------------------------------------------------------- vendas
   const vendasDoPeriodo = (f.vendas as Record<string, unknown>[]).filter((v) => noPeriodo(v.data, true));
   const minhasVendas = vendasDoVendedor(vendasDoPeriodo as unknown as VendaComParceria[], id);
@@ -616,6 +702,47 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
 
   const alertasPorConversa = ativas.map((c) => textosDoJsonb(c.alertas));
   const dicasPorConversa = ativas.map((c) => textosDoJsonb(c.dicas));
+
+  /*
+   * As conversas cliente por cliente. Quem tem muita conversa (o vendedor
+   * interno, com lead de campanha chegando o dia todo) recebe só as que mais
+   * importam: as mais avançadas no funil, com valor ou com alerta — o gestor
+   * pediu "filtrar os leads mais quentes e mostrar onde errou em cada um".
+   */
+  const pesoDaEtapa = (etapa: string) => {
+    const e = etapa.toLowerCase();
+    if (e.includes("fecha")) return 5;
+    if (e.includes("negoci")) return 4;
+    if (e.includes("follow") || e.includes("apresent") || e.includes("orç") || e.includes("orc")) return 3;
+    if (e.includes("qualif")) return 2;
+    if (e.includes("prosp")) return 1;
+    return 0;
+  };
+  const comerciais = ativas.filter((c) => c.ignorado !== true && String(c.natureza ?? "") !== "nao_lead");
+  const conversasDetalhadas: ConversaDoVendedor[] = comerciais
+    .map((c) => {
+      const alertas = textosDoJsonb(c.alertas);
+      const valor = Number(c.valor_estimado ?? 0) || 0;
+      return {
+        conversa: {
+          id: String(c.id ?? ""),
+          cliente: String(c.nome ?? "sem nome"),
+          etapa: c.etapa ? String(c.etapa) : null,
+          interesse: String(c.interesse ?? "").trim(),
+          valor,
+          resumo: String(c.resumo ?? "").trim(),
+          alertas,
+          dicas: textosDoJsonb(c.dicas),
+          proximaAcao: String(c.proxima_acao ?? "").trim(),
+        },
+        nota: pesoDaEtapa(String(c.etapa ?? "")) * 10 + (valor > 0 ? 6 : 0) + (alertas.length ? 4 : 0),
+        em: String(c.ultima_analise_em ?? ""),
+      };
+    })
+    .sort((a, b) => b.nota - a.nota || (a.em < b.em ? 1 : -1))
+    .map((x) => x.conversa);
+  const CONVERSAS_NA_LISTA = 15;
+  const conversasDaLista = conversasDetalhadas.slice(0, CONVERSAS_NA_LISTA);
 
   const exemplos = ativas
     .map((c) => ({
@@ -736,6 +863,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
       ligacoes: temTipo("liga"),
       orcamentos: temTipo("orçament") + temTipo("orcament"),
       followUps: temTipo("follow"),
+      lista: listaDeAtividades,
     },
     agenda,
     prospeccao: {
@@ -758,6 +886,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
         motivo: m.texto,
         n: m.n,
       })),
+      negocios: negociosAbertos,
     },
     vendas: {
       quantidade: minhasVendas.length,
@@ -783,6 +912,8 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
         natureza: n.texto,
         conversas: n.n,
       })),
+      conversas: conversasDaLista,
+      conversasForaDaLista: Math.max(0, conversasDetalhadas.length - conversasDaLista.length),
     },
     metas: metaLinha
       ? {

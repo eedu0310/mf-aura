@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { calcularNota, carregarConfigRanking, type Insumos } from "@/lib/ranking/nota";
+import { MEDIDAS_CONHECIDAS, calcularNota, carregarConfigRanking, unidadeDaMedida, type Insumos } from "@/lib/ranking/nota";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { inicioDoMesEmSaoPaulo } from "@/lib/fuso";
 import { ehAtividadeDoVendedor, quantidadeDeVendas, totalVendido } from "@/lib/kpis";
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
     todasAsLinhas((de, ate) =>
       supabase
         .from("vendas")
-        .select("id,owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro,origem_lead")
+        .select("id,owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro,origem_lead,data,status,valor_original")
         .gte("data", desdeDia)
         .order("id")
         .range(de, ate),
@@ -97,14 +97,14 @@ export async function GET(request: Request) {
     todasAsLinhas((de, ate) =>
       supabase
         .from("relacionamentos")
-        .select("id,owner_id,categoria,proximo_contato_em,ultimo_contato_em,created_at,origem_lead")
+        .select("id,owner_id,categoria,proximo_contato_em,ultimo_contato_em,created_at,origem_lead,origem")
         .order("id")
         .range(de, ate),
     ),
     todasAsLinhas((de, ate) =>
       supabase
         .from("atividades")
-        .select("id,owner_id,tipo,titulo,relacionamento_id")
+        .select("id,owner_id,tipo,titulo,relacionamento_id,origem,cliente_nome")
         .gte("created_at", desdeIso)
         .order("id")
         .range(de, ate),
@@ -113,14 +113,31 @@ export async function GET(request: Request) {
       supabase
         .from("pedidos_avaliacao")
         .select("id,vendedor_id,enviado_em,aberto_em,confirmado_em")
-        .gte("criado_em", desdeIso)
+        // Pela data do envio/abertura, não da venda: o pedido nasce na venda e
+        // é mandado dias depois — o filtro por criado_em perdia quase tudo (27/11/2026).
+        .or(`enviado_em.gte.${desdeIso},aberto_em.gte.${desdeIso},confirmado_em.gte.${desdeIso}`)
         .order("id")
         .range(de, ate),
     ),
     todasAsLinhas((de, ate) =>
-      supabase.from("oportunidades").select("id,owner_id,relacionamento_id,etapa").order("id").range(de, ate),
+      supabase
+        .from("oportunidades")
+        .select("id,owner_id,relacionamento_id,etapa,updated_at,data_perda")
+        .order("id")
+        .range(de, ate),
     ),
   ]);
+
+  // Meta de faturamento aprovada do mês (atingimento da meta).
+  const mesAtual = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
+  const { data: metas } = await supabase
+    .from("compromissos_mensais")
+    .select("vendedor_id, meta_faturamento")
+    .eq("mes", mesAtual)
+    .eq("status", "aprovado");
+  const metaDeFaturamento = new Map(
+    (metas ?? []).map((m) => [String(m.vendedor_id), Number(m.meta_faturamento ?? 0)] as [string, number]),
+  );
 
   /*
    * Só o erro das pessoas era olhado. Uma página de vendas que falhasse
@@ -152,6 +169,7 @@ export async function GET(request: Request) {
     atividades: (atividades ?? []) as Insumos["atividades"],
     avaliacoes: (avaliacoes ?? []) as Insumos["avaliacoes"],
     oportunidades: (oportunidades ?? []) as Insumos["oportunidades"],
+    metaDeFaturamento,
     /*
      * Sem funil específico aqui de propósito: este ranking é do GRUPO, com as
      * quatro lojas juntas, e cada uma pode ter o seu. O único uso do funil na
@@ -169,12 +187,12 @@ export async function GET(request: Request) {
 
   // Uma disputa por critério, para quem quiser ver o detalhe de cada frente.
   const rankings = criterios
-    .filter((c) => c.ativo)
+    .filter((c) => c.ativo && MEDIDAS_CONHECIDAS.has(c.medida))
     .map((c) => ({
       id: c.id,
       titulo: c.titulo,
       descricao: c.descricao ?? "",
-      unidade: c.medida === "faturamento" ? ("moeda" as const) : ("quantidade" as const),
+      unidade: unidadeDaMedida(c.medida),
       linhas: notas
         .map((n) => {
           const parcela = n.parcelas.find((p) => p.criterioId === c.id);

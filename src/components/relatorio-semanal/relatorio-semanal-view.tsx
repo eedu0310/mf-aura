@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Loader2,
   MessageSquare,
   Printer,
@@ -150,6 +151,272 @@ function Barras({
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * Barras que abrem (pedido do Elton, 27/11/2026: "o Charles tem 17
+ * prospecções, mas não mostra QUAIS são — arquiteto, cliente final, outra
+ * coisa; clicar e abrir para baixo"). Cada barra vira um botão; o detalhe
+ * abre logo embaixo. Na impressão e no PDF todos os detalhes saem abertos:
+ * no papel ninguém clica.
+ */
+function BarrasQueAbrem({
+  itens,
+  formato = "numero",
+  detalhe,
+}: {
+  itens: { rotulo: string; valor: number; nota?: string }[];
+  formato?: "numero" | "moeda";
+  /** O que aparece embaixo da barra aberta (null = a barra não abre). */
+  detalhe?: (rotulo: string) => ReactNode | null;
+}) {
+  const [abertas, setAbertas] = useState<Set<string>>(new Set());
+  const maior = Math.max(1, ...itens.map((i) => i.valor));
+  if (!itens.length) {
+    return <p className="text-xs text-aura-graphite-soft">Nada registrado no período.</p>;
+  }
+  const alternar = (r: string) =>
+    setAbertas((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(r)) novo.delete(r);
+      else novo.add(r);
+      return novo;
+    });
+  return (
+    <ul className="space-y-1.5">
+      {itens.map((i) => {
+        const conteudo = detalhe ? detalhe(i.rotulo) : null;
+        const aberta = abertas.has(i.rotulo);
+        const linha = (
+          <>
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="flex min-w-0 items-center gap-1 truncate text-aura-graphite">
+                {conteudo ? (
+                  <span className="text-aura-graphite-soft print:hidden">
+                    {aberta ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                  </span>
+                ) : null}
+                <span className={conteudo ? "truncate underline decoration-dotted underline-offset-2" : "truncate"}>{i.rotulo}</span>
+              </span>
+              <span className="shrink-0 font-medium text-aura-graphite">
+                {formato === "moeda" ? moedaCurta(i.valor) : i.valor}
+                {i.nota ? <span className="font-normal text-aura-graphite-soft"> · {i.nota}</span> : null}
+              </span>
+            </div>
+            <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-aura-mist">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${Math.max(2, (i.valor / maior) * 100)}%`, background: COR.serie }}
+              />
+            </div>
+          </>
+        );
+        return (
+          <li key={i.rotulo}>
+            {conteudo ? (
+              <button
+                type="button"
+                onClick={() => alternar(i.rotulo)}
+                aria-expanded={aberta}
+                className="block w-full rounded-md text-left transition hover:bg-aura-sunken/60"
+                title="Clique para ver um por um"
+              >
+                {linha}
+              </button>
+            ) : (
+              linha
+            )}
+            {conteudo ? <div className={`mt-1.5 ${aberta ? "" : "hidden"} print:block`}>{conteudo}</div> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** "Arquiteto: 3 · Cliente Final: 2", para o gestor ver o tipo de cliente de cara. */
+function resumoPorTipo(lista: { categoria: string }[]): string {
+  const mapa = new Map<string, number>();
+  for (const i of lista) mapa.set(i.categoria || "Sem tipo", (mapa.get(i.categoria || "Sem tipo") ?? 0) + 1);
+  return [...mapa.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([c, n]) => `${c}: ${n}`)
+    .join(" · ");
+}
+
+function TabelaDeAtividades({ lista }: { lista: NonNullable<VendedorNoRelatorio["crm"]["lista"]> }) {
+  if (!lista.length) return <p className="text-[11px] text-aura-graphite-soft">Nenhuma.</p>;
+  return (
+    <div className="rounded-md border border-aura-mist bg-aura-surface p-2 print:break-inside-avoid">
+      <p className="mb-1 text-[11px] font-medium text-aura-graphite-soft">{resumoPorTipo(lista)}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-[11px]">
+          <thead>
+            <tr className="border-b border-aura-mist text-left text-aura-graphite-soft">
+              <th className="py-1 pr-2 font-medium">Dia</th>
+              <th className="py-1 pr-2 font-medium">Cliente</th>
+              <th className="py-1 pr-2 font-medium">Tipo de cliente</th>
+              <th className="py-1 pr-2 font-medium">Como foi</th>
+              <th className="py-1 font-medium">Observação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((a, i) => (
+              <tr key={`${a.dia}-${a.cliente}-${i}`} className="border-b border-aura-mist/60 align-top">
+                <td className="whitespace-nowrap py-1 pr-2 tabular-nums">{a.dia ? dataBR(a.dia) : "—"}</td>
+                <td className="py-1 pr-2 font-medium text-aura-graphite">{a.cliente}</td>
+                <td className="py-1 pr-2">{a.categoria}</td>
+                <td className="py-1 pr-2">{a.resultado || "—"}</td>
+                <td className="py-1 text-aura-graphite-soft">{a.observacao || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TabelaDeNegocios({ lista }: { lista: NonNullable<VendedorNoRelatorio["pipeline"]["negocios"]> }) {
+  if (!lista.length) return <p className="text-[11px] text-aura-graphite-soft">Nenhum.</p>;
+  return (
+    <div className="rounded-md border border-aura-mist bg-aura-surface p-2 print:break-inside-avoid">
+      <p className="mb-1 text-[11px] font-medium text-aura-graphite-soft">{resumoPorTipo(lista)}</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[480px] text-[11px]">
+          <thead>
+            <tr className="border-b border-aura-mist text-left text-aura-graphite-soft">
+              <th className="py-1 pr-2 font-medium">Cliente</th>
+              <th className="py-1 pr-2 font-medium">Tipo de cliente</th>
+              <th className="py-1 pr-2 font-medium">Produto</th>
+              <th className="py-1 pr-2 text-right font-medium">Valor</th>
+              <th className="py-1 text-right font-medium">Parado há</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((n, i) => (
+              <tr key={`${n.cliente}-${i}`} className="border-b border-aura-mist/60 align-top">
+                <td className="py-1 pr-2 font-medium text-aura-graphite">
+                  {n.cliente}
+                  {n.origem ? <span className="block text-[10px] font-normal text-aura-graphite-soft">{n.origem}</span> : null}
+                </td>
+                <td className="py-1 pr-2">{n.categoria}</td>
+                <td className="py-1 pr-2">{n.produto || "—"}</td>
+                <td className="whitespace-nowrap py-1 pr-2 text-right tabular-nums">{n.valor ? moedaCurta(n.valor) : "—"}</td>
+                <td
+                  className="whitespace-nowrap py-1 text-right tabular-nums"
+                  style={{ color: n.diasParado >= 15 ? COR.alerta : undefined }}
+                >
+                  {n.diasParado} {n.diasParado === 1 ? "dia" : "dias"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Cliente por cliente (pedido de 27/11/2026: "mostrar onde ele errou em cada
+ * cliente e abrir o relatório da própria conversa"). Quem tem muito lead de
+ * campanha recebe só as conversas que mais importam — mais avançadas no
+ * funil, com valor ou com alerta. Cada uma abre com o resumo da AURA, onde
+ * errou, como melhorar e a próxima ação, e leva ao laudo completo da conversa.
+ */
+function ConversasDoVendedor({ v }: { v: VendedorNoRelatorio }) {
+  const conversas = v.atendimento.conversas;
+  const [abertas, setAbertas] = useState<Set<string>>(new Set());
+  if (!conversas) return null; // relatório guardado antes desta lista existir
+  if (!conversas.length) {
+    return <p className="text-xs text-aura-graphite-soft">Nenhuma conversa comercial analisada no período.</p>;
+  }
+  const fora = v.atendimento.conversasForaDaLista ?? 0;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] text-aura-graphite-soft">
+        {fora > 0
+          ? `As ${conversas.length} conversas que mais importam (mais avançadas no funil, com valor ou com alerta) — ${fora} outras ficaram de fora.`
+          : `${conversas.length} ${conversas.length === 1 ? "conversa" : "conversas"} no período.`}{" "}
+        Clique no cliente para ver onde errou.
+      </p>
+      <ul className="divide-y divide-aura-mist rounded-md border border-aura-mist bg-aura-surface">
+        {conversas.map((c) => {
+          const aberta = abertas.has(c.id);
+          return (
+            <li key={c.id} className="print:break-inside-avoid">
+              <button
+                type="button"
+                onClick={() =>
+                  setAbertas((atual) => {
+                    const novo = new Set(atual);
+                    if (novo.has(c.id)) novo.delete(c.id);
+                    else novo.add(c.id);
+                    return novo;
+                  })
+                }
+                aria-expanded={aberta}
+                className="flex w-full items-start gap-2 px-2.5 py-2 text-left text-xs transition hover:bg-aura-sunken/60"
+              >
+                <span className="mt-0.5 text-aura-graphite-soft print:hidden">
+                  {aberta ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="font-medium text-aura-graphite">{c.cliente}</span>
+                  {c.etapa ? <span className="text-aura-graphite-soft"> · {c.etapa}</span> : null}
+                  {c.valor ? <span className="text-aura-graphite-soft"> · {moedaCurta(c.valor)}</span> : null}
+                  {c.interesse ? <span className="block truncate text-[11px] text-aura-graphite-soft">{c.interesse}</span> : null}
+                </span>
+                {c.alertas.length ? (
+                  <span className="shrink-0 text-[11px] font-medium" style={{ color: COR.alerta }}>
+                    {c.alertas.length} {c.alertas.length === 1 ? "erro" : "erros"}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-[11px] text-aura-success">sem alerta</span>
+                )}
+              </button>
+              <div className={`space-y-1.5 px-7 pb-2.5 text-[11px] ${aberta ? "" : "hidden"} print:block`}>
+                {c.resumo ? <p className="text-aura-graphite">{c.resumo}</p> : null}
+                {c.alertas.length ? (
+                  <div>
+                    <p className="font-medium" style={{ color: COR.alerta }}>Onde errou</p>
+                    <ul className="list-disc pl-4 text-aura-graphite">
+                      {c.alertas.map((a, i) => (
+                        <li key={i}>{a}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {c.dicas.length ? (
+                  <div>
+                    <p className="font-medium text-aura-graphite">Como melhorar</p>
+                    <ul className="list-disc pl-4 text-aura-graphite-soft">
+                      {c.dicas.map((d, i) => (
+                        <li key={i}>{d}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {c.proximaAcao ? (
+                  <p>
+                    <span className="font-medium text-aura-graphite">Próxima ação: </span>
+                    <span className="text-aura-graphite-soft">{c.proximaAcao}</span>
+                  </p>
+                ) : null}
+                <a
+                  href={`/gestor?aba=equipe&conversa=${encodeURIComponent(c.id)}`}
+                  className="inline-flex items-center gap-1 font-medium text-aura-petrol-600 hover:underline print:hidden"
+                >
+                  <ExternalLink className="h-3 w-3" /> Abrir o laudo completo da conversa
+                </a>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -641,7 +908,14 @@ function BlocoDoVendedor({
               <p className="aura-rotulo mb-2">
                 O que ele fez no CRM
               </p>
-              <Barras itens={v.crm.porTipo.map((t) => ({ rotulo: t.tipo, valor: t.n }))} />
+              <BarrasQueAbrem
+                itens={v.crm.porTipo.map((t) => ({ rotulo: t.tipo, valor: t.n }))}
+                detalhe={
+                  v.crm.lista
+                    ? (tipo) => <TabelaDeAtividades lista={v.crm.lista!.filter((a) => a.tipo === tipo)} />
+                    : undefined
+                }
+              />
               <p className="mt-2 text-[11px] text-aura-graphite-soft">
                 {v.crm.visitas} visitas · {v.crm.ligacoes} ligações · {v.crm.orcamentos} orçamentos ·{" "}
                 {v.crm.followUps} follow-ups
@@ -652,12 +926,17 @@ function BlocoDoVendedor({
               <p className="aura-rotulo mb-2">
                 Prospecção por tipo de cliente
               </p>
-              <Barras
+              <BarrasQueAbrem
                 itens={v.prospeccao.porCategoria.map((c) => ({
                   rotulo: c.categoria,
                   valor: c.atividades,
                   nota: c.clientesNovos ? `${c.clientesNovos} novo(s)` : undefined,
                 }))}
+                detalhe={
+                  v.crm.lista
+                    ? (categoria) => <TabelaDeAtividades lista={v.crm.lista!.filter((a) => a.categoria === categoria)} />
+                    : undefined
+                }
               />
               <p className="mt-2 text-[11px] text-aura-graphite-soft">
                 {v.prospeccao.clientesNovos} cliente(s) cadastrado(s) na semana
@@ -668,12 +947,17 @@ function BlocoDoVendedor({
               <p className="aura-rotulo mb-2">
                 Pipeline dele
               </p>
-              <Barras
+              <BarrasQueAbrem
                 itens={v.pipeline.porEtapa.map((e) => ({
                   rotulo: e.etapa,
                   valor: e.negocios,
                   nota: moedaCurta(e.valor),
                 }))}
+                detalhe={
+                  v.pipeline.negocios
+                    ? (etapa) => <TabelaDeNegocios lista={v.pipeline.negocios!.filter((n) => n.etapa === etapa)} />
+                    : undefined
+                }
               />
               <p className="mt-2 text-[11px] text-aura-graphite-soft">
                 {v.pipeline.criados} criados · {v.pipeline.ganhos} ganhos · {v.pipeline.perdidos}{" "}
@@ -751,6 +1035,13 @@ function BlocoDoVendedor({
                     </li>
                   ))}
                 </ul>
+              </div>
+            ) : null}
+
+            {v.atendimento.conversas ? (
+              <div className="mb-3">
+                <p className="mb-1 text-[11px] font-medium text-aura-graphite-soft">Cliente por cliente</p>
+                <ConversasDoVendedor v={v} />
               </div>
             ) : null}
 

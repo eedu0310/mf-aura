@@ -16,7 +16,7 @@ interface Disputa {
   id: string;
   titulo: string;
   descricao: string;
-  unidade: "moeda" | "quantidade";
+  unidade: "moeda" | "quantidade" | "percentual" | "dias";
   linhas: Linha[];
 }
 
@@ -153,7 +153,13 @@ export function RankingGeral() {
                         </div>
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-aura-graphite">
-                        {disputa.unidade === "moeda" ? moeda(linha.valor) : linha.valor}
+                        {disputa.unidade === "moeda"
+                          ? moeda(linha.valor)
+                          : disputa.unidade === "percentual"
+                            ? `${linha.valor}%`
+                            : disputa.unidade === "dias"
+                              ? `${linha.valor} dias`
+                              : linha.valor}
                       </p>
                     </li>
                   );
