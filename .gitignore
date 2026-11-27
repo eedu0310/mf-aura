@@ -10,3 +10,6 @@ tsconfig.tsbuildinfo
 .env.local
 
 .backups/
+
+# Resumo do deploy/avaliar-dominios.sh na VPS (mostrado em /api/versao)
+.avaliar-status

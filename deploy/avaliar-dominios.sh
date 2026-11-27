@@ -17,6 +17,20 @@
 # segue lendo o arquivo antigo). Um passo novo dele só roda no deploy seguinte.
 # A configuração do crm.mflaser.com.br não é tocada.
 set -uo pipefail
+# O deploy automático roda pelo cron, com PATH curto (sem /usr/sbin): o nginx
+# não era achado e o script saía sem fazer nada.
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
+
+# Resumo de uma linha em /opt/aura/.avaliar-status, mostrado em /api/versao:
+# dá para saber de fora se os endereços ligaram, sem entrar na VPS.
+STATUS_ARQ=/opt/aura/.avaliar-status
+RESUMO=""
+anotar() { RESUMO="${RESUMO:+$RESUMO; }$1"; }
+gravar_status() {
+  printf '%s %s\n' "$(date -Iseconds)" "${RESUMO:-sem novidade}" > "$STATUS_ARQ" 2>/dev/null
+  chown aura:aura "$STATUS_ARQ" 2>/dev/null
+}
+trap gravar_status EXIT
 
 PASTA=/opt/aura
 LISTA="$PASTA/deploy/dominios-avaliacao.txt"
@@ -26,12 +40,12 @@ CERT_NOME=aura-avaliar
 CERT_DIR="/etc/letsencrypt/live/$CERT_NOME"
 HOST_CRM=crm.mflaser.com.br
 
-command -v nginx >/dev/null 2>&1 || { echo "   nginx não encontrado: nada feito"; exit 0; }
+command -v nginx >/dev/null 2>&1 || { echo "   nginx não encontrado: nada feito"; anotar "nginx não encontrado"; exit 0; }
 [ -f "$LISTA" ] || exit 0
 
 ip_de() { getent ahostsv4 "$1" 2>/dev/null | awk 'NR==1 {print $1}'; }
 IP_CRM=$(ip_de "$HOST_CRM")
-[ -n "$IP_CRM" ] || { echo "   AVISO: não consegui resolver $HOST_CRM"; exit 0; }
+[ -n "$IP_CRM" ] || { echo "   AVISO: não consegui resolver $HOST_CRM"; anotar "sem DNS do crm"; exit 0; }
 
 prontos=()
 while IFS= read -r linha || [ -n "$linha" ]; do
@@ -45,11 +59,13 @@ while IFS= read -r linha || [ -n "$linha" ]; do
     prontos+=("$d")
   else
     echo "   $d ainda não aponta para esta VPS (DNS: ${ip:-sem registro})"
+    anotar "$d sem DNS"
   fi
 done < "$LISTA"
 
 if [ ${#prontos[@]} -eq 0 ]; then
   echo "   nenhum endereço de avaliação apontado ainda"
+  anotar "nenhum apontado"
   exit 0
 fi
 NOMES="${prontos[*]}"
@@ -75,11 +91,14 @@ if [ "$precisa_cert" = "1" ]; then
     # assinatura); se não houver, só avisa.
     if certbot certonly --nginx --non-interactive --expand --cert-name "$CERT_NOME" --deploy-hook "systemctl reload nginx" "${args[@]}" >/tmp/aura-avaliar-certbot.log 2>&1; then
       echo "   certificado $CERT_NOME: ok"
+      anotar "certificado ok"
     else
       echo "   AVISO: certbot falhou (veja /tmp/aura-avaliar-certbot.log); os endereços ficam sem HTTPS por enquanto"
+      anotar "certbot falhou: $(grep -v '^ *$' /tmp/aura-avaliar-certbot.log | tail -n 2 | tr '\n' ' ' | tr -dc '[:print:]' | cut -c1-200)"
     fi
   else
     echo "   AVISO: certbot não instalado; os endereços ficam sem HTTPS"
+    anotar "certbot não instalado"
   fi
 fi
 
@@ -117,6 +136,7 @@ TMP=$(mktemp)
 
 if [ -f "$CONF" ] && cmp -s "$TMP" "$CONF" && [ -L "$ATIVO" ]; then
   echo "   nginx dos endereços de avaliação: sem mudança"
+  anotar "nginx sem mudança: $NOMES"
   rm -f "$TMP"
   exit 0
 fi
@@ -128,8 +148,10 @@ install -m 644 -o root -g root "$TMP" "$CONF"
 ln -sf "$CONF" "$ATIVO"
 if nginx -t >/tmp/aura-avaliar-nginx.log 2>&1; then
   systemctl reload nginx && echo "   nginx dos endereços de avaliação: atualizado"
+  anotar "nginx ok: $NOMES"
 else
   echo "   AVISO: nginx -t recusou a configuração nova (veja /tmp/aura-avaliar-nginx.log); voltando a anterior"
+  anotar "nginx recusou: $(grep -m1 -i emerg /tmp/aura-avaliar-nginx.log | tr -dc '[:print:]' | cut -c1-200)"
   if [ "$tinha_antes" = "1" ]; then
     install -m 644 -o root -g root "$ANTES" "$CONF"
   else
