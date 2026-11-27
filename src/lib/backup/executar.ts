@@ -299,9 +299,10 @@ async function empacotarSessoes(pastaSessoes: string, destino: string): Promise<
  * As chaves (.env.local: Supabase, IA, Meta, push, CRON_SECRET) vão junto?
  * Sem elas o programa restaurado não liga até alguém buscar cada chave de
  * novo nos painéis dos fornecedores; com elas, o pacote no Drive passa a
- * guardar senhas de serviço — decisão do dono.
+ * guardar senhas de serviço — decisão do dono (27/11/2026: "publica com as
+ * chaves"; o Drive já guarda o banco inteiro e as sessões do WhatsApp).
  */
-export const SISTEMA_LEVA_CHAVES = false;
+export const SISTEMA_LEVA_CHAVES = true;
 
 export const EXCLUIDOS_DO_SISTEMA = [
   "node_modules",
