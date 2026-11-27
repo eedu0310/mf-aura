@@ -13,6 +13,8 @@
 #   3. confere com nginx -t antes de recarregar; se falhar, volta o anterior.
 #
 # Nunca derruba o deploy: qualquer falha vira AVISO no log e o CRM segue.
+# Atenção: o deploy.sh que está rodando é o de ANTES do git pull (o bash
+# segue lendo o arquivo antigo). Um passo novo dele só roda no deploy seguinte.
 # A configuração do crm.mflaser.com.br não é tocada.
 set -uo pipefail
 
