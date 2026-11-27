@@ -250,16 +250,16 @@ begin
          respondido_por = coalesce(l.respondido_por, a.owner_id)
     from (
       select distinct on (l2.id) l2.id as lead_id,
-             coalesce(at.ocorrida_em, at.created_at) as quando, at.owner_id
+             coalesce(atv.ocorrida_em, atv.created_at) as quando, atv.owner_id
         from public.leads_recebidos l2
-        join public.atividades at on at.relacionamento_id = l2.relacionamento_id
+        join public.atividades atv on atv.relacionamento_id = l2.relacionamento_id
        where l2.status in ('aguardando_sdr', 'atribuido_sdr', 'repassado_vendedor')
-         and coalesce(at.ocorrida_em, at.created_at) >= l2.created_at
-         and coalesce(at.origem, '') <> 'whatsapp_ia'
-         and at.titulo not ilike 'IA moveu%'
-         and at.titulo not ilike 'Oportunidade criada pela IA%'
-         and at.titulo not ilike 'Etapa alterada no WhatsApp%'
-       order by l2.id, coalesce(at.ocorrida_em, at.created_at)
+         and coalesce(atv.ocorrida_em, atv.created_at) >= l2.created_at
+         and coalesce(atv.origem, '') <> 'whatsapp_ia'
+         and atv.titulo not ilike 'IA moveu%'
+         and atv.titulo not ilike 'Oportunidade criada pela IA%'
+         and atv.titulo not ilike 'Etapa alterada no WhatsApp%'
+       order by l2.id, coalesce(atv.ocorrida_em, atv.created_at)
     ) a
    where l.id = a.lead_id;
 
