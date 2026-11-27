@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { executarBackup, PASTA_PADRAO, diaDoArquivo, diaDasSessoes, BUCKET_NUVEM } from "@/lib/backup/executar";
+import { executarBackup, PASTA_PADRAO, diaDoBackup, BUCKET_NUVEM } from "@/lib/backup/executar";
 import { cronAutorizado, rodarCron } from "@/lib/cron/execucao";
 
 export const runtime = "nodejs";
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     try {
       const arquivos = fs
         .readdirSync(pasta)
-        .filter((n) => diaDoArquivo(n) || diaDasSessoes(n))
+        .filter((n) => diaDoBackup(n))
         .sort()
         .reverse()
         .map((nome) => {
@@ -84,6 +84,7 @@ export async function GET(request: Request) {
       esquema_kb: Math.round(r.esquemaBytes / 1024),
       migracoes: r.migracoes,
       sessoes: r.sessoes ? path.basename(r.sessoes) : null,
+      sistema: r.sistema ? path.basename(r.sistema) : "FALHOU: não consegui empacotar a pasta do AURA",
       apagados: r.apagados,
       nuvem: r.nuvem.erro ? `FALHOU: ${r.nuvem.erro}` : `ok: ${r.nuvem.enviados.join(", ")}`,
       drive: r.drive,

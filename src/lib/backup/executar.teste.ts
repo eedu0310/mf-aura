@@ -5,7 +5,7 @@
  *
  * Rodar com: npx tsx src/lib/backup/executar.teste.ts
  */
-import { antigosNoDisco, decidirRemocoes, diaDoArquivo, diaDasSessoes, nomesDoDia } from "./executar";
+import { antigosNoDisco, decidirRemocoes, diaDoArquivo, diaDasSessoes, diaDoSistema, diaDoBackup, nomesDoDia, EXCLUIDOS_DO_SISTEMA } from "./executar";
 
 let passou = 0;
 const falhas: string[] = [];
@@ -97,4 +97,27 @@ if (falhas.length) {
   conferir("nunca apaga o de hoje nem arquivo que não é nosso", antigosNoDisco(nomes, "2026-11-27", true).some((n) => n.includes("11-27") || n === "anotacao.txt"), false);
 }
 
+// ---- pacote do sistema (o programa inteiro, 27/11/2026)
+{
+  const n = nomesDoDia("2026-11-27");
+  conferir("nome do sistema", n.sistema, "aura-sistema-2026-11-27.tar.gz");
+  conferir("diaDoSistema lê o próprio nome", diaDoSistema(n.sistema), "2026-11-27");
+  conferir("diaDoSistema recusa o de sessões", diaDoSistema(n.sessoes), null);
+  conferir("diaDasSessoes recusa o do sistema", diaDasSessoes(n.sistema), null);
+  conferir("diaDoArquivo recusa o do sistema", diaDoArquivo(n.sistema), null);
+  conferir("diaDoBackup reconhece os três", [n.dados, n.sessoes, n.sistema].map(diaDoBackup), ["2026-11-27", "2026-11-27", "2026-11-27"]);
+
+  const nomes = ["aura-sistema-2026-11-25.tar.gz", "aura-sistema-2026-11-26.tar.gz", "aura-sistema-2026-11-27.tar.gz", "aura-2026-11-27.json.gz"];
+  conferir("com o sistema de hoje, apaga os anteriores", antigosNoDisco(nomes, "2026-11-27", true, true).sort(), ["aura-sistema-2026-11-25.tar.gz", "aura-sistema-2026-11-26.tar.gz"]);
+  conferir("sem o de hoje, fica o sistema mais novo", antigosNoDisco(nomes.slice(0, 2), "2026-11-27", true, false), ["aura-sistema-2026-11-25.tar.gz"]);
+  conferir("chamada antiga (3 argumentos) continua apagando o sistema velho", antigosNoDisco(nomes, "2026-11-27", true).length, 2);
+
+  conferir("node_modules e .next ficam de fora", ["node_modules", ".next", ".backups", ".whatsapp-sessions"].every((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), true);
+  conferir("o código e o .git não ficam de fora", ["src", ".git", "supabase", "deploy"].some((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), false);
+}
+
+if (falhas.length) {
+  console.error(`${falhas.length} verificação(ões) falharam:\n\n${falhas.join("\n\n")}`);
+  process.exit(1);
+}
 console.log(`${passou}/${passou} verificações passaram`);

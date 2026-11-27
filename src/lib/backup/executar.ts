@@ -41,20 +41,29 @@ export const DOMINGOS_MANTIDOS = 4;
  * mais recente, para nunca ficar sem nenhum). Função pura: apagar backup não
  * perdoa engano.
  */
-export function antigosNoDisco(nomes: string[], hoje: string, sessoesDeHojeOk: boolean): string[] {
+export function antigosNoDisco(
+  nomes: string[],
+  hoje: string,
+  sessoesDeHojeOk: boolean,
+  sistemaDeHojeOk = true,
+): string[] {
   const apagar = nomes.filter((n) => {
     const d = diaDoArquivo(n);
     return d !== null && d !== hoje;
   });
-  const sessoesVelhas = nomes
-    .filter((n) => {
-      const d = diaDasSessoes(n);
-      return d !== null && d !== hoje;
-    })
-    .sort()
-    .reverse();
+  const velhos = (dia: (n: string) => string | null) =>
+    nomes
+      .filter((n) => {
+        const d = dia(n);
+        return d !== null && d !== hoje;
+      })
+      .sort()
+      .reverse();
   // Sem o pacote de hoje, o mais novo dos antigos fica.
+  const sessoesVelhas = velhos(diaDasSessoes);
   apagar.push(...(sessoesDeHojeOk ? sessoesVelhas : sessoesVelhas.slice(1)));
+  const sistemasVelhos = velhos(diaDoSistema);
+  apagar.push(...(sistemaDeHojeOk ? sistemasVelhos : sistemasVelhos.slice(1)));
   return apagar;
 }
 
@@ -75,6 +84,8 @@ export interface ResultadoBackup {
   migracoes: number;
   /** Arquivo .tar.gz com as sessões do WhatsApp, ou null se não havia pasta. */
   sessoes: string | null;
+  /** Arquivo .tar.gz com o programa (a pasta do AURA, sem node_modules/.next), ou null se falhou. */
+  sistema: string | null;
   /** O que subiu para o Supabase Storage (bucket "backups"), ou o motivo de não ter subido. */
   nuvem: { enviados: string[]; apagados: string[]; erro: string | null };
   /** Cópia no Google Drive do dono, pelo rclone: "ok: …", "não configurado (…)" ou "FALHOU: …". */
@@ -136,9 +147,24 @@ export function diaDasSessoes(nome: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Nomes dos dois arquivos de um dia. */
+/** AAAA-MM-DD do pacote do sistema (o programa), ou null. */
+export function diaDoSistema(nome: string): string | null {
+  const m = /^aura-sistema-(\d{4}-\d{2}-\d{2})\.tar\.gz$/.exec(nome);
+  return m ? m[1] : null;
+}
+
+/** Dia de qualquer um dos três arquivos do backup, ou null se não for nosso. */
+export function diaDoBackup(nome: string): string | null {
+  return diaDoArquivo(nome) ?? diaDasSessoes(nome) ?? diaDoSistema(nome);
+}
+
+/** Nomes dos três arquivos de um dia. */
 export function nomesDoDia(dia: string) {
-  return { dados: `aura-${dia}.json.gz`, sessoes: `aura-sessoes-${dia}.tar.gz` };
+  return {
+    dados: `aura-${dia}.json.gz`,
+    sessoes: `aura-sessoes-${dia}.tar.gz`,
+    sistema: `aura-sistema-${dia}.tar.gz`,
+  };
 }
 
 function ehDomingo(dia: string) {
@@ -242,6 +268,68 @@ async function empacotarSessoes(pastaSessoes: string, destino: string): Promise<
         "-C",
         path.dirname(pastaSessoes),
         path.basename(pastaSessoes),
+      ],
+      10 * 60_000,
+      [0, 1],
+    );
+  } catch {
+    try { fs.unlinkSync(temporario); } catch { /* não chegou a existir */ }
+    return null;
+  }
+  fs.renameSync(temporario, destino);
+  return destino;
+}
+
+/*
+ * O SISTEMA INTEIRO (pedido do dono, 27/11/2026: "fazer sempre backup do
+ * sistema do Aura também, o sistema todo — caso eu perca algum arquivo ou
+ * precise do programa de novo, vai ter no Drive").
+ *
+ * Empacota a pasta do AURA na VPS como ela está rodando: o código, as
+ * migrações, os guias de instalação (DEPLOY.md, docs/, deploy/) e o .git com
+ * todo o histórico de versões. Com ele dá para reinstalar o AURA numa máquina
+ * nova sem depender do GitHub.
+ *
+ * Fica de fora só o que se refaz sozinho ou já está em outro pacote:
+ * node_modules (o `npm ci` baixa de novo), .next (o build gera), .backups (os
+ * próprios backups), .whatsapp-sessions (vão no pacote de sessões), logs e
+ * temporários. Pesa poucos MB.
+ */
+/**
+ * As chaves (.env.local: Supabase, IA, Meta, push, CRON_SECRET) vão junto?
+ * Sem elas o programa restaurado não liga até alguém buscar cada chave de
+ * novo nos painéis dos fornecedores; com elas, o pacote no Drive passa a
+ * guardar senhas de serviço — decisão do dono.
+ */
+export const SISTEMA_LEVA_CHAVES = false;
+
+export const EXCLUIDOS_DO_SISTEMA = [
+  "node_modules",
+  ".next",
+  ".backups",
+  ".whatsapp-sessions",
+  ".data",
+  "*.log",
+  "*.tmp",
+  "tsconfig.tsbuildinfo",
+];
+
+async function empacotarSistema(raiz: string, destino: string): Promise<string | null> {
+  if (!fs.existsSync(path.join(raiz, "package.json"))) return null;
+  const temporario = `${destino}.tmp`;
+  const fora = [...EXCLUIDOS_DO_SISTEMA, ...(SISTEMA_LEVA_CHAVES ? [] : [".env*"])];
+  try {
+    await rodar(
+      "tar",
+      [
+        "-czf",
+        temporario,
+        "--warning=no-file-changed",
+        "--ignore-failed-read",
+        ...fora.map((p) => `--exclude=${p}`),
+        "-C",
+        raiz,
+        ".",
       ],
       10 * 60_000,
       [0, 1],
@@ -363,10 +451,10 @@ async function subirParaNuvem(
     const { data: lista, error: erroLista } = await sb.storage.from(BUCKET_NUVEM).list("", { limit: 1000 });
     if (erroLista) throw new Error(`listar: ${erroLista.message}`);
     const nomes = (lista ?? []).map((o) => o.name);
-    const dias = nomes.map((n) => diaDoArquivo(n) ?? diaDasSessoes(n)).filter((d): d is string => d !== null);
+    const dias = nomes.map(diaDoBackup).filter((d): d is string => d !== null);
     const remover = decidirRemocoes(dias, dia).flatMap((d) => {
       const n = nomesDoDia(d);
-      return [n.dados, n.sessoes].filter((x) => nomes.includes(x));
+      return [n.dados, n.sessoes, n.sistema].filter((x) => nomes.includes(x));
     });
     if (remover.length > 0) {
       const { error } = await sb.storage.from(BUCKET_NUVEM).remove(remover);
@@ -390,6 +478,7 @@ export async function executarBackup(
    * em 20/10 e derrubou o deploy. O live-manager tem a mesma marcação.
    */
   pastaSessoes = path.join(/*turbopackIgnore: true*/ process.cwd(), ".whatsapp-sessions"),
+  raizSistema = process.cwd(),
 ): Promise<ResultadoBackup> {
   const dia = diaBR(quando);
 
@@ -444,6 +533,7 @@ export async function executarBackup(
   const bytes = fs.statSync(arquivo).size;
 
   const sessoes = await empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
+  const sistema = await empacotarSistema(raizSistema, path.join(pasta, nomes.sistema));
 
   // No disco fica só o de hoje (ver antigosNoDisco). Só chega aqui com o
   // arquivo do banco de hoje já gravado e conferido pelo rename.
@@ -460,17 +550,17 @@ export async function executarBackup(
       }
     } catch { /* outro processo cuidou */ }
   }
-  for (const nome of antigosNoDisco(fs.readdirSync(pasta), dia, sessoes !== null)) {
+  for (const nome of antigosNoDisco(fs.readdirSync(pasta), dia, sessoes !== null, sistema !== null)) {
     try {
       fs.unlinkSync(path.join(pasta, nome));
-      const d = diaDoArquivo(nome) ?? diaDasSessoes(nome);
+      const d = diaDoBackup(nome);
       if (d && !apagados.includes(d)) apagados.push(d);
     } catch {
       /* já não estava lá */
     }
   }
 
-  const doDia = [arquivo, ...(sessoes ? [sessoes] : [])];
+  const doDia = [arquivo, ...(sessoes ? [sessoes] : []), ...(sistema ? [sistema] : [])];
   const [nuvem, drive] = await Promise.all([subirParaNuvem(sb, doDia, dia), enviarParaDrive(doDia, dia)]);
 
   return {
@@ -482,6 +572,7 @@ export async function executarBackup(
     esquemaBytes: esquema.length,
     migracoes: migracoes.length,
     sessoes,
+    sistema,
     nuvem,
     drive,
   };
