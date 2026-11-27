@@ -65,7 +65,10 @@ export function Escritorio() {
   const { estado, erro, carregando, recarregar } = useEscritorio({ vivo: true });
   const acesso = usarMeuAcesso();
   const souMestre = acesso.gestorMestre && acesso.gestorAprovado;
-  const [abertoId, setAbertoId] = useState<string | null>(null);
+  // "relatorio": abriu pelo balão de fala (a ficha vai direto para o que espera aprovação).
+  const [aberto, setAberto] = useState<{ id: string; aba?: "relatorio" } | null>(null);
+  const abertoId = aberto?.id ?? null;
+  const abrir = useCallback((id: string | null, aba?: "relatorio") => setAberto(id ? { id, aba } : null), []);
   const [vista, setVista] = useState<"planta" | "lista">("planta");
   const [conversaAberta, setConversaAberta] = useState(false);
   const fecharConversa = useCallback(() => setConversaAberta(false), []);
@@ -140,7 +143,7 @@ export function Escritorio() {
         mesas={mesas}
         plano={estado.planoDoDia}
         custo30d={estado.custo30dUsd}
-        aoAbrir={setAbertoId}
+        aoAbrir={abrir}
         aoConversar={() => setConversaAberta(true)}
       />
 
@@ -190,7 +193,7 @@ export function Escritorio() {
               falas={falas}
               diretoraId={diretora?.id ?? null}
               abertoId={abertoId}
-              aoAbrir={setAbertoId}
+              aoAbrir={abrir}
             />
           ) : mesas.length === 0 ? (
             <EstadoVazio
@@ -207,11 +210,11 @@ export function Escritorio() {
                   descricao={sala.descricao}
                   icone={sala.icone}
                   mesas={sala.mesas}
-                  aoAbrir={setAbertoId}
+                  aoAbrir={abrir}
                 />
               ))}
               {semSala.length > 0 && (
-                <Sala rotulo="Outros" descricao="Setor ainda sem sala própria" icone={Bot} mesas={semSala} aoAbrir={setAbertoId} />
+                <Sala rotulo="Outros" descricao="Setor ainda sem sala própria" icone={Bot} mesas={semSala} aoAbrir={abrir} />
               )}
             </div>
           )}
@@ -222,7 +225,7 @@ export function Escritorio() {
           mesas={mesas}
           carregando={carregando}
           equipeAtiva={equipeAtiva}
-          aoAbrirAgente={setAbertoId}
+          aoAbrirAgente={abrir}
         />
       </div>
 
@@ -267,7 +270,7 @@ export function Escritorio() {
                 falas={falas}
                 diretoraId={diretora?.id ?? null}
                 abertoId={abertoId}
-                aoAbrir={setAbertoId}
+                aoAbrir={abrir}
                 zoom={zoom}
               />
             </div>
@@ -278,7 +281,7 @@ export function Escritorio() {
                   mesas={mesas}
                   carregando={carregando}
                   equipeAtiva={equipeAtiva}
-                  aoAbrirAgente={setAbertoId}
+                  aoAbrirAgente={abrir}
                 />
               </aside>
             )}
@@ -293,9 +296,11 @@ export function Escritorio() {
         falas={falas}
         equipeAtiva={equipeAtiva}
         souMestre={souMestre}
-        aoFechar={() => setAbertoId(null)}
+        aoFechar={() => abrir(null)}
+        abaInicial={aberto?.aba}
+        propostasPendentes={estado.propostas.filter((p) => p.status === "proposta").length}
         aoMudar={recarregar}
-        aoAbrirAgente={setAbertoId}
+        aoAbrirAgente={abrir}
       />
 
       {conversaAberta && (
@@ -303,7 +308,7 @@ export function Escritorio() {
           diretora={diretora}
           equipeAtiva={equipeAtiva}
           aoFechar={fecharConversa}
-          aoAbrirAgente={setAbertoId}
+          aoAbrirAgente={abrir}
           aoMudar={recarregar}
         />
       )}

@@ -15,7 +15,7 @@
 import type { ReactElement } from "react";
 import type { EstadoMesa } from "@/lib/agentes/tipos";
 import type { Aparencia, Balao } from "./aparencia";
-import { TILE as U, type Decor, type ItemParede, type Lugar, type SalaPlanta } from "./planta";
+import { TILE as U, geometriaDaEstacao, type Decor, type ItemParede, type Lugar, type SalaPlanta } from "./planta";
 
 /* ------------------------------------------------------------------ cores */
 
@@ -96,7 +96,20 @@ export const CSS_ESCRITORIO_PIXEL = [
   `@keyframes pxe-pulso{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.8);opacity:0}}`,
   `@keyframes pxe-pisca{0%,100%{opacity:1}50%{opacity:.2}}`,
   `@keyframes pxe-ponto{0%,100%{opacity:.25}35%{opacity:1}}`,
+  `@keyframes pxe-troca{0%{opacity:1}50%{opacity:0}}`,
+  // Boneco que anda (andar.ts põe data-pose, data-andando e data-cafe no <g>).
+  `.pxe .pxe-passo-a,.pxe .pxe-passo-b,.pxe .pxe-pernas-sentado,.pxe .pxe-xicara{display:none}`,
+  `.pxe g[data-pose="mesa"]>.pxe-corpo{display:none}`,
+  `.pxe g[data-pose="sentado"] .pxe-passo-0{display:none}`,
+  `.pxe g[data-pose="sentado"] .pxe-pernas-sentado{display:inline}`,
+  `.pxe g[data-andando="1"] .pxe-passo-0{display:none}`,
+  `.pxe g[data-andando="1"] .pxe-passo-a{display:inline}`,
+  `.pxe g[data-cafe="1"] .pxe-xicara{display:inline}`,
   `@media (prefers-reduced-motion:no-preference){`,
+  `.pxe g[data-andando="1"] .pxe-passo-a{animation:pxe-troca .32s steps(1,end) infinite}`,
+  `.pxe g[data-andando="1"] .pxe-passo-b{display:inline;animation:pxe-troca .32s steps(1,end) infinite;animation-delay:-.16s}`,
+  `.pxe g[data-andando="1"] .pxe-tronco{animation:pxe-digita .32s steps(1,end) infinite}`,
+  `.pxe g[data-andando="0"] .pxe-tronco{animation:pxe-respira 3.6s steps(1,end) infinite}`,
   `.pxe .pxe-respira{animation:pxe-respira 3.6s steps(1,end) infinite}`,
   `.pxe .pxe-digita{animation:pxe-digita .5s steps(1,end) infinite}`,
   `.pxe .pxe-pulso{animation:pxe-pulso 1.8s ease-out infinite;transform-box:fill-box;transform-origin:center}`,
@@ -166,7 +179,7 @@ const LIVROS = ["#b5574b", "#3f6f8f", "#d0a03a", "#4f8a6a", "#7b5ea7", "#d8d1bf"
 export type Piso = "madeira" | "carpete" | "ladrilho" | "biblio";
 
 export function pisoDaSala(sala: Pick<SalaPlanta, "id">): Piso {
-  if (sala.id === "direcao") return "carpete";
+  if (sala.id === "direcao" || sala.id === "descanso") return "carpete";
   if (sala.id === "conhecimento") return "biblio";
   if (sala.id === "dados" || sala.id === "seguranca" || sala.id === "copa") return "ladrilho";
   return "madeira";
@@ -635,6 +648,43 @@ export function RetratoPixel({ ap, tamanho = 32, className }: { ap: Aparencia; t
   );
 }
 
+/**
+ * Uma pessoa de corpo inteiro, para andar pelo escritório. (0, 0) = os pés.
+ * Traz as três poses de perna (parada, os dois passos e sentada) e a xícara;
+ * o CSS mostra a certa conforme os data-* que andar.ts põe no <g> de fora.
+ */
+export function PessoaEmPe({ ap }: { ap: Aparencia }) {
+  const calca = ap.chefe ? "#1a2238" : "#3a414e";
+  const sapato = "#241c17";
+  const perna = (x: number, y: number, h: number, k: string) => (
+    <g key={k}>
+      <rect x={x} y={y} width={3} height={h} fill={calca} />
+      <rect x={x} y={y + h} width={3} height={2} fill={sapato} />
+    </g>
+  );
+  return (
+    <>
+      <ellipse cx={0} cy={0} rx={6} ry={1.6} className={SOMBRA} />
+      <g className="pxe-passo-0">{[perna(-4, -9, 7, "e"), perna(1, -9, 7, "d")]}</g>
+      <g className="pxe-passo-a">{[perna(-4, -9, 8, "e"), perna(1, -10, 6, "d")]}</g>
+      <g className="pxe-passo-b">{[perna(-4, -10, 6, "e"), perna(1, -9, 8, "d")]}</g>
+      <g className="pxe-pernas-sentado">
+        <rect x={-5} y={-9} width={4} height={3} fill={calca} />
+        <rect x={1} y={-9} width={4} height={3} fill={calca} />
+        {[perna(-4, -6, 4, "e"), perna(1, -6, 4, "d")]}
+      </g>
+      <g className="pxe-tronco">
+        <CorpoPixel ap={ap} cx={0} topo={-23} />
+        <g className="pxe-xicara">
+          <rect x={4} y={-12} width={3} height={3} fill="#f4f1ea" />
+          <rect x={7} y={-11} width={1} height={1} fill="#f4f1ea" />
+          <rect x={4} y={-12} width={3} height={1} fill="#6b3f22" />
+        </g>
+      </g>
+    </>
+  );
+}
+
 /* --------------------------------------------------------------- estação */
 
 const COR_ESTADO: Record<EstadoMesa, string> = {
@@ -647,21 +697,7 @@ const COR_ESTADO: Record<EstadoMesa, string> = {
   aguardando_ativacao: "#c3c8cf",
 };
 
-/** Centro da pessoa numa estação, e onde vão crachá e balão (unidades do SVG). */
-export function geometriaDaEstacao(l: Pick<Lugar, "x" | "y" | "chefe">) {
-  const ox = l.x * U;
-  const oy = l.y * U;
-  const cx = ox + 17;
-  return {
-    ox,
-    oy,
-    cx,
-    topo: oy + 21,
-    crachaY: l.chefe ? oy + 7 : oy + 11,
-    /** O balão fica logo acima do crachá. */
-    balaoY: (l.chefe ? oy + 7 : oy + 11) - 11,
-  };
-}
+export { geometriaDaEstacao };
 
 /**
  * Cadeira, pessoa, mesa, teclado e monitor. Sem agente = mesa vazia.
@@ -839,6 +875,11 @@ export function Cracha({
   );
 }
 
+/** Largura do balão com texto (o botão clicável por cima usa a mesma conta). */
+export function larguraDoBalao(texto: string) {
+  return Math.round(texto.length * 3 + 7);
+}
+
 /** Balão de fala ao lado da cabeça: "…" (digitando) ou uma frase curtinha. */
 export function BalaoFala({ x, y, balao, atraso }: { x: number; y: number; balao: Balao; atraso: number }) {
   const borda = "#2b2f36";
@@ -857,7 +898,7 @@ export function BalaoFala({ x, y, balao, atraso }: { x: number; y: number; balao
       </g>
     );
   }
-  const w = Math.round(balao.texto.length * 3 + 7);
+  const w = larguraDoBalao(balao.texto);
   const h = 8;
   const corTexto = balao.falaTipo === "alerta" ? "#b3362d" : balao.falaTipo === "plano" ? "#8a6414" : borda;
   return (

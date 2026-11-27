@@ -9,7 +9,9 @@
  *
  * Como a planta nasce:
  *
- *   1. uma sala por setor que tem agente (mais a Copa, que é só enfeite);
+ *   1. uma sala por setor que tem agente, mais a Copa e a Sala de Descanso
+ *      (sem mesa de trabalho: é para onde vai quem está sem tarefa, ver
+ *      movimento.ts);
  *   2. cada agente ganha uma ESTAÇÃO de 3×3 ladrilhos (linha 0: espaço do
  *      crachá; linha 1: cadeira e pessoa; linha 2: mesa com monitor). As
  *      estações formam uma grade de colunas × fileiras que cresce com o
@@ -35,7 +37,7 @@ export const TILE = 16;
 export const CEL_L = 3;
 export const CEL_A = 3;
 
-export type TipoSala = Setor | "outros" | "copa";
+export type TipoSala = Setor | "outros" | "copa" | "descanso";
 
 export type TipoDecor =
   | "planta"
@@ -222,6 +224,17 @@ export const MOLDES: Record<TipoSala, Molde> = {
     receita: [BEBEDOURO, SOFA, PLANTA_G, PLANTA, POLTRONA],
     extra: [PLANTA, POLTRONA],
   },
+  // Pedido do dono (27/11/2026): quem está sem tarefa vai para a copa, para a
+  // sala de descanso ou faz outra coisa pelo escritório. Sofá, poltronas e
+  // estante; o lugar do sofá e das poltronas é marcado em mobiliar().
+  descanso: {
+    rotulo: "Descanso",
+    colsMax: 0,
+    faixa: 0,
+    minLugares: 0,
+    receita: [PLANTA_G, ESTANTE, PLANTA],
+    extra: [PLANTA],
+  },
 };
 
 export const ORDEM_SALAS: TipoSala[] = [
@@ -236,6 +249,7 @@ export const ORDEM_SALAS: TipoSala[] = [
   "seguranca",
   "outros",
   "copa",
+  "descanso",
 ];
 
 const SETORES_COM_SALA = new Set<string>([
@@ -250,9 +264,10 @@ const SETORES_COM_SALA = new Set<string>([
   "seguranca",
 ]);
 
-/** Tamanho da Copa (sala só de enfeite). */
+/** Tamanho da Copa e da Sala de Descanso (salas sem mesa de trabalho). */
 const COPA_L = 9;
 const COPA_A = 7;
+const SEM_MESA = new Set<TipoSala>(["copa", "descanso"]);
 /** Proporção que o prédio tenta ter (largura ÷ altura): quase quadrado, para caber ao lado do mural sem ficar miúdo. */
 const PROPORCAO_ALVO = 1.1;
 
@@ -286,7 +301,7 @@ function caixasDasSalas(agentes: AgenteNaPlanta[]): Caixa[] {
   }
   const caixas: Caixa[] = [];
   for (const id of ORDEM_SALAS) {
-    if (id === "copa") {
+    if (SEM_MESA.has(id)) {
       caixas.push({ id, agentes: [], cols: 0, rows: 0, w: COPA_L, h: COPA_A });
       continue;
     }
@@ -313,8 +328,8 @@ function notaDasFileiras(fileiras: Caixa[][]): number {
 }
 
 /**
- * Divide as salas em fileiras, mantendo a ordem. São no máximo 9 salas, então
- * dá para testar TODOS os jeitos de cortar a sequência (2⁸ = 256) e ficar com
+ * Divide as salas em fileiras, mantendo a ordem. São no máximo 12 salas, então
+ * dá para testar TODOS os jeitos de cortar a sequência (2¹¹ = 2048) e ficar com
  * o de melhor nota — o guloso deixava sala pequena esticada demais.
  */
 export function dividirEmFileiras<T extends { w: number; h: number }>(caixas: T[]): T[][] {
@@ -405,13 +420,33 @@ function mobiliar(sala: SalaPlanta, temVizinhaADireita: boolean): void {
   if (sala.id === "copa") {
     // A Copa tem lugar marcado: balcão de café encostado na parede, mesa
     // redonda no meio em cima de um tapete; o resto vem da receita.
-    if (oc.livre(1, 1, 3, 1)) por("balcao", 1, 1, 3, 1);
+    if (oc.livre(1, 1, 3, 1)) {
+      por("balcao", 1, 1, 3, 1);
+      // Diante do balcão fica livre: é onde se toma o café (movimento.ts).
+      oc.ocupar(1, 2, 3, 1);
+    }
     const mx = Math.max(1, Math.floor((w - 3) / 2));
     const my = Math.max(2, Math.floor((h - 3) / 2));
     if (oc.livre(mx, my, 3, 3)) {
       decor.push({ tipo: "tapete", x: sala.x + mx - 1, y: sala.y + my - 1, w: 5, h: 5 });
       por("mesa-redonda", mx, my, 3, 3);
+      // Em volta da mesa também: lugar de quem para para conversar.
+      oc.ocupar(mx - 1, my + 1, 1, 1);
+      oc.ocupar(mx + 3, my + 1, 1, 1);
+      oc.ocupar(mx + 1, my + 3, 1, 1);
     }
+  }
+  if (sala.id === "descanso") {
+    // Sofá encostado na parede de cima e duas poltronas de frente para ele,
+    // em cima de um tapete. Cada assento deixa um ladrilho livre embaixo,
+    // para quem chega sentar (movimento.ts).
+    decor.push({ tipo: "tapete", x: sala.x + 1, y: sala.y + 2, w: 6, h: 4 });
+    if (oc.livre(2, 1, 3, 2)) por("sofa", 2, 1, 3, 2);
+    if (oc.livre(1, 4, 1, 1)) por("poltrona", 1, 4, 1, 1);
+    if (oc.livre(5, 4, 1, 1)) por("poltrona", 5, 4, 1, 1);
+    oc.ocupar(2, 3, 3, 1);
+    oc.ocupar(1, 5, 1, 1);
+    oc.ocupar(5, 5, 1, 1);
   }
 
   for (const [tipo, dw, dh] of m.receita) {
@@ -448,6 +483,8 @@ function pendurar(sala: SalaPlanta): void {
         ? ["relogio", "mural-avisos"]
         : sala.id === "copa"
           ? ["tv"]
+          : sala.id === "descanso"
+            ? ["relogio"]
           : sala.id === "direcao"
             ? ["relogio"]
             : [];
@@ -525,6 +562,27 @@ export function montarPlanta(agentes: AgenteNaPlanta[]): Planta {
     pendurar(s);
   }
   return { largura, altura: y, salas };
+}
+
+/**
+ * Centro da pessoa numa estação, e onde vão crachá e balão (unidades do SVG).
+ * Fica aqui (e não em sprites.tsx) porque o movimento (movimento.ts) também
+ * usa, e ele é testado sem tela.
+ */
+export function geometriaDaEstacao(l: Pick<Lugar, "x" | "y" | "chefe">) {
+  const ox = l.x * TILE;
+  const oy = l.y * TILE;
+  const cx = ox + 17;
+  const crachaY = l.chefe ? oy + 7 : oy + 11;
+  return {
+    ox,
+    oy,
+    cx,
+    topo: oy + 21,
+    crachaY,
+    /** O balão fica logo acima do crachá. */
+    balaoY: crachaY - 11,
+  };
 }
 
 /** O lugar de cada agente (para a tela posicionar os botões por cima do desenho). */

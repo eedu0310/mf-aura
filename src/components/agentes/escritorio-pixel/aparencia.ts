@@ -102,7 +102,7 @@ export function apelido(nome: string, limite = LIMITE_APELIDO): string {
 
 export const JANELA_FALA_MS = 30 * 60_000;
 
-const BALAO_DO_TIPO: Record<FalaEscritorio["tipo"], string> = {
+export const BALAO_DO_TIPO: Record<FalaEscritorio["tipo"], string> = {
   plano: "Plano do dia!",
   pedido: "Um pedido…",
   resposta: "Respondi!",

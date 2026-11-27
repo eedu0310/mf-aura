@@ -30,6 +30,7 @@ import {
   CircleAlert,
   History,
   Inbox,
+  ListChecks,
   Loader2,
   Radar,
   SlidersHorizontal,
@@ -48,7 +49,7 @@ import {
   type PainelDoAgente,
   type RodadaNoPainel,
 } from "@/lib/agentes/painel";
-import { Alerta, BotaoLink, EstadoVazio, Segmentado, Selo, type Tom } from "@/components/ui";
+import { Alerta, BotaoLink, EstadoVazio, Segmentado, Selo, classeBotao, type Tom } from "@/components/ui";
 import {
   AvatarAgente,
   ESTADOS,
@@ -65,6 +66,8 @@ import {
   rotuloSetor,
 } from "./comum";
 import { FichaAgente } from "./gaveta-agente";
+import { AprendizadoCard } from "@/components/gestor/aprendizado-card";
+import { PropostasAgentes } from "./propostas";
 
 const INTERVALO_MS = 20_000;
 
@@ -132,13 +135,33 @@ function usePainel(id: string) {
 
 /* -------------------------------------------------------------- painel */
 
-type Aba = "atividade" | "achados" | "ficha";
+type Aba = "atividade" | "aprovar" | "achados" | "ficha";
 
 const ABAS: Array<{ id: Aba; rotulo: string; icone: typeof History }> = [
   { id: "atividade", rotulo: "Atividade", icone: History },
+  { id: "aprovar", rotulo: "Para aprovar", icone: ListChecks },
   { id: "achados", rotulo: "O que encontrou", icone: Radar },
   { id: "ficha", rotulo: "Ficha e ajustes", icone: SlidersHorizontal },
 ];
+
+/*
+ * PARA APROVAR (pedido do Elton, 27/11/2026: "quando o robô fala que tem um
+ * relatório, quero clicar nele e ali ter as aprovações para aprovar direto no
+ * agente"). A aba só aparece para quem deixou decisão para o gestor:
+ *   - aprendizados: agente com achado aberto que leva para a revisão do
+ *     aprendizado (hoje, o Revisor do Aprendizado) — a mesma lista do
+ *     Gestor › Aprendizado, com aprovar, recusar e ajustar o texto;
+ *   - propostas: a Diretora, quando propôs agente novo e ainda não teve resposta.
+ * Clicar no balão do agente no escritório abre o painel direto aqui.
+ */
+type Aprovacao = "aprendizado" | "propostas";
+
+function aprovacaoDoAgente(mesa: MesaAgente, dados: PainelDoAgente | null, propostasPendentes: number): Aprovacao | null {
+  // A Diretora é a única agente da Diretoria.
+  if (mesa.setor === "direcao" && propostasPendentes > 0) return "propostas";
+  const leva = dados?.achados.lista.some((a) => a.status === "pendente" && a.acaoUrl?.includes("aba=aprendizado"));
+  return leva ? "aprendizado" : null;
+}
 
 export interface PropsPainelAgente {
   mesa: MesaAgente | null;
@@ -152,11 +175,18 @@ export interface PropsPainelAgente {
   aoMudar: () => void | Promise<void>;
   /** Clicar em outro agente na linha do tempo troca o painel para ele. */
   aoAbrirAgente?: (id: string) => void;
+  /**
+   * "relatorio" = abriu pelo balão de fala no escritório: vai direto para
+   * "Para aprovar" quando o agente tem algo esperando decisão.
+   */
+  abaInicial?: "relatorio";
+  /** Propostas de agente novo esperando resposta (aba "Para aprovar" da Diretora). */
+  propostasPendentes?: number;
 }
 
 export function PainelAgente(props: PropsPainelAgente) {
   if (!props.mesa) return null;
-  return <PainelAberto {...props} mesa={props.mesa} />;
+  return <PainelAberto key={props.abaInicial ?? "normal"} {...props} mesa={props.mesa} />;
 }
 
 function PainelAberto({
@@ -168,11 +198,31 @@ function PainelAberto({
   aoFechar,
   aoMudar,
   aoAbrirAgente,
+  abaInicial,
+  propostasPendentes = 0,
 }: PropsPainelAgente & { mesa: MesaAgente }) {
-  const [aba, setAba] = useState<Aba>("atividade");
+  const [abaEscolhida, setAba] = useState<Aba>("atividade");
   const { dados, erro, carregando, recarregar } = usePainel(mesa.id);
   const estado = ESTADOS[mesa.estado] ?? ESTADOS.ocioso;
   const botoes = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const aprovacao = aprovacaoDoAgente(mesa, dados, propostasPendentes);
+  const abas = aprovacao ? ABAS : ABAS.filter((a) => a.id !== "aprovar");
+  // Aprovou tudo e a aba sumiu: volta para a Atividade.
+  const aba: Aba = abaEscolhida === "aprovar" && !aprovacao && dados ? "atividade" : abaEscolhida;
+
+  // Aberto pelo balão: assim que se sabe se há o que aprovar, vai para lá (uma vez por agente).
+  const jaLevou = useRef<string | null>(null);
+  useEffect(() => {
+    if (abaInicial !== "relatorio" || jaLevou.current === mesa.id) return;
+    if (aprovacao) {
+      jaLevou.current = mesa.id;
+      setAba("aprovar");
+    } else if (dados) {
+      jaLevou.current = mesa.id;
+      setAba("atividade");
+    }
+  }, [abaInicial, aprovacao, dados, mesa.id]);
 
   // Ligou, desligou ou mandou rodar: relê o escritório E o painel.
   const mudar = useCallback(async () => {
@@ -186,8 +236,8 @@ function PainelAberto({
   const aoTeclarAba = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
-    const proximo = (i + (e.key === "ArrowRight" ? 1 : ABAS.length - 1)) % ABAS.length;
-    setAba(ABAS[proximo].id);
+    const proximo = (i + (e.key === "ArrowRight" ? 1 : abas.length - 1)) % abas.length;
+    setAba(abas[proximo].id);
     botoes.current[proximo]?.focus();
   };
 
@@ -204,7 +254,7 @@ function PainelAberto({
         </p>
       )}
       <div role="tablist" aria-label="Seções do painel do agente" className="-mb-px flex gap-5 overflow-x-auto">
-        {ABAS.map((a, i) => {
+        {abas.map((a, i) => {
           const ativa = aba === a.id;
           const Icone = a.icone;
           return (
@@ -230,6 +280,7 @@ function PainelAberto({
             >
               <Icone size={13} aria-hidden />
               {a.rotulo}
+              {a.id === "aprovar" && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-aura-gold-700" />}
               {a.id === "achados" && dados && dados.achados.abertos > 0 && (
                 <span className="rounded-full bg-aura-sunken px-1.5 text-[0.6875rem] tabular-nums text-aura-graphite-soft">
                   {numero(dados.achados.abertos)}
@@ -264,7 +315,24 @@ function PainelAberto({
             aoAbrirAgente={aoAbrirAgente}
           />
         )}
-        {aba === "achados" && <AbaAchados dados={dados} erro={erro} carregando={carregando} />}
+        {aba === "aprovar" && aprovacao && (
+          <div className="space-y-3">
+            <p className="text-[0.8125rem] leading-relaxed text-aura-graphite-soft">
+              {aprovacao === "propostas"
+                ? "A Diretora propôs agentes novos e espera a sua resposta."
+                : `O que ${mesa.nome} não teve certeza e deixou para você decidir. Aprovar, recusar ou ajustar aqui vale na hora.`}
+            </p>
+            {aprovacao === "propostas" ? <PropostasAgentes /> : <AprendizadoCard />}
+          </div>
+        )}
+        {aba === "achados" && (
+          <AbaAchados
+            dados={dados}
+            erro={erro}
+            carregando={carregando}
+            aoAprovarAqui={aprovacao === "aprendizado" ? () => setAba("aprovar") : undefined}
+          />
+        )}
         {aba === "ficha" && (
           <FichaAgente
             mesa={mesa}
@@ -545,7 +613,18 @@ const SITUACAO: Record<string, { rotulo: string; tom: Tom }> = {
   expirada: { rotulo: "Expirou", tom: "neutro" },
 };
 
-function AbaAchados({ dados, erro, carregando }: { dados: PainelDoAgente | null; erro: string | null; carregando: boolean }) {
+function AbaAchados({
+  dados,
+  erro,
+  carregando,
+  aoAprovarAqui,
+}: {
+  dados: PainelDoAgente | null;
+  erro: string | null;
+  carregando: boolean;
+  /** Há aprovação de aprendizado neste painel: o achado ganha "Aprovar aqui". */
+  aoAprovarAqui?: () => void;
+}) {
   const [filtro, setFiltro] = useState<FiltroAchados>("abertos");
   const visiveis = useMemo(() => filtrarAchados(dados?.achados.lista ?? [], filtro), [dados, filtro]);
 
@@ -601,7 +680,7 @@ function AbaAchados({ dados, erro, carregando }: { dados: PainelDoAgente | null;
       ) : (
         <ul className="space-y-2.5">
           {visiveis.map((a) => (
-            <Achado key={a.id} achado={a} />
+            <Achado key={a.id} achado={a} aoAprovarAqui={aoAprovarAqui} />
           ))}
         </ul>
       )}
@@ -615,10 +694,11 @@ function AbaAchados({ dados, erro, carregando }: { dados: PainelDoAgente | null;
   );
 }
 
-function Achado({ achado }: { achado: AchadoNoPainel }) {
+function Achado({ achado, aoAprovarAqui }: { achado: AchadoNoPainel; aoAprovarAqui?: () => void }) {
   const p = PRIORIDADE[achado.prioridade] ?? PRIORIDADE.media;
   const s = SITUACAO[achado.status] ?? { rotulo: achado.status, tom: "neutro" as Tom };
   const aberto = achado.status === "pendente";
+  const aprovaAqui = Boolean(aoAprovarAqui && aberto && achado.acaoUrl?.includes("aba=aprendizado"));
   return (
     <li className="rounded-lg border border-aura-mist p-3">
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5 text-xs text-aura-graphite-soft">
@@ -644,10 +724,17 @@ function Achado({ achado }: { achado: AchadoNoPainel }) {
               </>
             ) : null}
           </span>
-          {achado.acaoUrl && (
-            <BotaoLink href={achado.acaoUrl} tamanho="sm" variante="secundario" icone={ArrowUpRight}>
-              Abrir
-            </BotaoLink>
+          {aprovaAqui ? (
+            <button type="button" onClick={aoAprovarAqui} className={classeBotao("primario", "sm")}>
+              <ListChecks size={13} aria-hidden />
+              Aprovar aqui
+            </button>
+          ) : (
+            achado.acaoUrl && (
+              <BotaoLink href={achado.acaoUrl} tamanho="sm" variante="secundario" icone={ArrowUpRight}>
+                Abrir
+              </BotaoLink>
+            )
           )}
         </div>
       )}
