@@ -3,9 +3,20 @@
  * o erro só aparece no dia em que alguém precisar restaurar — tarde demais.
  * Por isso a decisão de remoção é uma função pura e tem teste.
  *
- * Rodar com: npx tsx src/lib/backup/executar.teste.ts
+ * Regra desde 27/11/2026 (pedido do dono): fica SÓ o backup mais recente — no
+ * disco, no bucket e no Drive. O antigo só sai quando o novo do mesmo tipo já
+ * está salvo; se o backup parar, o último que existe fica.
  */
-import { antigosNoDisco, decidirRemocoes, diaDoArquivo, diaDasSessoes, diaDoSistema, diaDoBackup, nomesDoDia, EXCLUIDOS_DO_SISTEMA } from "./executar";
+import {
+  antigosParaApagar,
+  pastasAntigasNoDrive,
+  diaDoArquivo,
+  diaDasSessoes,
+  diaDoSistema,
+  diaDoBackup,
+  nomesDoDia,
+  EXCLUIDOS_DO_SISTEMA,
+} from "./executar";
 
 let passou = 0;
 const falhas: string[] = [];
@@ -16,105 +27,75 @@ function conferir(oque: string, real: unknown, esperado: unknown) {
   else falhas.push(`${oque}\n  esperado: ${b}\n  veio:     ${a}`);
 }
 
-/** Gera os N dias terminando em `fim`, do mais antigo para o mais novo. */
-function dias(fim: string, n: number): string[] {
-  const saida: string[] = [];
-  const base = new Date(`${fim}T12:00:00-03:00`);
-  for (let i = n - 1; i >= 0; i -= 1) {
-    const d = new Date(base.getTime() - i * 86_400_000);
-    saida.push(d.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
-  }
-  return saida;
-}
+const HOJE = "2026-11-27";
+const TUDO_OK = { dados: true, sessoes: true, sistema: true };
+const NADA_OK = { dados: false, sessoes: false, sistema: false };
 
-// 2026-10-13 é uma terça.
-const HOJE = "2026-10-13";
-
-conferir("poucos arquivos: não apaga nada", decidirRemocoes(dias(HOJE, 5), HOJE), []);
-conferir("exatamente sete: não apaga nada", decidirRemocoes(dias(HOJE, 7), HOJE), []);
-
-// Com 40 dias, sobram os 7 últimos e 4 domingos anteriores a eles.
-const quarenta = decidirRemocoes(dias(HOJE, 40), HOJE);
-const sobraram = dias(HOJE, 40).filter((d) => !quarenta.includes(d));
-// 7 diários mais 4 domingos ANTERIORES a eles: a cobertura não muda com o
-// dia da semana em que o backup roda.
-conferir("sobram 7 diários + 4 domingos", sobraram.length, 11);
-conferir("o de hoje sobra", sobraram.includes(HOJE), true);
-conferir("ontem sobra", sobraram.includes("2026-10-12"), true);
-conferir("o sétimo dia sobra", sobraram.includes("2026-10-07"), true);
-conferir("o oitavo dia some, por não ser domingo", quarenta.includes("2026-10-06"), true);
-const domingosQueSobraram = sobraram.filter(
-  (d) => new Date(`${d}T12:00:00-03:00`).getUTCDay() === 0,
-);
-// O domingo 11/10 cai dentro da semana recente; os 4 contados são os de fora.
-conferir("cinco domingos no total (1 na semana + 4 fora)", domingosQueSobraram.length, 5);
-conferir(
-  "os domingos guardados são os 4 anteriores à semana recente",
-  domingosQueSobraram.sort().reverse(),
-  ["2026-10-11", "2026-10-04", "2026-09-27", "2026-09-20", "2026-09-13"],
-);
-conferir(
-  "nada mais antigo que o quarto domingo de fora sobrevive",
-  sobraram.filter((d) => d < "2026-09-13").length,
-  0,
-);
-conferir("cobre pelo menos 30 dias para trás", sobraram.sort()[0], "2026-09-13");
-
-// O de hoje nunca pode ser apagado, nem se a regra ficasse maluca.
-conferir("hoje nunca entra na remoção", decidirRemocoes(dias(HOJE, 400), HOJE).includes(HOJE), false);
-
-// Dia repetido não faz apagar duas vezes nem confunde a contagem.
-conferir("dia repetido não quebra", decidirRemocoes([HOJE, HOJE, HOJE], HOJE), []);
-conferir("lista vazia não quebra", decidirRemocoes([], HOJE), []);
-
-// Só mexe em arquivo nosso: nada de apagar o que outra coisa deixou na pasta.
+// ---- só mexe em arquivo nosso
 conferir("reconhece o nosso arquivo", diaDoArquivo("aura-2026-10-13.json.gz"), "2026-10-13");
 conferir("ignora arquivo de terceiro", diaDoArquivo("dump-producao.sql.gz"), null);
 conferir("ignora o temporário", diaDoArquivo("aura-2026-10-13.json.gz.tmp"), null);
 conferir("ignora nome parecido", diaDoArquivo("aura-2026-13.json.gz"), null);
 conferir("ignora pasta", diaDoArquivo("_antigos"), null);
 
-if (falhas.length) {
-  console.error(`${falhas.length} verificação(ões) falharam:\n\n${falhas.join("\n\n")}`);
-  process.exit(1);
-}
-
-// ---- nomes dos arquivos de sessão (backup v2)
+// ---- nomes dos três arquivos de um dia
 {
-  const n = nomesDoDia("2026-10-19");
-  conferir("nome dos dados", n.dados, "aura-2026-10-19.json.gz");
-  conferir("nome das sessões", n.sessoes, "aura-sessoes-2026-10-19.tar.gz");
-  conferir("diaDasSessoes lê o próprio nome", diaDasSessoes(n.sessoes), "2026-10-19");
-  conferir("diaDasSessoes recusa arquivo de dados", diaDasSessoes(n.dados), null);
-  conferir("diaDoArquivo recusa arquivo de sessões", diaDoArquivo(n.sessoes), null);
-}
-
-// ---- disco da VPS: só o de hoje (27/11/2026)
-{
-  const nomes = ["aura-2026-11-25.json.gz", "aura-sessoes-2026-11-25.tar.gz", "aura-2026-11-26.json.gz", "aura-sessoes-2026-11-26.tar.gz", "aura-2026-11-27.json.gz", "aura-sessoes-2026-11-27.tar.gz", "anotacao.txt"];
-  conferir("com o pacote de hoje, apaga todos os dias anteriores", antigosNoDisco(nomes, "2026-11-27", true).sort(), ["aura-2026-11-25.json.gz", "aura-2026-11-26.json.gz", "aura-sessoes-2026-11-25.tar.gz", "aura-sessoes-2026-11-26.tar.gz"]);
-  conferir("sem o pacote de hoje, fica o de sessões mais novo", antigosNoDisco(nomes.filter((n) => n !== "aura-sessoes-2026-11-27.tar.gz"), "2026-11-27", false).includes("aura-sessoes-2026-11-26.tar.gz"), false);
-  conferir("nunca apaga o de hoje nem arquivo que não é nosso", antigosNoDisco(nomes, "2026-11-27", true).some((n) => n.includes("11-27") || n === "anotacao.txt"), false);
-}
-
-// ---- pacote do sistema (o programa inteiro, 27/11/2026)
-{
-  const n = nomesDoDia("2026-11-27");
+  const n = nomesDoDia(HOJE);
+  conferir("nome dos dados", n.dados, "aura-2026-11-27.json.gz");
+  conferir("nome das sessões", n.sessoes, "aura-sessoes-2026-11-27.tar.gz");
   conferir("nome do sistema", n.sistema, "aura-sistema-2026-11-27.tar.gz");
-  conferir("diaDoSistema lê o próprio nome", diaDoSistema(n.sistema), "2026-11-27");
-  conferir("diaDoSistema recusa o de sessões", diaDoSistema(n.sessoes), null);
-  conferir("diaDasSessoes recusa o do sistema", diaDasSessoes(n.sistema), null);
-  conferir("diaDoArquivo recusa o do sistema", diaDoArquivo(n.sistema), null);
-  conferir("diaDoBackup reconhece os três", [n.dados, n.sessoes, n.sistema].map(diaDoBackup), ["2026-11-27", "2026-11-27", "2026-11-27"]);
-
-  const nomes = ["aura-sistema-2026-11-25.tar.gz", "aura-sistema-2026-11-26.tar.gz", "aura-sistema-2026-11-27.tar.gz", "aura-2026-11-27.json.gz"];
-  conferir("com o sistema de hoje, apaga os anteriores", antigosNoDisco(nomes, "2026-11-27", true, true).sort(), ["aura-sistema-2026-11-25.tar.gz", "aura-sistema-2026-11-26.tar.gz"]);
-  conferir("sem o de hoje, fica o sistema mais novo", antigosNoDisco(nomes.slice(0, 2), "2026-11-27", true, false), ["aura-sistema-2026-11-25.tar.gz"]);
-  conferir("chamada antiga (3 argumentos) continua apagando o sistema velho", antigosNoDisco(nomes, "2026-11-27", true).length, 2);
-
-  conferir("node_modules e .next ficam de fora", ["node_modules", ".next", ".backups", ".whatsapp-sessions"].every((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), true);
-  conferir("o código e o .git não ficam de fora", ["src", ".git", "supabase", "deploy"].some((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), false);
+  conferir("diaDasSessoes lê o próprio nome", diaDasSessoes(n.sessoes), HOJE);
+  conferir("diaDoSistema lê o próprio nome", diaDoSistema(n.sistema), HOJE);
+  conferir("diaDasSessoes recusa dados e sistema", [diaDasSessoes(n.dados), diaDasSessoes(n.sistema)], [null, null]);
+  conferir("diaDoSistema recusa dados e sessões", [diaDoSistema(n.dados), diaDoSistema(n.sessoes)], [null, null]);
+  conferir("diaDoArquivo recusa sessões e sistema", [diaDoArquivo(n.sessoes), diaDoArquivo(n.sistema)], [null, null]);
+  conferir("diaDoBackup reconhece os três", [n.dados, n.sessoes, n.sistema].map(diaDoBackup), [HOJE, HOJE, HOJE]);
 }
+
+// ---- só o mais recente fica
+const dias = ["2026-11-20", "2026-11-25", "2026-11-26", HOJE];
+const todos = dias.flatMap((d) => Object.values(nomesDoDia(d)));
+const comTerceiro = [...todos, "anotacao.txt", "aura-2026-11-27.json.gz.tmp"];
+
+{
+  const apagar = antigosParaApagar(comTerceiro, HOJE, TUDO_OK);
+  conferir("hoje salvo: apaga TODOS os dias anteriores (9 arquivos)", apagar.length, 9);
+  conferir("hoje salvo: sobram só os três de hoje", comTerceiro.filter((n) => diaDoBackup(n) && !apagar.includes(n)), Object.values(nomesDoDia(HOJE)));
+  conferir("nunca apaga o de hoje", apagar.some((n) => n.includes(HOJE)), false);
+  conferir("nunca apaga arquivo que não é nosso", apagar.some((n) => n === "anotacao.txt" || n.endsWith(".tmp")), false);
+}
+
+{
+  // "Fez backup hoje e daqui a 5 dias não foi feito": o último fica.
+  const so20 = Object.values(nomesDoDia("2026-11-20"));
+  conferir("backup parado há dias: o último que existe NÃO sai", antigosParaApagar(so20, HOJE, NADA_OK), []);
+  conferir("backup parado: de vários antigos, fica o mais novo de cada tipo",
+    antigosParaApagar(todos.filter((n) => !n.includes(HOJE)), HOJE, NADA_OK).sort(),
+    ["aura-2026-11-20.json.gz", "aura-2026-11-25.json.gz", "aura-sessoes-2026-11-20.tar.gz", "aura-sessoes-2026-11-25.tar.gz", "aura-sistema-2026-11-20.tar.gz", "aura-sistema-2026-11-25.tar.gz"]);
+}
+
+{
+  // Cada tipo por conta própria: as sessões falharem não segura o banco.
+  const apagar = antigosParaApagar(todos, HOJE, { dados: true, sessoes: false, sistema: true });
+  conferir("sessões de hoje falharam: fica a de ontem", apagar.includes("aura-sessoes-2026-11-26.tar.gz"), false);
+  conferir("sessões de hoje falharam: as mais velhas saem", apagar.includes("aura-sessoes-2026-11-25.tar.gz"), true);
+  conferir("o banco antigo sai mesmo assim", apagar.includes("aura-2026-11-26.json.gz"), true);
+}
+
+conferir("lista vazia não quebra", antigosParaApagar([], HOJE, TUDO_OK), []);
+
+// ---- Drive: pastas por dia
+{
+  const pastas = ["2026-11-20/", "2026-11-26/", "2026-11-27/", "Importante/", ""];
+  conferir("Drive: hoje subiu inteiro, saem as pastas dos dias anteriores", pastasAntigasNoDrive(pastas, HOJE, true), ["2026-11-20", "2026-11-26"]);
+  conferir("Drive: hoje falhou, nada sai", pastasAntigasNoDrive(pastas, HOJE, false), []);
+  conferir("Drive: pasta com outro nome nunca é tocada", pastasAntigasNoDrive(pastas, HOJE, true).includes("Importante"), false);
+  conferir("Drive: só a de hoje, nada a apagar", pastasAntigasNoDrive(["2026-11-27/"], HOJE, true), []);
+}
+
+// ---- o pacote do sistema leva o programa, não o que se refaz sozinho
+conferir("node_modules e .next ficam de fora", ["node_modules", ".next", ".backups", ".whatsapp-sessions"].every((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), true);
+conferir("o código e o .git não ficam de fora", ["src", ".git", "supabase", "deploy"].some((p) => EXCLUIDOS_DO_SISTEMA.includes(p)), false);
 
 if (falhas.length) {
   console.error(`${falhas.length} verificação(ões) falharam:\n\n${falhas.join("\n\n")}`);

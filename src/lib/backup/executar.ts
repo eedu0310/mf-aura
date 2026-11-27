@@ -18,39 +18,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const PASTA_PADRAO = path.join(process.cwd(), ".backups");
 
-/**
- * NA NUVEM (bucket "backups", fora da VPS): diários que ficam. Uma semana
- * cobre o "deu um problema ontem".
- */
-export const DIARIOS_MANTIDOS = 7;
-/** Domingos além disso, também na nuvem: o problema que só aparece dez dias depois. */
-export const DOMINGOS_MANTIDOS = 4;
-
 /*
- * NO DISCO DA VPS fica SÓ o backup do dia (pedido do Elton, 27/11/2026: "fez
- * o backup de hoje, exclui o de ontem e todos do passado"). O pacote das
- * sessões do WhatsApp tinha chegado a 6,4 GB por noite (levava junto a pasta
- * _media, o cache de fotos e áudios) e, com 7 diários + 4 domingos, ia ocupar
- * uns 70 GB do disco que o próprio AURA usa. O histórico de dias fica na
- * nuvem, que não ocupa a VPS.
+ * FICA SÓ O BACKUP MAIS RECENTE — no disco da VPS, no bucket e no Drive
+ * (pedido do dono, 27/11/2026: "fez backup hoje, apaga todos que tem
+ * anteriormente; um por dia. Mas se daqui a 5 dias não foi feito backup, a
+ * gente mantém esse de hoje").
+ *
+ * Por isso a limpeza nunca é por idade (o "apaga o que tem mais de 3 dias"
+ * do Drive esvaziaria a pasta se o backup parasse): um arquivo antigo só sai
+ * quando o NOVO do mesmo tipo já está salvo naquele lugar. Se o de hoje
+ * falhou, o mais recente que existe fica.
  */
 
+/** Se o arquivo de hoje de cada tipo ficou salvo naquele lugar. */
+export interface SalvosHoje {
+  dados: boolean;
+  sessoes: boolean;
+  sistema: boolean;
+}
+
 /**
- * Quais arquivos de backup apagar do disco: tudo que não é de hoje. O pacote
- * de sessões de um dia anterior só sai se o de hoje foi gerado (senão fica o
- * mais recente, para nunca ficar sem nenhum). Função pura: apagar backup não
- * perdoa engano.
+ * Quais arquivos de backup apagar: de cada tipo (banco, sessões, sistema),
+ * todos os de dias anteriores quando o de hoje foi salvo; senão, todos menos
+ * o mais recente — para nunca ficar sem nenhum. Função pura: apagar backup
+ * não perdoa engano.
  */
-export function antigosNoDisco(
-  nomes: string[],
-  hoje: string,
-  sessoesDeHojeOk: boolean,
-  sistemaDeHojeOk = true,
-): string[] {
-  const apagar = nomes.filter((n) => {
-    const d = diaDoArquivo(n);
-    return d !== null && d !== hoje;
-  });
+export function antigosParaApagar(nomes: string[], hoje: string, salvos: SalvosHoje): string[] {
   const velhos = (dia: (n: string) => string | null) =>
     nomes
       .filter((n) => {
@@ -59,12 +52,29 @@ export function antigosNoDisco(
       })
       .sort()
       .reverse();
-  // Sem o pacote de hoje, o mais novo dos antigos fica.
-  const sessoesVelhas = velhos(diaDasSessoes);
-  apagar.push(...(sessoesDeHojeOk ? sessoesVelhas : sessoesVelhas.slice(1)));
-  const sistemasVelhos = velhos(diaDoSistema);
-  apagar.push(...(sistemaDeHojeOk ? sistemasVelhos : sistemasVelhos.slice(1)));
+  const apagar: string[] = [];
+  const tipos: [(n: string) => string | null, boolean][] = [
+    [diaDoArquivo, salvos.dados],
+    [diaDasSessoes, salvos.sessoes],
+    [diaDoSistema, salvos.sistema],
+  ];
+  for (const [dia, salvoHoje] of tipos) {
+    const v = velhos(dia);
+    apagar.push(...(salvoHoje ? v : v.slice(1)));
+  }
   return apagar;
+}
+
+/**
+ * Pastas de dia do Drive ("AAAA-MM-DD") que podem sair: só depois que a de
+ * hoje subiu inteira, e todas as outras com nome de dia. Pasta com outro nome
+ * (alguém guardou algo lá) nunca é tocada.
+ */
+export function pastasAntigasNoDrive(pastas: string[], hoje: string, hojeSubiuInteiro: boolean): string[] {
+  if (!hojeSubiuInteiro) return [];
+  return [...new Set(pastas.map((p) => p.replace(/\/$/, "")))].filter(
+    (p) => /^\d{4}-\d{2}-\d{2}$/.test(p) && p !== hoje,
+  );
 }
 
 /** Acima disto o arquivo nem é lido para subir (o Node não carrega mais de 2 GiB num Buffer). */
@@ -165,47 +175,6 @@ export function nomesDoDia(dia: string) {
     sessoes: `aura-sessoes-${dia}.tar.gz`,
     sistema: `aura-sistema-${dia}.tar.gz`,
   };
-}
-
-function ehDomingo(dia: string) {
-  return new Date(`${dia}T12:00:00-03:00`).getUTCDay() === 0;
-}
-
-/**
- * Decide o que apagar.
- *
- * Separada da gravação de propósito: apagar backup é a parte que não perdoa
- * engano, então ela é uma função pura, testável sem tocar em disco nenhum.
- */
-export function decidirRemocoes(
-  dias: string[],
-  hoje: string,
-  diarios = DIARIOS_MANTIDOS,
-  domingos = DOMINGOS_MANTIDOS,
-): string[] {
-  const ordenados = [...new Set(dias)].sort().reverse();
-  const guardar = new Set<string>([hoje]);
-
-  const recentes = ordenados.slice(0, diarios);
-  for (const d of recentes) guardar.add(d);
-
-  /*
-   * Os domingos são contados FORA da janela diária, de propósito.
-   *
-   * Contando junto, um domingo que caísse dentro da semana recente gastava uma
-   * das vagas e a profundidade do backup encolhia conforme o dia da semana em
-   * que estivéssemos: numa terça o arquivo mais antigo era de 23 dias, noutro
-   * dia seria de 30. Fora da janela, a cobertura é sempre a mesma.
-   */
-  let n = 0;
-  for (const d of ordenados.slice(diarios)) {
-    if (n >= domingos) break;
-    if (ehDomingo(d)) {
-      guardar.add(d);
-      n += 1;
-    }
-  }
-  return ordenados.filter((d) => !guardar.has(d));
 }
 
 /**
@@ -367,8 +336,9 @@ function rodar(programa: string, args: string[], tempoMs: number, codigosOk: num
  * ou sem o remote, o backup segue normal e o log diz "drive: não
  * configurado" — não quebra nada.
  *
- * No Drive fica uma pasta por dia em "AURA Backups", e o que passa de
- * DIAS_NO_DRIVE dias é apagado de lá (só dentro dessa pasta).
+ * No Drive fica uma pasta por dia em "AURA Backups" — e só a mais recente:
+ * quando a de hoje sobe inteira, as dos dias anteriores saem (só dentro
+ * dessa pasta, ver pastasAntigasNoDrive).
  */
 export const REMOTO_DRIVE = (process.env.AURA_RCLONE_REMOTO || "aura-drive").replace(/:$/, "");
 /**
@@ -380,8 +350,6 @@ export const REMOTO_DRIVE = (process.env.AURA_RCLONE_REMOTO || "aura-drive").rep
 export const CONFIG_RCLONE = process.env.AURA_RCLONE_CONFIG || "/etc/aura/rclone.conf";
 const comConfig = (args: string[]) => (fs.existsSync(CONFIG_RCLONE) ? [...args, "--config", CONFIG_RCLONE] : args);
 export const PASTA_NO_DRIVE = "AURA Backups";
-/** Dias guardados no Drive (pedido do Elton, 27/11/2026: "30 dias fica pesado, uns 3 dias é o suficiente"). */
-export const DIAS_NO_DRIVE = 3;
 
 export async function enviarParaDrive(arquivos: string[], dia: string): Promise<string> {
   let remotos = "";
@@ -395,11 +363,27 @@ export async function enviarParaDrive(arquivos: string[], dia: string): Promise<
   }
   const destino = `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}/${dia}`;
   try {
+    // Qualquer arquivo que falhar cai no catch: nada antigo é apagado.
     for (const a of arquivos) await rodar("rclone", comConfig(["copy", a, destino, "--retries", "3"]), 10 * 60_000);
-    // Limpeza só dentro de "AURA Backups": arquivos com mais de N dias e as pastas que ficarem vazias.
-    await rodar("rclone", comConfig(["delete", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--min-age", `${DIAS_NO_DRIVE}d`]), 5 * 60_000).catch(() => "");
-    await rodar("rclone", comConfig(["rmdirs", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--leave-root"]), 5 * 60_000).catch(() => "");
-    return `ok: ${arquivos.map((a) => path.basename(a)).join(", ")} em ${PASTA_NO_DRIVE}/${dia}`;
+    // Hoje subiu inteiro: saem as pastas dos dias anteriores (só dentro de "AURA Backups").
+    const raiz = `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`;
+    const listadas = (await rodar("rclone", comConfig(["lsf", raiz, "--dirs-only"]), 60_000).catch(() => "")).split("\n");
+    const apagadas: string[] = [];
+    const falhas: string[] = [];
+    for (const p of pastasAntigasNoDrive(listadas, dia, true)) {
+      try {
+        await rodar("rclone", comConfig(["purge", `${raiz}/${p}`]), 5 * 60_000);
+        apagadas.push(p);
+      } catch (e) {
+        falhas.push(`${p} (${e instanceof Error ? e.message : String(e)})`);
+      }
+    }
+    const limpeza = falhas.length
+      ? `; NÃO consegui apagar: ${falhas.join(", ")}`
+      : apagadas.length
+        ? `; apagados: ${apagadas.join(", ")}`
+        : "";
+    return `ok: ${arquivos.map((a) => path.basename(a)).join(", ")} em ${PASTA_NO_DRIVE}/${dia}${limpeza}`;
   } catch (e) {
     return `FALHOU: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -452,10 +436,12 @@ async function subirParaNuvem(
     const { data: lista, error: erroLista } = await sb.storage.from(BUCKET_NUVEM).list("", { limit: 1000 });
     if (erroLista) throw new Error(`listar: ${erroLista.message}`);
     const nomes = (lista ?? []).map((o) => o.name);
-    const dias = nomes.map(diaDoBackup).filter((d): d is string => d !== null);
-    const remover = decidirRemocoes(dias, dia).flatMap((d) => {
-      const n = nomesDoDia(d);
-      return [n.dados, n.sessoes, n.sistema].filter((x) => nomes.includes(x));
+    // Só o mais recente de cada tipo fica; o antigo sai só se o de hoje subiu.
+    const hoje = nomesDoDia(dia);
+    const remover = antigosParaApagar(nomes, dia, {
+      dados: enviados.includes(hoje.dados),
+      sessoes: enviados.includes(hoje.sessoes),
+      sistema: enviados.includes(hoje.sistema),
     });
     if (remover.length > 0) {
       const { error } = await sb.storage.from(BUCKET_NUVEM).remove(remover);
@@ -536,7 +522,7 @@ export async function executarBackup(
   const sessoes = await empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
   const sistema = await empacotarSistema(raizSistema, path.join(pasta, nomes.sistema));
 
-  // No disco fica só o de hoje (ver antigosNoDisco). Só chega aqui com o
+  // No disco fica só o de hoje (ver antigosParaApagar). Só chega aqui com o
   // arquivo do banco de hoje já gravado e conferido pelo rename.
   const apagados: string[] = [];
   // Pacote pela metade de um backup interrompido (reinício no deploy):
@@ -551,7 +537,7 @@ export async function executarBackup(
       }
     } catch { /* outro processo cuidou */ }
   }
-  for (const nome of antigosNoDisco(fs.readdirSync(pasta), dia, sessoes !== null, sistema !== null)) {
+  for (const nome of antigosParaApagar(fs.readdirSync(pasta), dia, { dados: true, sessoes: sessoes !== null, sistema: sistema !== null })) {
     try {
       fs.unlinkSync(path.join(pasta, nome));
       const d = diaDoBackup(nome);

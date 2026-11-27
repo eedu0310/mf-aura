@@ -67,8 +67,8 @@ ALVO=http://127.0.0.1:3000
 # migração 110 no banco a rota só responde "aguardando_migracao".
 */10 * * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/agentes >> /var/log/aura-cron.log 2>&1
 
-# Backup do banco todo dia às 22h. Guarda 7 diários e 4 domingos anteriores a
-# eles — cerca de 30 dias de cobertura — em /opt/aura/.backups.
+# Backup todo dia às 22h: banco, sessões do WhatsApp e o sistema inteiro. Fica
+# só o mais recente (disco, bucket e Drive); o antigo sai quando o novo salvou.
 0 22 * * * root curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" $ALVO/api/cron/backup >> /var/log/aura-cron.log 2>&1
 
 # Sentinelas (operação, dados e segurança), 7h30 e 13h30: conferem se os

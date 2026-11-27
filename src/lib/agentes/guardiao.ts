@@ -7,7 +7,7 @@
  *      alteração e exclusão vira uma linha que ninguém apaga;
  *   2. esta CÓPIA NOTURNA, só do conhecimento, às 23h30: um arquivo por dia
  *      no bucket "backups", em conhecimento/AAAA-MM-DD.json.gz, guardado por
- *      um ano (o backup do banco inteiro guarda só ~30 dias);
+ *      um ano (o backup do banco inteiro guarda só o mais recente);
  *   3. o BACKUP COMPLETO das 22h (src/lib/backup/executar.ts).
  *
  * Toda noite o Guardião: lê todas as tabelas de conhecimento (inteiras, em
