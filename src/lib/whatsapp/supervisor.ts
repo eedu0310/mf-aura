@@ -55,6 +55,8 @@ import { carregarFunil } from "@/lib/funil-servidor";
 import { anuncioDaConversa, resolverCampanha, camposDoAnuncio } from "@/lib/whatsapp/marketing";
 import { anuncioVaiParaRelacionamentos, iaDescartou, pareceNaoLeadRecente } from "@/lib/whatsapp/nao-lead";
 import { registrarEnvio, registrarRespostaDoCliente } from "@/lib/aura/resultado-sugestoes";
+import { rastrearAvaliacao } from "@/lib/avaliacao/rastrear";
+import { clienteDizQueAvaliou } from "@/lib/avaliacao/rastreio";
 import { SEGMENTOS_EM_UMA_LINHA } from "@/lib/companies";
 
 export interface LeadInfo {
@@ -2325,6 +2327,9 @@ async function varredura() {
       await perguntarSeEhLead(sb, userId).catch((e) =>
         console.error("[supervisor] pergunta dos 3 dias:", e?.message ?? e),
       );
+      await rastrearAvaliacoesDaMemoria(userId).catch((e) =>
+        console.error("[supervisor] avaliações da memória:", e?.message ?? e),
+      );
       const leads = await listarLeads(userId);
       for (const chat of getChats(userId)) {
         const info = leads[chat.id];
@@ -2418,6 +2423,65 @@ async function medirSugestao(userId: string, chatJid: string, msg: WaMessage) {
 }
 
 /**
+ * Pedido de avaliação no Google, lido da conversa (27/11/2026): o vendedor
+ * mandou o link (pelo celular, colado ou pelo botão) → conta o envio; o
+ * cliente disse que avaliou → conta a avaliação. Só lê a mensagem que já
+ * passou; não envia nada. Ver src/lib/avaliacao/rastreio.ts.
+ *
+ * Cada mensagem é olhada uma vez (a varredura relê a memória da conversa).
+ */
+const avaliacaoVista = ((globalThis as any).__auraAvaliacaoVista ??= new Set<string>()) as Set<string>;
+
+function podeSerAvaliacao(msg: WaMessage): boolean {
+  const t = msg.text ?? "";
+  if (!t.trim()) return false;
+  return msg.fromMe ? /https?:\/\/|\/av\/|g\.page|goo\.gl/i.test(t) : clienteDizQueAvaliou(t);
+}
+
+async function rastrearAvaliacaoDaMensagem(userId: string, chatJid: string, msg: WaMessage) {
+  if (chatJid.endsWith("@g.us") || !podeSerAvaliacao(msg)) return;
+  const chave = `${userId}|${msg.id}`;
+  if (avaliacaoVista.has(chave)) return;
+  avaliacaoVista.add(chave);
+  if (avaliacaoVista.size > 20_000) avaliacaoVista.clear();
+  const sb = db();
+  const chat = getChat(userId, chatJid);
+  if (!sb || !chat) return;
+  const { data: lead } = await sb
+    .from("whatsapp_ia_leads")
+    .select("relacionamento_id, carteira_relacionamento_id")
+    .eq("owner_id", userId)
+    .eq("chat_jid", chatJid)
+    .maybeSingle();
+  const r = await rastrearAvaliacao(sb, {
+    userId,
+    chatJid,
+    telefone: chat.phone || null,
+    nome: chat.hasName ? chat.name : null,
+    empresa: (await empresaDo(userId)) || null,
+    relacionamentos: [lead?.relacionamento_id, lead?.carteira_relacionamento_id].filter(Boolean) as string[],
+    fromMe: msg.fromMe,
+    texto: msg.text ?? "",
+    quando: msg.timestamp,
+  });
+  if (r) console.log(`[supervisor] avaliação: ${r} (${chat.name})`);
+}
+
+/** Mensagens dos últimos 30 dias na memória: pega o que chegou antes de o servidor subir. */
+async function rastrearAvaliacoesDaMemoria(userId: string) {
+  const desde = Date.now() - 30 * 24 * 3600 * 1000;
+  for (const chat of getChats(userId)) {
+    if (chat.id.endsWith("@g.us")) continue;
+    for (const m of getMessages(userId, chat.id)) {
+      if (m.timestamp < desde || !podeSerAvaliacao(m)) continue;
+      await rastrearAvaliacaoDaMensagem(userId, chat.id, m).catch((e) =>
+        console.error("[supervisor] avaliação:", e?.message ?? e),
+      );
+    }
+  }
+}
+
+/**
  * O vendedor respondeu o cliente — pelo celular ou pela AURA — e o lead
  * daquele número sai da fila como respondido.
  *
@@ -2451,6 +2515,7 @@ if (!g.__auraSupStarted) {
   g.__auraSupStarted = true;
   onMessage((userId, chatJid, msg) => {
     agendarAnalise(userId, chatJid);
+    rastrearAvaliacaoDaMensagem(userId, chatJid, msg).catch((e) => console.error("[supervisor] avaliação:", e?.message ?? e));
     if (msg.fromMe) {
       registrarAtividadeWhats(userId, chatJid).catch((e) => console.error("[supervisor]", e));
       fecharLeadRespondido(userId, chatJid).catch((e) => console.error("[supervisor] fechar lead:", e));

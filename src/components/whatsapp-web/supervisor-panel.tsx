@@ -149,9 +149,34 @@ export function SupervisorPanel({
     return montarMensagensDeAvaliacao(config, nomeDoContato ?? pedido?.cliente ?? "", link);
   }
 
-  async function usarAvaliacao(texto: string) {
+  /**
+   * Avaliação de uma loja para este contato. Sem pedido (cliente sem venda
+   * lançada), cria o pedido antes: o link vai como /av/<token> e a AURA vê
+   * quando o cliente abre, em vez do link do Google direto (27/11/2026).
+   */
+  async function enviarAvaliacaoDaLoja(c: ConfigAvaliacao) {
+    let pedido = avaliacao?.pedido && avaliacao.pedido.empresa === c.empresa ? avaliacao.pedido : null;
+    if (!pedido && (telefoneDoContato ?? "").replace(/\D/g, "").length >= 10) {
+      const j = await fetch("/api/avaliacoes/contato", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empresa: c.empresa, telefone: telefoneDoContato, nome: nomeDoContato ?? "" }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      if (j?.pedido) {
+        pedido = j.pedido as PedidoAvaliacao;
+        setAvaliacao((a) => (a ? { ...a, pedido } : a));
+      }
+    }
+    const texto = mensagensDeAvaliacao(c, pedido)[0];
+    if (pedido) void usarAvaliacao(texto, pedido);
+    else onUsarTexto?.(texto);
+  }
+
+  async function usarAvaliacao(texto: string, pedido?: PedidoAvaliacao | null) {
     onUsarTexto?.(texto);
-    const p = avaliacao?.pedido;
+    const p = pedido ?? avaliacao?.pedido;
     if (p && !p.enviado_em && !avaliacaoEnviada) {
       setAvaliacaoEnviada(true);
       // Sai da lista de pendentes do Meu Dia: o texto já está na conversa.
@@ -267,7 +292,9 @@ export function SupervisorPanel({
                       <>
                         <button
                           type="button"
-                          onClick={() => usarAvaliacao(msgs[0])}
+                          onClick={() =>
+                            avaliacao?.pedido ? void usarAvaliacao(msgs[0]) : void enviarAvaliacaoDaLoja(configDoPedido)
+                          }
                           className="inline-flex items-center gap-1.5 rounded-full bg-wa-accent px-3 py-1.5 text-[13px] font-medium text-wa-on-accent hover:bg-wa-accent-hover"
                         >
                           <Star className="h-3.5 w-3.5" /> Avaliação no Google
@@ -304,14 +331,7 @@ export function SupervisorPanel({
                 <button
                   key={`aval-${c.empresa}`}
                   type="button"
-                  onClick={() => {
-                    // Se o pedido deste cliente é desta loja, vai o link que
-                    // registra (e o pedido sai dos pendentes); senão, o link puro.
-                    const doPedido = avaliacao?.pedido && avaliacao.pedido.empresa === c.empresa ? avaliacao.pedido : null;
-                    const texto = mensagensDeAvaliacao(c, doPedido)[0];
-                    if (doPedido) void usarAvaliacao(texto);
-                    else onUsarTexto(texto);
-                  }}
+                  onClick={() => void enviarAvaliacaoDaLoja(c)}
                   title={`Pedido de avaliação no Google da ${c.empresa}`}
                   className="inline-flex items-center gap-1 rounded-full border border-aura-gold/50 dark:border-[#ffd279]/50 px-3 py-1.5 text-[13px] text-wa-warning-text hover:bg-aura-gold/10 dark:hover:bg-[#ffd279]/10"
                 >

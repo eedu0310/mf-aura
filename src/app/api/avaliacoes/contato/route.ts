@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-empresa";
+import { getSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,4 +103,48 @@ export async function GET(request: Request) {
     pedido,
     configs: configs ?? [],
   });
+}
+
+/**
+ * Cria (ou devolve) o pedido de avaliação de um contato sem venda lançada,
+ * para o link que vai na conversa ser o /av/<token> da AURA e não o do Google
+ * direto (27/11/2026). Só assim a abertura do cliente fica registrada.
+ */
+export async function POST(request: Request) {
+  const auth = await getEmpresaAutenticada();
+  if (!auth) return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  const corpo = await request.json().catch(() => ({}));
+  const empresa = String(corpo.empresa ?? "").trim() || auth.empresa;
+  const digitos = String(corpo.telefone ?? "").replace(/\D/g, "");
+  const nome = String(corpo.nome ?? "").trim().slice(0, 120);
+  if (!empresa || digitos.length < 10) {
+    return NextResponse.json({ erro: "Informe a loja e o telefone do cliente." }, { status: 400 });
+  }
+  if (empresa !== auth.empresa && !vejoTodasAsLojas(auth)) {
+    return NextResponse.json({ erro: "Loja de outra equipe." }, { status: 403 });
+  }
+  // Quem não é gestor não grava em pedidos_avaliacao (não há regra de
+  // inserção para o vendedor): grava o servidor, em nome de quem pediu.
+  const sb = getSupabaseServiceClient();
+  if (!sb) return NextResponse.json({ erro: "Banco indisponível." }, { status: 503 });
+
+  const campos = "id, venda_id, empresa, cliente, telefone, token, enviado_em, confirmado_em, criado_em";
+  const fim = digitos.slice(-8);
+  const { data: existentes } = await sb
+    .from("pedidos_avaliacao")
+    .select(campos)
+    .eq("empresa", empresa)
+    .ilike("telefone", `%${fim.slice(0, 4)}%${fim.slice(4)}%`)
+    .order("criado_em", { ascending: false })
+    .limit(5);
+  const jaTem = (existentes ?? []).find((p) => String(p.telefone ?? "").replace(/\D/g, "").endsWith(fim));
+  if (jaTem) return NextResponse.json({ pedido: jaTem });
+
+  const { data, error } = await sb
+    .from("pedidos_avaliacao")
+    .insert({ empresa, vendedor_id: auth.userId, cliente: nome || null, telefone: digitos })
+    .select(campos)
+    .single();
+  if (error) return NextResponse.json({ erro: error.message }, { status: 500 });
+  return NextResponse.json({ pedido: data });
 }
