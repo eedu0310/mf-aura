@@ -81,6 +81,9 @@ export const SECOES_NUCLEO = [
 ];
 
 function ehNucleo(origem: string): boolean {
+  // Material de uso interno nunca é núcleo: o núcleo vai para TODA conversa,
+  // inclusive a do cliente no Instagram e no site (27/11/2026).
+  if (origem.startsWith(MARCA_USO_INTERNO)) return false;
   const o = origem.toUpperCase();
   return SECOES_NUCLEO.some((s) => o.includes(s));
 }
@@ -331,7 +334,10 @@ export async function nucleoDoManual(sb: SupabaseClient, empresa: string): Promi
       .eq("empresa", empresa)
       .eq("nucleo", true)
       .order("ordem", { ascending: true });
-    texto = (data ?? []).map((t) => `### ${t.origem}\n${t.texto}`).join("\n\n");
+    texto = (data ?? [])
+      .filter((t) => !String(t.origem ?? "").startsWith(MARCA_USO_INTERNO))
+      .map((t) => `### ${t.origem}\n${t.texto}`)
+      .join("\n\n");
 
     /**
      * COMEÇO DE FILA: a loja cujo material não tem nenhuma das seções de
@@ -359,6 +365,8 @@ export async function nucleoDoManual(sb: SupabaseClient, empresa: string): Promi
       const partes: string[] = [];
       let tamanho = 0;
       for (const t of inicio ?? []) {
+        // O plano B também vai para o cliente: sem uso interno.
+        if (String(t.origem ?? "").startsWith(MARCA_USO_INTERNO)) continue;
         const bloco = `### ${t.origem}\n${t.texto}`;
         if (tamanho + bloco.length > TETO_NUCLEO) break;
         partes.push(bloco);

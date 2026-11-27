@@ -176,16 +176,20 @@ export async function GET(request: Request) {
     const funil = await carregarFunil(sb, pessoa.empresa as string);
     const meu = `owner_id.eq.${vendedorId},parceiro_id.eq.${vendedorId}`;
 
-    const [{ data: conversas }, { data: negocios }, { data: supervisoes }] = await Promise.all([
-      sb
-        .from("whatsapp_ia_leads")
-        .select(
-          "id, nome, telefone, etapa, resumo, proxima_acao, alertas, natureza, categoria, owner_id, parceiro_id, oportunidade_id, ultima_analise_em, updated_at, ignorado",
-        )
-        .or(meu)
-        .gte("updated_at", desde)
-        .order("updated_at", { ascending: false })
-        .limit(300),
+    const [conversas, { data: negocios }, { data: supervisoes }] = await Promise.all([
+      // Todas: o cartão da loja dizia 817 conversas e a lista parava em 300 (27/11/2026).
+      todasAsLinhas((de, ate) =>
+        sb
+          .from("whatsapp_ia_leads")
+          .select(
+            "id, nome, telefone, etapa, resumo, proxima_acao, alertas, natureza, categoria, owner_id, parceiro_id, oportunidade_id, ultima_analise_em, updated_at, ignorado",
+          )
+          .or(meu)
+          .gte("updated_at", desde)
+          .order("updated_at", { ascending: false })
+          .order("id")
+          .range(de, ate),
+      ),
       sb
         .from("oportunidades")
         .select(

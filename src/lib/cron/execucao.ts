@@ -73,7 +73,9 @@ export async function rodarCron(
   const inicio = new Date();
   try {
     const resultado = await corpo();
-    await registrarExecucaoCron(nome, inicio, true, resultado);
+    // O corpo que devolve ok:false (falha parcial: uma loja, a nuvem…) fica
+    // registrado como falha, para a Sentinela ver (27/11/2026).
+    await registrarExecucaoCron(nome, inicio, resultado.ok !== false, resultado);
     return Response.json({ ok: true, ...resultado });
   } catch (erro) {
     const mensagem = erro instanceof Error ? erro.message : String(erro);

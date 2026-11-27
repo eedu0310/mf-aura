@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { useAppData } from "@/lib/app-data-context";
 import { classeBotao } from "@/components/ui";
+import { moedaParaNumero } from "@/components/registrar-atividade/activity-date";
 
 interface EditVendaModalProps {
   venda: {
@@ -11,6 +12,8 @@ interface EditVendaModalProps {
     cliente: string;
     produto?: string;
     valor: number;
+    /** O que as telas mostram; é o valor que o vendedor corrige. */
+    valorFechado?: number;
   };
   onClose: () => void;
 }
@@ -19,7 +22,10 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
   const { updateVenda } = useAppData();
   const [cliente, setCliente] = useState(venda.cliente);
   const [produto, setProduto] = useState(venda.produto);
-  const [valor, setValor] = useState(String(venda.valor));
+  // Começa no valor que as telas mostram, escrito como o vendedor escreve.
+  const [valor, setValor] = useState(
+    (venda.valorFechado ?? venda.valor ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+  );
   const [salvando, setSalvando] = useState(false);
 
   async function salvar(e: React.FormEvent) {
@@ -31,7 +37,14 @@ export function EditVendaModal({ venda, onClose }: EditVendaModalProps) {
     }
 
     setSalvando(true);
-    const valorNumerico = parseFloat(valor.replace(/\D/g, "")) / 100 || 0;
+    // Antes: tirava tudo que não era dígito e dividia por 100 — "12900"
+    // (como o campo abria) virava R$ 129 ao salvar sem mexer (27/11/2026).
+    const valorNumerico = moedaParaNumero(valor);
+    if (!(valorNumerico > 0)) {
+      alert("Informe um valor válido.");
+      setSalvando(false);
+      return;
+    }
 
     try {
       await updateVenda(venda.id, {

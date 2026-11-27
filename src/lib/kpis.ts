@@ -126,7 +126,13 @@ export function taxaConversao(ganhos: number, perdas: number): number | null {
  * ("Oportunidade criada", "IA moveu…", "Etapa alterada…"). É a régua de
  * "atividades na semana" da AURA e dos pontos de atividade do ranking.
  */
-export function ehAtividadeDoVendedor(a: { tipo?: string | null; titulo?: string | null }): boolean {
+export function ehAtividadeDoVendedor(a: { tipo?: string | null; titulo?: string | null; origem?: string | null }): boolean {
+  // O supervisor do WhatsApp grava os registros dele com tipo "WhatsApp"
+  // ("IA moveu…", "Oportunidade criada pela IA", "Etapa alterada no
+  // WhatsApp"): só o tipo "Outro" era filtrado e 749 deles contavam como
+  // atividade do vendedor (revisão de 27/11/2026).
+  if (a.origem === "whatsapp_ia") return false;
+  if (/^(IA moveu|Oportunidade criada pela IA|Etapa alterada no WhatsApp)/.test(a.titulo ?? "")) return false;
   return !(a.tipo === "Outro" && /^(Oportunidade |IA moveu|Etapa alterada)/.test(a.titulo ?? ""));
 }
 

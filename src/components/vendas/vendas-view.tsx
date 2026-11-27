@@ -489,6 +489,7 @@ export function VendasView() {
             cliente: vendaEditando.cliente,
             produto: vendaEditando.produto,
             valor: vendaEditando.valor,
+            valorFechado: vendaEditando.valorFechado,
           }}
           onClose={() => setVendaEditando(null)}
         />

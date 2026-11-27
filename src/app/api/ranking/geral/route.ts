@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEmpresaAutenticada } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
-import { MEDIDAS_CONHECIDAS, calcularNota, carregarConfigRanking, unidadeDaMedida, type Insumos } from "@/lib/ranking/nota";
+import { MEDIDAS_CONHECIDAS, MEDIDAS_INVERSAS, calcularNota, carregarConfigRanking, unidadeDaMedida, type Insumos } from "@/lib/ranking/nota";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { inicioDoMesEmSaoPaulo } from "@/lib/fuso";
 import { ehAtividadeDoVendedor, quantidadeDeVendas, totalVendido } from "@/lib/kpis";
@@ -66,7 +66,20 @@ export async function GET(request: Request) {
   const cfg = await carregarConfigRanking();
   const bonusMinimo = Number(cfg?.config?.bonus_crm_minimo ?? 80);
   const mfEntra = Boolean(cfg?.config?.mf_no_ranking_do_grupo);
-  const criterios = cfg?.criterios ?? [];
+  /*
+   * As metas são do MÊS. Nos filtros "90 dias" e "12 meses" as de quantidade
+   * e de dinheiro crescem na proporção do período — senão, em 12 meses,
+   * qualquer um batia todas (revisão de 27/11/2026). Percentual, ticket e
+   * ciclo não dependem do tamanho do período.
+   */
+  const fatorDoPeriodo = dias > 0 ? dias / 30 : 1;
+  const escala = (medida: string) => {
+    const u = unidadeDaMedida(medida);
+    return fatorDoPeriodo !== 1 && (u === "quantidade" || medida === "faturamento") && medida !== "cancelamentos";
+  };
+  const criterios = (cfg?.criterios ?? []).map((c) =>
+    escala(c.medida) ? { ...c, meta_mes: Math.max(1, Math.round(Number(c.meta_mes) * fatorDoPeriodo)) } : c,
+  );
 
   const [
     { data: pessoas, error: erroPessoas },
@@ -86,7 +99,7 @@ export async function GET(request: Request) {
     todasAsLinhas((de, ate) =>
       supabase
         .from("vendas")
-        .select("id,owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro,origem_lead,data,status,valor_original")
+        .select("id,owner_id,valor_fechado,valor,relacionamento_id,parceiro_id,percentual_parceiro,origem_lead,data,status,valor_original,oportunidade_id")
         .gte("data", desdeDia)
         .order("id")
         .range(de, ate),
@@ -128,16 +141,28 @@ export async function GET(request: Request) {
     ),
   ]);
 
-  // Meta de faturamento aprovada do mês (atingimento da meta).
+  /*
+   * Meta de faturamento do mês (atingimento da meta). A mesma régua do Meu
+   * Dia e do agente de metas: a tabela "metas" manda; o compromisso aprovado
+   * vale quando ela não tem a pessoa. Antes só o compromisso era lido e o
+   * critério sumia para todo mundo (revisão de 27/11/2026).
+   */
   const mesAtual = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).slice(0, 7);
-  const { data: metas } = await supabase
-    .from("compromissos_mensais")
-    .select("vendedor_id, meta_faturamento")
-    .eq("mes", mesAtual)
-    .eq("status", "aprovado");
-  const metaDeFaturamento = new Map(
-    (metas ?? []).map((m) => [String(m.vendedor_id), Number(m.meta_faturamento ?? 0)] as [string, number]),
-  );
+  const [{ data: compromissos }, { data: metasDoMes }] = await Promise.all([
+    supabase
+      .from("compromissos_mensais")
+      .select("vendedor_id, meta_faturamento")
+      .eq("mes", mesAtual)
+      .eq("status", "aprovado"),
+    supabase.from("metas").select("owner_id, valor_meta").eq("mes", mesAtual),
+  ]);
+  const metaDeFaturamento = new Map<string, number>();
+  for (const c of compromissos ?? []) {
+    if (Number(c.meta_faturamento) > 0) metaDeFaturamento.set(String(c.vendedor_id), Number(c.meta_faturamento) * fatorDoPeriodo);
+  }
+  for (const m of metasDoMes ?? []) {
+    if (Number(m.valor_meta) > 0) metaDeFaturamento.set(String(m.owner_id), Number(m.valor_meta) * fatorDoPeriodo);
+  }
 
   /*
    * Só o erro das pessoas era olhado. Uma página de vendas que falhasse
@@ -192,16 +217,32 @@ export async function GET(request: Request) {
       id: c.id,
       titulo: c.titulo,
       descricao: c.descricao ?? "",
+      medida: c.medida,
       unidade: unidadeDaMedida(c.medida),
+      /** Menor é melhor (ciclo, cancelamentos): o primeiro é o de menor valor. */
+      inversa: MEDIDAS_INVERSAS.has(c.medida),
       linhas: notas
         .map((n) => {
           const parcela = n.parcelas.find((p) => p.criterioId === c.id);
-          return { id: n.vendedorId, nome: n.nome, loja: n.loja, valor: parcela?.feito ?? 0 };
+          return {
+            id: n.vendedorId,
+            nome: n.nome,
+            loja: n.loja,
+            valor: parcela?.feito ?? 0,
+            semDado: !parcela || !!parcela.semDado,
+          };
         })
-        .sort((a, b) => b.valor - a.valor || a.nome.localeCompare(b.nome, "pt-BR"))
+        // Sem dado vai para o fim (não é "zero"); nas inversas, menor ganha.
+        .sort(
+          (a, b) =>
+            Number(a.semDado) - Number(b.semDado) ||
+            (MEDIDAS_INVERSAS.has(c.medida) ? a.valor - b.valor : b.valor - a.valor) ||
+            a.nome.localeCompare(b.nome, "pt-BR"),
+        )
         .map((l, i) => ({ ...l, posicao: i + 1 })),
     }));
 
+  const vendasValidas = insumos.vendas.filter((v) => !/cancel/i.test(v.status ?? ""));
   // Formato antigo, que as telas atuais ainda consomem.
   const ranking = notas.map((n) => ({
     id: n.vendedorId,
@@ -215,8 +256,9 @@ export async function GET(request: Request) {
     // A mesma conta do critério "faturamento" da nota (src/lib/kpis.ts): a
     // fatia de cada um na venda em dupla. Filtrar pelo dono dava a venda
     // inteira a ele e nada ao parceiro, e esta coluna não batia com a nota.
-    faturamento: totalVendido(insumos.vendas, n.vendedorId),
-    vendas: quantidadeDeVendas(insumos.vendas, n.vendedorId),
+    // Sem as canceladas, como a nota.
+    faturamento: totalVendido(vendasValidas, n.vendedorId),
+    vendas: quantidadeDeVendas(vendasValidas, n.vendedorId),
     atividades: insumos.atividades.filter((a) => a.owner_id === n.vendedorId && ehAtividadeDoVendedor(a)).length,
     relacionamentos: insumos.relacionamentos.filter((r) => r.owner_id === n.vendedorId).length,
   }));

@@ -207,8 +207,13 @@ export function podeAprovarSozinho(a: {
   vezes_visto: number;
   vezes_fechou: number;
   vezes_perdeu?: number | null;
+  revisado_por_agente?: string | null;
 }): boolean {
   if (a.status !== "sugerido") return false;
+  // Item que o Revisor já olhou (ou que o gestor desfez e voltou com a marca
+  // ":gestor") não é aprovado sozinho só porque o padrão apareceu de novo
+  // (revisão de 27/11/2026).
+  if (a.revisado_por_agente) return false;
   if (a.vezes_visto < MIN_VISTO_PARA_APROVAR) return false;
   if (a.vezes_fechou < MIN_FECHOU_PARA_APROVAR) return false;
   if (a.vezes_fechou < (a.vezes_perdeu ?? 0)) return false;
@@ -218,7 +223,7 @@ export function podeAprovarSozinho(a: {
 export async function talvezAprovarSozinho(sb: SupabaseClient, id: string): Promise<boolean> {
   const { data: a } = await sb
     .from("aura_aprendizado")
-    .select("id, empresa, status, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu")
+    .select("id, empresa, status, gatilho, resposta, vezes_visto, vezes_fechou, vezes_perdeu, revisado_por_agente")
     .eq("id", id)
     .maybeSingle();
   if (!a || !podeAprovarSozinho(a)) return false;

@@ -183,7 +183,7 @@ export function SupervisorPanel({
       await fetch("/api/avaliacoes", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: p.id, enviado: true, canal: "whatsapp" }),
+        body: JSON.stringify({ id: p.id, enviado: true }),
       }).catch(() => {});
     }
   }

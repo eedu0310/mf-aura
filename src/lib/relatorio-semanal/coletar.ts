@@ -283,7 +283,9 @@ export async function coletarSemanaDaLoja(
    * que não entrou na conta.
    */
   const ultimoDiaCoberto = new Date(fim.getTime() - 86_400_000).toISOString().slice(0, 10);
-  const mes = fimDia.slice(0, 7);
+  // O mês do último dia COBERTO: com fim exclusivo, o relatório de sábado
+  // 31/10 tinha fim em 01/11 e pegava a meta de novembro (27/11/2026).
+  const mes = ultimoDiaCoberto.slice(0, 7);
 
   const [
     rPessoas,

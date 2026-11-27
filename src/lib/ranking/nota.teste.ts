@@ -96,7 +96,17 @@ const feito = (medida: string, d: Insumos, extra: Partial<Criterio> = {}) =>
   conferir("sem venda: ticket fica fora da conta (não zera a nota)", semVenda.parcelas[0].semDado, true);
   d.vendas = [{ owner_id: "p1", valor: 100, valor_fechado: 100, relacionamento_id: null, parceiro_id: null, percentual_parceiro: null, status: "cancelada", data: "2026-11-02" }];
   conferir("cancelamento acima do teto 0 perde o ponto", feito("cancelamentos", d, { meta_mes: 0 }).pontos, 0);
-  conferir("sem cancelamento leva o ponto", feito("cancelamentos", base(), { meta_mes: 0 }).pontos, 1);
+  conferir("sem venda: cancelamento fica fora da conta (não ganha o ponto de graça)", feito("cancelamentos", base(), { meta_mes: 1 }).semDado, true);
+  const ok = base();
+  ok.vendas = [{ owner_id: "p1", valor: 100, valor_fechado: 100, relacionamento_id: null, parceiro_id: null, percentual_parceiro: null, status: "fechada", data: "2026-11-02" }];
+  conferir("vendeu e não cancelou leva o ponto", feito("cancelamentos", ok, { meta_mes: 1 }).pontos, 1);
+  const perdida = base();
+  perdida.vendas = [{ owner_id: "p1", valor: 100, valor_fechado: 100, relacionamento_id: null, parceiro_id: null, percentual_parceiro: null, status: "fechada", data: "2026-11-02", oportunidade_id: "o1" }];
+  perdida.oportunidades = [{ id: "o1", owner_id: "p1", relacionamento_id: null, etapa: "Perdidos" }];
+  conferir("venda cujo negócio voltou para Perdidos conta como cancelada", feito("cancelamentos", perdida, { meta_mes: 1 }).feito, 1);
+  const auto = base();
+  auto.vendas = [{ owner_id: "p1", valor: 1000, valor_fechado: 1000, valor_original: 1000, relacionamento_id: null, parceiro_id: null, percentual_parceiro: null, status: "aguardando_detalhes", data: "2026-11-02" }];
+  conferir("venda automática (sem detalhes) não entra em preço mantido", feito("preco_mantido", auto).semDado, true);
   const r = base();
   r.relacionamentos = [{ id: "r1", owner_id: "p1", categoria: null, proximo_contato_em: null, ultimo_contato_em: null, created_at: "2026-10-01T15:00:00Z" }];
   r.vendas = [{ owner_id: "p1", valor: 100, valor_fechado: 100, relacionamento_id: "r1", parceiro_id: null, percentual_parceiro: null, data: "2026-11-30" }];

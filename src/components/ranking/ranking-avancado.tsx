@@ -15,7 +15,9 @@ const SERIE = ["var(--aura-gold)", "var(--aura-success)", "var(--aura-petrol-500
 
 interface Parcela {
   criterioId: string;
+  medida?: string;
   titulo: string;
+  semDado?: boolean;
   feito: number;
   meta: number;
   peso: number;
@@ -87,7 +89,7 @@ export function RankingAvancado() {
   const media = notas.reduce((s, n) => s + n.nota, 0) / notas.length;
   const faturamentoTotal = notas.reduce((s, n) => s + faturamentoDe(n.vendedorId), 0);
   const avaliacoes = notas.reduce(
-    (s, n) => s + (n.parcelas.find((p) => /avalia/i.test(p.titulo))?.feito ?? 0),
+    (s, n) => s + (n.parcelas.find((p) => p.medida === "avaliacao_conquistada")?.feito ?? 0),
     0,
   );
   const comBonus = notas.filter((n) => n.bonus).length;
@@ -188,13 +190,14 @@ export function RankingAvancado() {
                     </p>
                     <ul className="space-y-2.5">
                       {n.parcelas.map((p, i) => {
-                        const proporcao = p.meta > 0 ? Math.min(1, p.feito / p.meta) : 0;
+                        // A barra mostra os PONTOS (assim "menor é melhor" e sem dado saem certos).
+                        const proporcao = p.peso > 0 ? Math.min(1, p.pontos / p.peso) : 0;
                         return (
                           <li key={p.criterioId}>
                             <div className="flex items-baseline justify-between gap-2 text-xs">
                               <span className="truncate text-aura-graphite">{p.titulo}</span>
                               <span className="shrink-0 tabular-nums text-aura-graphite-soft">
-                                {p.feito}/{p.meta} · {p.pontos.toFixed(1)} de {p.peso}
+                                {p.semDado ? "não se aplica no período" : `${p.feito}/${p.meta} · ${p.pontos.toFixed(1)} de ${p.peso}`}
                               </span>
                             </div>
                             <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-aura-mist">

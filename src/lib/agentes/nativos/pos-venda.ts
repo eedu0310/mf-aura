@@ -68,10 +68,12 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   const cards = await lerPosVendas(sb);
 
   const vendasConcluidas = cards.filter((c) => c.status === "pos_venda_realizado" && c.vendaId).map((c) => c.vendaId as string);
-  const pedidos = await lerPorIds<{ venda_id: string }>(vendasConcluidas, (bloco, de, ate) =>
-    sb.from("pedidos_avaliacao").select("venda_id").in("venda_id", bloco).order("id").range(de, ate),
+  const pedidos = await lerPorIds<{ venda_id: string; enviado_em: string | null }>(vendasConcluidas, (bloco, de, ate) =>
+    sb.from("pedidos_avaliacao").select("venda_id, enviado_em").in("venda_id", bloco).order("id").range(de, ate),
   );
-  const comPedido = new Set(pedidos.map((p) => p.venda_id));
+  // Pedido FEITO é o que foi enviado. O banco cria um pedido para toda venda,
+  // então "existe pedido" era sempre verdade e o aviso nunca saía (27/11/2026).
+  const comPedido = new Set(pedidos.filter((p) => p.enviado_em).map((p) => p.venda_id));
 
   const ordem: Motivo["chave"][] = ["reclamacao", "atrasada", "pendente", "sem_agendar", "sem_avaliacao"];
   const itens = cards

@@ -85,6 +85,26 @@ export async function sentinelaDeOperacao(sb: SupabaseClient, agora = new Date()
     }
   }
 
+  // ---------- 1b. O backup saiu inteiro da VPS? ----------
+  // O diário guardava ok=true com "nuvem: FALHOU: File size … greater than
+  // 2 GiB" no detalhe, e ninguém lia o detalhe: as sessões do WhatsApp nunca
+  // saíram da VPS e nada avisou (revisão de 27/11/2026).
+  if (!erroDiario) {
+    const backup = (execucoes ?? []).find((e) => e.nome === "backup");
+    const det = (backup?.detalhe ?? {}) as { nuvem?: unknown; drive?: unknown };
+    for (const [onde, valor] of [["nuvem", det.nuvem], ["Google Drive", det.drive]] as const) {
+      const texto = typeof valor === "string" ? valor : "";
+      if (/^(FALHOU|não configurado)/i.test(texto)) {
+        achados.push({
+          nivel: "critico",
+          titulo: `Backup não chegou ao ${onde}`,
+          detalhe: `Último backup (${backup ? new Date(backup.inicio).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "?"}): ${texto.slice(0, 300)}`,
+          acao: "Ver /var/log/aura-cron.log na VPS e o envio do backup.",
+        });
+      }
+    }
+  }
+
   // ---------- 2. O backup existe fora do servidor? ----------
   // Confere o arquivo no Storage, não o diário: é o arquivo que salva a
   // empresa num desastre, não o registro de que o cron rodou.

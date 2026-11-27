@@ -44,6 +44,8 @@ export interface Criterio {
 
 export interface ParcelaDaNota {
   criterioId: string;
+  /** A medida do critério (as telas acham "avaliação recebida" por ela, não pelo título). */
+  medida: string;
   titulo: string;
   feito: number;
   meta: number;
@@ -78,6 +80,8 @@ export interface Insumos {
     status?: string | null;
     /** Preço de tabela antes do desconto (para "preço mantido"). */
     valor_original?: number | null;
+    /** O negócio da venda: voltou para Perdidos = venda desfeita. */
+    oportunidade_id?: string | null;
   }[];
   /** Vendas anteriores ao período, para saber quem já era cliente. */
   vendasAnteriores: { relacionamento_id: string | null }[];
@@ -108,6 +112,7 @@ export interface Insumos {
     confirmado_em: string | null;
   }[];
   oportunidades: {
+    id?: string;
     owner_id: string | null;
     relacionamento_id: string | null;
     etapa: string;
@@ -178,6 +183,11 @@ const deMarketing = (origem: string | null | undefined) => origem === "marketing
 const nasceuNoWhatsApp = (origem: string | null | undefined) => /whats/i.test(origem ?? "");
 const DIA_MS = 86_400_000;
 const venceu = (status: string | null | undefined) => /cancel/i.test(status ?? "");
+/**
+ * Venda criada sozinha (arrasto para Fechamento, IA no WhatsApp) com o valor
+ * do negócio nos dois campos: o "preço de tabela" dela não é preço de tabela.
+ */
+const semDetalhes = (status: string | null | undefined) => status === "aguardando_detalhes";
 
 /**
  * Contatos que o vendedor de fato TROUXE: dele, não vieram de anúncio, não
@@ -322,6 +332,7 @@ function quantoFez(
       let tabela = 0;
       let fechado = 0;
       for (const v of minhasVendas()) {
+        if (semDetalhes(v.status)) continue;
         const original = Number(v.valor_original ?? 0);
         const final = Number(v.valor_fechado ?? v.valor ?? 0);
         if (original > 0 && final > 0) {
@@ -341,15 +352,27 @@ function quantoFez(
         const inicio = v.relacionamento_id ? criadoEm.get(v.relacionamento_id) : undefined;
         if (inicio === undefined || !v.data) continue;
         const dias = (new Date(`${v.data.slice(0, 10)}T12:00:00-03:00`).getTime() - inicio) / DIA_MS;
-        if (dias >= 0) ciclos.push(dias);
+        // Cliente cadastrado à tarde e venda no mesmo dia: ciclo 0, não descartado.
+        if (dias > -1) ciclos.push(Math.max(0, dias));
       }
       if (!ciclos.length) return null;
       return Math.round(ciclos.reduce((s, x) => s + x, 0) / ciclos.length);
     }
 
-    case "cancelamentos":
-      // Venda cancelada no período. Menor é melhor.
-      return d.vendas.filter((v) => participaDaVenda(v, pessoaId) && venceu(v.status)).length;
+    case "cancelamentos": {
+      // Venda desfeita no período: status cancelada ou o negócio dela voltou
+      // para Perdidos (a mesma régua do relatório detalhado). Menor é melhor.
+      // Quem não vendeu nada não tem o que cancelar: fica fora da conta, em
+      // vez de levar o ponto de graça (revisão de 27/11/2026).
+      const doVendedor = d.vendas.filter((v) => participaDaVenda(v, pessoaId));
+      if (!doVendedor.length) return null;
+      const perdidas = new Set(
+        d.oportunidades.filter((o) => o.id && ehPerda(o.etapa, funil)).map((o) => o.id as string),
+      );
+      return doVendedor.filter(
+        (v) => venceu(v.status) || (!!v.oportunidade_id && perdidas.has(v.oportunidade_id)),
+      ).length;
+    }
 
     case "atingimento_meta": {
       const meta = d.metaDeFaturamento?.get(pessoaId) ?? 0;
@@ -395,6 +418,7 @@ export function calcularNota(
       const feito = valor ?? 0;
       return {
         criterioId: c.id,
+        medida: c.medida,
         titulo: c.titulo,
         feito,
         meta,

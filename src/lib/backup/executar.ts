@@ -225,10 +225,26 @@ async function empacotarSessoes(pastaSessoes: string, destino: string): Promise<
    * da pasta _media isso levava minutos toda noite.
    */
   try {
+    /*
+     * O WhatsApp continua gravando enquanto o tar lê: o GNU tar então sai com
+     * código 1 ("file changed as we read it") e o pacote, que está inteiro,
+     * era jogado fora (revisão de 27/11/2026). Código 1 é aviso; só 2+ é erro.
+     */
     await rodar(
       "tar",
-      ["-czf", temporario, "--exclude=diagnostico.log", "--exclude=_media", "-C", path.dirname(pastaSessoes), path.basename(pastaSessoes)],
+      [
+        "-czf",
+        temporario,
+        "--warning=no-file-changed",
+        "--ignore-failed-read",
+        "--exclude=diagnostico.log",
+        "--exclude=_media",
+        "-C",
+        path.dirname(pastaSessoes),
+        path.basename(pastaSessoes),
+      ],
       10 * 60_000,
+      [0, 1],
     );
   } catch {
     try { fs.unlinkSync(temporario); } catch { /* não chegou a existir */ }
@@ -239,10 +255,11 @@ async function empacotarSessoes(pastaSessoes: string, destino: string): Promise<
 }
 
 /** Roda um programa sem travar o servidor; rejeita com o fim do stderr se falhar. */
-function rodar(programa: string, args: string[], tempoMs: number): Promise<string> {
+function rodar(programa: string, args: string[], tempoMs: number, codigosOk: number[] = [0]): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(programa, args, { timeout: tempoMs, maxBuffer: 4 * 1024 * 1024 }, (erro, stdout, stderr) => {
-      if (erro) reject(new Error((String(stderr || "").trim().split("\n").pop() || erro.message).slice(0, 300)));
+      const codigo = typeof (erro as { code?: unknown } | null)?.code === "number" ? (erro as { code: number }).code : null;
+      if (erro && !(codigo !== null && codigosOk.includes(codigo) && !(erro as { killed?: boolean }).killed)) reject(new Error((String(stderr || "").trim().split("\n").pop() || erro.message).slice(0, 300)));
       else resolve(String(stdout));
     });
   });
@@ -431,6 +448,18 @@ export async function executarBackup(
   // No disco fica só o de hoje (ver antigosNoDisco). Só chega aqui com o
   // arquivo do banco de hoje já gravado e conferido pelo rename.
   const apagados: string[] = [];
+  // Pacote pela metade de um backup interrompido (reinício no deploy):
+  // GBs que ninguém mais apagaria.
+  for (const nome of fs.readdirSync(pasta)) {
+    if (!nome.endsWith(".tmp")) continue;
+    try {
+      const caminho = path.join(pasta, nome);
+      if (Date.now() - fs.statSync(caminho).mtimeMs > 6 * 3600_000) {
+        fs.unlinkSync(caminho);
+        apagados.push(nome);
+      }
+    } catch { /* outro processo cuidou */ }
+  }
   for (const nome of antigosNoDisco(fs.readdirSync(pasta), dia, sessoes !== null)) {
     try {
       fs.unlinkSync(path.join(pasta, nome));

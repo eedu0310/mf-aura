@@ -1269,6 +1269,17 @@ export function getMessages(userId: string, chatId: string): WaMessage[] {
   return sessions.get(userId)?.messages.get(chatId) ?? [];
 }
 
+/**
+ * Os números dos WhatsApps da equipe conectados na AURA (só leitura). Quem
+ * conta envio de avaliação usa para não contar o link mandado para o
+ * próprio número ou para um colega (revisão de 27/11/2026).
+ */
+export function numerosDaEquipe(): string[] {
+  return Array.from(sessions.values())
+    .map((s) => s.phone)
+    .filter((p): p is string => !!p);
+}
+
 export function connectedUserIds(): string[] {
   return Array.from(sessions.values())
     .filter((s) => s.status === "connected")

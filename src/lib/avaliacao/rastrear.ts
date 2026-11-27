@@ -12,7 +12,7 @@ import { clienteDizQueAvaliou, fimDoTelefone, linkDeAvaliacao } from "./rastreio
 /** Cliente diz "avaliei" até 45 dias depois do link. */
 const JANELA_DA_RESPOSTA_MS = 45 * 24 * 3600 * 1000;
 
-const CAMPOS = "id, empresa, vendedor_id, telefone, enviado_em, aberto_em, confirmado_em, criado_em";
+const CAMPOS = "id, empresa, vendedor_id, telefone, enviado_em, aberto_em, confirmado_em, confirmado_por, criado_em";
 type Pedido = {
   id: string;
   empresa: string;
@@ -21,6 +21,8 @@ type Pedido = {
   enviado_em: string | null;
   aberto_em: string | null;
   confirmado_em: string | null;
+  /** Com confirmado_em vazio: o gestor DESFEZ a avaliação. O rastreio não refaz. */
+  confirmado_por: string | null;
   criado_em: string;
 };
 
@@ -87,6 +89,8 @@ export interface MensagemParaRastrear {
   texto: string;
   /** Hora da mensagem, em milissegundos. */
   quando: number;
+  /** Números dos WhatsApps da equipe: link para si mesmo ou para colega não conta. */
+  numerosDaEquipe?: string[];
 }
 
 export type Rastreado = "enviado" | "novo_pedido" | "avaliou" | null;
@@ -95,6 +99,10 @@ export async function rastrearAvaliacao(sb: SupabaseClient, m: MensagemParaRastr
   // Grupo não é cliente; mensagem vazia não tem o que ler.
   if (!m.texto?.trim() || m.chatJid.endsWith("@g.us") || m.chatJid.includes("broadcast")) return null;
   const quando = new Date(Number.isFinite(m.quando) && m.quando > 0 ? m.quando : Date.now()).toISOString();
+  // Revisão de 27/11/2026: 7 dos 22 primeiros pedidos sem venda eram o
+  // vendedor mandando o link para o próprio número ou para um colega.
+  const fim = fimDoTelefone(m.telefone);
+  if (fim && (m.numerosDaEquipe ?? []).some((n) => fimDoTelefone(n) === fim)) return null;
 
   if (m.fromMe) {
     const link = linkDeAvaliacao(m.texto, await linksDasLojas(sb));
@@ -123,7 +131,9 @@ export async function rastrearAvaliacao(sb: SupabaseClient, m: MensagemParaRastr
         .is("enviado_em", null);
       return "enviado";
     }
-    if (daLoja.length || !empresa) return null;
+    // Sem telefone o pedido não seria achado de novo (e cada releitura
+    // criaria outro): não cria.
+    if (daLoja.length || !empresa || !fim) return null;
 
     // Cliente sem venda lançada (ou lançada sem telefone e sem ficha): o
     // envio existiu e conta para o vendedor. Nasce o pedido, sem venda.
@@ -143,13 +153,16 @@ export async function rastrearAvaliacao(sb: SupabaseClient, m: MensagemParaRastr
   // Só vale depois de o link ter ido: "avaliei" sem pedido é outra conversa.
   const alvo = pedidos.find((p) => {
     if (!p.enviado_em || p.confirmado_em) return false;
+    if (p.confirmado_por) return false; // o gestor desfez: não refaz sozinho
+    if (m.empresa && p.empresa !== m.empresa) return false;
     const enviado = Date.parse(p.enviado_em);
     return t >= enviado - 60_000 && t - enviado <= JANELA_DA_RESPOSTA_MS;
   });
   if (!alvo) return null;
   await sb
     .from("pedidos_avaliacao")
-    .update({ confirmado_em: quando, ...(alvo.aberto_em ? {} : { aberto_em: quando }) })
+    // Só a avaliação: "abriu o link" é o /av/ que marca, não o "avaliei".
+    .update({ confirmado_em: quando })
     .eq("id", alvo.id)
     .is("confirmado_em", null);
   return "avaliou";

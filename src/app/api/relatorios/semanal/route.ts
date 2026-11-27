@@ -3,6 +3,7 @@ import { administra, getEmpresaAutenticada, vejoTodasAsLojas } from "@/lib/auth-
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { gerarRelatorioSemanalDaLoja, VERSAO_RELATORIO } from "@/lib/relatorio-semanal/gerar";
 import { NOMES_EMPRESAS } from "@/lib/companies";
+import type { SemanaDoVendedor } from "@/lib/relatorio-semanal/coletar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -122,7 +123,38 @@ export async function GET(request: Request) {
   }
   const data = linhas?.[0] ?? null;
 
-  const dados = data?.dados_json as Record<string, unknown> | null;
+  let dados = data?.dados_json as Record<string, unknown> | null;
+  /**
+   * A linha do vendedor guarda só a fatia dele (um SemanaDoVendedor), sem
+   * totais nem período — e a tela espera o formato da loja. Lida crua, a aba
+   * do vendedor quebrava em "totais de undefined" (revisão de 27/11/2026).
+   * Aqui ela vira um relatório de loja com um vendedor só.
+   */
+  if (!gestor && dados && !Array.isArray(dados.vendedores) && data) {
+    const v = dados as unknown as SemanaDoVendedor;
+    const { versao, empresa, geradoEm } = dados as { versao?: number; empresa?: string; geradoEm?: string };
+    dados = {
+      versao,
+      empresa: empresa ?? loja,
+      geradoEm: geradoEm ?? data.created_at,
+      periodoInicio: data.periodo_inicio,
+      periodoFim: data.periodo_fim,
+      totais: {
+        vendedores: 1,
+        atividades: v.crm?.atividades ?? 0,
+        visitas: v.crm?.visitas ?? 0,
+        clientesNovos: v.prospeccao?.clientesNovos ?? 0,
+        negociosCriados: v.pipeline?.criados ?? 0,
+        negociosGanhos: v.pipeline?.ganhos ?? 0,
+        negociosPerdidos: v.pipeline?.perdidos ?? 0,
+        valorVendido: v.vendas?.valor ?? 0,
+        conversasAtivas: v.atendimento?.conversasAtivas ?? 0,
+        conversasComAlerta: v.atendimento?.conversasComAlerta ?? 0,
+      },
+      vendedores: [v],
+      lacunas: [],
+    };
+  }
   /**
    * Relatório antigo não tem a marca de versão. Em vez de tentar desenhar um
    * formato que não existe, a tela recebe o texto e mostra o texto.

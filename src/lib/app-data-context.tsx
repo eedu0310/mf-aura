@@ -31,6 +31,7 @@ import {
   daLinha,
   ehGanho,
   ehPerda,
+  ehPosVenda,
   FUNIL_PADRAO,
   type EtapaFunil,
 } from "@/lib/funil";
@@ -958,11 +959,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // Uma venda criada pelo fechamento do pipeline deixa de ser válida quando
     // o negócio sai de Fechados. Isso impede que o ranking conte movimentações
     // temporárias como faturamento real.
-    if (ehGanho(etapaAnterior, funil) && !ehGanho(novaEtapa, funil)) {
-      const vendasDerivadas = todasVendas.filter((venda) => venda.oportunidadeId === id);
-      setTodasVendas((prev) => prev.filter((venda) => venda.oportunidadeId !== id));
+    //
+    // Revisão de 27/11/2026: Fechamento → Pós-venda é o caminho NORMAL da
+    // venda (entrega, instalação), não desfazer — e o delete antigo, sem
+    // filtro, apagava até a venda completa ("fechada") com o pós-venda junto.
+    // Agora só sai a venda automática ainda sem detalhes, e só quando o
+    // negócio volta para trás ou vai para Perdidos.
+    if (ehGanho(etapaAnterior, funil) && !ehGanho(novaEtapa, funil) && !ehPosVenda(novaEtapa, funil)) {
+      const vendasDerivadas = todasVendas.filter(
+        (venda) => venda.oportunidadeId === id && venda.status === "aguardando_detalhes",
+      );
+      const idsDerivadas = new Set(vendasDerivadas.map((v) => v.id));
+      setTodasVendas((prev) => prev.filter((venda) => !idsDerivadas.has(venda.id)));
       if (supabase && vendasDerivadas.length > 0) {
-        const { error } = await supabase.from("vendas").delete().eq("oportunidade_id", id);
+        const { error } = await supabase
+          .from("vendas")
+          .delete()
+          .eq("oportunidade_id", id)
+          .eq("status", "aguardando_detalhes");
         if (error) {
           // Se o banco recusou, a venda continua lá: devolve para a tela em vez
           // de sumir só aqui e reaparecer no próximo carregamento.
@@ -1034,7 +1048,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const payload: Record<string, unknown> = {};
     if (patch.cliente !== undefined) payload.cliente = patch.cliente;
     if (patch.produto !== undefined) payload.produto = patch.produto;
-    if (patch.valor !== undefined) payload.valor = patch.valor;
+    // As telas leem valor_fechado (com valor de reserva): corrigir só "valor"
+    // fazia a correção sumir no F5. Os dois andam juntos (27/11/2026).
+    if (patch.valor !== undefined) {
+      payload.valor = patch.valor;
+      payload.valor_fechado = patch.valor;
+    }
     if (patch.probabilidade !== undefined) payload.probabilidade = patch.probabilidade;
     if (patch.etapa !== undefined) payload.etapa = patch.etapa;
     /*

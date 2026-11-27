@@ -326,7 +326,7 @@ function TabelaDeNegocios({ lista }: { lista: NonNullable<VendedorNoRelatorio["p
  * funil, com valor ou com alerta. Cada uma abre com o resumo da AURA, onde
  * errou, como melhorar e a próxima ação, e leva ao laudo completo da conversa.
  */
-function ConversasDoVendedor({ v }: { v: VendedorNoRelatorio }) {
+function ConversasDoVendedor({ v, comLaudo }: { v: VendedorNoRelatorio; comLaudo: boolean }) {
   const conversas = v.atendimento.conversas;
   const [abertas, setAbertas] = useState<Set<string>>(new Set());
   if (!conversas) return null; // relatório guardado antes desta lista existir
@@ -405,12 +405,17 @@ function ConversasDoVendedor({ v }: { v: VendedorNoRelatorio }) {
                     <span className="text-aura-graphite-soft">{c.proximaAcao}</span>
                   </p>
                 ) : null}
-                <a
-                  href={`/gestor?aba=equipe&conversa=${encodeURIComponent(c.id)}`}
-                  className="inline-flex items-center gap-1 font-medium text-aura-petrol-600 hover:underline print:hidden"
-                >
-                  <ExternalLink className="h-3 w-3" /> Abrir o laudo completo da conversa
-                </a>
+                {/* O laudo fica no Painel do Gestor: o vendedor não abre. */}
+                {comLaudo ? (
+                  <a
+                    href={`/gestor?aba=equipe&conversa=${encodeURIComponent(c.id)}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1 font-medium text-aura-petrol-600 hover:underline print:hidden"
+                  >
+                    <ExternalLink className="h-3 w-3" /> Abrir o laudo completo da conversa
+                  </a>
+                ) : null}
               </div>
             </li>
           );
@@ -817,9 +822,12 @@ function BlocoDoVendedor({
   abertoInicial,
   indicadores,
   mes,
+  comLaudo,
 }: {
   v: VendedorNoRelatorio;
   abertoInicial: boolean;
+  /** Gestor: mostra o link para o laudo completo de cada conversa. */
+  comLaudo: boolean;
   /** Os 10 indicadores dele na semana (receita, conversão, margem, ciclo...). */
   indicadores?: Indicadores;
   mes?: string;
@@ -923,8 +931,11 @@ function BlocoDoVendedor({
             </div>
 
             <div>
+              {/* Conta TODA atividade com o cliente (WhatsApp, visita, venda…),
+                  não só as de prospecção: o título antigo prometia outra coisa
+                  e não batia com "Quem ele prospectou" (27/11/2026). */}
               <p className="aura-rotulo mb-2">
-                Prospecção por tipo de cliente
+                Atividades por tipo de cliente
               </p>
               <BarrasQueAbrem
                 itens={v.prospeccao.porCategoria.map((c) => ({
@@ -1041,7 +1052,7 @@ function BlocoDoVendedor({
             {v.atendimento.conversas ? (
               <div className="mb-3">
                 <p className="mb-1 text-[11px] font-medium text-aura-graphite-soft">Cliente por cliente</p>
-                <ConversasDoVendedor v={v} />
+                <ConversasDoVendedor v={v} comLaudo={comLaudo} />
               </div>
             ) : null}
 
@@ -1471,8 +1482,10 @@ export function RelatorioSemanalView() {
             </h3>
             {r.vendedores.map((v) => (
               <BlocoDoVendedor
-                key={v.vendedorId}
+                // Semana na chave: trocar de período recomeça aberto/fechado.
+                key={`${r.periodoInicio}|${r.periodoFim}|${v.vendedorId}`}
                 v={v}
+                comLaudo={!!dados?.gestor}
                 abertoInicial={r.vendedores.length <= 4}
                 indicadores={ind?.atual.porVendedor.find((x) => x.id === v.vendedorId)}
                 mes={ind?.atual.mes}

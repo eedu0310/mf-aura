@@ -44,7 +44,10 @@ export async function PATCH(request: Request) {
   const agora = new Date().toISOString();
 
   if (corpo.enviado) patch.enviado_em = agora;
-  if (corpo.canal) patch.canal = String(corpo.canal);
+  // A coluna aceita só o destino do link (google, instagram, facebook).
+  // "whatsapp" (por onde foi mandado) derrubava o PATCH inteiro e o envio
+  // nunca era gravado (revisão de 27/11/2026).
+  if (["google", "instagram", "facebook"].includes(String(corpo.canal))) patch.canal = String(corpo.canal);
   if (corpo.confirmado !== undefined) {
     // Confirmar que o cliente avaliou de fato é decisão de gente: o Google
     // não avisa ninguém. Por isso fica com o gestor.
@@ -52,7 +55,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ erro: "Só o gestor confirma a avaliação." }, { status: 403 });
     }
     patch.confirmado_em = corpo.confirmado ? agora : null;
-    patch.confirmado_por = corpo.confirmado ? auth.userId : null;
+    // Desfazer guarda QUEM desfez (com confirmado_em vazio): é a marca que
+    // impede o rastreio da conversa de confirmar de novo sozinho.
+    patch.confirmado_por = auth.userId;
   }
 
   if (!Object.keys(patch).length) {

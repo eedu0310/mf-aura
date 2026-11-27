@@ -153,7 +153,7 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
     const marcado = await fetch("/api/avaliacoes", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: p.id, enviado: true, canal: "whatsapp" }),
+      body: JSON.stringify({ id: p.id, enviado: true }),
     }).catch(() => null);
     if (!marcado?.ok) setAviso("A mensagem foi aberta, mas não consegui marcar como enviada. Atualize a página.");
     else if (!foiPeloAura) setFeito(`WhatsApp aberto com o pedido de avaliação de ${p.cliente ?? "o cliente"}. Confira e toque em enviar.`);

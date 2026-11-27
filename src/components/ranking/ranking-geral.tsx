@@ -10,6 +10,8 @@ interface Linha {
   loja: string;
   valor: number;
   posicao: number;
+  /** A pessoa não tinha como ter esta medida no período (ex.: ticket sem venda). */
+  semDado?: boolean;
 }
 
 interface Disputa {
@@ -17,6 +19,8 @@ interface Disputa {
   titulo: string;
   descricao: string;
   unidade: "moeda" | "quantidade" | "percentual" | "dias";
+  /** Menor é melhor (ciclo, cancelamentos). */
+  inversa?: boolean;
   linhas: Linha[];
 }
 
@@ -77,7 +81,11 @@ export function RankingGeral() {
   }, [carregar]);
 
   const disputa = dados?.rankings.find((r) => r.id === aba) ?? dados?.rankings[0];
-  const lider = disputa?.linhas[0]?.valor ?? 0;
+  const comDado = (disputa?.linhas ?? []).filter((l) => !l.semDado);
+  // A barra cheia é o melhor: o maior, ou o menor nas medidas "menor é melhor".
+  const lider = disputa?.inversa
+    ? Math.min(...comDado.map((l) => l.valor).filter((v) => v > 0), Infinity)
+    : Math.max(0, ...comDado.map((l) => l.valor));
   const minhaLinha = disputa?.linhas.find((l) => l.id === dados?.eu);
 
   return (
@@ -129,7 +137,17 @@ export function RankingGeral() {
               <ul className="divide-y divide-aura-mist">
                 {disputa.linhas.map((linha) => {
                   const sou = linha.id === dados.eu;
-                  const proporcao = lider > 0 ? Math.max(2, Math.round((linha.valor / lider) * 100)) : 0;
+                  const proporcao = linha.semDado
+                    ? 0
+                    : disputa.inversa
+                      ? linha.valor <= 0
+                        ? 100
+                        : Number.isFinite(lider)
+                          ? Math.max(2, Math.round((lider / linha.valor) * 100))
+                          : 0
+                      : lider > 0
+                        ? Math.max(2, Math.round((linha.valor / lider) * 100))
+                        : 0;
                   return (
                     <li
                       key={linha.id}
@@ -153,7 +171,9 @@ export function RankingGeral() {
                         </div>
                       </div>
                       <p className="shrink-0 text-sm font-semibold tabular-nums text-aura-graphite">
-                        {disputa.unidade === "moeda"
+                        {linha.semDado
+                          ? <span className="text-xs font-normal text-aura-graphite-soft" title="Fora da conta: não tinha como ter esta medida no período">—</span>
+                          : disputa.unidade === "moeda"
                           ? moeda(linha.valor)
                           : disputa.unidade === "percentual"
                             ? `${linha.valor}%`

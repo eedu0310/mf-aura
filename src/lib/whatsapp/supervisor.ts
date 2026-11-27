@@ -27,6 +27,7 @@ import {
   connectedUserIds,
   getChat,
   getChats,
+  numerosDaEquipe,
   getMessages,
   onMessage,
   sendText,
@@ -211,9 +212,12 @@ export function lerManual(): string {
  * limbo até o servidor reiniciar, mesmo depois de o gestor completar o
  * cadastro dela.
  */
+const empresaLidaEm = new Map<string, number>();
 async function empresaDo(userId: string): Promise<string> {
+  // Vale 5 minutos: quem troca de loja não fica gravando na antiga até o
+  // servidor reiniciar (27/11/2026).
   const cached = empresaCache.get(userId);
-  if (cached) return cached;
+  if (cached && Date.now() - (empresaLidaEm.get(userId) ?? 0) < 5 * 60_000) return cached;
   const { data } = (await db()?.from("profiles").select("empresa").eq("id", userId).maybeSingle()) ?? {};
   const empresa = ((data?.empresa as string) ?? "").trim();
   if (!empresa) {
@@ -221,6 +225,7 @@ async function empresaDo(userId: string): Promise<string> {
     return "";
   }
   empresaCache.set(userId, empresa);
+  empresaLidaEm.set(userId, Date.now());
   return empresa;
 }
 
@@ -800,7 +805,11 @@ export async function marcarLeadRespondidoPorTelefone(
       .update({ status: "respondido", respondido_em: new Date().toISOString(), respondido_por: userId })
       .eq("empresa", empresa)
       .in("telefone", [telefone, ...variantes])
-      .not("status", "in", "(respondido,perdido)");
+      // Só lead que ainda espera resposta. Antes pegava também o descartado
+      // ("não é lead", "já é cliente") e o lead frio: qualquer mensagem do
+      // vendedor os ressuscitava e o banco criava card no pipeline (27/11/2026).
+      .is("natureza", null)
+      .in("status", ["aguardando_sdr", "atribuido_sdr", "repassado_vendedor"]);
   } catch (e: any) {
     console.error("[supervisor] fechar lead respondido:", e?.message ?? e);
   }
@@ -1115,7 +1124,8 @@ async function moverOportunidade(
         empresa,
         cliente: op.cliente,
         valor,
-        data: new Date().toISOString().slice(0, 10),
+        // Dia de Brasília: depois das 21h o dia em UTC já é o seguinte.
+        data: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
         relacionamento_id: relacionamentoId,
         oportunidade_id: op.id,
         valor_original: valor,
@@ -2172,7 +2182,12 @@ export async function definirEtapaManual(userId: string, chatJid: string, etapa:
   await registrarAtividade(sb, userId, empresa, row.relacionamento_id, op.cliente, `Etapa alterada no WhatsApp: ${op.etapa} → ${etapa}`, "Alteração manual pelo vendedor", { oportunidade_id: op.id, de: op.etapa, para: etapa });
   const historico = Array.isArray(row.historico) ? row.historico : [];
   historico.push({ em: new Date().toISOString(), de: op.etapa, para: etapa, evidencia: "Alterado manualmente pelo vendedor", fonte: "vendedor" });
-  await sb.from("whatsapp_ia_leads").update({ etapa, historico: historico.slice(-30), updated_at: new Date().toISOString() }).eq("id", row.id);
+  // A coluna "etapa" é a ÚLTIMA ETAPA DETECTADA pela análise: é ela que
+  // impede a IA de mover o card com a mesma evidência de antes. Gravar aqui a
+  // escolha do vendedor apagava essa memória — ele voltava o card para Leads
+  // frios e, 20 segundos depois, a IA o levava de volta com a evidência
+  // antiga (revisão de 27/11/2026). A decisão dele fica no card e no histórico.
+  await sb.from("whatsapp_ia_leads").update({ historico: historico.slice(-30), updated_at: new Date().toISOString() }).eq("id", row.id);
 }
 
 export function agendarAnalise(
@@ -2463,6 +2478,7 @@ async function rastrearAvaliacaoDaMensagem(userId: string, chatJid: string, msg:
     fromMe: msg.fromMe,
     texto: msg.text ?? "",
     quando: msg.timestamp,
+    numerosDaEquipe: numerosDaEquipe(),
   });
   if (r) console.log(`[supervisor] avaliação: ${r} (${chat.name})`);
 }
