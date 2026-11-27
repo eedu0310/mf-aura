@@ -15,7 +15,7 @@ import { agoraIso, moedaParaNumero } from "./activity-date";
 import { useAppData } from "@/lib/app-data-context";
 import { diaEmSaoPaulo } from "@/lib/fuso";
 import { useUserProfile } from "@/lib/user-profile-context";
-import type { Relacionamento } from "@/lib/types";
+import type { Relacionamento, Venda } from "@/lib/types";
 
 const TAMANHO_MAXIMO_MB = 5;
 const FORMAS_PAGAMENTO = [
@@ -34,13 +34,32 @@ function formatarMoeda(valor: number) {
   }).format(valor || 0);
 }
 
-export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
-  const { addVenda, addAtividade } = useAppData();
+/** Valor como o vendedor escreve ("12.900,00"), para o campo já vir preenchido. */
+function emReais(valor: number | undefined | null) {
+  return valor && valor > 0
+    ? valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "";
+}
+
+/**
+ * Registrar venda — ou COMPLETAR a que o pipeline já abriu.
+ *
+ * Quando o card vai para Fechamento (ou a IA fecha pelo WhatsApp), nasce uma
+ * venda "aguardando detalhes" com o valor estimado do card. Antes este
+ * formulário só sabia criar venda nova: completar a pendente gerava a venda
+ * em dobro, e por isso 21 ficaram paradas (revisão de 27/11/2026). Agora,
+ * escolhido o cliente, a pendente dele é achada e é ELA que fica completa.
+ * `pendente` vem preenchido quando se abre pelo botão "Completar venda".
+ */
+export function VendaForm({ onConcluir, pendente }: { onConcluir: () => void; pendente?: Venda }) {
+  const { addVenda, completarVenda, addAtividade, relacionamentos, vendas } = useAppData();
   const { profile } = useUserProfile();
-  const [quemComprou, setQuemComprou] = useState<Relacionamento | null>(null);
-  const [valorOriginal, setValorOriginal] = useState("");
-  const [valorFechado, setValorFechado] = useState("");
-  const [produto, setProduto] = useState("");
+  const [quemComprou, setQuemComprou] = useState<Relacionamento | null>(
+    () => (pendente?.relacionamentoId ? relacionamentos.find((r) => r.id === pendente.relacionamentoId) ?? null : null),
+  );
+  const [valorOriginal, setValorOriginal] = useState(() => emReais(pendente?.valorOriginal ?? pendente?.valorFechado ?? pendente?.valor));
+  const [valorFechado, setValorFechado] = useState(() => emReais(pendente?.valorFechado ?? pendente?.valor));
+  const [produto, setProduto] = useState(pendente?.produto ?? "");
   const [formaPagamento, setFormaPagamento] = useState<string | null>(null);
   const [quantidadeParcelas, setQuantidadeParcelas] = useState("1");
   const [entradaValor, setEntradaValor] = useState("0");
@@ -108,6 +127,17 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
 
   const podeConcluir = camposFaltando.length === 0 && !enviando;
 
+  // A venda que o pipeline abriu para este cliente e ninguém completou.
+  const vendaPendente = useMemo(() => {
+    if (pendente) return pendente;
+    if (!quemComprou) return null;
+    return (
+      vendas
+        .filter((v) => v.relacionamentoId === quemComprou.id && v.status === "aguardando_detalhes")
+        .sort((a, b) => (b.data ?? "").localeCompare(a.data ?? ""))[0] ?? null
+    );
+  }, [pendente, quemComprou, vendas]);
+
   function seleccionarArquivo(event: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = event.target.files?.[0];
     setErroArquivo(null);
@@ -137,8 +167,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       const entradaFinal = pagamentoAVista ? fechado : entrada;
       const valorParcelaFinal = pagamentoAVista ? fechado : valorParcela;
 
-      const venda = await addVenda(
-        {
+      const dadosDaVenda: Omit<Venda, "id"> = {
           vendedorId: "",
           cliente: quemComprou.nome,
           produto: produto.trim(),
@@ -164,10 +193,10 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
           descricao: `Venda ${formaPagamento}${
             parcelasFinais > 1 ? ` em ${parcelasFinais} parcelas` : ""
           }`,
-        },
-        orcamento || undefined,
-        relato.trim(),
-      );
+        };
+      const venda = vendaPendente
+        ? await completarVenda(vendaPendente.id, dadosDaVenda, orcamento || undefined)
+        : await addVenda(dadosDaVenda, orcamento || undefined, relato.trim());
 
       if (!venda) {
         /*
@@ -192,7 +221,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
         tipo: "Venda",
         titulo: `Venda fechada · ${profile.empresa}`,
         contexto: quemComprou.nome,
-        anotacoes: `${produto.trim()} — ${formatarMoeda(
+        anotacoes: `${vendaPendente ? "Detalhes da venda completados. " : ""}${produto.trim()} — ${formatarMoeda(
           fechado,
         )} — ${formaPagamento}${
           parcelasFinais > 1 ? ` — ${parcelasFinais}x` : ""
@@ -254,8 +283,26 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
       <SearchRelationshipField
         label="Quem comprou?"
         value={quemComprou}
-        onChange={setQuemComprou}
+        onChange={(r) => {
+          // Pelo botão "Completar venda" o cliente é o da venda: não troca.
+          if (!pendente) setQuemComprou(r);
+        }}
       />
+
+      {vendaPendente && (
+        <div className="rounded-xl border border-aura-gold/50 bg-aura-gold/10 px-4 py-3 text-sm text-aura-graphite">
+          <p className="font-medium">
+            {pendente ? "Completando a venda" : "Este cliente tem uma venda esperando os detalhes"}
+            {" — "}
+            {formatarMoeda(vendaPendente.valorFechado ?? vendaPendente.valor)}
+            {vendaPendente.data ? ` · ${new Date(`${vendaPendente.data.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR")}` : ""}
+          </p>
+          <p className="mt-0.5 text-xs text-aura-graphite-soft">
+            Ela foi aberta quando o negócio foi para Fechamento, com o valor estimado do card. Ao concluir, é ela que fica
+            completa com o valor real — não nasce outra venda.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 rounded-xl border border-aura-mist bg-aura-sunken/60 p-4 sm:grid-cols-2">
         <div>
@@ -486,7 +533,7 @@ export function VendaForm({ onConcluir }: { onConcluir: () => void }) {
             <Loader2 size={14} className="animate-spin" />Salvando...
           </>
         ) : (
-          "Concluir venda"
+          vendaPendente ? "Completar venda" : "Concluir venda"
         )}
       </button>
     </div>

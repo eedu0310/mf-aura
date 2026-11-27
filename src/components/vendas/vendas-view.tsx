@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, TrendingUp, AlertCircle, Plus, Download, Pencil, Trash2 } from "lucide-react";
+import { Layers, TrendingUp, AlertCircle, Plus, Download, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 import { AuraInsightCard } from "@/components/aura/aura-insight-card";
 import { useAppData } from "@/lib/app-data-context";
 import { EditVendaModal } from "./edit-venda-modal";
+import { CompletarVendaModal } from "./completar-venda-modal";
 import { useUserProfile } from "@/lib/user-profile-context";
 import type { Venda, Oportunidade } from "@/lib/types";
 import { ehGanho } from "@/lib/funil";
@@ -134,6 +135,9 @@ export function VendasView() {
 
   const [vendaEditando, setVendaEditando] = useState<(typeof vendasFiltradas)[number] | null>(null);
   const [excluindo, setExcluindo] = useState<string | null>(null);
+  const [vendaCompletando, setVendaCompletando] = useState<Venda | null>(null);
+  // Vendas que o pipeline abriu com o valor estimado do card e ninguém completou.
+  const pendentes = vendasFiltradas.filter((v) => v.status === "aguardando_detalhes");
 
   /** Corrige um lançamento errado: só o dono da venda ou o gestor conseguem. */
   async function excluirVenda(venda: (typeof vendasFiltradas)[number]) {
@@ -250,6 +254,19 @@ export function VendasView() {
             {vendasFiltradas.length === 0 ? (
               <EstadoVazio icone={TrendingUp} titulo="Nenhuma venda realizada encontrada." />
             ) : (
+              <>
+              {pendentes.length > 0 && (
+                <div className="mb-3 flex items-start gap-2 rounded-xl border border-aura-gold/50 bg-aura-gold/10 px-4 py-3 text-sm text-aura-graphite">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-aura-warning" />
+                  <p>
+                    <strong>
+                      {pendentes.length} {pendentes.length === 1 ? "venda espera" : "vendas esperam"} os detalhes
+                    </strong>{" "}
+                    — {formatarMoeda(pendentes.reduce((s, v) => s + (v.valorFechado ?? v.valor ?? 0), 0))} com o valor
+                    estimado do card. Toque em <em>Completar</em> na linha para lançar o valor real, o pagamento e o relato.
+                  </p>
+                </div>
+              )}
               <div className="aura-card overflow-x-auto">
                 <table className="aura-tabela">
                   <thead>
@@ -284,6 +301,11 @@ export function VendasView() {
                       <tr key={venda.id}>
                         <td>
                           {venda.cliente}
+                          {venda.status === "aguardando_detalhes" && (
+                            <span className="ml-2 inline-flex rounded-full bg-aura-gold/15 px-2 py-0.5 text-[11px] font-medium text-aura-warning">
+                              Aguardando detalhes
+                            </span>
+                          )}
                         </td>
                         <td className="text-aura-graphite-soft">
                           {venda.produto || "-"}
@@ -304,6 +326,16 @@ export function VendasView() {
                         </td>
                         <td className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {venda.status === "aguardando_detalhes" && (
+                              <button
+                                type="button"
+                                onClick={() => setVendaCompletando(venda)}
+                                title="Completar esta venda com o valor real, o pagamento e o relato"
+                                className={classeBotao("primario", "sm")}
+                              >
+                                <CheckCircle2 size={14} /> Completar
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => setVendaEditando(venda)}
@@ -330,6 +362,7 @@ export function VendasView() {
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </div>
         )}
@@ -481,6 +514,10 @@ export function VendasView() {
           </div>
         )}
       </div>
+
+      {vendaCompletando && (
+        <CompletarVendaModal venda={vendaCompletando} onClose={() => setVendaCompletando(null)} />
+      )}
 
       {vendaEditando && (
         <EditVendaModal

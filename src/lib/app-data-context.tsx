@@ -111,6 +111,8 @@ interface AppDataContextValue {
     relatoDoFechamento?: string,
   ) => Promise<Venda | null>;
   updateVenda: (id: string, patch: Partial<Venda>) => Promise<void>;
+  /** Completa a venda que o pipeline abriu ("aguardando detalhes") em vez de criar outra. */
+  completarVenda: (id: string, dados: Omit<Venda, "id">, arquivoOrcamento?: File) => Promise<Venda | null>;
   deleteVenda: (id: string) => Promise<void>;
 
   atividades: Atividade[];
@@ -1190,6 +1192,63 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return nova;
   }
 
+  /**
+   * Completa a venda "aguardando detalhes" (criada sozinha quando o card foi
+   * para Fechamento, ou pela IA no WhatsApp). Antes não havia como: o único
+   * formulário criava OUTRA venda e as pendentes ficavam para sempre com o
+   * valor estimado do card (revisão de 27/11/2026).
+   *
+   * Mantém o que é da venda original — dia do fechamento, negócio, cliente,
+   * dono, loja e a dupla — e troca o resto pelo que o vendedor preencheu.
+   */
+  async function completarVenda(id: string, dados: Omit<Venda, "id">, arquivoOrcamento?: File) {
+    const anterior = todasVendas.find((v) => v.id === id);
+    if (!supabase) return null;
+    const banco = vendaParaBanco({ ...dados, data: anterior?.data || dados.data });
+    const {
+      data: _dia,
+      empresa: _empresa,
+      relacionamento_id: _rel,
+      oportunidade_id: _op,
+      ...campos
+    } = banco as Record<string, unknown>;
+    void _dia; void _empresa; void _rel; void _op;
+    const patch: Record<string, unknown> = { ...campos, status: "fechada" };
+    // A dupla combinada no negócio fica como estava.
+    delete patch.parceiro_id;
+    delete patch.percentual_parceiro;
+
+    const { data, error } = await supabase
+      .from("vendas")
+      .update(patch)
+      .eq("id", id)
+      .eq("status", "aguardando_detalhes")
+      .select()
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) throw new Error("Esta venda já foi completada (ou não está mais pendente). Atualize a página.");
+    const completa = vendaDoBanco(data);
+
+    if (arquivoOrcamento) {
+      const nomeSeguro = arquivoOrcamento.name.replace(/[^w.-]+/g, "_");
+      const caminho = `${completa.empresa || empresaAtual}/${id}/${nomeSeguro}`;
+      const { error: erroUpload } = await supabase.storage
+        .from("orcamentos")
+        .upload(caminho, arquivoOrcamento, { upsert: true });
+      if (erroUpload) {
+        console.error("Erro ao enviar orçamento:", erroUpload);
+      } else {
+        await supabase
+          .from("vendas")
+          .update({ orcamento_path: caminho, orcamento_nome: arquivoOrcamento.name })
+          .eq("id", id);
+      }
+    }
+
+    setTodasVendas((prev) => prev.map((v) => (v.id === id ? completa : v)));
+    return completa;
+  }
+
   /** Corrige uma venda. Se o banco recusar, desfaz na tela e avisa. */
   async function updateVenda(id: string, patch: Partial<Venda>) {
     const anterior = todasVendas.find((v) => v.id === id);
@@ -1582,6 +1641,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         vendas,
         addVenda,
         updateVenda,
+        completarVenda,
         deleteVenda,
         atividades,
         addAtividade,
