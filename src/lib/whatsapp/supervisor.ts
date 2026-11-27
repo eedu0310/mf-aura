@@ -33,7 +33,7 @@ import {
   sendText,
   type WaMessage,
 } from "./live-manager";
-import { calcularAlertas, detectarEtapa, type Alerta } from "./stage-rules";
+import { calcularAlertas, detectarEtapa, ficaForaDosAlertas, type Alerta } from "./stage-rules";
 import { transcricoesDaConversa } from "./transcrever";
 import {
   acharEtapa,
@@ -1219,7 +1219,13 @@ export async function obterLead(userId: string, chatJid: string): Promise<LeadIn
     const { data: op } = await sb.from("oportunidades").select("etapa").eq("id", row.oportunidade_id).maybeSingle();
     etapaPipeline = (op?.etapa as Etapa) ?? null;
   }
-  return linhaParaLead(row ?? { chat_jid: chatJid }, { ...base, etapaPipeline });
+  const info = linhaParaLead(row ?? { chat_jid: chatJid }, { ...base, etapaPipeline });
+  // Card em Leads frios, Perdidos, Pós-venda ou fechado: os avisos de risco
+  // da última análise também saem do painel (ficaForaDosAlertas).
+  if (row && ficaForaDosAlertas({ natureza: row.natureza, etapaCard: etapaPipeline }, await carregarFunil(sb, await empresaDo(userId)))) {
+    info.alertasIa = [];
+  }
+  return info;
 }
 
 /** Resumo leve de todos os leads (para a lista de conversas). */
@@ -1230,6 +1236,8 @@ export async function listarLeads(userId: string) {
       string,
       {
         etapa: Etapa | null;
+        /** Etapa do card no pipeline (a que o vendedor escolhe). */
+        etapaCard: string | null;
         ignorado: boolean;
         lead: boolean;
         natureza: NaturezaContato | null;
@@ -1244,15 +1252,25 @@ export async function listarLeads(userId: string) {
     string,
     {
       etapa: Etapa | null;
+      etapaCard: string | null;
       ignorado: boolean;
       lead: boolean;
       natureza: NaturezaContato | null;
       categoria: CategoriaContato | null;
     }
   > = {};
+  // A etapa do CARD (não a que a IA detectou): é ela que diz se o vendedor já
+  // tirou o contato da frente — Leads frios, Perdidos, Pós-venda.
+  const etapaDoCard = new Map<string, string>();
+  const ids = [...new Set((data ?? []).map((r) => r.oportunidade_id).filter((x): x is string => !!x))];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: ops } = await sb.from("oportunidades").select("id, etapa").in("id", ids.slice(i, i + 200));
+    for (const o of ops ?? []) if (o.etapa) etapaDoCard.set(o.id, o.etapa);
+  }
   for (const r of data ?? []) {
     out[r.chat_jid] = {
       etapa: r.etapa,
+      etapaCard: r.oportunidade_id ? etapaDoCard.get(r.oportunidade_id) ?? null : null,
       ignorado: r.ignorado,
       lead: !!(r.oportunidade_id || r.relacionamento_id),
       // Vao para a etiqueta ao lado do nome na lista de conversas.
@@ -2346,9 +2364,10 @@ async function varredura() {
         console.error("[supervisor] avaliações da memória:", e?.message ?? e),
       );
       const leads = await listarLeads(userId);
+      const funilDoVendedor = await carregarFunil(sb, await empresaDo(userId));
       for (const chat of getChats(userId)) {
         const info = leads[chat.id];
-        if (!info?.lead || info.ignorado) continue;
+        if (!info?.lead || info.ignorado || ficaForaDosAlertas(info, funilDoVendedor)) continue;
         const msgs = getMessages(userId, chat.id);
         for (const alerta of calcularAlertas(msgs)) {
           const grave =
@@ -2523,7 +2542,24 @@ async function fecharLeadRespondido(userId: string, chatJid: string) {
   await marcarLeadRespondidoPorTelefone(sb, empresa, chat.phone, userId);
 }
 
-export function alertasDoChat(userId: string, chatJid: string) {
+export async function alertasDoChat(userId: string, chatJid: string) {
+  const sb = db();
+  if (sb) {
+    const { data: row } = await sb
+      .from("whatsapp_ia_leads")
+      .select("natureza, oportunidade_id")
+      .eq("owner_id", userId)
+      .eq("chat_jid", chatJid)
+      .maybeSingle();
+    if (row) {
+      let etapaCard: string | null = null;
+      if (row.oportunidade_id) {
+        const { data: op } = await sb.from("oportunidades").select("etapa").eq("id", row.oportunidade_id).maybeSingle();
+        etapaCard = op?.etapa ?? null;
+      }
+      if (ficaForaDosAlertas({ natureza: row.natureza, etapaCard }, await carregarFunil(sb, await empresaDo(userId)))) return [];
+    }
+  }
   return calcularAlertas(getMessages(userId, chatJid));
 }
 

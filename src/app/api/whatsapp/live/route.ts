@@ -30,7 +30,7 @@ import {
   marcarLeadRespondidoPorTelefone,
   obterLead,
 } from "@/lib/whatsapp/supervisor";
-import { calcularAlertas } from "@/lib/whatsapp/stage-rules";
+import { calcularAlertas, ficaForaDosAlertas } from "@/lib/whatsapp/stage-rules";
 import { nomesDasEtapas, type Etapa } from "@/lib/funil";
 import { carregarFunil } from "@/lib/funil-servidor";
 import {
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
 
   const chat = sp.get("chat");
   if (chat) {
-    return NextResponse.json({ messages: getMessages(userId, chat), alertas: alertasDoChat(userId, chat) });
+    return NextResponse.json({ messages: getMessages(userId, chat), alertas: await alertasDoChat(userId, chat) });
   }
 
   const lead = sp.get("lead");
@@ -140,18 +140,12 @@ export async function GET(request: NextRequest) {
 
   const state = await getState(userId);
   const leads = await listarLeads(userId);
-  const alertas: Record<string, ReturnType<typeof calcularAlertas>> = {};
-  for (const c of state.chats) {
-    const info = leads[c.id];
-    if (info?.lead && !info.ignorado) {
-      const a = calcularAlertas(getMessages(userId, c.id));
-      if (a.length) alertas[c.id] = a;
-    }
-  }
   /**
    * O funil vai junto com o estado: a tela do WhatsApp desenha os botões de
    * etapa, e com a lista fixa no código ela mostraria etapas que a loja
    * renomeou ou desligou — e o botão não teria para onde mover o card.
+   * Carregado antes dos alertas: card em Leads frios, Perdidos ou Pós-venda
+   * não cobra resposta (ficaForaDosAlertas).
    */
   const sbFunil = await getSupabaseServerClient();
   const { data: meuPerfil } = sbFunil
@@ -159,6 +153,14 @@ export async function GET(request: NextRequest) {
     : { data: null };
   const funil = await carregarFunil(sbFunil, meuPerfil?.empresa);
 
+  const alertas: Record<string, ReturnType<typeof calcularAlertas>> = {};
+  for (const c of state.chats) {
+    const info = leads[c.id];
+    if (info?.lead && !info.ignorado && !ficaForaDosAlertas(info, funil)) {
+      const a = calcularAlertas(getMessages(userId, c.id));
+      if (a.length) alertas[c.id] = a;
+    }
+  }
   return NextResponse.json({ userId, ...state, leads, alertas, funil, iaDisponivel: iaDisponivel() });
 }
 

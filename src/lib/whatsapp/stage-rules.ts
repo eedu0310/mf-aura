@@ -10,7 +10,7 @@
  * precise mudar: o texto do cliente continua querendo dizer a mesma coisa.
  */
 
-import type { ChaveEtapa } from "@/lib/funil";
+import { acharEtapa, type ChaveEtapa, type EtapaFunil } from "@/lib/funil";
 
 /**
  * A ordem dos SIGNIFICADOS, que não muda quando o gestor renomeia etapas.
@@ -219,3 +219,29 @@ export function calcularAlertas(msgs: MsgLike[], agora = Date.now()): Alerta[] {
  * A probabilidade saiu daqui de propósito: agora ela é coluna do funil, que o
  * gestor edita por loja. Use probabilidadeDe(nome, funil) em @/lib/funil.
  */
+
+/**
+ * A conversa sai dos ALERTAS de lead ("cliente aguardando resposta",
+ * "hora do follow-up") quando o vendedor já resolveu o que fazer com ela.
+ *
+ * Por quê (Elton, 27/11/2026: "mesmo colocando lead frio não sai dos leads em
+ * alerta"): os alertas olhavam só a conversa, nunca o card. O vendedor marcava
+ * Leads frios, Perdido ou Pós-venda e o contato continuava cobrando resposta
+ * no filtro Alertas e na notificação de 5 em 5 minutos.
+ *
+ * Fica fora:
+ *  - card em Leads frios: não está pronto, o vendedor já decidiu esperar;
+ *  - card fechado (ganho ou perdido) ou no Pós-venda: não é mais lead;
+ *  - contato marcado como cliente antigo ou "não é lead".
+ * Se o cliente frio voltar a conversar, a análise da IA avança o card e o
+ * alerta volta sozinho.
+ */
+export function ficaForaDosAlertas(
+  info: { natureza?: string | null; etapaCard?: string | null },
+  funil: EtapaFunil[],
+): boolean {
+  if (info.natureza === "cliente" || info.natureza === "nao_lead") return true;
+  const etapa = acharEtapa(info.etapaCard ?? null, funil);
+  if (!etapa) return false;
+  return etapa.chave === "lead_frio" || etapa.tipo !== "aberta";
+}
