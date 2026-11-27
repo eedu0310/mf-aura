@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { carregarFunil } from "@/lib/funil-servidor";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
-import { ehGanho, ehPerda, type EtapaFunil } from "@/lib/funil";
+import { ehGanho, ehPerda, virouVenda, type EtapaFunil } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor, type VendaComParceria } from "@/lib/parceria";
 import { negocioEmAberto, pipelineAberto, totalVendido } from "@/lib/kpis";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
@@ -702,7 +702,8 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
   const ativas = minhasConversas.filter((c) => noPeriodo(c.ultima_analise_em));
   const novas = minhasConversas.filter((c) => noPeriodo(c.created_at));
 
-  const alertasPorConversa = ativas.map((c) => textosDoJsonb(c.alertas));
+  // Conversa ignorada pelo vendedor não entra na conta de alertas.
+  const alertasPorConversa = ativas.filter((c) => c.ignorado !== true).map((c) => textosDoJsonb(c.alertas));
   const dicasPorConversa = ativas.map((c) => textosDoJsonb(c.dicas));
 
   /*
@@ -876,7 +877,7 @@ function montarVendedor(id: string, nome: string, cargo: string, f: Fontes): Sem
     },
     pipeline: {
       criados: criadasNoPeriodo.length,
-      ganhos: criadasNoPeriodo.filter((o) => ehGanho(String(o.etapa ?? ""), f.funil)).length,
+      ganhos: criadasNoPeriodo.filter((o) => virouVenda(String(o.etapa ?? ""), f.funil)).length,
       perdidos: perdidasNoPeriodo.length,
       emAberto: emAberto.length,
       valorEmAberto,

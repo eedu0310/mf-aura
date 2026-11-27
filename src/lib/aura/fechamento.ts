@@ -144,6 +144,8 @@ export async function analisarFechamento(opts: {
   cliente: string;
   valor: number | null;
   etapasVisitadas: string[];
+  /** As etapas do funil da loja, em ordem. Sem elas, o prompt fala do funil sem nomear etapas. */
+  etapasDoFunil?: string[];
   motivoInformado?: string | null;
   manual: string;
   aprendizado: string;
@@ -169,7 +171,7 @@ COMO ESCREVER
 - Se a conversa não dá base para afirmar algo, diga que não dá. Inventar falha para preencher lista é pior que lista vazia.
 - Não repita o manual de cor: aplique ao caso.
 
-O FUNIL DA CASA, em ordem: Prospecção, Apresentação, Proposta, Negociação, Fechados/Perdidos. Pular etapa é falha de processo mesmo quando o negócio fecha — quem vai direto ao preço sem apresentar ganha menos margem.
+O FUNIL DA LOJA, em ordem: ${opts.etapasDoFunil?.length ? opts.etapasDoFunil.join(", ") : "(não informado)"}. Leads frios é onde fica quem ainda não está pronto, e Pós-venda é depois da venda: nenhum dos dois é etapa a cumprir. Pular etapa de venda é falha de processo mesmo quando o negócio fecha — quem vai direto ao preço sem apresentar ganha menos margem.
 
 MANUAL DE VENDAS E MATERIAIS DA LOJA (a regra da casa):
 ${opts.manual || "(nenhum material cadastrado — use boas práticas de venda consultiva)"}

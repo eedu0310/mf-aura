@@ -268,7 +268,7 @@ export async function executarFerramenta(
     let consulta = ctx.supabase
       .from("whatsapp_ia_leads")
       .select(
-        "id, nome, telefone, etapa, resumo, proxima_acao, dicas, alertas, historico, interesse, valor_estimado, natureza, categoria, ignorado, ultima_analise_em, updated_at",
+        "id, nome, telefone, etapa, oportunidade_id, resumo, proxima_acao, dicas, alertas, historico, interesse, valor_estimado, natureza, categoria, ignorado, ultima_analise_em, updated_at",
       )
       .order("updated_at", { ascending: false })
       .limit(4);
@@ -300,6 +300,15 @@ export async function executarFerramenta(
       );
     };
 
+    // A etapa do CARD (a que o vendedor escolheu). A coluna "etapa" da
+    // conversa é só a última leitura da IA e fica velha quando o vendedor
+    // move o card — a AURA dizia "Apresentação" de quem estava em Perdidos.
+    const idsCard = data.map((c) => c.oportunidade_id).filter((x): x is string => !!x);
+    const { data: cards } = idsCard.length
+      ? await ctx.supabase.from("oportunidades").select("id, etapa").in("id", idsCard)
+      : { data: [] as { id: string; etapa: string }[] };
+    const etapaDoCard = new Map((cards ?? []).map((o) => [o.id, o.etapa as string]));
+
     const partes = data.map((c) => {
       const alertas = lista(c.alertas);
       const dicas = lista(c.dicas);
@@ -307,7 +316,11 @@ export async function executarFerramenta(
       return [
         `CONVERSA COM ${c.nome ?? c.telefone ?? "sem nome"}${c.telefone ? ` (${c.telefone})` : ""}`,
         c.ignorado ? "Marcada como 'não é lead'." : null,
-        c.etapa ? `Etapa do negócio: ${c.etapa}` : null,
+        c.oportunidade_id && etapaDoCard.get(c.oportunidade_id)
+          ? `Etapa do negócio no pipeline: ${etapaDoCard.get(c.oportunidade_id)}`
+          : c.etapa
+            ? `Etapa que a IA leu na conversa: ${c.etapa}`
+            : null,
         c.natureza || c.categoria
           ? `Classificação: ${[c.natureza, c.categoria].filter(Boolean).join(" / ")}`
           : null,

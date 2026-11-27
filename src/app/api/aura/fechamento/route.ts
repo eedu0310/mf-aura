@@ -20,6 +20,8 @@ import { textoDoAprendizado } from "@/lib/aura/aprendizado";
 import { analisarFechamento, registrarLaudo, type Fala, type Resultado } from "@/lib/aura/fechamento";
 import { getChats, getMessages } from "@/lib/whatsapp/live-manager";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
+import { carregarFunil } from "@/lib/funil-servidor";
+import { etapasVisiveis } from "@/lib/funil";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -143,6 +145,8 @@ export async function POST(req: NextRequest) {
     cliente: op.cliente ?? "Cliente",
     valor: op.valor ?? null,
     etapasVisitadas,
+    // O funil DESTA loja, para a IA não cobrar etapa que a loja não usa.
+    etapasDoFunil: etapasVisiveis(await carregarFunil(sb, op.empresa)).map((e) => e.nome),
     motivoInformado: corpo.motivo ?? null,
     manual,
     aprendizado,

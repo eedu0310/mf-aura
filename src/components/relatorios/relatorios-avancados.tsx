@@ -18,7 +18,8 @@ import { useAppData } from "@/lib/app-data-context";
 import { exportarExcel } from "@/lib/export-excel";
 import { parseDataLocal } from "@/lib/date-local";
 import { buscarMetaDoMes } from "@/lib/supabase/metas";
-import { ehFechada } from "@/lib/funil";
+import { contaNoPipeline } from "@/lib/funil";
+import { negocioEmAberto } from "@/lib/kpis";
 import { Botao, Card, CardHeader, EstadoVazio, Segmentado, Selo, StatCard } from "@/components/ui";
 
 // Eixos e tooltip legíveis nos dois temas: o texto herda a cor do invólucro
@@ -139,12 +140,12 @@ export function RelatóriosAvançados() {
   // probabilidade. Substitui o antigo "Total Previsto", que era sempre R$ 0
   // porque não existe previsão cadastrada em lugar nenhum do sistema.
   const PESO: Record<string, number> = { Alta: 0.8, Média: 0.5, Baixa: 0.2 };
+  // Só o que conta no pipeline — a mesma base do quadro do Pipeline. Antes
+  // entravam Leads frios e o Pós-venda (venda já feita, de novo, a 80%).
   const pipelinePonderado = (oportunidades ?? [])
-    .filter((o) => !ehFechada(o.etapa, funil))
+    .filter((o) => contaNoPipeline(o.etapa, funil))
     .reduce((soma, o) => soma + o.valor * (PESO[o.probabilidade] ?? 0.5), 0);
-  const negociosAbertos = (oportunidades ?? []).filter(
-    (o) => !ehFechada(o.etapa, funil),
-  ).length;
+  const negociosAbertos = (oportunidades ?? []).filter((o) => negocioEmAberto(o.etapa, funil)).length;
   const totalMeta = dadosVendas.reduce((s, d) => s + d.meta, 0);
   // Só existe meta do mês atual: comparar com ela apenas o que foi vendido nos
   // meses que têm meta. Somar 3/6/12 meses de venda contra a meta de um mês

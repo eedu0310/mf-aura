@@ -1050,12 +1050,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const payload: Record<string, unknown> = {};
     if (patch.cliente !== undefined) payload.cliente = patch.cliente;
     if (patch.produto !== undefined) payload.produto = patch.produto;
-    // As telas leem valor_fechado (com valor de reserva): corrigir só "valor"
-    // fazia a correção sumir no F5. Os dois andam juntos (27/11/2026).
-    if (patch.valor !== undefined) {
-      payload.valor = patch.valor;
-      payload.valor_fechado = patch.valor;
-    }
+    // O card só tem "valor". (valor_fechado é da VENDA: mandado aqui, o banco
+    // recusava a gravação inteira e a mudança de valor do card sumia.)
+    if (patch.valor !== undefined) payload.valor = patch.valor;
     if (patch.probabilidade !== undefined) payload.probabilidade = patch.probabilidade;
     if (patch.etapa !== undefined) payload.etapa = patch.etapa;
     /*
@@ -1252,13 +1249,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   /** Corrige uma venda. Se o banco recusar, desfaz na tela e avisa. */
   async function updateVenda(id: string, patch: Partial<Venda>) {
     const anterior = todasVendas.find((v) => v.id === id);
-    setTodasVendas((prev) => prev.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+    // As telas leem valor_fechado (com valor de reserva): corrigir só "valor"
+    // fazia a correção sumir no F5. Os dois andam juntos (27/11/2026).
+    const comFechado = patch.valor !== undefined ? { ...patch, valorFechado: patch.valor } : patch;
+    setTodasVendas((prev) => prev.map((v) => (v.id === id ? { ...v, ...comFechado } : v)));
     if (!supabase) return;
 
     const payload: Record<string, unknown> = {};
     if (patch.cliente !== undefined) payload.cliente = patch.cliente;
     if (patch.produto !== undefined) payload.produto = patch.produto;
-    if (patch.valor !== undefined) payload.valor = patch.valor;
+    if (patch.valor !== undefined) {
+      payload.valor = patch.valor;
+      payload.valor_fechado = patch.valor;
+    }
 
     try {
       await gravarExigindoLinha(

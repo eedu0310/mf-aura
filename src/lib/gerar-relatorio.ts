@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { chamarClaude } from "@/lib/aura/texto-ia";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { ehGanho, ehPerda } from "@/lib/funil";
+import { ehGanho, ehPerda, virouVenda } from "@/lib/funil";
 import { CARGOS_QUE_VENDEM } from "@/lib/types";
 import { diaEmSaoPaulo } from "@/lib/fuso";
 import { taxaConversao } from "@/lib/kpis";
@@ -215,7 +215,7 @@ async function coletarDadosVendedor(
   const funilDaLoja = await carregarFunil(supabase, empresa);
   const conversao = (lista: { etapa: string }[] | null) =>
     taxaConversao(
-      (lista ?? []).filter((o) => ehGanho(o.etapa, funilDaLoja)).length,
+      (lista ?? []).filter((o) => virouVenda(o.etapa, funilDaLoja)).length,
       (lista ?? []).filter((o) => ehPerda(o.etapa, funilDaLoja)).length,
     );
 

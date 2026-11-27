@@ -9,6 +9,7 @@ import {
   etapasVisiveis,
   ehFechada,
   ehGanho,
+  virouVenda,
   ehPerda,
   nomesDasEtapas,
   type EtapaFunil,
@@ -232,11 +233,11 @@ export function resumoVendedor(d: DadosCrm, vendedorId: string | null, agora = D
     .map((c) => ({ titulo: c.titulo, data: c.data, hora: c.hora }));
 
   const whats = d.leadsWhats
-    .filter((l) => l.owner_id === vendedorId && l.alertas.length > 0)
+    .filter((l) => l.owner_id === vendedorId && alertaRecente(l, agora))
     .map((l) => ({ nome: l.nome ?? "Contato", alerta: l.alertas[0] }));
 
   const noventa = ops.filter((o) => agora - new Date(o.updated_at ?? o.created_at).getTime() <= 90 * DIA);
-  const fech = noventa.filter((o) => ehGanho(o.etapa, d.funil)).length;
+  const fech = noventa.filter((o) => virouVenda(o.etapa, d.funil)).length;
   const perd = noventa.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
   // Ranking na loja do vendedor, pelo valor vendido no mês.
@@ -384,6 +385,18 @@ export function kpisDaPagina(p: Pagina, r: ResumoVendedor): Kpi[] {
   }
 }
 
+/**
+ * Alerta da IA que ainda vale cobrar: da última semana. O aviso fica guardado
+ * na conversa até a próxima análise, e um "cliente esperando" de dois meses
+ * atrás não é cliente esperando hoje. (Card decidido — frio, perdido, pós-venda
+ * — já tem o alerta apagado pelo banco, migração 122.)
+ */
+function alertaRecente(l: { alertas: unknown[]; updated_at?: string | null }, agora: number): boolean {
+  if (!l.alertas.length) return false;
+  const quando = l.updated_at ? new Date(l.updated_at).getTime() : 0;
+  return agora - quando <= 7 * DIA;
+}
+
 /** Recados automáticos (usados quando a IA está fora do ar e como base para ela). */
 export function insightsRegras(p: Pagina, r: ResumoVendedor): Insight[] {
   const out: Insight[] = [];
@@ -490,7 +503,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
   for (const a of ativs) porTipo.set(a.tipo, (porTipo.get(a.tipo) ?? 0) + 1);
 
   const opsPeriodo = ops.filter((o) => noPeriodo(o.updated_at ?? o.created_at));
-  const fech = opsPeriodo.filter((o) => ehGanho(o.etapa, d.funil)).length;
+  const fech = opsPeriodo.filter((o) => virouVenda(o.etapa, d.funil)).length;
   const perd = opsPeriodo.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
   const vendido = totalVendido(vendas, e.vendedorId);
@@ -520,7 +533,7 @@ export function montarRelatorio(d: DadosCrm, e: Escopo, periodoDias: number, ago
       // ver "os leads e as vendas de cada vendedor": sem este numero a tabela
       // mostrava o resultado sem mostrar a materia-prima que a pessoa recebeu.
       leads: rels.filter((r) => r.owner_id === p.id && noPeriodo(r.created_at)).length,
-      fechadas: opsPeriodo.filter((o) => o.owner_id === p.id && ehGanho(o.etapa, d.funil)).length,
+      fechadas: opsPeriodo.filter((o) => o.owner_id === p.id && virouVenda(o.etapa, d.funil)).length,
       perdidas: opsPeriodo.filter((o) => o.owner_id === p.id && ehPerda(o.etapa, d.funil)).length,
     }))
     .sort((a, b) => b.vendido - a.vendido || b.atividades - a.atividades);
@@ -626,7 +639,7 @@ export function painelGestor(d: DadosCrm, loja?: string, agora = Date.now()) {
   const diasParadoDe = medidorDeParado(d, agora);
   const leadsEmRisco = [
     ...d.leadsWhats
-      .filter((l) => l.alertas.length && (!loja || vendedores.some((v) => v.id === l.owner_id)))
+      .filter((l) => alertaRecente(l, agora) && (!loja || vendedores.some((v) => v.id === l.owner_id)))
       .map((l) => ({ cliente: l.nome ?? "Contato", vendedor: nomeDono.get(l.owner_id) ?? "—", motivo: l.alertas[0], origem: "WhatsApp" })),
     ...d.oportunidades
       .filter((o) => (!loja || o.empresa === loja) && negocioEmAberto(o.etapa, d.funil))

@@ -76,6 +76,8 @@ export interface Alerta {
 
 export interface LeadResumo {
   etapa: Etapa | null;
+  /** Etapa do card no pipeline — a que o vendedor escolheu. É a que aparece na lista. */
+  etapaCard?: Etapa | null;
   ignorado: boolean;
   lead: boolean;
   /** O que o contato é: lead, não-lead ou cliente da casa. */

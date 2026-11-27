@@ -40,6 +40,7 @@ import {
   ehFechada,
   ehGanho,
   ehLeadFrio,
+  ehPosVenda,
   exigeValor,
   ehPerda,
   etapasVisiveis,
@@ -928,20 +929,20 @@ async function garantirOportunidade(
 ) {
   // "Negócio ainda em aberto" = toda etapa que não é de ganho nem de perda,
   // segundo o funil DESTA loja. Era uma lista fixa escrita na consulta.
-  const fechadas = nomesDasEtapas(funil).filter((n) => ehFechada(n, funil));
-  const listaFechadas = `(${fechadas.map((n) => `"${n}"`).join(",")})`;
+  // Pós-venda também não é negócio aberto: o card já tem a venda dele, e a
+  // recompra precisa de card novo. Decidido pelo acharEtapa, que entende os
+  // nomes antigos ("Fechados") que a lista de nomes atuais deixava passar.
   if (oportunidadeId) {
     const { data } = await sb.from("oportunidades").select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro").eq("id", oportunidadeId).maybeSingle();
     if (data) return data as NegocioDaConversa;
   }
-  const { data: aberta } = await sb
+  const { data: doCliente } = await sb
     .from("oportunidades")
     .select("id, etapa, valor, cliente, parceiro_id, percentual_parceiro")
     .eq("relacionamento_id", relacionamentoId)
-    .not("etapa", "in", listaFechadas)
     .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(50);
+  const aberta = (doCliente ?? []).find((o) => !ehFechada(o.etapa, funil) && !ehPosVenda(o.etapa, funil));
   if (aberta) return aberta as NegocioDaConversa;
 
   // Sem negocio aberto, o padrao e criar um — e assim que o cliente que volta
@@ -1621,7 +1622,7 @@ export async function analisarConversa(
     let detectada: Etapa | null = regras.chave ? nomeDaChave(regras.chave, funil) : null;
     let evidencia = regras.evidencias.filter((e) => e.chave === regras.chave).slice(-1)[0]?.texto ?? "";
     let fonte = "regras";
-    if (analise?.etapa && !ehFechada(analise.etapa, funil) && !ehLeadFrio(analise.etapa, funil) && analise.confianca >= 0.7) {
+    if (analise?.etapa && !ehFechada(analise.etapa, funil) && !ehPosVenda(analise.etapa, funil) && !ehLeadFrio(analise.etapa, funil) && analise.confianca >= 0.7) {
       if (!detectada || ordemDe(analise.etapa, funil) > ordemDe(detectada, funil)) {
         detectada = analise.etapa;
         evidencia = analise.evidencia || evidencia;
@@ -1642,14 +1643,17 @@ export async function analisarConversa(
      * A AURA continua reconhecendo os dois e dizendo o que viu. Quem
      * arrasta o card é gente.
      */
-    const soDoVendedor = (e: Etapa | null): boolean => ehFechada(e, funil);
+    // Pós-venda também: entrar nele sem venda cria a venda (migração 120).
+    const soDoVendedor = (e: Etapa | null): boolean => ehFechada(e, funil) || ehPosVenda(e, funil);
 
     const alertasIa = [...(analise?.alertas ?? [])];
     if (regras.sinalPerda) alertasIa.unshift(`Risco de perda: cliente disse "${regras.sinalPerda.slice(0, 120)}"`);
     if (ehPerda(analise?.etapa, funil) && (analise?.confianca ?? 0) >= 0.7) alertasIa.unshift(`A IA acha que este lead está sendo perdido: ${analise?.evidencia ?? ""}`);
-    if (ehLead && ehGanho(detectada, funil)) {
+    // Card já em Fechamento ou Pós-venda: a venda já foi confirmada; o
+    // "segue o comprovante" da 2ª parcela não é motivo para pedir de novo.
+    if (ehLead && ehGanho(detectada, funil) && !ehGanho(etapaPipelineAtual, funil) && !ehPosVenda(etapaPipelineAtual, funil)) {
       alertasIa.unshift(
-        `A AURA achou que este negócio fechou${evidencia ? `: "${evidencia.slice(0, 120)}"` : ""}. Se fechou mesmo, arraste o card para Fechados — a venda do mês só entra quando você confirma.`,
+        `A AURA achou que este negócio fechou${evidencia ? `: "${evidencia.slice(0, 120)}"` : ""}. Se fechou mesmo, arraste o card para ${nomeDaChave("fechamento", funil) ?? "Fechamento"} — a venda do mês só entra quando você confirma.`,
       );
     }
 
@@ -1747,6 +1751,9 @@ export async function analisarConversa(
       !ehLead &&
       !row?.relacionamento_id &&
       !row?.carteira_relacionamento_id &&
+      // Já foi para Relacionamentos uma vez: se o contato sumiu de lá, a
+      // equipe apagou — não volta sozinho na próxima mensagem.
+      !row?.carteira_em &&
       (campanhaId || row?.anuncio_em) &&
       anuncioVaiParaRelacionamentos(msgs, {
         lead_sugerido: sugerirLead,
@@ -1768,6 +1775,19 @@ export async function analisarConversa(
     }
 
     const historico: any[] = Array.isArray(row?.historico) ? [...row.historico] : [];
+    /*
+     * Memória da IA: a etapa MAIS ADIANTADA que ela já viu nesta conversa,
+     * para este card. Só evidência acima dela move o card. Antes a memória
+     * era a última leitura — podia BAIXAR ("ok" lido como Follow-up) e, na
+     * mensagem seguinte, o orçamento velho voltava a valer como novidade:
+     * o card que o vendedor recuou (ou pôs em Leads frios) andava sozinho.
+     */
+    let memoria: Etapa | null = (row?.etapa as Etapa | null) ?? null;
+    let etapaFinalDoCard: string | null = etapaPipelineAtual;
+    // "Tratar como lead" num contato cujo card já foi decidido (vendido,
+    // pós-venda, perdido): é negócio NOVO, não o card antigo.
+    const cardDecidido = !!etapaPipelineAtual && (ehFechada(etapaPipelineAtual, funil) || ehPosVenda(etapaPipelineAtual, funil));
+    const cardDaConversa = opts.comoLead && cardDecidido ? null : (row?.oportunidade_id ?? null);
 
     if (ehLead) {
       let relacionamentoId: string | null = row?.relacionamento_id ?? null;
@@ -1795,13 +1815,16 @@ export async function analisarConversa(
           chat.name,
           patch.interesse as string | null,
           patch.valor_estimado as number | null,
-          row?.oportunidade_id ?? null,
+          cardDaConversa,
           funil,
           campanhaId,
         );
         if (op) {
           patch.oportunidade_id = op.id;
-          const ultimaDetectada = (row?.etapa as Etapa | null) ?? null;
+          // Card novo: a memória do card antigo não vale para ele.
+          if (op.id !== row?.oportunidade_id) memoria = null;
+          etapaFinalDoCard = op.etapa;
+          const ultimaDetectada = memoria;
           // Só avança: nova etapa acima da atual no pipeline E acima da última
           // detectada (assim, se o vendedor voltar o card manualmente, a IA
           // não "desfaz" a decisão dele sem evidência nova).
@@ -1813,7 +1836,10 @@ export async function analisarConversa(
             (!ultimaDetectada || ordemDe(detectada, funil) > ordemDe(ultimaDetectada, funil))
           ) {
             const moved = await moverOportunidade(sb, userId, empresa, op, detectada, evidencia, relacionamentoId, patch.valor_estimado as number | null, funil);
-            if (moved) historico.push({ em: new Date().toISOString(), de: op.etapa, para: detectada, evidencia, fonte });
+            if (moved) {
+              historico.push({ em: new Date().toISOString(), de: op.etapa, para: detectada, evidencia, fonte });
+              etapaFinalDoCard = detectada;
+            }
           } else if (!row?.oportunidade_id) {
             historico.push({ em: new Date().toISOString(), de: null, para: op.etapa, evidencia: "Lead cadastrado no CRM", fonte });
           }
@@ -1821,11 +1847,20 @@ export async function analisarConversa(
       }
       // Guardar "Fechados" aqui pintaria a etiqueta de fechado sem que o
       // negócio tenha fechado. Vale o que está no card de verdade.
-      patch.etapa = soDoVendedor(detectada) ? ((row?.etapa as Etapa | null) ?? null) : detectada;
+      patch.etapa =
+        !detectada || soDoVendedor(detectada) || (memoria && ordemDe(memoria, funil) >= ordemDe(detectada, funil))
+          ? memoria
+          : detectada;
     } else {
       patch.etapa = null;
     }
     patch.historico = historico.slice(-30);
+    // Card em Leads frios, Perdidos, Fechamento ou Pós-venda: o vendedor já
+    // decidiu, a análise não guarda alerta para cobrar dele (ver
+    // ficaForaDosAlertas). Se o card voltou a andar, os alertas voltam.
+    if (ficaForaDosAlertas({ natureza: row?.natureza ?? null, etapaCard: etapaFinalDoCard }, funil)) {
+      patch.alertas = [];
+    }
 
     if (aviso) avisos.set(key, aviso);
     else avisos.delete(key);
@@ -2155,10 +2190,9 @@ async function levarNegocioAbertoProPosVenda(sb: SupabaseClient, oportunidadeId:
     if (!destino) return;
     const { data: op } = await sb.from("oportunidades").select("id, etapa").eq("id", oportunidadeId).maybeSingle();
     if (!op || acharEtapa(op.etapa, funil)?.tipo !== "aberta") return;
-    const { error } = await sb
-      .from("oportunidades")
-      .update({ etapa: destino, updated_at: new Date().toISOString(), dias_parado: 0 })
-      .eq("id", op.id);
+    // Pela função do banco: ela avisa o gatilho do pós-venda que é cliente
+    // antigo, para não nascer uma venda que ninguém fez (migração 122).
+    const { error } = await sb.rpc("aura_card_para_posvenda_sem_venda", { p_oportunidade_id: op.id, p_etapa: destino });
     if (error) console.error("[supervisor] negócio do cliente antigo:", error.message);
   } catch (e: any) {
     console.error("[supervisor] negócio do cliente antigo:", e?.message ?? e);

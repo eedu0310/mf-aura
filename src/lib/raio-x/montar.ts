@@ -1,4 +1,5 @@
-import { contaNoPipeline, ehFechada, type EtapaFunil } from "@/lib/funil";
+import { contaNoPipeline, type EtapaFunil } from "@/lib/funil";
+import { negocioEmAberto } from "@/lib/kpis";
 
 /**
  * Os formatos de entrada são declarados aqui, com o mínimo que esta conta
@@ -217,7 +218,6 @@ export function montarRaioX(d: DadosDoRaioX): RaioX {
   const orcamento = (d.oportunidades ?? [])
     .filter(
       (o) =>
-        !ehFechada(o.etapa, d.funil) &&
         contaNoPipeline(o.etapa, d.funil) &&
         (o.diasParado ?? 0) < 7,
     )
@@ -238,7 +238,8 @@ export function montarRaioX(d: DadosDoRaioX): RaioX {
 
   // --------------------------------------------------- 4. negócio parado
   const parados = (d.oportunidades ?? [])
-    .filter((o) => !ehFechada(o.etapa, d.funil) && (o.diasParado ?? 0) >= 7)
+    // Só negócio em jogo: card em Leads frios ou Pós-venda fica parado por natureza.
+    .filter((o) => negocioEmAberto(o.etapa, d.funil) && (o.diasParado ?? 0) >= 7)
     .sort((a, b) => (b.diasParado ?? 0) - (a.diasParado ?? 0))
     .map<ItemDoRaioX>((o) => ({
       titulo: o.cliente,

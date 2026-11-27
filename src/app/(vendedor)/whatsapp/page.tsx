@@ -772,7 +772,9 @@ export default function WhatsAppPage() {
             const info = state.leads[chat.id];
             const alerta = alertasPorChat[chat.id]?.[0];
             const ativo = chat.id === selectedChatId;
-            const etapa = info?.lead && !info.ignorado ? info.etapa : null;
+            // A etapa do CARD (a que o vendedor escolheu), não a última leitura
+            // da IA: depois de pôr em Leads frios, a lista mostrava a antiga.
+            const etapa = info?.lead && !info.ignorado ? (info.etapaCard ?? info.etapa) : null;
 
             /**
              * Etiquetas do contato, como as do WhatsApp Business: o vendedor

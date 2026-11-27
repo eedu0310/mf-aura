@@ -3,7 +3,7 @@ import { getEmpresaAutenticada, mandaNaLoja, vejoTodasAsLojas } from "@/lib/auth
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { todasAsLinhas } from "@/lib/supabase/todas-as-linhas";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { colunaDoNegocio, ehFechada, ehGanho, ehPerda } from "@/lib/funil";
+import { colunaDoNegocio, ehFechada, ehGanho, ehPerda, virouVenda } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
 import { buscarUltimaAtividade, diasParadoDaLinha, DIAS_PARA_PARADO } from "@/lib/oportunidade-parada";
 import { negocioEmAberto, pipelineAberto, totalVendido } from "@/lib/kpis";
@@ -225,7 +225,7 @@ export async function GET(request: Request) {
         // "Minha" ou "em dupla": o gestor precisa saber de quem é a conversa
         // antes de cobrar alguém por ela.
         papel: c.owner_id === vendedorId ? "dono" : "parceiro",
-        qtdAlertas: Array.isArray(c.alertas) ? c.alertas.length : 0,
+        qtdAlertas: !c.ignorado && Array.isArray(c.alertas) ? c.alertas.length : 0,
       })),
       negocios: (negocios ?? []).map((o) => ({
         ...o,
@@ -283,6 +283,8 @@ export async function GET(request: Request) {
             .from("whatsapp_ia_leads")
             .select("owner_id, parceiro_id, alertas, resumo, updated_at")
             .eq("empresa", loja)
+            // Conversa ignorada pelo vendedor não conta como alerta.
+            .eq("ignorado", false)
             .gte("updated_at", desde)
             .order("id")
             .range(de, ate),
@@ -345,7 +347,7 @@ export async function GET(request: Request) {
                 diasParadoDaLinha(o, ultimaAtividadeDaLoja.get(o.relacionamento_id as string)) >=
                 DIAS_PARA_PARADO,
             ).length,
-            ganhos: meusNegocios.filter((o) => ehGanho(o.etapa as string, funil)).length,
+            ganhos: meusNegocios.filter((o) => virouVenda(o.etapa as string, funil)).length,
             perdidos: meusNegocios.filter((o) => ehPerda(o.etapa as string, funil)).length,
             atividades: (ativs ?? []).filter((a) => a.owner_id === p.id).length,
           };
@@ -386,7 +388,7 @@ export async function GET(request: Request) {
         return q.order("id").range(de, ate);
       }),
       todasAsLinhas((de, ate) => {
-        let q = sb.from("whatsapp_ia_leads").select("empresa, alertas").gte("updated_at", desde);
+        let q = sb.from("whatsapp_ia_leads").select("empresa, alertas").eq("ignorado", false).gte("updated_at", desde);
         if (lojasVisiveis) q = q.in("empresa", lojasVisiveis);
         return q.order("id").range(de, ate);
       }),

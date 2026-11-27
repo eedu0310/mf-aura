@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Star, Users } from "lucide-rea
 import type { Atividade, Oportunidade, Relacionamento, Venda } from "@/lib/types";
 import { listarPosVendas, type PosVenda } from "@/lib/supabase/pos-venda";
 import { useAppData } from "@/lib/app-data-context";
-import { ehFechada } from "@/lib/funil";
+import { negocioEmAberto } from "@/lib/kpis";
 import { Card, CardHeader, Selo, StatCard } from "@/components/ui";
 
 function moeda(valor: number) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(valor); }
@@ -20,7 +20,7 @@ export function AuraManagerPanel({ oportunidades, relacionamentos, atividades, v
     const hoje = Date.now();
     const itens: Array<{ id: string; titulo: string; descricao: string; href: string; nivel: "alta" | "media" }> = [];
     relacionamentos.filter((r) => r.proximoContatoEm && new Date(r.proximoContatoEm).getTime() < hoje).slice(0, 5).forEach((r) => itens.push({ id: `retorno-${r.id}`, titulo: `Retorno vencido: ${r.nome}`, descricao: `O contato previsto para ${r.proximoContato} ainda precisa de registro ou reagendamento.`, href: `/relacionamentos?buscar=${encodeURIComponent(r.nome)}`, nivel: "alta" }));
-    oportunidades.filter((o) => !ehFechada(o.etapa, funil) && (o.diasParado ?? 0) >= 7).sort((a, b) => (b.diasParado ?? 0) - (a.diasParado ?? 0)).slice(0, 5).forEach((o) => itens.push({ id: `parada-${o.id}`, titulo: `Oportunidade parada: ${o.cliente}`, descricao: `${o.diasParado} dias sem avanço em ${o.etapa}; valor ${moeda(o.valor)}.`, href: "/pipeline", nivel: "alta" }));
+    oportunidades.filter((o) => negocioEmAberto(o.etapa, funil) && (o.diasParado ?? 0) >= 7).sort((a, b) => (b.diasParado ?? 0) - (a.diasParado ?? 0)).slice(0, 5).forEach((o) => itens.push({ id: `parada-${o.id}`, titulo: `Oportunidade parada: ${o.cliente}`, descricao: `${o.diasParado} dias sem avanço em ${o.etapa}; valor ${moeda(o.valor)}.`, href: "/pipeline", nivel: "alta" }));
     relacionamentos.filter((r) => r.temperatura === "frio" || r.temperatura === "esfriando").slice(0, 5).forEach((r) => itens.push({ id: `frio-${r.id}`, titulo: `Relacionamento esfriando: ${r.nome}`, descricao: `Temperatura atual: ${r.temperatura}. Planeje uma ação registrada para recuperar o contato.`, href: `/relacionamentos?buscar=${encodeURIComponent(r.nome)}`, nivel: "media" }));
     return itens.slice(0, 8);
   }, [oportunidades, relacionamentos, funil]);
@@ -35,7 +35,9 @@ export function AuraManagerPanel({ oportunidades, relacionamentos, atividades, v
   }, [posVendas]);
   const vendasComAvaliacao = posVendas.filter((p) => p.avaliouLoja).length;
   const taxaAvaliacao = posVendas.length ? Math.round((vendasComAvaliacao / posVendas.length) * 100) : 0;
-  const valorAberto = oportunidades.filter((o) => !ehFechada(o.etapa, funil)).reduce((s, o) => s + o.valor, 0);
+  // Negócio em jogo: fora Leads frios, Pós-venda, ganhos e perdidos (a mesma regra do Pipeline).
+  const abertas = oportunidades.filter((o) => negocioEmAberto(o.etapa, funil));
+  const valorAberto = abertas.reduce((s, o) => s + o.valor, 0);
 
   return (
     <section className="flex flex-col gap-4">
@@ -47,7 +49,7 @@ export function AuraManagerPanel({ oportunidades, relacionamentos, atividades, v
         <Selo tom="marca">{atividades.length} atividades carregadas</Selo>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard rotulo="Oportunidades abertas" valor={oportunidades.filter((o) => !ehFechada(o.etapa, funil)).length} detalhe={moeda(valorAberto)} />
+        <StatCard rotulo="Oportunidades abertas" valor={abertas.length} detalhe={moeda(valorAberto)} />
         <StatCard rotulo="Relacionamentos" valor={relacionamentos.length} />
         <StatCard rotulo="Pós-vendas avaliados" valor={vendasComAvaliacao} detalhe={`${taxaAvaliacao}% dos registros`} />
         <StatCard rotulo="Vendas no escopo" valor={vendas.length} />

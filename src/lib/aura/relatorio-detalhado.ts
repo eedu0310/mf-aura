@@ -26,7 +26,7 @@
  * Funções puras, sem banco.
  */
 import type { DadosCrm } from "./dados";
-import { ehGanho, ehPerda } from "@/lib/funil";
+import { ehGanho, ehPerda, virouVenda } from "@/lib/funil";
 import { somaDoVendedor, vendasDoVendedor } from "@/lib/parceria";
 import { notaMedia, taxaConversao, ticketMedio, totalVendido } from "@/lib/kpis";
 
@@ -139,7 +139,7 @@ function calcular(
   const opPorId = new Map(d.oportunidades.map((o) => [o.id, o]));
   const relPorId = new Map(d.relacionamentos.map((r) => [r.id, r]));
   const opsDecididas = ops.filter((o) => noPeriodo(o.updated_at ?? o.created_at));
-  const ganhos = opsDecididas.filter((o) => ehGanho(o.etapa, d.funil)).length;
+  const ganhos = opsDecididas.filter((o) => virouVenda(o.etapa, d.funil)).length;
   const perdas = opsDecididas.filter((o) => ehPerda(o.etapa, d.funil)).length;
 
   // Margem: só as vendas com preço de tabela, para o desconto não sair de

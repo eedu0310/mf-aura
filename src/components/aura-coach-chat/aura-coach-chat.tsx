@@ -32,6 +32,9 @@ import { RaioXDaEquipe, RaioXDoDia } from "@/components/raio-x/raio-x-do-dia";
 import { saudacaoDoDia } from "@/lib/date-local";
 import { classeBotao } from "@/components/ui";
 
+/** Lead ainda esperando atendimento na fila (lib/supabase/leads.ts). */
+const LEAD_NA_FILA = new Set(["aguardando_sdr", "atribuido_sdr", "repassado_vendedor"]);
+
 /**
  * Uma mensagem do chat. A primeira da conversa é especial: em vez de texto,
  * ela carrega o raio-x do dia, que é desenhado em blocos. Por isso `raioX`,
@@ -165,8 +168,10 @@ export function AuraCoachChat() {
       oportunidades: meu(oportunidades),
       posVendas: posVendasRaw ? meu(posVendasRaw) : undefined,
       leadsPendentes: (leads ?? [])
-        .filter((l: any) => !meuId || l.vendedorId === meuId || l.atribuidoPara === meuId)
-        .filter((l: any) => !l.status || l.status === "pendente" || l.status === "novo")
+        .filter((l: any) => !meuId || l.vendedorId === meuId || l.sdrId === meuId)
+        // Os status reais da fila (lib/supabase/leads.ts). Os antigos
+        // "pendente"/"novo" não existem mais e o bloco vinha sempre vazio.
+        .filter((l: any) => LEAD_NA_FILA.has(l.status))
         .map((l: any) => ({ id: l.id, nome: l.nome, telefone: l.telefone })),
       funil,
     });
@@ -193,12 +198,12 @@ export function AuraCoachChat() {
             oportunidades: oportunidades.map((o) => ({ ...o, dono: dono(o) })),
             posVendas: (posVendasRaw ?? []).map((p) => ({ ...p, dono: dono(p) })),
             leadsPendentes: (leads ?? [])
-              .filter((l: any) => !l.status || l.status === "pendente" || l.status === "novo")
+              .filter((l: any) => LEAD_NA_FILA.has(l.status))
               .map((l: any) => ({
                 id: l.id,
                 nome: l.nome,
                 telefone: l.telefone,
-                dono: l.vendedorId ?? l.atribuidoPara ?? null,
+                dono: l.vendedorId ?? l.sdrId ?? null,
               })),
             funil,
           },

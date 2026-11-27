@@ -1,4 +1,17 @@
 import type { Relacionamento } from "@/lib/types";
+import { diaEmSaoPaulo } from "@/lib/fuso";
+
+/*
+ * Atrasado / hoje pela DATA marcada (proximoContatoEm), no dia de São Paulo —
+ * a mesma conta do cartão "Follow-ups vencidos" do Meu Dia. Antes procurava
+ * as palavras "atrasado"/"hoje" no texto do próximo contato, que não é mais
+ * escrito assim: o painel nunca listava follow-up nenhum.
+ */
+function diaMarcado(r: Relacionamento): string {
+  return (r.proximoContatoEm ?? "").slice(0, 10)
+    ? diaEmSaoPaulo(new Date(r.proximoContatoEm as string))
+    : "";
+}
 
 export interface TarefaPendente {
   id: string;
@@ -15,8 +28,12 @@ export interface TarefaPendente {
  * Não é uma lista fixa — muda conforme o CRM muda.
  */
 export function computePendingTasks(relacionamentos: Relacionamento[]): TarefaPendente[] {
+  const hojeSP = diaEmSaoPaulo();
   const atrasados = relacionamentos
-    .filter((r) => r.proximoContato.toLowerCase().includes("atrasado"))
+    .filter((r) => {
+      const d = diaMarcado(r);
+      return !!d && d < hojeSP;
+    })
     .map((r) => ({
       id: r.id,
       titulo: `Follow-up · ${r.nome}`,
@@ -25,7 +42,7 @@ export function computePendingTasks(relacionamentos: Relacionamento[]): TarefaPe
     }));
 
   const hoje = relacionamentos
-    .filter((r) => r.proximoContato.toLowerCase().includes("hoje"))
+    .filter((r) => diaMarcado(r) === hojeSP)
     .map((r) => ({
       id: r.id,
       titulo: `Follow-up · ${r.nome}`,
@@ -37,8 +54,7 @@ export function computePendingTasks(relacionamentos: Relacionamento[]): TarefaPe
     .filter(
       (r) =>
         (r.temperatura === "esfriando" || r.temperatura === "frio") &&
-        !r.proximoContato.toLowerCase().includes("atrasado") &&
-        !r.proximoContato.toLowerCase().includes("hoje")
+        !(diaMarcado(r) && diaMarcado(r) <= hojeSP)
     )
     .map((r) => ({
       id: r.id,

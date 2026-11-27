@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getEmpresaAutenticada, mandaNaLoja } from "@/lib/auth-empresa";
 import { getSupabaseServiceClient } from "@/lib/supabase/service";
 import { carregarFunil } from "@/lib/funil-servidor";
-import { ehFechada, ehGanho, exigeValor } from "@/lib/funil";
+import { ehGanho, exigeValor } from "@/lib/funil";
+import { negocioEmAberto } from "@/lib/kpis";
 import { getMessages } from "@/lib/whatsapp/live-manager";
 import { sinaisDoRelacionamento } from "@/lib/gestor/ficha-relacionamento";
 
@@ -75,7 +76,8 @@ export async function GET(request: Request) {
     : { data: [] as { id: string; nome: string; cargo: string }[] };
   const nome = (pid: string | null | undefined) => (pid ? perfis?.find((p) => p.id === pid)?.nome ?? "—" : null);
 
-  const abertos = (ops.data ?? []).filter((o) => !ehFechada(o.etapa, funil));
+  // Negócio em jogo (fora Leads frios e Pós-venda): a mesma regra do Pipeline.
+  const abertos = (ops.data ?? []).filter((o) => negocioEmAberto(o.etapa, funil));
   const ganhos = (ops.data ?? []).filter((o) => ehGanho(o.etapa, funil));
   const valorEmAberto = abertos.reduce((s, o) => s + Number(o.valor ?? 0), 0);
   const valorVendido = (vendas.data ?? []).reduce((s, v) => s + Number(v.valor_fechado ?? v.valor ?? 0), 0);
@@ -104,7 +106,11 @@ export async function GET(request: Request) {
   const ultimoContatoEm = candidatos.length ? candidatos.sort().at(-1)! : null;
 
   const primeiroLead = leads.data?.[0] ?? null;
-  const leadSemResposta = (leads.data ?? []).find((l) => !l.respondido_em && l.status !== "respondido") ?? null;
+  // Só lead ainda na fila: frio, perdido ou já respondido não está esperando.
+  const leadSemResposta =
+    (leads.data ?? []).find(
+      (l) => !l.respondido_em && ["aguardando_sdr", "atribuido_sdr", "repassado_vendedor"].includes(String(l.status)),
+    ) ?? null;
 
   const sinais = sinaisDoRelacionamento({
     agora: new Date(),
@@ -166,7 +172,7 @@ export async function GET(request: Request) {
       etapa: o.etapa,
       valor: Number(o.valor ?? 0),
       produto: o.produto,
-      aberto: !ehFechada(o.etapa, funil),
+      aberto: negocioEmAberto(o.etapa, funil),
       diasNaEtapa: o.updated_at ? Math.floor((Date.now() - new Date(o.updated_at).getTime()) / 86_400_000) : null,
       motivoPerda: o.motivo_perda,
     })),

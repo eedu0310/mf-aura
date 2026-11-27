@@ -7,6 +7,7 @@ import {
   type EtapaFunil,
 } from "@/lib/funil";
 import { diaEmSaoPaulo } from "@/lib/fuso";
+import { negocioEmAberto } from "@/lib/kpis";
 
 export type PrioridadeNivel = "urgente" | "alta" | "media" | "baixa";
 
@@ -107,7 +108,9 @@ export function calcularPrioridadesComerciais({
   const hoje = new Date();
 
   for (const oportunidade of oportunidades) {
-    if (ehGanho(oportunidade.etapa, funil) || ehPerda(oportunidade.etapa, funil)) continue;
+    // Só negócio em jogo vira prioridade: card em Leads frios ou no Pós-venda
+    // (venda já feita) não é "Qualificar oportunidade". Mesma regra do Pipeline.
+    if (!negocioEmAberto(oportunidade.etapa, funil)) continue;
     const acao = calcularProximaMelhorAcao(oportunidade, funil);
     const diasParado = oportunidade.diasParado ?? 0;
     if (diasParado < 3 && !contaNoPipeline(oportunidade.etapa, funil)) continue;

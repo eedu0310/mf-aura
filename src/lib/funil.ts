@@ -185,6 +185,17 @@ export function ehPosVenda(nome: string | null | undefined, funil: EtapaFunil[])
   return acharEtapa(nome, funil)?.tipo === "posvenda";
 }
 
+/**
+ * O negócio virou venda: está na etapa de ganho OU já seguiu para o
+ * Pós-venda (o caminho normal depois de vender). Contar só a etapa de ganho
+ * fazia quem leva toda venda para o Pós-venda parecer converter pouco — e o
+ * Ranking, que já contava os dois, mostrava outro número.
+ */
+export function virouVenda(nome: string | null | undefined, funil: EtapaFunil[]): boolean {
+  const t = acharEtapa(nome, funil)?.tipo;
+  return t === "ganho" || t === "posvenda";
+}
+
 /** Entra na soma do pipeline aberto que o gestor cobra. */
 export function contaNoPipeline(nome: string | null | undefined, funil: EtapaFunil[]): boolean {
   const e = acharEtapa(nome, funil);

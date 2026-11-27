@@ -126,7 +126,9 @@ export async function POST() {
     ).length;
 
     const leadsLoja = (leads ?? []).filter((l) => l.empresa === empresa);
-    const leadsEscalonados = leadsLoja.filter((l) => l.gestor_notificado).length;
+    // Os que AINDA esperam (a mesma conta do cartão "Leads sem resposta"):
+    // lead escalado que depois foi atendido, esfriou ou se perdeu não conta.
+    const leadsEscalonados = leadsLoja.filter((l) => l.gestor_notificado && l.status === "repassado_vendedor").length;
     const leadsPerdidos = leadsLoja.filter((l) => l.status === "perdido").length;
 
     const posVendaLoja = (posVendas ?? []).filter((p) => p.empresa === empresa);
