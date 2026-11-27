@@ -20,19 +20,22 @@
  *   - item que um gestor DESFEZ não volta para o revisor: a palavra final ali
  *     já é de gente (lido do histórico).
  *
- * COMO DECIDE, por rodada:
- *   1. pega as 60 sugestões mais antigas ainda não revisadas;
+ * COMO DECIDE, por rodada (desde 27/11/2026 ele decide sozinho; ver o
+ * cabeçalho de revisor-regras.ts):
+ *   1. pega as 60 sugestões mais antigas ainda não decididas — inclusive as
+ *      que a versão antiga tinha deixado para o gestor por dúvida;
  *   2. regra primeiro, de graça (revisor-regras.ts): dado pessoal → recusa;
- *      repete um aprovado → recusa; perdeu mais que fechou → gestor;
+ *      repete um aprovado → recusa; perdeu mais que fechou → recusa;
  *   3. o resto vai para a IA (perfil "redacao") em lotes de 10, cada item com
- *      a evidência, os aprovados parecidos da loja e trechos dos materiais da
- *      loja (src/lib/conhecimento/recuperar.ts + busca de trechos);
- *   4. o parecer passa pelas travas em código: confiança < 0,75 → gestor;
- *      preço, prazo, garantia, pagamento ou número sem apoio nos materiais →
- *      gestor; repetido de algo aprovado nesta mesma rodada → recusa.
+ *      a evidência, os aprovados parecidos da loja, os trechos dos materiais
+ *      da loja e as CONVERSAS reais parecidas dos vendedores (resumos da
+ *      análise do WhatsApp dos últimos 60 dias);
+ *   4. o parecer passa pelas travas em código: na dúvida, recusa (reversível);
+ *      só sobe para o gestor política comercial que os materiais não
+ *      respondem, numa situação recorrente.
  *   O que fica para o gestor vira UM card por loja ("N aprendizados precisam
- *   da sua decisão") e não volta para a IA (não paga duas vezes pela mesma
- *   dúvida).
+ *   da sua decisão"), marcado como "revisor-aprendizado:gestor", e não volta
+ *   para a IA (não paga duas vezes pela mesma dúvida).
  */
 import type { Achado, ContextoAgente, DefinicaoAgente, MensagemEscritorio, ResultadoAgente } from "../tipos";
 import { faltaNoBanco } from "../util";
@@ -40,11 +43,15 @@ import { limparCacheAprendizado } from "@/lib/aura/aprendizado";
 import { ranquear, type ItemConhecimento } from "@/lib/conhecimento/recuperar";
 import { chaveDe, lerTudo, listaCurta, plural, responsaveisDaLoja } from "./comum";
 import {
-  CONFIANCA_MINIMA, decisaoFinal, decisaoPorRegra, duplicadoDe, emLotes, validarPareceres,
+  ESPERA_O_GESTOR, decisaoFinal, decisaoPorRegra, duplicadoDe, emLotes, validarPareceres,
   type DecisaoFinal, type ItemRevisao,
 } from "./revisor-regras";
 
 export const ID_REVISOR = "revisor-aprendizado";
+/** Marca de quem o revisor estudou e deixou para o gestor de vez (não volta para a IA). */
+export const REVISOR_DEIXOU_PARA_GESTOR = ESPERA_O_GESTOR;
+/** Quantos dias de conversas analisadas o revisor estuda. */
+const DIAS_DE_CONVERSA = 60;
 const MAX_POR_RODADA = 60;
 /** Um lote de 10 leva ~50 s de IA (rodadas reais de 25/11); mais a folga para gravar as decisões. */
 const TEMPO_POR_LOTE_MS = 80_000;
@@ -72,24 +79,73 @@ const SISTEMA = [
   "(MF International, LF Lareiras, A&G Aquecimento, Sole Aquecimento). Cada sugestão é uma situação do cliente (gatilho) e o",
   "que responder (resposta). O que você aprovar passa a ser repetido pela AURA para todos os clientes da loja.",
   "",
+  "VOCÊ DECIDE: o gestor não vai revisar item por item. Estude cada um com o que vem junto:",
+  "- 'materiais': trechos do manual, catálogo e materiais da loja (a fonte da verdade);",
+  "- 'aprovados_parecidos': o que a loja já ensinou à AURA;",
+  "- 'conversas_parecidas': resumos de conversas reais dos vendedores no WhatsApp com situação parecida, e",
+  "  'conversas_relacionadas' (quantas apareceram) — mostram se a situação é comum e como os vendedores lidam com ela;",
+  "- 'evidencia': quantas vezes a situação foi vista e se fechou ou perdeu a venda.",
+  "",
   "Para CADA item decida:",
-  "- recusar: repete um aprendizado já aprovado da loja (lista 'aprovados_parecidos'); contradiz um aprovado; inventa preço,",
-  "  desconto, prazo, garantia, forma de pagamento ou especificação técnica que os 'materiais' da loja não confirmam;",
-  "  é ofensivo, fora do ramo, específico de um cliente ou tem dado pessoal; é óbvio demais para ajudar.",
-  "- aprovar: útil, correto, no tom da loja (cordial, direto, consultivo) e reutilizável com outros clientes.",
-  "  Se a ideia é boa mas o texto precisa de ajuste pequeno, aprove com 'resposta_ajustada' (sem inventar nada).",
-  "- manter: quando não tem certeza ou quando a evidência de vendas contradiz (perdeu mais do que fechou).",
-  "Use 'confianca' de 0 a 1 com honestidade; abaixo de 0.75 o item fica para o gestor de qualquer jeito.",
+  "- aprovar: útil, correto, coerente com os materiais e com o que funciona nas conversas, no tom da loja (cordial, direto,",
+  "  consultivo) e reutilizável com outros clientes. Se a ideia é boa mas o texto afirma preço, desconto, prazo, garantia,",
+  "  forma de pagamento ou número que os materiais NÃO confirmam, aprove com 'resposta_ajustada' SEM essa afirmação",
+  "  (ex.: 'confirmo o prazo certinho com a equipe e te retorno'). Ajuste pequeno de texto também vai em 'resposta_ajustada'.",
+  "- recusar: repete ou contradiz um aprovado; contradiz os materiais; especulativo ou sem base nas conversas; específico de",
+  "  um cliente; óbvio demais; ofensivo, fora do ramo ou com dado pessoal. Na dúvida, recuse: recusar é reversível.",
+  "- gestor: SÓ quando é decisão de política comercial da loja (preço, desconto, pagamento, garantia, prazo) que os",
+  "  materiais não respondem e a situação é comum. Use raramente.",
+  "Use 'confianca' de 0 a 1 com honestidade; para aprovar precisa de 0.7 ou mais.",
   "'motivo': UMA frase curta em português do Brasil.",
   "",
-  'Responda só JSON: {"decisoes":[{"id":"...","decisao":"aprovar|recusar|manter","motivo":"...","confianca":0.0,"resposta_ajustada":"opcional"}]}',
+  'Responda só JSON: {"decisoes":[{"id":"...","decisao":"aprovar|recusar|gestor","motivo":"...","confianca":0.0,"resposta_ajustada":"opcional"}]}',
   "com exatamente um objeto por item recebido.",
 ].join("\n");
+
+interface ConversaResumida {
+  id: string;
+  empresa: string;
+  etapa: string | null;
+  resumo: string;
+}
+
+/** Resumo de conversa sem telefone nem documento (vai para a IA como exemplo). */
+function semNumeros(texto: string): string {
+  return texto.replace(/\+?\d[\d\s().-]{7,}\d/g, "[número]").replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail]");
+}
+
+/** As conversas analisadas das lojas nos últimos dias, prontas para a busca. */
+async function conversasDasLojas(sb: ContextoAgente["sb"], agora: Date): Promise<Map<string, ItemConhecimento[]>> {
+  const desde = new Date(agora.getTime() - DIAS_DE_CONVERSA * 86_400_000).toISOString();
+  const porLoja = new Map<string, ItemConhecimento[]>();
+  try {
+    const linhas = await lerTudo<ConversaResumida>((de, ate) =>
+      sb
+        .from("whatsapp_ia_leads")
+        .select("id, empresa, etapa, resumo")
+        .gte("ultima_analise_em", desde)
+        .not("resumo", "is", null)
+        .or("ignorado.is.null,ignorado.eq.false")
+        .order("id")
+        .range(de, ate),
+    );
+    for (const c of linhas) {
+      const resumo = semNumeros(String(c.resumo ?? "")).trim();
+      if (resumo.length < 30) continue;
+      const lista = porLoja.get(c.empresa) ?? [];
+      lista.push({ tipo: "trecho", id: c.id, texto: `${c.etapa ? `[${c.etapa}] ` : ""}${resumo}`.slice(0, 320), busca: resumo });
+      porLoja.set(c.empresa, lista);
+    }
+  } catch {
+    /* sem as conversas, o revisor estuda só materiais e aprovados */
+  }
+  return porLoja;
+}
 
 async function trechosDaLoja(empresa: string, consulta: string, sb: ContextoAgente["sb"]): Promise<string[]> {
   try {
     const { trechosRelevantes } = await import("@/lib/aura/trechos");
-    const lista = await trechosRelevantes(sb, empresa, consulta, 3);
+    const lista = await trechosRelevantes(sb, empresa, consulta, 5);
     return lista.map((t) => `${t.origem}: ${t.texto}`.slice(0, 500));
   } catch {
     return [];
@@ -130,9 +186,17 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     if (!error) for (const r of (data ?? []) as Array<{ registro_id: string | null }>) if (r.registro_id) desfeitos.add(r.registro_id);
   }
 
-  const jaMantidos = pendentes.filter((p) => p.revisado_por_agente || mantidosSemColuna.has(p.id));
+  /*
+   * Esperando o gestor de vez: só o que o revisor novo estudou e marcou
+   * ":gestor". O que a versão antiga deixou por dúvida (marca sem ":gestor")
+   * volta para a fila e é decidido agora.
+   */
+  const jaMantidos = pendentes.filter((p) => p.revisado_por_agente === REVISOR_DEIXOU_PARA_GESTOR || mantidosSemColuna.has(p.id));
   const fila = pendentes
-    .filter((p) => !p.revisado_por_agente && !mantidosSemColuna.has(p.id) && !desfeitos.has(p.id))
+    .filter(
+      (p) =>
+        (!p.revisado_por_agente || p.revisado_por_agente === ID_REVISOR) && !mantidosSemColuna.has(p.id) && !desfeitos.has(p.id),
+    )
     .sort((a, b) => a.criado_em.localeCompare(b.criado_em))
     .slice(0, MAX_POR_RODADA)
     .map((p) => ({ ...p, vezes_visto: p.vezes_visto ?? 0, vezes_fechou: p.vezes_fechou ?? 0 }));
@@ -145,9 +209,12 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     };
   }
 
-  const aprovados = await lerTudo<Aprovado>((de, ate) =>
-    sb.from("aura_aprendizado").select("id, empresa, tipo, gatilho, resposta").eq("status", "aprovado").order("id").range(de, ate),
-  );
+  const [aprovados, conversas] = await Promise.all([
+    lerTudo<Aprovado>((de, ate) =>
+      sb.from("aura_aprendizado").select("id, empresa, tipo, gatilho, resposta").eq("status", "aprovado").order("id").range(de, ate),
+    ),
+    conversasDasLojas(sb, ctx.agora),
+  ]);
 
   // 1. Regras de graça.
   const decisoes = new Map<string, DecisaoFinal>();
@@ -193,6 +260,8 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
         const parecidos = ranquear(daLoja, item.gatilho, 300).slice(0, 3).map((a) => a.texto);
         const materiais = await trechosDaLoja(item.empresa, `${item.gatilho} ${item.resposta}`, sb);
         materiaisDe.set(item.id, materiais.join("\n"));
+        // Conversas reais da loja com a mesma situação (pela fala do cliente).
+        const relacionadas = ranquear(conversas.get(item.empresa) ?? [], item.gatilho, 100_000);
         return {
           id: item.id,
           empresa: item.empresa,
@@ -202,6 +271,8 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
           evidencia: { visto: item.vezes_visto, fechou: item.vezes_fechou, perdeu: item.vezes_perdeu ?? 0 },
           aprovados_parecidos: parecidos,
           materiais,
+          conversas_relacionadas: relacionadas.length,
+          conversas_parecidas: relacionadas.slice(0, 3).map((c) => c.texto),
         };
       }),
     );
@@ -230,7 +301,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
 
   // 3. Aplica, um por um (o que aprovar agora entra na conta de repetidos do próximo).
   const agoraIso = ctx.agora.toISOString();
-  const contagem = { aprovar: 0, recusar: 0, manter: 0 };
+  const contagem = { aprovar: 0, recusar: 0, gestor: 0 };
   const lojasComAprovacao = new Set<string>();
   const destaques: Array<{ empresa: string; gatilho: string; fechou: number }> = [];
   const mantidosAgora: LinhaPendente[] = [];
@@ -240,7 +311,12 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     if (d.decisao === "aprovar" && duplicadoDe(item, aprovados)) {
       d = { decisao: "recusar", motivo: "Repete um aprendizado aprovado nesta mesma revisão.", confianca: 1, porRegra: true };
     }
-    const meta = { revisado_por_agente: ID_REVISOR, revisao_motivo: d.motivo, revisao_confianca: Math.round(d.confianca * 100) / 100 };
+    const meta = {
+      // O que fica para o gestor leva a marca ":gestor" e não volta para a IA.
+      revisado_por_agente: d.decisao === "gestor" ? REVISOR_DEIXOU_PARA_GESTOR : ID_REVISOR,
+      revisao_motivo: d.motivo,
+      revisao_confianca: Math.round(d.confianca * 100) / 100,
+    };
     let patch: Record<string, unknown> | null = null;
     if (d.decisao === "aprovar") {
       patch = { status: "aprovado", aprovado_auto: true, revisado_por: null, revisado_em: agoraIso };
@@ -248,7 +324,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
     } else if (d.decisao === "recusar") {
       patch = { status: "recusado", aprovado_auto: false, revisado_por: null, revisado_em: agoraIso };
     }
-    // "manter" só deixa o motivo (com a 110); o status continua sugerido.
+    // "gestor" só deixa o motivo e a marca (com a 110); o status continua sugerido.
     const aplicar = async (comMeta: boolean) => {
       const corpo = { ...(patch ?? {}), ...(comMeta ? meta : {}) };
       if (!Object.keys(corpo).length) return { ok: true, erro: null as null | { code?: string; message?: string } };
@@ -260,9 +336,9 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       temColunas = false;
       res = await aplicar(false);
     }
-    if (d.decisao === "manter") {
+    if (d.decisao === "gestor") {
       if (!temColunas) mantidosSemColuna.add(item.id);
-      contagem.manter++;
+      contagem.gestor++;
       mantidosAgora.push(item);
       continue;
     }
@@ -296,7 +372,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
         empresa,
         destinatarioId: id,
         titulo: `${plural(n, "aprendizado precisa", "aprendizados precisam")} da sua decisão`,
-        descricao: `O revisor não teve certeza (confiança abaixo de ${CONFIANCA_MINIMA}, resultado contraditório ou valor sem apoio nos materiais). O motivo está em cada item.`,
+        descricao: `Só o que é política da loja (preço, desconto, prazo, garantia ou pagamento) e o material não responde. O resto o revisor decidiu sozinho; o motivo está em cada item.`,
         prioridade: n >= 20 ? "alta" : "media",
         entidadeTipo: "perfil",
         entidadeId: id,
@@ -312,7 +388,7 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       empresa: equipe.pessoa(id)?.empresa ?? "",
       destinatarioId: id,
       titulo: `${plural(total, "aprendizado precisa", "aprendizados precisam")} da sua decisão`,
-      descricao: `O revisor deixou para você o que não teve certeza. Por loja:\n${listaCurta(linhas)}`,
+      descricao: `Só política da loja que o material não responde (preço, desconto, prazo, garantia, pagamento). Por loja:\n${listaCurta(linhas)}`,
       prioridade: total >= 20 ? "alta" : "media",
       entidadeTipo: "perfil",
       entidadeId: id,
@@ -328,8 +404,8 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
       para: "todos",
       tipo: "relato",
       texto:
-        `Revisei ${plural(contagem.aprovar + contagem.recusar + contagem.manter, "aprendizado")}: ${contagem.aprovar} aprovados, ` +
-        `${contagem.recusar} recusados e ${contagem.manter} deixados para o gestor.` +
+        `Revisei ${plural(contagem.aprovar + contagem.recusar + contagem.gestor, "aprendizado")}: ${contagem.aprovar} aprovados, ` +
+        `${contagem.recusar} recusados e ${contagem.gestor} deixados para o gestor (política da loja).` +
         (semTempo ? ` ${semTempo} ficaram para a próxima rodada (não coube no tempo).` : "") +
         (semIA ? ` ${semIA} ficaram para a próxima rodada (IA indisponível).` : ""),
       dados: { ...contagem, semIA, semTempo },
@@ -347,14 +423,14 @@ async function executar(ctx: ContextoAgente): Promise<ResultadoAgente> {
   }
 
   return {
-    resumo: `${contagem.aprovar} aprovados, ${contagem.recusar} recusados, ${contagem.manter} para o gestor${semTempo ? `, ${semTempo} para a próxima rodada` : ""}${semIA ? `, ${semIA} adiados (sem IA)` : ""}.`,
+    resumo: `${contagem.aprovar} aprovados, ${contagem.recusar} recusados, ${contagem.gestor} para o gestor${semTempo ? `, ${semTempo} para a próxima rodada` : ""}${semIA ? `, ${semIA} adiados (sem IA)` : ""}.`,
     achados,
     mensagens,
     metricas: {
-      revisados: contagem.aprovar + contagem.recusar + contagem.manter,
+      revisados: contagem.aprovar + contagem.recusar + contagem.gestor,
       aprovados: contagem.aprovar,
       recusados: contagem.recusar,
-      mantidos: contagem.manter,
+      mantidos: contagem.gestor,
       adiadosSemIA: semIA,
       adiadosPorTempo: semTempo,
       esperandoGestor: jaMantidos.length + mantidosAgora.length,
@@ -371,7 +447,7 @@ export const agenteRevisorAprendizado: DefinicaoAgente = {
   setor: "conhecimento",
   icone: "BadgeCheck",
   missao:
-    "Aprova ou recusa as sugestões de aprendizado da AURA com base na evidência e nos materiais da loja, e deixa para o gestor só o que tem dúvida. Tudo reversível.",
+    "Decide sozinho as sugestões de aprendizado da AURA: estuda os materiais da loja, o que já foi aprovado e as conversas reais dos vendedores, aprova ou recusa (na dúvida, recusa) e só deixa para o gestor política comercial que o material não responde. Tudo reversível.",
   agenda: { tipo: "diario", horas: [8, 10, 12, 14, 16, 18, 20], minuto: 0, diasSemana: [1, 2, 3, 4, 5, 6] },
   usaIA: true,
   orcamentoMensalUsd: 5,

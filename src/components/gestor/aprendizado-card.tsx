@@ -15,10 +15,11 @@
  * O texto é editável antes de aprovar, porque a IA escreve um rascunho e a
  * palavra final da casa é do gestor.
  *
- * REVISOR DO APRENDIZADO (agente, pedido do Elton em 25/11): ele aprova ou
- * recusa sozinho, com o motivo de cada decisão, e deixa aqui só o que não tem
- * certeza. Tudo que ele decide aparece com o selo do agente e o motivo, e o
- * gestor desfaz com um clique (o item volta a esperar revisão).
+ * REVISOR DO APRENDIZADO (agente, pedido do Elton em 25/11 e 27/11): ele
+ * aprova ou recusa sozinho, com o motivo de cada decisão (na dúvida, recusa),
+ * e deixa aqui só política comercial que o material não responde. Tudo que
+ * ele decide aparece com o selo do agente e o motivo, e o gestor desfaz com
+ * um clique (o item volta a esperar revisão).
  */
 import { useEffect, useState, useCallback } from "react";
 import { Check, X, Pencil, GraduationCap, Loader2, Undo2, BadgeCheck } from "lucide-react";
@@ -101,6 +102,8 @@ export function AprendizadoCard() {
   const [loja, setLoja] = useState<string | null>(null);
   const [podeDecidir, setPodeDecidir] = useState(true);
   const [lojas, setLojas] = useState<{ nome: string; esperando: number }[] | null>(null);
+  // O que o Revisor ainda vai decidir sozinho (não aparece na lista).
+  const [naFila, setNaFila] = useState(0);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -115,6 +118,7 @@ export function AprendizadoCard() {
       setSugestoes(d.sugestoes ?? null);
       setLojas(d.lojas ?? null);
       setPodeDecidir(d.podeDecidir !== false);
+      setNaFila(Number(d.naFilaDoRevisor) || 0);
       if (!loja && d.loja) setLoja(d.loja);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível carregar.");
@@ -184,7 +188,7 @@ export function AprendizadoCard() {
     <Card>
       <CardHeader
         titulo="O que a AURA aprendeu"
-        descricao="Tirado dos negócios fechados e perdidos e das conversas. O Revisor do Aprendizado (agente) aprova ou recusa cada sugestão com o motivo e deixa aqui só o que não tem certeza. Você pode desfazer qualquer decisão dele."
+        descricao="Tirado dos negócios fechados e perdidos e das conversas. O Revisor do Aprendizado (agente) estuda os materiais da loja e as conversas dos vendedores e decide sozinho: aprova ou recusa, com o motivo. Aqui fica só política da loja (preço, desconto, prazo, garantia, pagamento) que o material não responde. Você pode desfazer qualquer decisão dele."
         icone={GraduationCap}
         acoes={
           sugeridos.length > 0 ? (
@@ -208,6 +212,12 @@ export function AprendizadoCard() {
 
       {erro && <Alerta tom="perigo" titulo={erro} className="mt-4" />}
 
+      {naFila > 0 && (
+        <p className="mt-3 text-xs text-aura-graphite-soft">
+          {naFila} {naFila === 1 ? "sugestão está" : "sugestões estão"} na fila do Revisor: ele estuda e decide sozinho nas próximas rodadas.
+        </p>
+      )}
+
       {carregando ? (
         <p className="mt-6 flex items-center gap-2 text-sm text-aura-graphite-soft">
           <Loader2 size={15} className="animate-spin" /> Carregando…
@@ -216,8 +226,8 @@ export function AprendizadoCard() {
         <EstadoVazio
           className="mt-5"
           icone={GraduationCap}
-          titulo="Nada esperando revisão."
-          descricao="Toda noite a AURA relê as conversas do dia e traz para cá o que aprendeu."
+          titulo="Nada esperando a sua decisão."
+          descricao="O Revisor decide sozinho o que a AURA aprende; aqui aparece só política da loja que o material não responde."
         />
       ) : (
         <ul className="mt-5 space-y-3">

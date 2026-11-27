@@ -17,10 +17,48 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const PASTA_PADRAO = path.join(process.cwd(), ".backups");
 
-/** Diários que ficam. Uma semana cobre o "deu um problema ontem". */
+/**
+ * NA NUVEM (bucket "backups", fora da VPS): diários que ficam. Uma semana
+ * cobre o "deu um problema ontem".
+ */
 export const DIARIOS_MANTIDOS = 7;
-/** Domingos além disso: o problema que só aparece dez dias depois. */
+/** Domingos além disso, também na nuvem: o problema que só aparece dez dias depois. */
 export const DOMINGOS_MANTIDOS = 4;
+
+/*
+ * NO DISCO DA VPS fica SÓ o backup do dia (pedido do Elton, 27/11/2026: "fez
+ * o backup de hoje, exclui o de ontem e todos do passado"). O pacote das
+ * sessões do WhatsApp tinha chegado a 6,4 GB por noite (levava junto a pasta
+ * _media, o cache de fotos e áudios) e, com 7 diários + 4 domingos, ia ocupar
+ * uns 70 GB do disco que o próprio AURA usa. O histórico de dias fica na
+ * nuvem, que não ocupa a VPS.
+ */
+
+/**
+ * Quais arquivos de backup apagar do disco: tudo que não é de hoje. O pacote
+ * de sessões de um dia anterior só sai se o de hoje foi gerado (senão fica o
+ * mais recente, para nunca ficar sem nenhum). Função pura: apagar backup não
+ * perdoa engano.
+ */
+export function antigosNoDisco(nomes: string[], hoje: string, sessoesDeHojeOk: boolean): string[] {
+  const apagar = nomes.filter((n) => {
+    const d = diaDoArquivo(n);
+    return d !== null && d !== hoje;
+  });
+  const sessoesVelhas = nomes
+    .filter((n) => {
+      const d = diaDasSessoes(n);
+      return d !== null && d !== hoje;
+    })
+    .sort()
+    .reverse();
+  // Sem o pacote de hoje, o mais novo dos antigos fica.
+  apagar.push(...(sessoesDeHojeOk ? sessoesVelhas : sessoesVelhas.slice(1)));
+  return apagar;
+}
+
+/** Acima disto o arquivo nem é lido para subir (o Node não carrega mais de 2 GiB num Buffer). */
+const MAIOR_ARQUIVO_NA_NUVEM = 1.5 * 1024 ** 3;
 
 const PAGINA = 1000;
 
@@ -168,6 +206,10 @@ async function lerEsquema(sb: SupabaseClient): Promise<{ esquema: string; migrac
  *
  * Fora do backup, perder a VPS significava 12 pessoas pareando o celular de
  * novo. O log de diagnóstico fica de fora: cresce, não serve para restaurar.
+ * A pasta _media também (27/11/2026): é o cache das fotos, áudios e vídeos
+ * das conversas — 6,4 GB que não religam sessão nenhuma e impediam o pacote
+ * de subir para a nuvem. Sem ela o pacote tem o que importa: as credenciais
+ * de cada aparelho e o _store das conversas.
  * Usa o `tar` do sistema; na VPS (Linux) ele sempre existe. Se não existir
  * (Windows de desenvolvimento), devolve null em vez de quebrar o backup.
  */
@@ -176,7 +218,15 @@ function empacotarSessoes(pastaSessoes: string, destino: string): string | null 
   const temporario = `${destino}.tmp`;
   const r = spawnSync(
     "tar",
-    ["-czf", temporario, "--exclude=diagnostico.log", "-C", path.dirname(pastaSessoes), path.basename(pastaSessoes)],
+    [
+      "-czf",
+      temporario,
+      "--exclude=diagnostico.log",
+      "--exclude=_media",
+      "-C",
+      path.dirname(pastaSessoes),
+      path.basename(pastaSessoes),
+    ],
     { stdio: "ignore" },
   );
   if (r.status !== 0) {
@@ -206,15 +256,30 @@ async function subirParaNuvem(
 ): Promise<ResultadoBackup["nuvem"]> {
   const enviados: string[] = [];
   const apagados: string[] = [];
-  try {
-    for (const caminho of arquivos) {
-      const nome = path.basename(caminho);
+  const falhas: string[] = [];
+  /*
+   * Cada arquivo sobe por conta própria: antes, o pacote de sessões grande
+   * demais derrubava o envio inteiro e a limpeza dos antigos na nuvem nunca
+   * rodava. Agora o banco sobe mesmo que as sessões falhem, e o motivo vai
+   * para o log.
+   */
+  for (const caminho of arquivos) {
+    const nome = path.basename(caminho);
+    try {
+      const tamanho = fs.statSync(caminho).size;
+      if (tamanho > MAIOR_ARQUIVO_NA_NUVEM) {
+        throw new Error(`grande demais para a nuvem (${(tamanho / 1024 ** 3).toFixed(1)} GB)`);
+      }
       const { error } = await sb.storage
         .from(BUCKET_NUVEM)
         .upload(nome, fs.readFileSync(caminho), { contentType: "application/gzip", upsert: true });
-      if (error) throw new Error(`${nome}: ${error.message}`);
+      if (error) throw new Error(error.message);
       enviados.push(nome);
+    } catch (e) {
+      falhas.push(`${nome}: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+  try {
 
     const { data: lista, error: erroLista } = await sb.storage.from(BUCKET_NUVEM).list("", { limit: 1000 });
     if (erroLista) throw new Error(`listar: ${erroLista.message}`);
@@ -229,10 +294,10 @@ async function subirParaNuvem(
       if (error) throw new Error(`apagar antigos: ${error.message}`);
       apagados.push(...remover);
     }
-    return { enviados, apagados, erro: null };
   } catch (e) {
-    return { enviados, apagados, erro: e instanceof Error ? e.message : String(e) };
+    falhas.push(e instanceof Error ? e.message : String(e));
   }
+  return { enviados, apagados, erro: falhas.length ? falhas.join(" | ") : null };
 }
 
 export async function executarBackup(
@@ -301,20 +366,16 @@ export async function executarBackup(
 
   const sessoes = empacotarSessoes(pastaSessoes, path.join(pasta, nomes.sessoes));
 
-  const existentes = fs
-    .readdirSync(pasta)
-    .map((n) => diaDoArquivo(n) ?? diaDasSessoes(n))
-    .filter((d): d is string => d !== null);
+  // No disco fica só o de hoje (ver antigosNoDisco). Só chega aqui com o
+  // arquivo do banco de hoje já gravado e conferido pelo rename.
   const apagados: string[] = [];
-  for (const d of decidirRemocoes(existentes, dia)) {
-    const n = nomesDoDia(d);
-    for (const nome of [n.dados, n.sessoes]) {
-      try {
-        fs.unlinkSync(path.join(pasta, nome));
-        if (!apagados.includes(d)) apagados.push(d);
-      } catch {
-        /* já não estava lá */
-      }
+  for (const nome of antigosNoDisco(fs.readdirSync(pasta), dia, sessoes !== null)) {
+    try {
+      fs.unlinkSync(path.join(pasta, nome));
+      const d = diaDoArquivo(nome) ?? diaDasSessoes(nome);
+      if (d && !apagados.includes(d)) apagados.push(d);
+    } catch {
+      /* já não estava lá */
     }
   }
 

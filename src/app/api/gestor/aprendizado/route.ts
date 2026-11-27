@@ -17,6 +17,7 @@ import { limparCacheAprendizado } from "@/lib/aura/aprendizado";
 import { resumoDasSugestoes } from "@/lib/aura/resultado-sugestoes";
 import { NOMES_EMPRESAS } from "@/lib/companies";
 import { faltaNoBanco } from "@/lib/agentes/util";
+import { ESPERA_O_GESTOR } from "@/lib/agentes/nativos/revisor-regras";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,6 +103,15 @@ export async function GET(req: NextRequest) {
 
   const itens = (data ?? []) as unknown as Array<Record<string, unknown> & { status: string }>;
 
+  /*
+   * Desde 27/11 o Revisor decide sozinho (pedido do Elton: "não quero ficar
+   * aprovando todo dia, só o que o agente não conseguir"). A lista do gestor
+   * mostra só o que espera uma PESSOA (marca ESPERA_O_GESTOR); o que ainda
+   * está na fila do revisor vira só um número. Sem a 110, mostra tudo.
+   */
+  const esperaGente = (i: Record<string, unknown>) => !temRevisao || i.revisado_por_agente === ESPERA_O_GESTOR;
+  const sugeridosTodos = itens.filter((i) => i.status === "sugerido");
+
   // O que o agente recusou, para o gestor poder desfazer (só com a 110).
   let recusadosPeloAgente: unknown[] = [];
   if (temRevisao) {
@@ -122,11 +132,9 @@ export async function GET(req: NextRequest) {
   // A lista das lojas com quantos itens cada uma tem esperando, para o gestor
   // saber onde clicar. Sem isto o card só mostrava a loja do login e o
   // aprendizado das outras ficava invisível.
-  const { data: pend } = await sb!
-    .from("aura_aprendizado")
-    .select("empresa")
-    .eq("status", "sugerido")
-    .limit(5000);
+  let pendQ = sb!.from("aura_aprendizado").select("empresa").eq("status", "sugerido").limit(5000);
+  if (temRevisao) pendQ = pendQ.eq("revisado_por_agente", ESPERA_O_GESTOR);
+  const { data: pend } = await pendQ;
   const lojas = NOMES_EMPRESAS.map((nome) => ({
     nome,
     esperando: (pend ?? []).filter((p: { empresa: string }) => p.empresa === nome).length,
@@ -136,7 +144,9 @@ export async function GET(req: NextRequest) {
     loja,
     lojas,
     podeDecidir: !!eu!.gestor_mestre || loja === eu!.empresa,
-    sugeridos: itens.filter((i) => i.status === "sugerido"),
+    sugeridos: sugeridosTodos.filter(esperaGente),
+    /** Ainda na fila do Revisor (ele decide nas próximas rodadas). */
+    naFilaDoRevisor: sugeridosTodos.filter((i) => !esperaGente(i)).length,
     aprovados: itens.filter((i) => i.status === "aprovado"),
     recusadosPeloAgente,
     sugestoes,
@@ -193,9 +203,15 @@ export async function POST(req: NextRequest) {
       revisado_por: null,
       revisado_em: null,
     };
+    // Volta para a lista do GESTOR (não para a fila do revisor): quem desfez é gente.
     let { error: erroVolta } = await sb!
       .from("aura_aprendizado")
-      .update({ ...volta, revisado_por_agente: null, revisao_motivo: null, revisao_confianca: null })
+      .update({
+        ...volta,
+        revisado_por_agente: ESPERA_O_GESTOR,
+        revisao_motivo: "Decisão desfeita por um gestor: espera a revisão de uma pessoa.",
+        revisao_confianca: null,
+      })
       .eq("id", corpo.id);
     // Sem a migração 110 as colunas da revisão não existem: desfaz o resto.
     if (erroVolta && faltaNoBanco(erroVolta)) {

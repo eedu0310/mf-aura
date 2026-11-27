@@ -3,25 +3,43 @@
  *
  * A IA dá um PARECER; quem decide o que vai para o banco é este arquivo. As
  * travas que o prompt pede também valem aqui, em código, porque um modelo
- * que "esqueceu" uma regra não pode aprovar preço inventado:
+ * que "esqueceu" uma regra não pode aprovar preço inventado.
  *
- *   - evidência contra (perdeu mais do que fechou, com 3 casos ou mais) →
- *     fica para o gestor, diga a IA o que disser;
- *   - confiança abaixo de 0,75 → fica para o gestor;
- *   - repete um aprendizado já aprovado da loja → recusa;
- *   - telefone, e-mail ou documento no texto → recusa (dado pessoal não vai
- *     para o prompt de ninguém);
- *   - aprovar texto com preço, desconto, prazo, garantia, pagamento ou
- *     número técnico que NÃO aparece nos materiais da loja → não aprova:
- *     fica para o gestor. (Recusar isso só quando a própria IA recusou: os
- *     trechos que mandamos são uma amostra do manual, e o que não veio nela
- *     pode estar certo. Na dúvida, decide gente.)
+ * O REVISOR DECIDE SOZINHO (pedido do Elton, 27/11/2026: "quero que ele mesmo
+ * qualifique ou desqualifique, estudando o material e as conversas dos
+ * vendedores; não quero ficar aprovando todo dia, no máximo o que ele
+ * realmente não conseguir"). Antes, toda dúvida ia para o gestor: em 27/11
+ * eram 85 itens esperando, 40 só por "confiança baixa". Agora:
+ *
+ *   - NA DÚVIDA, RECUSA. Recusar não ensina nada à AURA e é reversível (o
+ *     gestor vê os recusados e desfaz com um clique); aprovar errado faz a
+ *     AURA repetir o erro para todos os clientes. Então:
+ *       · confiança abaixo de 0,7 para aprovar → recusa;
+ *       · evidência contra (perdeu mais do que fechou, 3 casos ou mais) →
+ *         recusa, diga a IA o que disser;
+ *       · repete um aprovado da loja, ou tem telefone/e-mail/documento → recusa;
+ *   - aprovar texto com preço, desconto, prazo, garantia, pagamento ou número
+ *     que NÃO aparece nos materiais da loja → não aprova. A IA é orientada a
+ *     devolver o texto sem a afirmação ("confirmo o prazo com a equipe"); se
+ *     mesmo assim sobrar, recusa;
+ *   - para o GESTOR vai só a exceção: decisão de política comercial (preço,
+ *     desconto, pagamento, garantia, prazo) que os materiais não respondem,
+ *     numa situação que se repete (vista 2 vezes ou mais, ou que já fechou
+ *     venda). Isso só a loja pode definir; o resto o revisor resolve.
  */
 import { normalizar, palavras } from "@/lib/conhecimento/recuperar";
 
-export type Decisao = "aprovar" | "recusar" | "manter";
+/** "gestor" = fica esperando a decisão de uma pessoa (status continua "sugerido"). */
+export type Decisao = "aprovar" | "recusar" | "gestor";
 
-export const CONFIANCA_MINIMA = 0.75;
+/** Confiança mínima para APROVAR (recusar vale com qualquer confiança). */
+export const CONFIANCA_MINIMA = 0.7;
+/**
+ * Marca (revisado_por_agente) de quem espera a decisão de uma PESSOA: o que o
+ * revisor estudou e deixou para o gestor, e o que um gestor desfez. O revisor
+ * não pega de volta; a lista do gestor mostra só estes.
+ */
+export const ESPERA_O_GESTOR = "revisor-aprendizado:gestor";
 export const CASOS_PARA_CONTRADICAO = 3;
 export const SEMELHANCA_DUPLICADO = 0.8;
 export const TAMANHO_DO_LOTE = 10;
@@ -108,6 +126,9 @@ const FAMILIAS_SENSIVEIS: Array<[string, RegExp]> = [
   ["pagamento", /parcel|juros|pix|boleto|cart[aã]o|[aà] vista|entrada de/i],
 ];
 
+/** Frase que deixa a resposta para depois ("confirmo", "verifico", "te retorno"…). */
+const ADIA = /confirm|verific|consult|te (retorno|passo|aviso)|retorno|vou ver|vejo com/i;
+
 /**
  * O que o texto afirma de sensível e os materiais não confirmam: números que
  * não aparecem nos trechos e assuntos (garantia, prazo…) que os trechos nem
@@ -121,10 +142,26 @@ export function afirmacoesSemApoio(texto: string, materiais: string): string[] {
     const limpo = n.replace(/\./g, "").replace(",", ".");
     if (!numerosMat.has(limpo)) falta.push(n);
   }
+  // "Confirmo o prazo com a equipe e te retorno" não promete nada: frase que
+  // só adia a resposta (e não tem número) não conta como afirmação.
+  const afirmado = texto
+    .split(/(?<=[.!?;])\s+/)
+    .filter((f) => !(ADIA.test(f) && !/\d/.test(f)))
+    .join(" ");
   for (const [nome, re] of FAMILIAS_SENSIVEIS) {
-    if (re.test(texto) && !re.test(materiais) && !mat.includes(normalizar(nome))) falta.push(nome);
+    if (re.test(afirmado) && !re.test(materiais) && !mat.includes(normalizar(nome))) falta.push(nome);
   }
   return [...new Set(falta)];
+}
+
+/** O assunto é política comercial da loja (preço, desconto, prazo, garantia, pagamento)? */
+export function politicaComercial(texto: string): string[] {
+  return FAMILIAS_SENSIVEIS.filter(([, re]) => re.test(texto)).map(([nome]) => nome);
+}
+
+/** Situação que se repete o bastante para valer a pergunta ao gestor. */
+export function situacaoRecorrente(item: Pick<ItemRevisao, "vezes_visto" | "vezes_fechou">): boolean {
+  return item.vezes_visto >= 2 || item.vezes_fechou >= 1;
 }
 
 /**
@@ -139,8 +176,8 @@ export function decisaoPorRegra(
   }
   if (evidenciaContra(item)) {
     return {
-      decisao: "manter",
-      motivo: `Perdeu ${item.vezes_perdeu}x e fechou ${item.vezes_fechou}x: o resultado contradiz a resposta, decida você.`,
+      decisao: "recusar",
+      motivo: `Nas vendas perdeu ${item.vezes_perdeu}x e fechou ${item.vezes_fechou}x: a AURA não deve repetir essa resposta.`,
       confianca: 1,
       porRegra: true,
     };
@@ -168,11 +205,13 @@ export function validarPareceres(bruto: unknown, idsDoLote: string[]): Map<strin
     if (!x || typeof x !== "object") continue;
     const r = x as Record<string, unknown>;
     const id = String(r.id ?? "");
-    const decisao = String(r.decisao ?? "");
+    // "manter" é o nome antigo de "gestor" (prompts de antes de 27/11).
+    const bruta = String(r.decisao ?? "");
+    const decisao = bruta === "manter" ? "gestor" : bruta;
     const motivo = typeof r.motivo === "string" ? r.motivo.trim() : "";
     const confianca = typeof r.confianca === "number" ? r.confianca : Number(r.confianca);
     if (!ids.has(id) || saida.has(id)) continue;
-    if (decisao !== "aprovar" && decisao !== "recusar" && decisao !== "manter") continue;
+    if (decisao !== "aprovar" && decisao !== "recusar" && decisao !== "gestor") continue;
     if (!motivo || !Number.isFinite(confianca) || confianca < 0 || confianca > 1) continue;
     const ajustada = typeof r.resposta_ajustada === "string" ? r.resposta_ajustada.trim() : "";
     saida.set(id, {
@@ -188,19 +227,42 @@ export function validarPareceres(bruto: unknown, idsDoLote: string[]): Map<strin
 }
 
 /**
- * Junta o parecer da IA com as travas. `materiais` são os trechos da loja
- * que foram mostrados à IA para este item.
+ * A exceção que sobe para o gestor: política comercial, sem resposta nos
+ * materiais, numa situação recorrente. O resto que ficou em dúvida é recusado.
  */
-export function decisaoFinal(item: ItemRevisao, parecer: Parecer | undefined, materiais: string): DecisaoFinal {
-  if (!parecer) return { decisao: "manter", motivo: "Sem parecer válido da IA nesta rodada.", confianca: 0, porRegra: true };
-  if (evidenciaContra(item)) {
-    return { decisao: "manter", motivo: "O resultado nas vendas contradiz a resposta: decida você.", confianca: parecer.confianca, porRegra: true };
+function gestorOuRecusa(item: ItemRevisao, motivo: string, confianca: number, porRegra: boolean): DecisaoFinal {
+  const politica = politicaComercial(`${item.gatilho} ${item.resposta}`);
+  if (politica.length && situacaoRecorrente(item)) {
+    return { decisao: "gestor", motivo: `Política da loja (${politica.slice(0, 2).join(", ")}): ${motivo}`.slice(0, 240), confianca, porRegra };
   }
-  if (parecer.confianca < CONFIANCA_MINIMA || parecer.decisao === "manter") {
-    return { decisao: "manter", motivo: parecer.motivo, confianca: parecer.confianca, porRegra: false };
+  return { decisao: "recusar", motivo: `Ficou de fora na dúvida: ${motivo}`.slice(0, 240), confianca, porRegra };
+}
+
+/**
+ * Junta o parecer da IA com as travas. `materiais` são os trechos da loja
+ * que foram mostrados à IA para este item. Sem parecer válido, quem chama
+ * não decide nada (o item volta na próxima rodada).
+ */
+export function decisaoFinal(item: ItemRevisao, parecer: Parecer, materiais: string): DecisaoFinal {
+  if (evidenciaContra(item)) {
+    return {
+      decisao: "recusar",
+      motivo: "O resultado nas vendas contradiz a resposta: a AURA não deve repetir.",
+      confianca: parecer.confianca,
+      porRegra: true,
+    };
   }
   if (parecer.decisao === "recusar") {
     return { decisao: "recusar", motivo: parecer.motivo, confianca: parecer.confianca, porRegra: false };
+  }
+  if (parecer.decisao === "gestor") return gestorOuRecusa(item, parecer.motivo, parecer.confianca, false);
+  if (parecer.confianca < CONFIANCA_MINIMA) {
+    return {
+      decisao: "recusar",
+      motivo: `Confiança baixa para ensinar à AURA: ${parecer.motivo}`.slice(0, 240),
+      confianca: parecer.confianca,
+      porRegra: true,
+    };
   }
   const texto = parecer.resposta_ajustada ?? item.resposta;
   if (temDadoPessoal(texto)) {
@@ -209,12 +271,7 @@ export function decisaoFinal(item: ItemRevisao, parecer: Parecer | undefined, ma
   // Só a resposta: é ela que a AURA vai repetir. A pergunta do cliente pode falar de prazo à vontade.
   const semApoio = afirmacoesSemApoio(texto, materiais);
   if (semApoio.length) {
-    return {
-      decisao: "manter",
-      motivo: `Fala de ${semApoio.slice(0, 3).join(", ")} sem apoio nos materiais da loja: confira antes de aprovar.`,
-      confianca: parecer.confianca,
-      porRegra: true,
-    };
+    return gestorOuRecusa(item, `fala de ${semApoio.slice(0, 3).join(", ")} sem apoio nos materiais da loja.`, parecer.confianca, true);
   }
   return {
     decisao: "aprovar",

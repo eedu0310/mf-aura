@@ -1,6 +1,7 @@
 /**
  * Testes das regras do Revisor do Aprendizado (sem banco e sem IA): lotes,
- * leitura desconfiada do JSON da IA e as travas que decidem "manter".
+ * leitura desconfiada do JSON da IA e as travas. Desde 27/11 ele decide
+ * sozinho: na dúvida recusa; para o gestor só política comercial recorrente.
  */
 import {
   afirmacoesSemApoio, decisaoFinal, decisaoPorRegra, duplicadoDe, emLotes, evidenciaContra, validarPareceres,
@@ -43,7 +44,8 @@ ok("só o válido entra", [...v.keys()], ["a1"]);
 ok("motivo vira uma frase", v.get("a1")?.motivo, "Boa resposta.");
 ok("guarda a resposta ajustada", v.get("a1")?.resposta_ajustada, "Texto ajustado ok");
 ok("primeiro parecer do id vale", v.get("a1")?.decisao, "aprovar");
-ok("aceita a lista direta", validarPareceres([{ id: "a2", decisao: "manter", motivo: "Dúvida.", confianca: "0.5" }], ids).get("a2")?.confianca, 0.5);
+ok("aceita a lista direta", validarPareceres([{ id: "a2", decisao: "gestor", motivo: "Dúvida.", confianca: "0.5" }], ids).get("a2")?.confianca, 0.5);
+ok("'manter' antigo vira 'gestor'", validarPareceres([{ id: "a2", decisao: "manter", motivo: "Dúvida.", confianca: 0.5 }], ids).get("a2")?.decisao, "gestor");
 ok("confiança fora de 0–1 é descartada", validarPareceres([{ id: "a2", decisao: "aprovar", motivo: "x.", confianca: 7 }], ids).size, 0);
 ok("lixo não quebra", validarPareceres("texto solto", ids).size, 0);
 
@@ -51,7 +53,7 @@ console.log("\n--- regras antes da IA ---");
 ok("evidência contra: perdeu 3, fechou 0", evidenciaContra({ vezes_fechou: 0, vezes_perdeu: 3 }), true);
 ok("perdeu 2, fechou 0: poucos casos", evidenciaContra({ vezes_fechou: 0, vezes_perdeu: 2 }), false);
 ok("perdeu 2, fechou 2: não contradiz", evidenciaContra({ vezes_fechou: 2, vezes_perdeu: 2 }), false);
-ok("contradição fica para o gestor sem gastar IA", decisaoPorRegra(item({ vezes_fechou: 1, vezes_perdeu: 3 }), [])?.decisao, "manter");
+ok("contradição nas vendas é recusada sem gastar IA", decisaoPorRegra(item({ vezes_fechou: 1, vezes_perdeu: 3 }), [])?.decisao, "recusar");
 ok("telefone no texto é recusado", decisaoPorRegra(item({ resposta: "Ligue para (51) 99876-5432" }), [])?.decisao, "recusar");
 const aprovados = [{ id: "ap1", empresa: "LF Lareiras", gatilho: "Acho a lareira cara!" }];
 ok("repete aprovado da loja", duplicadoDe(item(), aprovados), "ap1");
@@ -60,13 +62,22 @@ ok("repetido é recusado por regra", decisaoPorRegra(item(), aprovados)?.decisao
 ok("item limpo vai para a IA", decisaoPorRegra(item({ gatilho: "demora para instalar?" }), aprovados), null);
 
 console.log("\n--- travas depois da IA ---");
-ok("sem parecer → manter", decisaoFinal(item(), undefined, "").decisao, "manter");
-ok("confiança 0,7 → manter", decisaoFinal(item(), parecer({ confianca: 0.7 }), "").decisao, "manter");
-ok("confiança 0,75 aprova", decisaoFinal(item(), parecer({ confianca: 0.75 }), "").decisao, "aprovar");
-ok("IA aprova mas a evidência contradiz → manter", decisaoFinal(item({ vezes_fechou: 0, vezes_perdeu: 4 }), parecer(), "").decisao, "manter");
+ok("confiança 0,65 para aprovar → recusa (na dúvida, não ensina)", decisaoFinal(item(), parecer({ confianca: 0.65 }), "").decisao, "recusar");
+ok("confiança 0,7 aprova", decisaoFinal(item(), parecer({ confianca: 0.7 }), "").decisao, "aprovar");
+ok("IA aprova mas a evidência contradiz → recusa", decisaoFinal(item({ vezes_fechou: 0, vezes_perdeu: 4 }), parecer(), "").decisao, "recusar");
+ok("IA pede gestor sem ser política da loja → recusa", decisaoFinal(item(), parecer({ decisao: "gestor" }), "").decisao, "recusar");
+const politica = item({ gatilho: "dá desconto à vista?", resposta: "Ofereça 5% de desconto no pix.", vezes_visto: 4 });
+ok("IA pede gestor e é política recorrente → gestor", decisaoFinal(politica, parecer({ decisao: "gestor" }), "").decisao, "gestor");
+ok("política vista uma vez só, sem venda → recusa", decisaoFinal({ ...politica, vezes_visto: 1, vezes_fechou: 0 }, parecer({ decisao: "gestor" }), "").decisao, "recusar");
 ok("recusa confiante vale", decisaoFinal(item(), parecer({ decisao: "recusar" }), "").decisao, "recusar");
 const comPreco = item({ resposta: "Sai por R$ 12.900 em 10x sem juros." });
-ok("preço sem apoio nos materiais → manter", decisaoFinal(comPreco, parecer(), "Manual: lareira Adatto, alto rendimento.").decisao, "manter");
+ok("preço sem apoio, situação recorrente → gestor", decisaoFinal(comPreco, parecer(), "Manual: lareira Adatto, alto rendimento.").decisao, "gestor");
+ok("preço sem apoio, visto uma vez → recusa", decisaoFinal({ ...comPreco, vezes_visto: 1, vezes_fechou: 0 }, parecer(), "Manual: lareira Adatto.").decisao, "recusar");
+ok(
+  "IA tira o preço do texto → aprova o texto ajustado",
+  decisaoFinal(comPreco, parecer({ resposta_ajustada: "Confirmo o valor certinho com a loja e te passo hoje." }), "Manual: Adatto.").decisao,
+  "aprovar",
+);
 ok("o que falta é dito", afirmacoesSemApoio(comPreco.resposta, "nada"), ["12.900", "10", "preço", "pagamento"]);
 ok(
   "preço que está no material aprova",
@@ -76,6 +87,9 @@ ok(
 ok("aprova com a resposta ajustada", decisaoFinal(item(), parecer({ resposta_ajustada: "Mostre a economia de lenha." }), "").novaResposta, "Mostre a economia de lenha.");
 ok("ajuste com e-mail é recusado", decisaoFinal(item(), parecer({ resposta_ajustada: "Mande para loja@x.com.br" }), "").decisao, "recusar");
 ok("pergunta do cliente pode falar de prazo", decisaoFinal(item({ gatilho: "qual o prazo de entrega?", resposta: "Confirme a data com o técnico antes de prometer." }), parecer(), "").decisao, "aprovar");
+
+ok("'confirmo o prazo com a equipe' não é promessa", afirmacoesSemApoio("Confirmo o prazo certinho com a equipe e te retorno.", ""), []);
+ok("prazo com número continua sendo afirmação", afirmacoesSemApoio("Confirmo: entrega em 10 dias.", ""), ["10", "prazo"]);
 
 console.log(falhas === 0 ? "\nTUDO PASSOU" : `\n${falhas} FALHA(S)`);
 process.exit(falhas ? 1 : 0);

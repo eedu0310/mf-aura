@@ -5,7 +5,7 @@
  *
  * Rodar com: npx tsx src/lib/backup/executar.teste.ts
  */
-import { decidirRemocoes, diaDoArquivo, diaDasSessoes, nomesDoDia } from "./executar";
+import { antigosNoDisco, decidirRemocoes, diaDoArquivo, diaDasSessoes, nomesDoDia } from "./executar";
 
 let passou = 0;
 const falhas: string[] = [];
@@ -87,6 +87,14 @@ if (falhas.length) {
   conferir("diaDasSessoes lê o próprio nome", diaDasSessoes(n.sessoes), "2026-10-19");
   conferir("diaDasSessoes recusa arquivo de dados", diaDasSessoes(n.dados), null);
   conferir("diaDoArquivo recusa arquivo de sessões", diaDoArquivo(n.sessoes), null);
+}
+
+// ---- disco da VPS: só o de hoje (27/11/2026)
+{
+  const nomes = ["aura-2026-11-25.json.gz", "aura-sessoes-2026-11-25.tar.gz", "aura-2026-11-26.json.gz", "aura-sessoes-2026-11-26.tar.gz", "aura-2026-11-27.json.gz", "aura-sessoes-2026-11-27.tar.gz", "anotacao.txt"];
+  conferir("com o pacote de hoje, apaga todos os dias anteriores", antigosNoDisco(nomes, "2026-11-27", true).sort(), ["aura-2026-11-25.json.gz", "aura-2026-11-26.json.gz", "aura-sessoes-2026-11-25.tar.gz", "aura-sessoes-2026-11-26.tar.gz"]);
+  conferir("sem o pacote de hoje, fica o de sessões mais novo", antigosNoDisco(nomes.filter((n) => n !== "aura-sessoes-2026-11-27.tar.gz"), "2026-11-27", false).includes("aura-sessoes-2026-11-26.tar.gz"), false);
+  conferir("nunca apaga o de hoje nem arquivo que não é nosso", antigosNoDisco(nomes, "2026-11-27", true).some((n) => n.includes("11-27") || n === "anotacao.txt"), false);
 }
 
 console.log(`${passou}/${passou} verificações passaram`);
