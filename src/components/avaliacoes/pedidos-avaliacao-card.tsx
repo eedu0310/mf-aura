@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, Send, Star } from "lucide-react";
-import { montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
+import { linkParaOCliente, montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
 import { classeBotao } from "@/components/ui";
 
 export interface Pedido {
@@ -18,6 +18,7 @@ export interface Pedido {
 }
 
 interface Config {
+  dominio_link?: string | null;
   empresa: string;
   link_google: string | null;
   link_instagram: string | null;
@@ -115,7 +116,8 @@ export function PedidosAvaliacaoCard({ className = "" }: { className?: string })
      */
     const janela = window.open("", "_blank");
 
-    const link = `${window.location.origin}/av/${p.token}`;
+    // Domínio da loja ou Google direto — nunca o endereço do CRM.
+    const link = linkParaOCliente(c, p.token);
     // Duas mensagens: 1ª agradecimento + Google; 2ª redes sociais.
     const mensagens = montarMensagensDeAvaliacao(c, p.cliente, link);
     const numero = (p.telefone ?? "").replace(/\D/g, "");

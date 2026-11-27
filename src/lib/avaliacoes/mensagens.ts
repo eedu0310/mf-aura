@@ -14,9 +14,30 @@
 
 export interface ConfigDeAvaliacao {
   mensagem_padrao: string | null;
+  /** Endereço da loja para o link curto (migração 123), ex.: avaliar.aegaquecimento.com.br. */
+  dominio_link?: string | null;
+  link_google?: string | null;
   mensagem_redes?: string | null;
   link_instagram?: string | null;
   link_facebook?: string | null;
+}
+
+/**
+ * O link que vai para o cliente (27/11/2026: "precisamos mascarar o domínio
+ * crm.mflaser"). NUNCA o endereço do CRM: o cliente da A&G via "mflaser", o
+ * nome da fábrica, no link da loja.
+ *   - loja com endereço próprio no ar (dominio_link) e pedido com token:
+ *     https://avaliar.<loja>/av/<token> — o AURA vê quando o cliente abre;
+ *   - senão: o link do Google da loja, direto. O envio e o "avaliei"
+ *     continuam contando (rastreio da conversa); só o "abriu" não.
+ */
+export function linkParaOCliente(
+  config: Pick<ConfigDeAvaliacao, "dominio_link" | "link_google">,
+  token: string | null | undefined,
+): string {
+  const dominio = (config.dominio_link ?? "").trim().toLowerCase();
+  if (token && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(dominio)) return `https://${dominio}/av/${token}`;
+  return (config.link_google ?? "").trim();
 }
 
 const PADRAO_1 = "Oi {cliente}! Foi um prazer te atender. Se puder deixar sua avaliação, ajuda muito a gente: {link}";

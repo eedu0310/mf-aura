@@ -21,7 +21,7 @@ function BotaoCopiar({ item }: { item: PosVenda }) {
       tamanho="sm"
       icone={copiado ? Check : Link2}
       onClick={async () => {
-        if (!(await copiarLinkAvaliacao(item.tokenAvaliacao))) return;
+        if (!(await copiarLinkAvaliacao(item.tokenAvaliacao, item.empresa))) return;
         setCopiado(true);
         setTimeout(() => setCopiado(false), 2000);
       }}

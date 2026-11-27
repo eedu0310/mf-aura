@@ -1,0 +1,8 @@
+# Endereços das lojas para o link de avaliação (um por linha).
+# Cada um precisa de um registro A no DNS da loja apontando para a VPS do
+# AURA (o mesmo IP de crm.mflaser.com.br). O deploy (avaliar-dominios.sh) só
+# liga os que já apontam; os outros ficam esperando o DNS.
+avaliar.aegaquecimento.com.br
+avaliar.lflareiras.com.br
+avaliar.soleferroefogo.com.br
+avaliar.mfinternational.com.br

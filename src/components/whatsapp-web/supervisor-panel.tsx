@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { estiloDaEtapa, postJson, type Alerta, type Etapa, type LeadInfo } from "./types";
 import { listarLinksParaWhatsapp, textoParaWhatsapp, type LinkUtil } from "@/lib/supabase/links";
-import { montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
+import { linkParaOCliente, montarMensagensDeAvaliacao } from "@/lib/avaliacoes/mensagens";
 import {
   ehGanho,
   ehPerda,
@@ -40,6 +40,7 @@ import {
 } from "@/lib/categoria-contato";
 
 interface ConfigAvaliacao {
+  dominio_link?: string | null;
   empresa: string;
   link_google: string | null;
   link_instagram: string | null;
@@ -144,8 +145,9 @@ export function SupervisorPanel({
 
   /** As mensagens de avaliação de uma loja, com o link certo. */
   function mensagensDeAvaliacao(config: ConfigAvaliacao, pedido: PedidoAvaliacao | null) {
-    // Com pedido, o link passa pelo AURA (/av/...) e o gestor vê quem abriu.
-    const link = pedido ? `${window.location.origin}/av/${pedido.token}` : (config.link_google ?? "");
+    // Com pedido e endereço da loja no ar, o link passa pelo AURA (/av/...)
+    // no domínio DA LOJA; senão vai o Google direto. Nunca crm.mflaser.
+    const link = linkParaOCliente(config, pedido?.token);
     return montarMensagensDeAvaliacao(config, nomeDoContato ?? pedido?.cliente ?? "", link);
   }
 

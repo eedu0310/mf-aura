@@ -69,7 +69,7 @@ export function PosVendaModal({
   }, [onClose]);
 
   async function copiarLink() {
-    if (!(await copiarLinkAvaliacao(pv.tokenAvaliacao))) return;
+    if (!(await copiarLinkAvaliacao(pv.tokenAvaliacao, pv.empresa))) return;
     setLinkCopiado(true);
     setTimeout(() => setLinkCopiado(false), 2000);
   }

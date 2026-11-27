@@ -128,6 +128,11 @@ else
   rm -f "$TMP"
 fi
 
+echo "== endereços de avaliação das lojas"
+# avaliar.<loja> → só as páginas de avaliação (deploy/avaliar-dominios.sh).
+# Nunca derruba o deploy: o script só avisa quando algo falha.
+bash "$PASTA/deploy/avaliar-dominios.sh" || echo "   AVISO: avaliar-dominios.sh falhou; o CRM segue normal"
+
 echo "== 5/6 reiniciar o serviço"
 systemctl restart "$SERVICO"
 

@@ -1,5 +1,5 @@
 /** Rodar com: npx tsx src/lib/avaliacoes/mensagens.teste.ts */
-import { montarMensagensDeAvaliacao } from "./mensagens";
+import { linkParaOCliente, montarMensagensDeAvaliacao } from "./mensagens";
 
 let passou = 0;
 function conferir(nome: string, obtido: unknown, esperado: unknown) {
@@ -49,6 +49,16 @@ const G = "https://crm/av/abc";
 {
   const m = montarMensagensDeAvaliacao({ ...config, mensagem_padrao: "{cliente}, {link} e {link}" }, "Ana", G);
   conferir("marcador repetido troca todos", m[0], "Ana, https://crm/av/abc e https://crm/av/abc");
+}
+
+// O link que vai ao cliente nunca é o endereço do CRM (27/11/2026).
+{
+  const GOOGLE = "https://search.google.com/local/writereview?placeid=X";
+  conferir("loja com endereço e pedido: link curto da loja", linkParaOCliente({ dominio_link: "avaliar.aegaquecimento.com.br", link_google: GOOGLE }, "tok-1"), "https://avaliar.aegaquecimento.com.br/av/tok-1");
+  conferir("loja sem endereço: Google direto", linkParaOCliente({ dominio_link: null, link_google: GOOGLE }, "tok-1"), GOOGLE);
+  conferir("sem pedido: Google direto", linkParaOCliente({ dominio_link: "avaliar.aegaquecimento.com.br", link_google: GOOGLE }, null), GOOGLE);
+  conferir("endereço malformado não vira link", linkParaOCliente({ dominio_link: "https://avaliar x", link_google: GOOGLE }, "tok-1"), GOOGLE);
+  conferir("nunca o crm", linkParaOCliente({ dominio_link: "", link_google: GOOGLE }, "tok-1").includes("mflaser"), false);
 }
 
 console.log(`${passou}/${passou} verificações passaram`);

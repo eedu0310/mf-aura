@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   const { data: configs } = await sb
     .from("config_avaliacao")
-    .select("empresa, link_google, link_instagram, link_facebook, mensagem_padrao, mensagem_redes")
+    .select("empresa, link_google, link_instagram, link_facebook, mensagem_padrao, mensagem_redes, dominio_link")
     .order("empresa");
 
   const campos = "id, venda_id, empresa, cliente, telefone, token, enviado_em, confirmado_em, criado_em";
