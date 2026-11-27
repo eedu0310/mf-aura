@@ -274,7 +274,8 @@ export const REMOTO_DRIVE = (process.env.AURA_RCLONE_REMOTO || "aura-drive").rep
 export const CONFIG_RCLONE = process.env.AURA_RCLONE_CONFIG || "/etc/aura/rclone.conf";
 const comConfig = (args: string[]) => (fs.existsSync(CONFIG_RCLONE) ? [...args, "--config", CONFIG_RCLONE] : args);
 export const PASTA_NO_DRIVE = "AURA Backups";
-export const DIAS_NO_DRIVE = 30;
+/** Dias guardados no Drive (pedido do Elton, 27/11/2026: "30 dias fica pesado, uns 3 dias é o suficiente"). */
+export const DIAS_NO_DRIVE = 3;
 
 export async function enviarParaDrive(arquivos: string[], dia: string): Promise<string> {
   let remotos = "";
