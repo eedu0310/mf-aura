@@ -265,13 +265,21 @@ function rodar(programa: string, args: string[], tempoMs: number): Promise<strin
  * DIAS_NO_DRIVE dias é apagado de lá (só dentro dessa pasta).
  */
 export const REMOTO_DRIVE = (process.env.AURA_RCLONE_REMOTO || "aura-drive").replace(/:$/, "");
+/**
+ * Onde fica a configuração do rclone: num lugar fixo, e não na pasta do
+ * usuário do serviço (o mesmo jeito do sistema de assinaturas, que usa
+ * /etc/assinatura/rclone.conf). Se o arquivo não existir, o rclone procura
+ * no lugar padrão dele.
+ */
+export const CONFIG_RCLONE = process.env.AURA_RCLONE_CONFIG || "/etc/aura/rclone.conf";
+const comConfig = (args: string[]) => (fs.existsSync(CONFIG_RCLONE) ? [...args, "--config", CONFIG_RCLONE] : args);
 export const PASTA_NO_DRIVE = "AURA Backups";
 export const DIAS_NO_DRIVE = 30;
 
 export async function enviarParaDrive(arquivos: string[], dia: string): Promise<string> {
   let remotos = "";
   try {
-    remotos = await rodar("rclone", ["listremotes"], 20_000);
+    remotos = await rodar("rclone", comConfig(["listremotes"]), 20_000);
   } catch {
     return "não configurado (rclone não instalado na VPS)";
   }
@@ -280,10 +288,10 @@ export async function enviarParaDrive(arquivos: string[], dia: string): Promise<
   }
   const destino = `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}/${dia}`;
   try {
-    for (const a of arquivos) await rodar("rclone", ["copy", a, destino, "--retries", "3"], 10 * 60_000);
+    for (const a of arquivos) await rodar("rclone", comConfig(["copy", a, destino, "--retries", "3"]), 10 * 60_000);
     // Limpeza só dentro de "AURA Backups": arquivos com mais de N dias e as pastas que ficarem vazias.
-    await rodar("rclone", ["delete", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--min-age", `${DIAS_NO_DRIVE}d`], 5 * 60_000).catch(() => "");
-    await rodar("rclone", ["rmdirs", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--leave-root"], 5 * 60_000).catch(() => "");
+    await rodar("rclone", comConfig(["delete", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--min-age", `${DIAS_NO_DRIVE}d`]), 5 * 60_000).catch(() => "");
+    await rodar("rclone", comConfig(["rmdirs", `${REMOTO_DRIVE}:${PASTA_NO_DRIVE}`, "--leave-root"]), 5 * 60_000).catch(() => "");
     return `ok: ${arquivos.map((a) => path.basename(a)).join(", ")} em ${PASTA_NO_DRIVE}/${dia}`;
   } catch (e) {
     return `FALHOU: ${e instanceof Error ? e.message : String(e)}`;
